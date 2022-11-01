@@ -4,9 +4,10 @@ import re
 
 OUTPUT_TRACE_FILE="rkr-trace.txt"
 cmds_to_run = [
-    "grep foo in1 > out1",
-    "grep foo out1 > out11",
-    "grep foo out11 > out111"
+    "grep foo in2 > out2",
+    "grep foo out2 > out22",
+    "grep foo out22 > out222",
+    "pwd"
 ]
 
 # TODO: Currently cmd_execution_info does not create correct r/w sets for
@@ -17,7 +18,7 @@ cmds_to_run = [
 
 ## Just work with files in this pool for now
 ## TODO: Extend to work with all file references
-file_name_pool = ["in1", "out1", "out11", "out111", "in3", "in33", "out33", "out333"]
+file_name_pool = ["in2", "out2", "out22", "out222", "in3", "in33", "out33", "out333"]
 
 
 def cmd_execution_info_simplified(cmd_execution_info):
@@ -133,8 +134,8 @@ def get_lauch_name(trace_item):
     return launch_name
 
 def has_forward_dependency(cmd_execution_info, first, second):
-    first_write_set = cmd_execution_info[first].write_set
-    second_read_set = cmd_execution_info[second].read_set
+    first_write_set = cmd_execution_info[remove_command_redir(first)].write_set
+    second_read_set = cmd_execution_info[remove_command_redir(second)].read_set
     # We want the write set of the first command to not have 
     # common elements with the second command,
     # otherwise the second is forward-dependent
@@ -147,8 +148,8 @@ def check_forward_depepndencies(cmd_execution_info, workset):
     new_workset = []
     for i, cmd in enumerate(workset):
         for dependent_cmd in workset[i+1:]:
-            if (dependent_cmd not in new_workset) and \
-               (has_forward_dependency(cmd_execution_info, cmd, dependent_cmd)):
+            if dependent_cmd not in new_workset and \
+               has_forward_dependency(cmd_execution_info, cmd, dependent_cmd):
                 new_workset.append(dependent_cmd)
     return new_workset
 
@@ -208,7 +209,7 @@ def update_rw_sets(cmd_execution_info, trace):
     return cmd_execution_info
 
 def run_and_trace_workset(cmds_to_run):
-    print("=" * 60)
+    print("=" * 61)
     write_cmds_to_rikerfile(cmds_to_run)
     ## Call Riker to execute the remaining commands all in parallel
     subprocess.run(["rkr", "--show"])
@@ -231,13 +232,15 @@ def scheduling_algorithm(cmds_to_run):
     ## create initial Cmd_exec_info objects for each parsed cmd
     ## TODO: this implementation does not allow duplicate commands in the workset, change it.
     cmd_execution_info = {remove_command_redir(cmd): Cmd_exec_info(cmd) for cmd in cmds_to_run}
-    workset = list(cmd_execution_info.keys())
+    workset = [cmd.cmd for cmd in cmd_execution_info.values()]
     ## TODO: When running commands make sure to take care of backward dependencies
     ##       Maybe by blocking write calls and not letting them happen or sth else.
 
     ## Parse trace
     ## TODO: This will change when we actually hook up with riker
     while len(workset) > 0:
+        print("=" * 25 + "| Workset |" + "=" * 25)
+        pprint(workset)
         ## In every loop iteration we are guaranteed to decrease the workset by 1, 
         ## since the first command will not need to reexecute 
         ## TODO: Also need to deal with backward dependencies for the above to be absolutely true.
@@ -246,7 +249,5 @@ def scheduling_algorithm(cmds_to_run):
         # Check forward dependencies and update workset accordingly
         workset = check_forward_depepndencies(cmd_execution_info, workset)
         cmd_execution_info_simplified(cmd_execution_info)
-        cmds_to_run = workset_cmds_to_list(cmd_execution_info)
-        print(cmds_to_run)
 
 scheduling_algorithm(cmds_to_run)

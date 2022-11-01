@@ -195,39 +195,47 @@ def update_rw_sets(workset, trace):
                             workset[launch_name].add_to_write_set(get_path_ref_name(path_ref))
     return workset
 
-
-# create Cmd_exec_info objects for each parsed cmd
-workset = {remove_command_redir(cmd): Cmd_exec_info(cmd) for cmd in cmds_to_run}
-
-## TODO: When running commands make sure to take care of backward dependencies
-##       Maybe by blocking write calls and not letting them happen or sth else.
-
-## Parse trace
-## TODO: This will change when we actually hook up with riker
-while len(workset) > 0:
+def run_and_trace_workset():
     print("=" * 60)
     print("Running the following commands:")
     pprint(cmds_to_run)
     print("=" * 60)
 
     write_cmds_to_rikerfile(cmds_to_run)
-    
     ## Call Riker to execute the remaining commands all in parallel
     subprocess.run(["rkr", "--show"])
-
     ## Call Riker to get the trace
     ## TODO: Normally we would like to plug in Riker and get the actual Trace data structure
     subprocess.run(["rkr", "trace", "-o", OUTPUT_TRACE_FILE])
-    
     trace = read_rkr_trace()
+    return trace
+
+def find_rw_dependencies_based_on_trace(workset):
+    trace = run_and_trace_workset()
+    # For each command we get read and write initial sets
+    # For now this works only for reads
     # Warning! HACK
     for cmd in [remove_command_redir(cmd) for cmd in cmds_to_run]:
         workset = gather_and_parse_rw(cmd, workset, trace)
-    print_workset_simplified(workset)
-    workset = update_rw_sets(workset, trace)
+    return update_rw_sets(workset, trace)
 
-    print_workset_simplified(workset)
+def scheduling_algorithm():
+    # create initial Cmd_exec_info objects for each parsed cmd
+    workset = {remove_command_redir(cmd): Cmd_exec_info(cmd) for cmd in cmds_to_run}
 
-    # Check forward dependencies and add to new workset
-    workset = check_deps(workset)
-    cmds_to_run = workset_cmds_to_list(workset)
+    ## TODO: When running commands make sure to take care of backward dependencies
+    ##       Maybe by blocking write calls and not letting them happen or sth else.
+
+    ## Parse trace
+    ## TODO: This will change when we actually hook up with riker
+    while len(workset) > 0:
+        ## In every loop iteration we are guaranteed to decrease the workset by 1, 
+        ## since the first command will not need to reexecute 
+        ## TODO: Also need to deal with backward dependencies for the above to be absolutely true.
+        workset = find_rw_dependencies_based_on_trace(workset)
+
+        print_workset_simplified(workset)
+
+        # Check forward dependencies and add to new workset
+        workset = check_deps(workset)
+        cmds_to_run = workset_cmds_to_list(workset)

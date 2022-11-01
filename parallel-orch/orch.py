@@ -8,7 +8,7 @@ cmds_to_run = [
     "grep foo out1 > out11",
     "grep foo out11 > out111",
     # "./test.sh",
-    "grep foo out1 > out111",
+    # "grep foo out1 > out111",
     "pwd"
 ]
 
@@ -195,7 +195,7 @@ def update_rw_sets(workset, trace):
                             workset[launch_name].add_to_write_set(get_path_ref_name(path_ref))
     return workset
 
-def run_and_trace_workset():
+def run_and_trace_workset(cmds_to_run):
     print("=" * 60)
     print("Running the following commands:")
     pprint(cmds_to_run)
@@ -210,8 +210,8 @@ def run_and_trace_workset():
     trace = read_rkr_trace()
     return trace
 
-def find_rw_dependencies_based_on_trace(workset):
-    trace = run_and_trace_workset()
+def find_rw_dependencies_based_on_trace(workset, cmds_to_run):
+    trace = run_and_trace_workset(cmds_to_run)
     # For each command we get read and write initial sets
     # For now this works only for reads
     # Warning! HACK
@@ -219,10 +219,9 @@ def find_rw_dependencies_based_on_trace(workset):
         workset = gather_and_parse_rw(cmd, workset, trace)
     return update_rw_sets(workset, trace)
 
-def scheduling_algorithm():
+def scheduling_algorithm(cmds_to_run):
     # create initial Cmd_exec_info objects for each parsed cmd
     workset = {remove_command_redir(cmd): Cmd_exec_info(cmd) for cmd in cmds_to_run}
-
     ## TODO: When running commands make sure to take care of backward dependencies
     ##       Maybe by blocking write calls and not letting them happen or sth else.
 
@@ -232,10 +231,13 @@ def scheduling_algorithm():
         ## In every loop iteration we are guaranteed to decrease the workset by 1, 
         ## since the first command will not need to reexecute 
         ## TODO: Also need to deal with backward dependencies for the above to be absolutely true.
-        workset = find_rw_dependencies_based_on_trace(workset)
-
-        print_workset_simplified(workset)
+        workset = find_rw_dependencies_based_on_trace(workset, cmds_to_run)
+        # print_workset_simplified(workset)
 
         # Check forward dependencies and add to new workset
         workset = check_deps(workset)
+        print_workset_simplified(workset)
         cmds_to_run = workset_cmds_to_list(workset)
+        print(cmds_to_run)
+
+scheduling_algorithm(cmds_to_run)

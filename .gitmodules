@@ -1,3 +1,4 @@
 [submodule "deps/riker"]
 	path = deps/riker
 	url = https://github.com/angelhof/riker.git
+	branch = dyn-par-investigation

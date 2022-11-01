@@ -6,16 +6,13 @@ OUTPUT_TRACE_FILE="rkr-trace.txt"
 cmds_to_run = [
     "grep foo in1 > out1",
     "grep foo out1 > out11",
-    "grep foo out11 > out111",
-    # "./test.sh",
-    # "grep foo out1 > out111",
-    "pwd"
+    "grep foo out11 > out111"
 ]
 
-# TODO: Currently workset does not create correct r/w sets for
+# TODO: Currently cmd_execution_info does not create correct r/w sets for
 #       commands with same first part but different redir.
 #       Trace file also ignores redir.
-#       Maybe convert workset to multiple value dictionary 
+#       Maybe convert cmd_execution_info to multiple value dictionary 
 #       and also keep ref number for each command
 
 ## Just work with files in this pool for now
@@ -23,8 +20,8 @@ cmds_to_run = [
 file_name_pool = ["in1", "out1", "out11", "out111", "in3", "in33", "out33", "out333"]
 
 
-def print_workset_simplified(workset):
-    for cmd in workset.values():
+def cmd_execution_info_simplified(cmd_execution_info):
+    for cmd in cmd_execution_info.values():
         cmd.print_simplified()
 
 ## Write a Rikerfile with these commands to execute them
@@ -46,11 +43,16 @@ def is_line_for_commands(cmds, line):
 
 class Cmd_exec_info:
 
+    id_counter = 0
+
     def __init__(self, cmd):
         self.cmd = cmd
         self.cmd_no_redir = remove_command_redir(cmd)
         self.read_set = {}
         self.write_set = {}
+        self.id = Cmd_exec_info.id_counter
+        Cmd_exec_info.id_counter += 1
+
 
     def __str__(self):
         return f"Cmd: {self.cmd}\nRead set: {self.read_set}\nWrite set: {self.write_set}"
@@ -68,6 +70,7 @@ class Cmd_exec_info:
         self.write_set.add(ref)
 
     def print_simplified(self):
+        print("ID:", self.id)
         print("Cmd:", self.cmd)
         print("Simplified read set:", [ref_name for ref_name in self.read_set
                                                 if ref_name in file_name_pool])
@@ -129,25 +132,34 @@ def get_lauch_name(trace_item):
     launch_name = launch_name_dirty.split("Command ")[1]
     return launch_name
 
-def is_cmd_dependent(first, second):
-    return not first.write_set.isdisjoint(second.read_set)
+def has_forward_dependency(cmd_execution_info, first, second):
+    first_write_set = cmd_execution_info[first].write_set
+    second_read_set = cmd_execution_info[second].read_set
+    # We want the write set of the first command to not have 
+    # common elements with the second command,
+    # otherwise the second is forward-dependent
+    return not first_write_set.isdisjoint(second_read_set)
 
-def check_deps(workset):
-    new_workset = {}
-    for i, cmd in enumerate(workset.values()): 
-        for dependent_cmd in list(workset.values())[i+1:]:
-            if is_cmd_dependent(cmd, dependent_cmd):
-                new_workset[dependent_cmd.cmd_no_redir] = dependent_cmd
+## Resolve all the forward dependencies and update the workset
+## Forward dependency is when a command's output is the same
+## as the input of a following command
+def check_forward_depepndencies(cmd_execution_info, workset):
+    new_workset = []
+    for i, cmd in enumerate(workset):
+        for dependent_cmd in workset[i+1:]:
+            if (dependent_cmd not in new_workset) and \
+               (has_forward_dependency(cmd_execution_info, cmd, dependent_cmd)):
+                new_workset.append(dependent_cmd)
     return new_workset
 
-def workset_cmds_to_list(workset):
+def workset_cmds_to_list(cmd_execution_info):
     cmds_to_run = []
-    for cmd in workset.values():
+    for cmd in cmd_execution_info.values():
         cmds_to_run.append(cmd.cmd)
     return cmds_to_run
 
 ## Gather and parse the reads and writes for each command
-def gather_and_parse_rw(cmd, workset, trace):
+def gather_and_parse_rw(cmd, cmd_execution_info, trace):
     relevant_trace_lines = [line for line in trace
                             if is_line_for_commands([cmd], line)]
     relevant_trace_items = [remove_command_prefix(line) for line in relevant_trace_lines]
@@ -159,15 +171,15 @@ def gather_and_parse_rw(cmd, workset, trace):
     write_set = [get_path_ref_name(item) for item in new_path_ref_items 
                 if is_path_ref_write(item)]
     
-    # Update the sets in workset
-    workset[cmd].update_read_set(read_set)
-    workset[cmd].update_write_set(write_set)
-    return workset
+    # Update the sets in cmd_execution_info
+    cmd_execution_info[cmd].update_read_set(read_set)
+    cmd_execution_info[cmd].update_write_set(write_set)
+    return cmd_execution_info
 
 ## FIXME: Read sets are not generated correctly for nested reads.
-#        Find a way to do that correctly.
-#        Solution can also apply to non-nested command reads
-def update_rw_sets(workset, trace):
+##        Find a way to do that correctly.
+##        Solution can also apply to non-nested command reads
+def update_rw_sets(cmd_execution_info, trace):
     open_refs = {}
     for line in trace:
             if is_new_path_ref(line):
@@ -190,17 +202,13 @@ def update_rw_sets(workset, trace):
                     if rhs in open_refs[command_prefix]:
                         path_ref = open_refs[command_prefix][rhs]
                         if is_path_ref_read(path_ref):
-                            workset[launch_name].add_to_read_set(get_path_ref_name(path_ref))
+                            cmd_execution_info[launch_name].add_to_read_set(get_path_ref_name(path_ref))
                         if is_path_ref_write(path_ref):
-                            workset[launch_name].add_to_write_set(get_path_ref_name(path_ref))
-    return workset
+                            cmd_execution_info[launch_name].add_to_write_set(get_path_ref_name(path_ref))
+    return cmd_execution_info
 
 def run_and_trace_workset(cmds_to_run):
     print("=" * 60)
-    print("Running the following commands:")
-    pprint(cmds_to_run)
-    print("=" * 60)
-
     write_cmds_to_rikerfile(cmds_to_run)
     ## Call Riker to execute the remaining commands all in parallel
     subprocess.run(["rkr", "--show"])
@@ -210,18 +218,20 @@ def run_and_trace_workset(cmds_to_run):
     trace = read_rkr_trace()
     return trace
 
-def find_rw_dependencies_based_on_trace(workset, cmds_to_run):
+def find_rw_dependencies_based_on_trace(cmd_execution_info, cmds_to_run):
     trace = run_and_trace_workset(cmds_to_run)
     # For each command we get read and write initial sets
     # For now this works only for reads
     # Warning! HACK
     for cmd in [remove_command_redir(cmd) for cmd in cmds_to_run]:
-        workset = gather_and_parse_rw(cmd, workset, trace)
-    return update_rw_sets(workset, trace)
+        cmd_execution_info = gather_and_parse_rw(cmd, cmd_execution_info, trace)
+    return update_rw_sets(cmd_execution_info, trace)
 
 def scheduling_algorithm(cmds_to_run):
-    # create initial Cmd_exec_info objects for each parsed cmd
-    workset = {remove_command_redir(cmd): Cmd_exec_info(cmd) for cmd in cmds_to_run}
+    ## create initial Cmd_exec_info objects for each parsed cmd
+    ## TODO: this implementation does not allow duplicate commands in the workset, change it.
+    cmd_execution_info = {remove_command_redir(cmd): Cmd_exec_info(cmd) for cmd in cmds_to_run}
+    workset = list(cmd_execution_info.keys())
     ## TODO: When running commands make sure to take care of backward dependencies
     ##       Maybe by blocking write calls and not letting them happen or sth else.
 
@@ -231,13 +241,12 @@ def scheduling_algorithm(cmds_to_run):
         ## In every loop iteration we are guaranteed to decrease the workset by 1, 
         ## since the first command will not need to reexecute 
         ## TODO: Also need to deal with backward dependencies for the above to be absolutely true.
-        workset = find_rw_dependencies_based_on_trace(workset, cmds_to_run)
-        # print_workset_simplified(workset)
-
-        # Check forward dependencies and add to new workset
-        workset = check_deps(workset)
-        print_workset_simplified(workset)
-        cmds_to_run = workset_cmds_to_list(workset)
+        cmd_execution_info = find_rw_dependencies_based_on_trace(cmd_execution_info, cmds_to_run)
+        # cmd_execution_info_simplified(cmd_execution_info)
+        # Check forward dependencies and update workset accordingly
+        workset = check_forward_depepndencies(cmd_execution_info, workset)
+        cmd_execution_info_simplified(cmd_execution_info)
+        cmds_to_run = workset_cmds_to_list(cmd_execution_info)
         print(cmds_to_run)
 
 scheduling_algorithm(cmds_to_run)

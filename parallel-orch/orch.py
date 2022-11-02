@@ -1,14 +1,8 @@
 from pprint import pprint
+from argparse import ArgumentParser
+import sys
 import subprocess
 import re
-
-OUTPUT_TRACE_FILE="rkr-trace.txt"
-cmds_to_run = [
-    "grep foo in2 > out2",
-    "grep foo out2 > out22",
-    "grep foo out22 > out222",
-    "pwd"
-]
 
 # TODO: Currently cmd_execution_info does not create correct r/w sets for
 #       commands with same first part but different redir.
@@ -16,10 +10,21 @@ cmds_to_run = [
 #       Maybe convert cmd_execution_info to multiple value dictionary 
 #       and also keep ref number for each command
 
-## Just work with files in this pool for now
-## TODO: Extend to work with all file references
-file_name_pool = ["in2", "out2", "out22", "out222", "in3", "in33", "out33", "out333"]
+def parse_args(args=sys.argv[1:]):
+    parser = ArgumentParser(description='Dynamic parallelizer scheduler')
+    parser.add_argument("input_file", 
+                        help="Path of the file that contains the commands to schedule")
+    parser.add_argument("-t", "--riker_trace_file", 
+                        default="rkr-trace.txt", 
+                        help="the name of the riker trace file")
+    # TODO: Extend to work with all file references
+    parser.add_argument("-s", "--simple_print",
+                        help="Print only r/w set filenames")
+    return parser.parse_args(args)
 
+def parse_input(input_file):
+    with open(input_file, "r") as f:
+        return f.read().splitlines()
 
 def cmd_execution_info_simplified(cmd_execution_info):
     for cmd in cmd_execution_info.values():
@@ -250,4 +255,17 @@ def scheduling_algorithm(cmds_to_run):
         workset = check_forward_depepndencies(cmd_execution_info, workset)
         cmd_execution_info_simplified(cmd_execution_info)
 
-scheduling_algorithm(cmds_to_run)
+def main():
+    cmds_to_run = parse_input(args.input_file)
+    scheduling_algorithm(cmds_to_run)
+
+## Just work with files in this pool for now
+## TODO: Extend to work with all file references
+file_name_pool = ["in1", "in2", "in3", "in4", "in5", 
+                  "out1", "out2", "out3", "out4", "out5"]
+
+args = parse_args()
+OUTPUT_TRACE_FILE = args.riker_trace_file
+
+if __name__ == "__main__":
+    main()

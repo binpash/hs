@@ -5,4 +5,4 @@ sudo apt install -y make clang llvm git gcc python3-cram file graphviz
 sudo update-alternatives --install /usr/bin/cram cram /usr/bin/cram3 100
 
 ## Install Riker
-(cd deps/riker;  git submodule update --init --recursive; make; sudo make install)
+(git submodule update --init --recursive; cd deps/riker; make; sudo make install)

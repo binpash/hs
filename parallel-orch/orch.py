@@ -1,8 +1,11 @@
+#!/bin/env python3
+
 from pprint import pprint
 from argparse import ArgumentParser
 import sys
 import subprocess
 import re
+import logging
 
 # TODO: Currently cmd_execution_info does not create correct r/w sets for
 #       commands with same first part but different redir.
@@ -20,6 +23,10 @@ def parse_args(args=sys.argv[1:]):
     # TODO: Extend to work with all file references
     parser.add_argument("-s", "--simple_print",
                         help="Print only r/w set filenames")
+    parser.add_argument("-d", "--debug-level", 
+                        type=int, 
+                        default=0,
+                        help="Set debugging level")
     return parser.parse_args(args)
 
 def parse_input(input_file):
@@ -29,6 +36,7 @@ def parse_input(input_file):
 def cmd_execution_info_simplified(cmd_execution_info):
     for cmd in cmd_execution_info.values():
         cmd.print_simplified()
+        cmd.log_simplified()
 
 ## Write a Rikerfile with these commands to execute them
 def write_cmds_to_rikerfile(cmds_to_run):
@@ -83,6 +91,12 @@ class Cmd_exec_info:
         print("Simplified write set:", [ref_name for ref_name in self.write_set
                                                 if ref_name in file_name_pool])
         print()
+
+    def log_simplified(self):
+        logging.debug(f"ID:{self.id}")
+        logging.debug(f"CMD:{self.cmd}")
+        logging.debug(f"R:{[ref_name for ref_name in self.read_set if ref_name in file_name_pool]}")
+        logging.debug(f"W:{[ref_name for ref_name in self.write_set if ref_name in file_name_pool]}")
 
 def remove_command_redir(cmd):
     return cmd.split(">")[0].rstrip()
@@ -149,10 +163,13 @@ def has_forward_dependency(cmd_execution_info, first, second):
 ## Resolve all the forward dependencies and update the workset
 ## Forward dependency is when a command's output is the same
 ## as the input of a following command
-def check_forward_depepndencies(cmd_execution_info, workset):
-    new_workset = []
+def check_forward_dependencies(cmd_execution_info, workset):
+    new_workset = []    
     for i, cmd in enumerate(workset):
         for dependent_cmd in workset[i+1:]:
+            # TODO: Optimization, maybe we could not run 
+            # Configurable 
+            # Priorities
             if dependent_cmd not in new_workset and \
                has_forward_dependency(cmd_execution_info, cmd, dependent_cmd):
                 new_workset.append(dependent_cmd)
@@ -213,9 +230,9 @@ def update_rw_sets(cmd_execution_info, trace):
                             cmd_execution_info[launch_name].add_to_write_set(get_path_ref_name(path_ref))
     return cmd_execution_info
 
-def run_and_trace_workset(cmds_to_run):
+def run_and_trace_workset(workset):
     print("=" * 61)
-    write_cmds_to_rikerfile(cmds_to_run)
+    write_cmds_to_rikerfile(workset)
     ## Call Riker to execute the remaining commands all in parallel
     subprocess.run(["rkr", "--show"])
     ## Call Riker to get the trace
@@ -224,12 +241,12 @@ def run_and_trace_workset(cmds_to_run):
     trace = read_rkr_trace()
     return trace
 
-def find_rw_dependencies_based_on_trace(cmd_execution_info, cmds_to_run):
-    trace = run_and_trace_workset(cmds_to_run)
+def find_rw_dependencies_based_on_trace(cmd_execution_info, workset):
+    trace = run_and_trace_workset(workset)
     # For each command we get read and write initial sets
     # For now this works only for reads
     # Warning! HACK
-    for cmd in [remove_command_redir(cmd) for cmd in cmds_to_run]:
+    for cmd in [remove_command_redir(cmd) for cmd in workset]:
         cmd_execution_info = gather_and_parse_rw(cmd, cmd_execution_info, trace)
     return update_rw_sets(cmd_execution_info, trace)
 
@@ -238,34 +255,50 @@ def scheduling_algorithm(cmds_to_run):
     ## TODO: this implementation does not allow duplicate commands in the workset, change it.
     cmd_execution_info = {remove_command_redir(cmd): Cmd_exec_info(cmd) for cmd in cmds_to_run}
     workset = [cmd.cmd for cmd in cmd_execution_info.values()]
+    pprint(workset)
     ## TODO: When running commands make sure to take care of backward dependencies
     ##       Maybe by blocking write calls and not letting them happen or sth else.
-
+    reps = 1
     ## Parse trace
     ## TODO: This will change when we actually hook up with riker
+    
     while len(workset) > 0:
-        print("=" * 25 + "| Workset |" + "=" * 25)
-        pprint(workset)
+        logging.debug(f"RUN:{reps}")
+        logging.debug(f"WORKSET:{workset}")
         ## In every loop iteration we are guaranteed to decrease the workset by 1, 
         ## since the first command will not need to reexecute 
         ## TODO: Also need to deal with backward dependencies for the above to be absolutely true.
-        cmd_execution_info = find_rw_dependencies_based_on_trace(cmd_execution_info, cmds_to_run)
+        cmd_execution_info = find_rw_dependencies_based_on_trace(cmd_execution_info, workset)
         # cmd_execution_info_simplified(cmd_execution_info)
         # Check forward dependencies and update workset accordingly
-        workset = check_forward_depepndencies(cmd_execution_info, workset)
+        workset = check_forward_dependencies(cmd_execution_info, workset)
+        pprint(workset)
         cmd_execution_info_simplified(cmd_execution_info)
+        reps += 1
 
 def main():
     cmds_to_run = parse_input(args.input_file)
     scheduling_algorithm(cmds_to_run)
 
+
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(message)s")
+
 ## Just work with files in this pool for now
 ## TODO: Extend to work with all file references
-file_name_pool = ["in1", "in2", "in3", "in4", "in5", 
-                  "out1", "out2", "out3", "out4", "out5"]
+file_name_pool = ["./output_orch/in1", "./output_orch/in2", "./output_orch/in3", 
+                  "./output_orch/in4", "./output_orch/in5", "./output_orch/in6" ,
+                  "./output_orch/out1", "./output_orch/out2", "./output_orch/out3", 
+                  "./output_orch/out4", "./output_orch/out5", "./output_orch/out6"]
 
 args = parse_args()
+
 OUTPUT_TRACE_FILE = args.riker_trace_file
+
+if args.debug_level == 1:
+    logging.getLogger().setLevel(logging.INFO)
+elif args.debug_level >= 2:
+    logging.getLogger().setLevel(logging.DEBUG)
+
 
 if __name__ == "__main__":
     main()

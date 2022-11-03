@@ -46,7 +46,7 @@ run_test()
     $test "$orch" "$test_dir_orch" "$output_dir_orch" > /dev/null
     test_pash_ec=$?
     
-    diff "$output_dir_orch/" "$output_dir_bash/"
+    diff -q "$output_dir_orch/" "$output_dir_bash/"
     test_diff_ec=$?
 
     ## Check if the two exit codes are both success or both error
@@ -88,12 +88,34 @@ test2()
     $shell $2/forward_dependent_greps.sh
 }
 
+test3()
+{
+    local shell=$1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in2
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in3
+    $shell $2/semi_dependent_greps.sh
+}
+
+test4()
+{
+    local shell=$1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in2
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in3
+    $shell $2/semi_dependent_greps_2.sh
+}
+
 # We run all tests composed with && to exit on the first that fails
 if [ "$#" -eq 0 ]; then
     cleanup
     run_test test1
     cleanup
     run_test test2
+    cleanup
+    run_test test3
+    cleanup
+    run_test test4
 else
     for testname in $@
     do

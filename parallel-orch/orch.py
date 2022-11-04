@@ -1,6 +1,5 @@
 #!/bin/env python3
 
-from pprint import pprint
 from argparse import ArgumentParser
 import sys
 import re
@@ -35,7 +34,6 @@ def parse_input(input_file):
 
 def cmd_execution_info_simplified(cmd_execution_info):
     for cmd in cmd_execution_info.values():
-        cmd.print_simplified()
         cmd.log_simplified()
 
 def is_line_for_commands(cmds, line):
@@ -70,15 +68,6 @@ class Cmd_exec_info:
     
     def add_to_write_set(self, ref):
         self.write_set.add(ref)
-
-    def print_simplified(self):
-        print("ID:", self.id)
-        print("Cmd:", self.cmd)
-        print("Simplified read set:", [ref_name for ref_name in self.read_set
-                                                if ref_name in file_name_pool])
-        print("Simplified write set:", [ref_name for ref_name in self.write_set
-                                                if ref_name in file_name_pool])
-        print()
 
     def log_simplified(self):
         logging.debug(f"ID:{self.id}")
@@ -239,7 +228,6 @@ def scheduling_algorithm(cmds_to_run):
     ## TODO: this implementation does not allow duplicate commands in the workset, change it.
     cmd_execution_info = {remove_command_redir(cmd): Cmd_exec_info(cmd) for cmd in cmds_to_run}
     workset = [cmd.cmd for cmd in cmd_execution_info.values()]
-    pprint(workset)
     ## TODO: When running commands make sure to take care of backward dependencies
     ##       Maybe by blocking write calls and not letting them happen or sth else.
     reps = 1
@@ -247,8 +235,10 @@ def scheduling_algorithm(cmds_to_run):
     ## TODO: This will change when we actually hook up with riker
     
     while len(workset) > 0:
+        logging.debug(f"=" * 60)
         logging.debug(f"RUN:{reps}")
         logging.debug(f"WORKSET:{workset}")
+        logging.debug(f"=" * 60)
         ## In every loop iteration we are guaranteed to decrease the workset by 1, 
         ## since the first command will not need to reexecute 
         ## TODO: Also need to deal with backward dependencies for the above to be absolutely true.
@@ -256,7 +246,6 @@ def scheduling_algorithm(cmds_to_run):
         # cmd_execution_info_simplified(cmd_execution_info)
         # Check forward dependencies and update workset accordingly
         workset = check_forward_dependencies(cmd_execution_info, workset)
-        pprint(workset)
         cmd_execution_info_simplified(cmd_execution_info)
         reps += 1
 

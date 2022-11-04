@@ -202,7 +202,7 @@ def gather_and_parse_rw(cmd, cmd_execution_info, trace):
 ## FIXME: Read sets are not generated correctly for nested reads.
 ##        Find a way to do that correctly.
 ##        Solution can also apply to non-nested command reads
-def update_rw_sets(cmd_execution_info, trace):
+def add_launch_assignments_to_rw_sets(cmd_execution_info, trace):
     open_refs = {}
     for line in trace:
             if is_new_path_ref(line):
@@ -241,14 +241,21 @@ def run_and_trace_workset(workset):
     trace = read_rkr_trace()
     return trace
 
-def find_rw_dependencies_based_on_trace(cmd_execution_info, workset):
-    trace = run_and_trace_workset(workset)
+def extract_rw_sets_from_trace(cmd_execution_info, workset, trace):
     # For each command we get read and write initial sets
     # For now this works only for reads
     # Warning! HACK
     for cmd in [remove_command_redir(cmd) for cmd in workset]:
         cmd_execution_info = gather_and_parse_rw(cmd, cmd_execution_info, trace)
-    return update_rw_sets(cmd_execution_info, trace)
+    return add_launch_assignments_to_rw_sets(cmd_execution_info, trace)
+
+def find_rw_dependencies_based_on_trace(cmd_execution_info, workset):
+    trace = run_and_trace_workset(workset)
+    return extract_rw_sets_from_trace(cmd_execution_info, workset, trace)
+
+    for cmd in [remove_command_redir(cmd) for cmd in workset]:
+        cmd_execution_info = gather_and_parse_rw(cmd, cmd_execution_info, trace)
+    return add_launch_assignments_to_rw_sets(cmd_execution_info, trace)
 
 def scheduling_algorithm(cmds_to_run):
     ## create initial Cmd_exec_info objects for each parsed cmd

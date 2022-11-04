@@ -3,9 +3,9 @@
 from pprint import pprint
 from argparse import ArgumentParser
 import sys
-import subprocess
 import re
 import logging
+from tracer import *
 
 # TODO: Currently cmd_execution_info does not create correct r/w sets for
 #       commands with same first part but different redir.
@@ -38,17 +38,6 @@ def cmd_execution_info_simplified(cmd_execution_info):
         cmd.print_simplified()
         cmd.log_simplified()
 
-## Write a Rikerfile with these commands to execute them
-def write_cmds_to_rikerfile(cmds_to_run):
-    with open("Rikerfile", "w") as f:
-        for cmd in cmds_to_run:
-            f.write(cmd + " & \n")
-
-## Read trace and capture each command
-def read_rkr_trace():
-    with open(OUTPUT_TRACE_FILE) as f:
-        return f.readlines()
-
 def is_line_for_commands(cmds, line):
     for cmd in cmds:
         if line.startswith(f"[Command {cmd}]:"):
@@ -66,7 +55,6 @@ class Cmd_exec_info:
         self.write_set = {}
         self.id = Cmd_exec_info.id_counter
         Cmd_exec_info.id_counter += 1
-
 
     def __str__(self):
         return f"Cmd: {self.cmd}\nRead set: {self.read_set}\nWrite set: {self.write_set}"
@@ -230,17 +218,6 @@ def add_launch_assignments_to_rw_sets(cmd_execution_info, trace):
                             cmd_execution_info[launch_name].add_to_write_set(get_path_ref_name(path_ref))
     return cmd_execution_info
 
-def run_and_trace_workset(workset):
-    print("=" * 61)
-    write_cmds_to_rikerfile(workset)
-    ## Call Riker to execute the remaining commands all in parallel
-    subprocess.run(["rkr", "--show"])
-    ## Call Riker to get the trace
-    ## TODO: Normally we would like to plug in Riker and get the actual Trace data structure
-    subprocess.run(["rkr", "trace", "-o", OUTPUT_TRACE_FILE])
-    trace = read_rkr_trace()
-    return trace
-
 def extract_rw_sets_from_trace(cmd_execution_info, workset, trace):
     # For each command we get read and write initial sets
     # For now this works only for reads
@@ -250,7 +227,7 @@ def extract_rw_sets_from_trace(cmd_execution_info, workset, trace):
     return add_launch_assignments_to_rw_sets(cmd_execution_info, trace)
 
 def find_rw_dependencies_based_on_trace(cmd_execution_info, workset):
-    trace = run_and_trace_workset(workset)
+    trace = run_and_trace_workset(workset, OUTPUT_TRACE_FILE)
     return extract_rw_sets_from_trace(cmd_execution_info, workset, trace)
 
     for cmd in [remove_command_redir(cmd) for cmd in workset]:

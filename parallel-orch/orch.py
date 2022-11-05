@@ -36,6 +36,12 @@ def cmd_execution_info_simplified(cmd_execution_info):
     for cmd in cmd_execution_info.values():
         cmd.log_simplified()
 
+def log_run_and_workset_info(reps, workset):
+    logging.debug(f"=" * 60)
+    logging.debug(f"RUN:{reps}")
+    logging.debug(f"WORKSET:{workset}")
+    logging.debug(f"=" * 60)
+
 class Cmd_exec_info:
 
     id_counter = 0
@@ -139,12 +145,8 @@ def scheduling_algorithm(cmds_to_run):
     reps = 1
     ## Parse trace
     ## TODO: This will change when we actually hook up with riker
-    
     while len(workset) > 0:
-        logging.debug(f"=" * 60)
-        logging.debug(f"RUN:{reps}")
-        logging.debug(f"WORKSET:{workset}")
-        logging.debug(f"=" * 60)
+        log_run_and_workset_info(reps, workset)
         ## In every loop iteration we are guaranteed to decrease the workset by 1, 
         ## since the first command will not need to reexecute 
         ## TODO: Also need to deal with backward dependencies for the above to be absolutely true.

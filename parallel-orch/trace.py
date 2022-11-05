@@ -1,5 +1,7 @@
 import re
 
+## TODO: We should change trace structure to support full command
+
 def remove_command_redir(cmd):
     return cmd.split(">")[0].rstrip()
 

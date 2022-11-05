@@ -127,18 +127,27 @@ def convert_cmd_exec_info_to_cmd_based_dict(cmd_execution_info):
 def convert_cmd_exec_info_cmd_based_to_id_based_dict(cmd_execution_info_cmd_based_key):
     return {cmd_obj.id: cmd_obj for cmd_obj in cmd_execution_info_cmd_based_key.values()}
 
-def find_rw_dependencies_based_on_trace(cmd_exec_info_cmd_based_dict, cmd_execution_info, workset):
-    ## HACK: Remove in later iteration 
+def find_rw_dependencies_based_on_trace(cmd_execution_info, workset):
+    ## Warning! HACK: Remove these functions in later iteration
+    ##                cmd_execution_info is converted to cmd-based dict (instead of id)
+    cmd_exec_info_cmd_based_dict = convert_cmd_exec_info_to_cmd_based_dict(cmd_execution_info)
+    ## HACK: Convert workset from id list to cmd list. Same as above
     cmd_workset = [cmd_execution_info[cmd_id].cmd for cmd_id in workset]
     trace = run_and_trace_workset(cmd_workset, OUTPUT_TRACE_FILE)
-    return extract_rw_sets_from_trace(cmd_exec_info_cmd_based_dict, cmd_workset, trace)
+    # Changes are made on the cmd-based structures
+    cmd_exec_info_cmd_based_dict = extract_rw_sets_from_trace(cmd_exec_info_cmd_based_dict, cmd_workset, trace)
+    ## HACK: Remove in later iteration 
+    ## above conversion is reverted back to id based
+    return convert_cmd_exec_info_cmd_based_to_id_based_dict(cmd_exec_info_cmd_based_dict)
 
 def scheduling_algorithm(cmds_to_run):
     ## create initial Cmd_exec_info objects for each parsed cmd
     ## TODO: this implementation does not allow duplicate commands in the workset, change it.
     cmd_execution_info = generate_cmd_execution_info(cmds_to_run)
-    # We also need a dictionary that points from a command to this command's id
-    cmd_to_id = generate_cmd_to_id(cmd_execution_info)
+    ## We also need a dictionary that points from a command to this command's id
+    ## For now we don't need this
+    # cmd_to_id = generate_cmd_to_id(cmd_execution_info)
+
     # The workset contains all the command ids that are going to be traced in the current cycle
     workset = [cmd.id for cmd in cmd_execution_info.values()]
     # Count tracing cycles
@@ -148,13 +157,8 @@ def scheduling_algorithm(cmds_to_run):
     while len(workset) > 0:
         log_run_and_workset_info(reps, workset)
         ## In every loop iteration we are guaranteed to decrease the workset by 1, 
-        ## since the first command will not need to reexecute 
-        ## TODO: Also need to deal with backward dependencies for the above to be absolutely true.
-        ## Warning! HACK: Remove these functions in later iteration
-        cmd_exec_info_cmd_based_dict = convert_cmd_exec_info_to_cmd_based_dict(cmd_execution_info)
-        cmd_exec_info_cmd_based_dict = find_rw_dependencies_based_on_trace(cmd_exec_info_cmd_based_dict, cmd_execution_info, workset)
-        cmd_execution_info_simplified(cmd_exec_info_cmd_based_dict)
-        cmd_execution_info = convert_cmd_exec_info_cmd_based_to_id_based_dict(cmd_exec_info_cmd_based_dict)
+        ## since the first command will not need to re-execute 
+        cmd_execution_info = find_rw_dependencies_based_on_trace(cmd_execution_info, workset)
         cmd_execution_info_simplified(cmd_execution_info)
         # Check forward dependencies and update workset accordingly
         workset = check_forward_dependencies(cmd_execution_info, workset)

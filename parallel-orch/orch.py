@@ -52,6 +52,7 @@ class Cmd_exec_info:
         self.read_set = {}
         self.write_set = {}
         self.id = Cmd_exec_info.id_counter
+        self.commited = False
         Cmd_exec_info.id_counter += 1
 
     def __str__(self):
@@ -74,6 +75,7 @@ class Cmd_exec_info:
         logging.debug(f"CMD:{self.cmd}")
         logging.debug(f"R:{[ref_name for ref_name in self.read_set if ref_name in file_name_pool]}")
         logging.debug(f"W:{[ref_name for ref_name in self.write_set if ref_name in file_name_pool]}")
+        logging.debug(f"COMMITED:{self.commited}\n")
 
 ## cmd_execution_info is a dictionary containing information about each command.
 ## id : Cmd_exec_info (id, command, read set, write set, is commited)

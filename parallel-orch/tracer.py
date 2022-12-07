@@ -1,5 +1,10 @@
 import subprocess
 
+# This module executes a sequence of commands 
+# and traces them with Riker. 
+# TODO: isolate the execution of the [1:N] commands 
+# with overlay.
+
 def run_and_trace_workset(workset, trace_file):
     write_cmds_to_rikerfile(workset)
     ## Call Riker to execute the remaining commands all in parallel

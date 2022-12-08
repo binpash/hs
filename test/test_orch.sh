@@ -6,7 +6,7 @@ export WORKING_DIR="$ORCH_TOP/test/output_orch"
 echo "${WORKING_DIR}"
 
 bash="bash"
-orch="$ORCH_TOP/parallel-orch/orch.py"
+orch="$ORCH_TOP/pash-spec.sh"
 
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"
 test_dir_bash="$ORCH_TOP/test/test_scripts_bash"
@@ -73,7 +73,8 @@ run_test()
 test1()
 {
     local shell=$1
-    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in1
+    export file_directory=$3
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "${file_directory}/in1"
     $shell $2/forward_dependent_greps.sh
 }
 

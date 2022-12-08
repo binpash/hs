@@ -5,6 +5,7 @@ import sys
 import logging
 import executor
 import trace
+import util
 
 # TODO: Currently cmd_execution_info does not create correct r/w sets for
 #       commands with same first part but different redir.
@@ -253,19 +254,36 @@ def execute_workset_and_find_rw_dependencies(cmd_execution_info, workset):
 ##             and the orchestrator commit, which means that this command
 ##             has completed and will never run again (and all its prefix has also completed).
 def run_and_trace_workset(workset, cmd_execution_info):
-    trace_objects = {}
+    cmd_procs_and_trace_files = {}
 
     ## Get the first command in the workset and run it just with riker
     first_cmd_id = workset.get_first()
     first_cmd = cmd_execution_info[first_cmd_id].cmd
 
-    ## TODO: Run this on the side, asynchronously and keep going, similarly to &
-    trace_object = executor.run_and_trace_command(first_cmd, OUTPUT_TRACE_FILE)
-    trace_objects[first_cmd_id] = trace_object
+    ## Launch all commands to run and be traced
+    first_command_trace_file = util.ptempfile()
+    print("First command:", first_cmd, "trace will be saved in:", first_command_trace_file)
+    process = executor.async_run_and_trace_command(first_cmd, first_command_trace_file)
+    cmd_procs_and_trace_files[first_cmd_id] = (process, first_command_trace_file)
 
     for cmd_id in workset.get_rest():
         cmd = cmd_execution_info[cmd_id].cmd
-        trace_object = executor.run_and_trace_command_in_sandbox(cmd, OUTPUT_TRACE_FILE)
+        trace_file = util.ptempfile()
+        print("Command:", cmd, "trace will be saved in:", trace_file)
+        process = executor.async_run_and_trace_command_in_sandbox(cmd, trace_file)
+        cmd_procs_and_trace_files[first_cmd_id] = (process, trace_file)
+        
+
+    ## Wait for all processes to be done executing
+    for p, _file in cmd_procs_and_trace_files.values():
+        ## TODO: Do we need to wait in some other way?
+        p.wait()
+
+    ## Gather all traces
+    trace_objects = {}
+    for cmd_id, proc_and_trace_file in cmd_procs_and_trace_files.items():
+        _proc, trace_file = proc_and_trace_file
+        trace_object = executor.read_trace(trace_file)
         trace_objects[cmd_id] = trace_object
 
     ## Returns a dictionary of traces, one for each command id

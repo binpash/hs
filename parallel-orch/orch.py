@@ -3,8 +3,8 @@
 from argparse import ArgumentParser
 import sys
 import logging
-from tracer import *
-from trace import *
+import tracer
+import trace
 
 # TODO: Currently cmd_execution_info does not create correct r/w sets for
 #       commands with same first part but different redir.
@@ -48,7 +48,7 @@ class Cmd_exec_info:
 
     def __init__(self, cmd):
         self.cmd = cmd
-        self.cmd_no_redir = remove_command_redir(cmd)
+        self.cmd_no_redir = trace.remove_command_redir(cmd)
         self.read_set = {}
         self.write_set = {}
         self.id = Cmd_exec_info.id_counter
@@ -91,6 +91,57 @@ def generate_cmd_to_id(cmd_exec_info):
         cmd_to_id[cmd.cmd] = cmd.id
     return cmd_to_id
 
+def extract_rw_sets_from_trace(cmd_execution_info, workset, trace_object):
+    # For each command we get read and write initial sets
+    # For now this works only for reads
+    # Warning! HACK
+    for cmd in [trace.remove_command_redir(cmd) for cmd in workset]:
+        cmd_execution_info = gather_and_parse_rw(cmd, cmd_execution_info, trace_object)
+    return add_launch_assignments_to_rw_sets(cmd_execution_info, trace_object)
+
+## Gather and parse the reads and writes for each command
+def gather_and_parse_rw(cmd, cmd_execution_info, trace_object):
+    ## Parse the trace object and gather rw sets for this command
+    read_set, write_set = trace.parse_and_gather_cmd_rw_sets(cmd, trace_object)
+    
+    # Update the sets in cmd_execution_info
+    cmd_execution_info[cmd].update_read_set(read_set)
+    cmd_execution_info[cmd].update_write_set(write_set)
+    return cmd_execution_info
+
+## FIXME: Read sets are not generated correctly for nested reads.
+##        Find a way to do that correctly.
+##        Solution can also apply to non-nested command reads
+def add_launch_assignments_to_rw_sets(cmd_execution_info, trace_object):
+    open_refs = {}
+    for line in trace_object:
+            if trace.is_new_path_ref(line):
+                command_prefix = trace.get_command_prefix(line)
+                trace_item = trace.remove_command_prefix(line)
+                ref_id = trace.get_path_ref_id(trace_item)
+                if command_prefix in open_refs:
+                    open_refs[command_prefix][ref_id] = trace_item
+                else:
+                    open_refs[command_prefix] = {ref_id: trace_item}
+            # TODO: handle "No Command" somehow
+            elif trace.is_no_command_prefix(line):
+                pass
+            elif trace.is_launch(line):
+                command_prefix = trace.get_command_prefix(line)
+                trace_item = trace.remove_command_prefix(line)
+                launch_name = trace.get_lauch_name(trace_item)
+                launch_assignments = trace.get_launch_assignments(trace_item)
+                for lhs, rhs in launch_assignments:
+                    if rhs in open_refs[command_prefix]:
+                        path_ref = open_refs[command_prefix][rhs]
+                        if trace.is_path_ref_read(path_ref):
+                            cmd_execution_info[launch_name].add_to_read_set(trace.get_path_ref_name(path_ref))
+                        if trace.is_path_ref_write(path_ref):
+                            cmd_execution_info[launch_name].add_to_write_set(trace.get_path_ref_name(path_ref))
+    return cmd_execution_info
+
+
+
 def has_forward_dependency(cmd_execution_info, first, second):
     first_write_set = cmd_execution_info[first].write_set
     second_read_set = cmd_execution_info[second].read_set
@@ -124,18 +175,18 @@ def workset_cmds_to_list(cmd_execution_info):
 ## TODO: We should maybe use a more efficient way 
 ##       to pass the cmd_exec_info structure to trace      
 def convert_cmd_exec_info_to_cmd_based_dict(cmd_execution_info):
-    return {remove_command_redir(cmd_obj.cmd): cmd_obj for cmd_obj in cmd_execution_info.values()}
+    return {trace.remove_command_redir(cmd_obj.cmd): cmd_obj for cmd_obj in cmd_execution_info.values()}
 
 def convert_cmd_exec_info_cmd_based_to_id_based_dict(cmd_execution_info_cmd_based_key):
     return {cmd_obj.id: cmd_obj for cmd_obj in cmd_execution_info_cmd_based_key.values()}
 
-def find_rw_dependencies_based_on_trace(cmd_execution_info, workset):
+def execute_workset_and_find_rw_dependencies(cmd_execution_info, workset):
     ## Warning! HACK: Remove these functions in later iteration
     ##                cmd_execution_info is converted to cmd-based dict (instead of id)
     cmd_exec_info_cmd_based_dict = convert_cmd_exec_info_to_cmd_based_dict(cmd_execution_info)
     ## HACK: Convert workset from id list to cmd list. Same as above
     cmd_workset = [cmd_execution_info[cmd_id].cmd for cmd_id in workset]
-    trace = run_and_trace_workset(cmd_workset, OUTPUT_TRACE_FILE)
+    trace = tracer.run_and_trace_workset(cmd_workset, OUTPUT_TRACE_FILE)
     # Changes are made on the cmd-based structures
     cmd_exec_info_cmd_based_dict = extract_rw_sets_from_trace(cmd_exec_info_cmd_based_dict, cmd_workset, trace)
     ## HACK: Remove in later iteration 
@@ -160,7 +211,7 @@ def scheduling_algorithm(cmds_to_run):
         log_run_and_workset_info(reps, workset)
         ## In every loop iteration we are guaranteed to decrease the workset by 1, 
         ## since the first command will not need to re-execute 
-        cmd_execution_info = find_rw_dependencies_based_on_trace(cmd_execution_info, workset)
+        cmd_execution_info = execute_workset_and_find_rw_dependencies(cmd_execution_info, workset)
         cmd_execution_info_simplified(cmd_execution_info)
         # Check forward dependencies and update workset accordingly
         workset = check_forward_dependencies(cmd_execution_info, workset)

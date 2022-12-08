@@ -67,17 +67,9 @@ def get_lauch_name(trace_item):
     launch_name = launch_name_dirty.split("Command ")[1]
     return launch_name
 
-def extract_rw_sets_from_trace(cmd_execution_info, workset, trace):
-    # For each command we get read and write initial sets
-    # For now this works only for reads
-    # Warning! HACK
-    for cmd in [remove_command_redir(cmd) for cmd in workset]:
-        cmd_execution_info = gather_and_parse_rw(cmd, cmd_execution_info, trace)
-    return add_launch_assignments_to_rw_sets(cmd_execution_info, trace)
-
-## Gather and parse the reads and writes for each command
-def gather_and_parse_rw(cmd, cmd_execution_info, trace):
-    relevant_trace_lines = [line for line in trace
+## Parse the trace object and gather rw sets for this command
+def parse_and_gather_cmd_rw_sets(cmd, trace_object):
+    relevant_trace_lines = [line for line in trace_object
                             if is_line_for_commands([cmd], line)]
     relevant_trace_items = [remove_command_prefix(line) for line in relevant_trace_lines]
 
@@ -87,39 +79,5 @@ def gather_and_parse_rw(cmd, cmd_execution_info, trace):
                 if is_path_ref_read(item)]
     write_set = [get_path_ref_name(item) for item in new_path_ref_items 
                 if is_path_ref_write(item)]
-    
-    # Update the sets in cmd_execution_info
-    cmd_execution_info[cmd].update_read_set(read_set)
-    cmd_execution_info[cmd].update_write_set(write_set)
-    return cmd_execution_info
 
-## FIXME: Read sets are not generated correctly for nested reads.
-##        Find a way to do that correctly.
-##        Solution can also apply to non-nested command reads
-def add_launch_assignments_to_rw_sets(cmd_execution_info, trace):
-    open_refs = {}
-    for line in trace:
-            if is_new_path_ref(line):
-                command_prefix = get_command_prefix(line)
-                trace_item = remove_command_prefix(line)
-                ref_id = get_path_ref_id(trace_item)
-                if command_prefix in open_refs:
-                    open_refs[command_prefix][ref_id] = trace_item
-                else:
-                    open_refs[command_prefix] = {ref_id: trace_item}
-            # TODO: handle "No Command" somehow
-            elif is_no_command_prefix(line):
-                pass
-            elif is_launch(line):
-                command_prefix = get_command_prefix(line)
-                trace_item = remove_command_prefix(line)
-                launch_name = get_lauch_name(trace_item)
-                launch_assignments = get_launch_assignments(trace_item)
-                for lhs, rhs in launch_assignments:
-                    if rhs in open_refs[command_prefix]:
-                        path_ref = open_refs[command_prefix][rhs]
-                        if is_path_ref_read(path_ref):
-                            cmd_execution_info[launch_name].add_to_read_set(get_path_ref_name(path_ref))
-                        if is_path_ref_write(path_ref):
-                            cmd_execution_info[launch_name].add_to_write_set(get_path_ref_name(path_ref))
-    return cmd_execution_info
+    return read_set, write_set

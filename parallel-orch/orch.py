@@ -3,7 +3,7 @@
 from argparse import ArgumentParser
 import sys
 import logging
-import tracer
+import executor
 import trace
 
 # TODO: Currently cmd_execution_info does not create correct r/w sets for
@@ -76,6 +76,36 @@ class Cmd_exec_info:
         logging.debug(f"R:{[ref_name for ref_name in self.read_set if ref_name in file_name_pool]}")
         logging.debug(f"W:{[ref_name for ref_name in self.write_set if ref_name in file_name_pool]}")
         logging.debug(f"COMMITED:{self.commited}\n")
+
+
+## Currently this abstracts a list of cmds
+##
+## In the future we will modify it to be a partial order
+class Workset:
+    def __init__(self, list_of_cmds):
+        self.list_of_cmds = list_of_cmds
+
+    def __len__(self):
+        return len(self.list_of_cmds)
+
+    def __iter__(self):
+        return iter(self.list_of_cmds)
+
+    def get_first(self):
+        return self.list_of_cmds[0]
+
+    def get_rest(self):
+        return self.list_of_cmds[1:]    
+
+    def insert_at_end(self, cmd_id):
+        self.list_of_cmds.append(cmd_id)
+
+    def get_all_enumerate(self):
+        return enumerate(self.list_of_cmds)
+
+    ## Needs to be called after get_all_enumerate
+    def get_suffix(self, i):
+        return self.list_of_cmds[i+1:]
 
 ## cmd_execution_info is a dictionary containing information about each command.
 ## id : Cmd_exec_info (id, command, read set, write set, is commited)
@@ -154,15 +184,15 @@ def has_forward_dependency(cmd_execution_info, first, second):
 ## Forward dependency is when a command's output is the same
 ## as the input of a following command
 def check_forward_dependencies(cmd_execution_info, workset):
-    new_workset = []    
-    for i, cmd_id in enumerate(workset):
-        for dependent_cmd_id in workset[i+1:]:
+    new_workset = Workset([])    
+    for i, cmd_id in workset.get_all_enumerate():
+        for dependent_cmd_id in workset.get_suffix(i):
             # TODO: Optimization, maybe we could not run 
             # Configurable 
             # Priorities
             if dependent_cmd_id not in new_workset and \
                has_forward_dependency(cmd_execution_info, cmd_id, dependent_cmd_id):
-                new_workset.append(dependent_cmd_id)
+                new_workset.insert_at_end(dependent_cmd_id)
     return new_workset
 
 def workset_cmds_to_list(cmd_execution_info):
@@ -184,14 +214,62 @@ def execute_workset_and_find_rw_dependencies(cmd_execution_info, workset):
     ## Warning! HACK: Remove these functions in later iteration
     ##                cmd_execution_info is converted to cmd-based dict (instead of id)
     cmd_exec_info_cmd_based_dict = convert_cmd_exec_info_to_cmd_based_dict(cmd_execution_info)
+    
+
+    trace_objects = run_and_trace_workset(workset, cmd_execution_info)
+
+    ## TODO: Fix the rest of code to work with a trace dictionary 
+    ##         from command ids to trace objects
+
+    ## HACK: Just to make tests run for now we concatenate all traces into a big trace
+    ##       to just run tests and code as it was.
+    trace_object =  []
+    for _, trace_obj in trace_objects.items():
+        trace_object += trace_obj
+
     ## HACK: Convert workset from id list to cmd list. Same as above
     cmd_workset = [cmd_execution_info[cmd_id].cmd for cmd_id in workset]
-    trace = tracer.run_and_trace_workset(cmd_workset, OUTPUT_TRACE_FILE)
     # Changes are made on the cmd-based structures
-    cmd_exec_info_cmd_based_dict = extract_rw_sets_from_trace(cmd_exec_info_cmd_based_dict, cmd_workset, trace)
+    cmd_exec_info_cmd_based_dict = extract_rw_sets_from_trace(cmd_exec_info_cmd_based_dict, cmd_workset, trace_object)
     ## HACK: Remove in later iteration 
     ## above conversion is reverted back to id based
     return convert_cmd_exec_info_cmd_based_to_id_based_dict(cmd_exec_info_cmd_based_dict)
+
+## TODO: In order to be able to combine forward and backward dependencies
+##       we need to execute all except the first cmd in a sandbox (and riker in the sandbox)
+##       
+##       We need to change this function to write the first cmd in a rikerfile
+##       and then iterate on all others, run them in a sandbox and then put
+##       them in a rikerfile there, and run them there.
+##       
+##       It is likely that this then requires work on the traces, modifying them
+##       to be correct for the orch.
+##
+##       The other big thing is to then decide whether to commit each of the sandboxes
+##       or not. If there is ANY dependency we want to not commit the sandbox.
+##
+##       NOTE: There are two different types of commits, the sandbox commit,
+##             which just means execute the command and see its effects,
+##             and the orchestrator commit, which means that this command
+##             has completed and will never run again (and all its prefix has also completed).
+def run_and_trace_workset(workset, cmd_execution_info):
+    trace_objects = {}
+
+    ## Get the first command in the workset and run it just with riker
+    first_cmd_id = workset.get_first()
+    first_cmd = cmd_execution_info[first_cmd_id].cmd
+
+    ## TODO: Run this on the side, asynchronously and keep going, similarly to &
+    trace_object = executor.run_and_trace_command(first_cmd, OUTPUT_TRACE_FILE)
+    trace_objects[first_cmd_id] = trace_object
+
+    for cmd_id in workset.get_rest():
+        cmd = cmd_execution_info[cmd_id].cmd
+        trace_object = executor.run_and_trace_command_in_sandbox(cmd, OUTPUT_TRACE_FILE)
+        trace_objects[cmd_id] = trace_object
+
+    ## Returns a dictionary of traces, one for each command id
+    return trace_objects
 
 def scheduling_algorithm(cmds_to_run):
     ## create initial Cmd_exec_info objects for each parsed cmd
@@ -202,7 +280,7 @@ def scheduling_algorithm(cmds_to_run):
     # cmd_to_id = generate_cmd_to_id(cmd_execution_info)
 
     # The workset contains all the command ids that are going to be traced in the current cycle
-    workset = [cmd.id for cmd in cmd_execution_info.values()]
+    workset = Workset([cmd.id for cmd in cmd_execution_info.values()])
     # Count tracing cycles
     reps = 1
     ## Parse trace

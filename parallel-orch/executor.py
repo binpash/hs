@@ -8,15 +8,21 @@ import subprocess
 
 
 ## TODO: Modify this function to just run one command
-def async_run_and_trace_command(command, trace_file):
+def async_run_and_trace_command(command, trace_file, sandbox_mode=False):
     ## Call Riker to execute the command
     run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command.sh'
-    process = subprocess.Popen(["/bin/bash", run_script, command, trace_file], stdout=subprocess.DEVNULL)
+    args = ["/bin/bash", run_script, command, trace_file]
+    if sandbox_mode:
+        args.append("sandbox")
+    else:
+        print(" -- Standard mode")
+        args.append("standard")
+    process = subprocess.Popen(args, stdout=subprocess.DEVNULL)
     return process
 
 def async_run_and_trace_command_in_sandbox(command, trace_file):
     ## TODO: Run all the following in a sandbox
-    process = async_run_and_trace_command(command, trace_file)
+    process = async_run_and_trace_command(command, trace_file, sandbox_mode=True)
     return process
 
 ## Write a Rikerfile with these commands to execute them

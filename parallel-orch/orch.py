@@ -278,8 +278,10 @@ def run_and_trace_workset(workset, cmd_execution_info):
         
 
     ## Wait for all processes to be done executing
-    for p, _file in cmd_procs_and_trace_files.values():
-        ## TODO: Do we need to wait in some other way?
+    for cmd_id in sorted(cmd_procs_and_trace_files.keys()):
+        p, _file = cmd_procs_and_trace_files[cmd_id]
+        ## TODO: Figure out a way to wait on any process
+        ##       and not wait on them in sequence as we do now
         p.wait()
 
     ## Gather all traces

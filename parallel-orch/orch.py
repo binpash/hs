@@ -224,8 +224,11 @@ def execute_workset_and_find_rw_dependencies(cmd_execution_info, workset):
 
     ## HACK: Just to make tests run for now we concatenate all traces into a big trace
     ##       to just run tests and code as it was.
+    ##       The good thing is that now we have a trace for each cmd_id
+    ##       and therefore we can parse dependencies even easier and better!
     trace_object =  []
-    for _, trace_obj in trace_objects.items():
+    for cmd_id in sorted(trace_objects.keys()):
+        trace_obj = trace_objects[cmd_id]
         trace_object += trace_obj
 
     ## HACK: Convert workset from id list to cmd list. Same as above
@@ -271,7 +274,7 @@ def run_and_trace_workset(workset, cmd_execution_info):
         trace_file = util.ptempfile()
         print("Command:", cmd, "trace will be saved in:", trace_file)
         process = executor.async_run_and_trace_command_in_sandbox(cmd, trace_file)
-        cmd_procs_and_trace_files[first_cmd_id] = (process, trace_file)
+        cmd_procs_and_trace_files[cmd_id] = (process, trace_file)
         
 
     ## Wait for all processes to be done executing
@@ -325,7 +328,8 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(message)s")
 file_name_pool = ["./output_orch/in1", "./output_orch/in2", "./output_orch/in3", 
                   "./output_orch/in4", "./output_orch/in5", "./output_orch/in6" ,
                   "./output_orch/out1", "./output_orch/out2", "./output_orch/out3", 
-                  "./output_orch/out4", "./output_orch/out5", "./output_orch/out6"]
+                  "./output_orch/out4", "./output_orch/out5", "./output_orch/out6",
+                  "README.md", "out1.txt", "out2.txt", "out3.txt"]
 
 args = parse_args()
 

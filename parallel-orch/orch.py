@@ -171,29 +171,39 @@ def add_launch_assignments_to_rw_sets(cmd_execution_info, trace_object):
                             cmd_execution_info[launch_name].add_to_write_set(trace.get_path_ref_name(path_ref))
     return cmd_execution_info
 
-
-
 def has_forward_dependency(cmd_execution_info, first, second):
     first_write_set = cmd_execution_info[first].write_set
     second_read_set = cmd_execution_info[second].read_set
     # We want the write set of the first command to not have 
-    # common elements with the second command,
+    # common elements with the read set of the second command,
+    # otherwise the second is forward-dependent
+    return not first_write_set.isdisjoint(second_read_set)
+
+def has_backward_dependency(cmd_execution_info, first, second):
+    first_write_set = cmd_execution_info[first].read_set
+    second_read_set = cmd_execution_info[second].write_set
+    # We want the read set of the first command to not have 
+    # common elements with the write set of the second command,
     # otherwise the second is forward-dependent
     return not first_write_set.isdisjoint(second_read_set)
 
 ## Resolve all the forward dependencies and update the workset
 ## Forward dependency is when a command's output is the same
 ## as the input of a following command
-def check_forward_dependencies(cmd_execution_info, workset):
+def check_dependencies(cmd_execution_info, workset):
     new_workset = Workset([])    
-    for i, cmd_id in workset.get_all_enumerate():
-        for dependent_cmd_id in workset.get_suffix(i):
+    for i, first_cmd_id in workset.get_all_enumerate():
+        for second_cmd_id in workset.get_suffix(i):
             # TODO: Optimization, maybe we could not run 
             # Configurable 
             # Priorities
-            if dependent_cmd_id not in new_workset and \
-               has_forward_dependency(cmd_execution_info, cmd_id, dependent_cmd_id):
-                new_workset.insert_at_end(dependent_cmd_id)
+            if second_cmd_id not in new_workset and \
+               has_forward_dependency(cmd_execution_info, first_cmd_id, second_cmd_id):
+                new_workset.insert_at_end(second_cmd_id)
+            elif second_cmd_id not in new_workset and \
+                 has_backward_dependency(cmd_execution_info, first_cmd_id, second_cmd_id):
+            #     TODO: Handle backward dependencies
+                print(first_cmd_id, second_cmd_id)
     return new_workset
 
 def workset_cmds_to_list(cmd_execution_info):

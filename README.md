@@ -3,6 +3,11 @@
 A dynamic parallelizer that optimistically/speculatively executes everything in a script in parallel and ensures that it executes correctly by tracing it and reexecuting the parts that were erroneous.
 
 
+### Installation
+
+For detailed instructions on how to install and run the Dynamic Parallelizer,
+see the [Installation Documentation](docs/installing.md).
+
 ### TODO Items
 
 #### Complete control flow and complex script support

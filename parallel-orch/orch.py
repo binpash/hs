@@ -172,7 +172,6 @@ def add_launch_assignments_to_rw_sets(cmd_execution_info, trace_object):
     return cmd_execution_info
 
 def has_forward_dependency(cmd_execution_info, first, second):
-    print(cmd_execution_info)
     first_write_set = cmd_execution_info[first].write_set
     second_read_set = cmd_execution_info[second].read_set
     # We want the write set of the first command to not have 

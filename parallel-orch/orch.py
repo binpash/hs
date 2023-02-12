@@ -172,6 +172,7 @@ def add_launch_assignments_to_rw_sets(cmd_execution_info, trace_object):
     return cmd_execution_info
 
 def has_forward_dependency(cmd_execution_info, first, second):
+    print(cmd_execution_info)
     first_write_set = cmd_execution_info[first].write_set
     second_read_set = cmd_execution_info[second].read_set
     # We want the write set of the first command to not have 
@@ -187,6 +188,14 @@ def has_backward_dependency(cmd_execution_info, first, second):
     # otherwise the second is forward-dependent
     return not first_write_set.isdisjoint(second_read_set)
 
+def has_write_dependency(cmd_execution_info, first, second):
+    first_write_set = cmd_execution_info[first].write_set
+    second_read_set = cmd_execution_info[second].write_set
+    # We want the write set of the first command to not have 
+    # common elements with the write set of the second command,
+    # otherwise the second is write-dependent
+    return not first_write_set.isdisjoint(second_read_set)
+
 ## Resolve all the forward dependencies and update the workset
 ## Forward dependency is when a command's output is the same
 ## as the input of a following command
@@ -200,10 +209,15 @@ def check_dependencies(cmd_execution_info, workset):
             if second_cmd_id not in new_workset and \
                has_forward_dependency(cmd_execution_info, first_cmd_id, second_cmd_id):
                 new_workset.insert_at_end(second_cmd_id)
+                logging.debug(f"Forward dependency: {first_cmd_id}, {second_cmd_id}")
             elif second_cmd_id not in new_workset and \
-                 has_backward_dependency(cmd_execution_info, first_cmd_id, second_cmd_id):
-            #     TODO: Handle backward dependencies
-                print(first_cmd_id, second_cmd_id)
+               has_backward_dependency(cmd_execution_info, first_cmd_id, second_cmd_id):
+                new_workset.insert_at_end(second_cmd_id)
+                logging.debug(f"Backward dependency: {first_cmd_id}, {second_cmd_id}")
+            elif second_cmd_id not in new_workset and \
+               has_write_dependency(cmd_execution_info, first_cmd_id, second_cmd_id):
+                new_workset.insert_at_end(second_cmd_id)
+                logging.debug(f"Write dependency: {first_cmd_id}, {second_cmd_id}")
     return new_workset
 
 def workset_cmds_to_list(cmd_execution_info):
@@ -325,7 +339,7 @@ def scheduling_algorithm(cmds_to_run):
         cmd_execution_info = execute_workset_and_find_rw_dependencies(cmd_execution_info, workset)
         cmd_execution_info_simplified(cmd_execution_info)
         # Check forward dependencies and update workset accordingly
-        workset = check_forward_dependencies(cmd_execution_info, workset)
+        workset = check_dependencies(cmd_execution_info, workset)
         reps += 1
 
 def main():
@@ -337,11 +351,7 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(message)s")
 
 ## Just work with files in this pool for now
 ## TODO: Extend to work with all file references
-file_name_pool = ["./output_orch/in1", "./output_orch/in2", "./output_orch/in3", 
-                  "./output_orch/in4", "./output_orch/in5", "./output_orch/in6" ,
-                  "./output_orch/out1", "./output_orch/out2", "./output_orch/out3", 
-                  "./output_orch/out4", "./output_orch/out5", "./output_orch/out6",
-                  "README.md", "out1.txt", "out2.txt", "out3.txt"]
+file_name_pool = ["./in1", "./out1", "out1", "in1"]
 
 args = parse_args()
 

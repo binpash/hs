@@ -1,6 +1,7 @@
 #!/bin/env python3
 
 from argparse import ArgumentParser
+from partial_program_order import Node, PartialProgramOrder
 import sys
 import logging
 import executor
@@ -32,15 +33,26 @@ def parse_args(args=sys.argv[1:]):
 def parse_input(input_file):
     with open(input_file, "r") as f:
         return f.read().splitlines()
+    
+def generate_partial_program_order(input_cmds_to_run):
+    # TODO: In the next iteration indexes will be given to us
+    nodes = {i: Node(i, cmd) for i, cmd in enumerate(input_cmds_to_run)}
+    edges = {}
+    for i in range(1, len(input_cmds_to_run)):
+        edges[i-1] = [i]
+    edges[len(input_cmds_to_run) - 1] = []
+    return PartialProgramOrder(nodes, edges)
+
+        
 
 def cmd_execution_info_simplified(cmd_execution_info):
     for cmd in cmd_execution_info.values():
         cmd.log_simplified()
 
-def log_run_and_workset_info(reps, workset):
-    logging.debug(f"=" * 60)
+def log_run_and_workset_info(partial_program_order, reps, workset):
+    logging.debug(f"=" * 20)
     logging.debug(f"RUN:{reps}")
-    logging.debug(f"WORKSET:{workset}")
+    logging.debug(f"WORKSET:{[str(partial_program_order.get_node(node_id)) for node_id in workset]}")
     logging.debug(f"=" * 60)
 
 class Cmd_exec_info:
@@ -57,7 +69,7 @@ class Cmd_exec_info:
         Cmd_exec_info.id_counter += 1
 
     def __str__(self):
-        return f"Cmd: {self.cmd}\nRead set: {self.read_set}\nWrite set: {self.write_set}"
+        return f"CMD: {self.cmd}\nR: {self.read_set}\nW: {self.write_set}"
 
     def update_read_set(self, read_set):
         self.read_set = set(read_set)
@@ -74,10 +86,9 @@ class Cmd_exec_info:
     def log_simplified(self):
         logging.debug(f"ID:{self.id}")
         logging.debug(f"CMD:{self.cmd}")
-        logging.debug(f"R:{[ref_name for ref_name in self.read_set if ref_name in file_name_pool]}")
-        logging.debug(f"W:{[ref_name for ref_name in self.write_set if ref_name in file_name_pool]}")
-        logging.debug(f"COMMITED:{self.commited}\n")
-
+        logging.debug(f"R:{[ref_name for ref_name in self.read_set]}")
+        logging.debug(f"W:{[ref_name for ref_name in self.write_set]}")
+        logging.debug(f"C:{self.commited}\n")
 
 ## Currently this abstracts a list of cmds
 ##
@@ -107,12 +118,6 @@ class Workset:
     ## Needs to be called after get_all_enumerate
     def get_suffix(self, i):
         return self.list_of_cmds[i+1:]
-
-## cmd_execution_info is a dictionary containing information about each command.
-## id : Cmd_exec_info (id, command, read set, write set, is commited)
-def generate_cmd_execution_info(cmds_to_run):
-    cmds_exec_info_format = [Cmd_exec_info(cmd) for cmd in cmds_to_run]
-    return {cmd.id: cmd for cmd in cmds_exec_info_format}
 
 ## cmd_to_id is a dictionary that maps full commands to their ids.
 ## command : id
@@ -317,22 +322,16 @@ def run_and_trace_workset(workset, cmd_execution_info):
     ## Returns a dictionary of traces, one for each command id
     return trace_objects
 
-def scheduling_algorithm(cmds_to_run):
-    ## create initial Cmd_exec_info objects for each parsed cmd
-    ## TODO: this implementation does not allow duplicate commands in the workset, change it.
-    cmd_execution_info = generate_cmd_execution_info(cmds_to_run)
-    ## We also need a dictionary that points from a command to this command's id
-    ## For now we don't need this
-    # cmd_to_id = generate_cmd_to_id(cmd_execution_info)
-
+def scheduling_algorithm(partial_program_order):
     # The workset contains all the command ids that are going to be traced in the current cycle
-    workset = Workset([cmd.id for cmd in cmd_execution_info.values()])
+    workset = partial_program_order.get_all_non_committed()
     # Count tracing cycles
     reps = 1
     ## Parse trace
     ## TODO: This will change when we actually hook up with riker
     while len(workset) > 0:
-        log_run_and_workset_info(reps, workset)
+        log_run_and_workset_info(partial_program_order, reps, workset)
+        exit()
         ## In every loop iteration we are guaranteed to decrease the workset by 1, 
         ## since the first command will not need to re-execute 
         cmd_execution_info = execute_workset_and_find_rw_dependencies(cmd_execution_info, workset)
@@ -343,7 +342,9 @@ def scheduling_algorithm(cmds_to_run):
 
 def main():
     cmds_to_run = parse_input(args.input_file)
-    scheduling_algorithm(cmds_to_run)
+    partial_program_order = generate_partial_program_order(cmds_to_run)
+    print(partial_program_order)
+    scheduling_algorithm(partial_program_order)
 
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(message)s")

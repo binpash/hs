@@ -51,14 +51,14 @@ class PartialProgramOrder:
         # TODO: consider changing values to sets instead of lists
         self.adjacency = edges
         self.init_inverse_adjacency()
-        self.init_frontier()
+        ## self.committed is an add-only set, we never remove
+        self.committed = []
+        ## Nodes that are in the frontier can only move to committed
+        self.frontier = self.get_source_nodes()
+        self.speculated = []
     
     def __str__(self):
         return f"Nodes: {len(self.nodes.keys())}\nEdges: {self.adjacency}"
-
-    def init_frontier(self):
-        self.frontier = self.get_source_nodes()
-        # self.nodes[0].in_frontier = True
 
     def get_source_nodes(self):
         sources = set()
@@ -72,6 +72,14 @@ class PartialProgramOrder:
         for from_id, to_ids in self.adjacency.items():
             for to_id in to_ids:
                 self.inverse_adjacency[to_id].append(from_id)
+
+    ## TODO: (When there is time) Define a function that checks that the graph is valid
+    def valid(self):
+        ## TODO: Check that committed is prefix closed w.r.t partial order
+        ## TODO: Check that frontier and committed do not intersect
+        ## TODO: Check that all frontier nodes are after committed nodes
+        ## TODO: Check that speculated have no intersection with committed and frontier
+        return True
 
     def __len__(self):
         return len(self.nodes)

@@ -8,6 +8,9 @@ import executor
 import trace
 import util
 
+## TODO: For much later, ignore for now. We can discover W-R dependencies and stream their outputs
+##       instead of just waiting for execution to complete.
+
 # TODO: Currently cmd_execution_info does not create correct r/w sets for
 #       commands with same first part but different redir.
 #       Trace file also ignores redir.
@@ -61,7 +64,11 @@ class Cmd_exec_info:
 
     def __init__(self, cmd):
         self.cmd = cmd
+        ## TODO: Move this into the Node
         self.cmd_no_redir = trace.remove_command_redir(cmd)
+
+        ## TODO: Create a new dictionary from node_ids to read and write sets 
+        ##       (we can create a new class that is called dependencies and contains a read and a write field)
         self.read_set = {}
         self.write_set = {}
         self.id = Cmd_exec_info.id_counter
@@ -93,6 +100,7 @@ class Cmd_exec_info:
 ## Currently this abstracts a list of cmds
 ##
 ## In the future we will modify it to be a partial order
+## TODO: Delete this structure!
 class Workset:
     def __init__(self, list_of_cmds):
         self.list_of_cmds = list_of_cmds
@@ -203,6 +211,10 @@ def has_write_dependency(cmd_execution_info, first, second):
 ## Resolve all the forward dependencies and update the workset
 ## Forward dependency is when a command's output is the same
 ## as the input of a following command
+## TODO: Move that into the partial_program_order as follows
+##       def resolve_dependencies(self, read_write_deps)
+##       where read_write_deps is a dictionary from node_ids to read and write deps
+##       In this method, we should update which node ids are in the committed/frontier/speculated
 def check_dependencies(cmd_execution_info, workset):
     new_workset = Workset([])    
     for i, first_cmd_id in workset.get_all_enumerate():
@@ -239,6 +251,8 @@ def convert_cmd_exec_info_to_cmd_based_dict(cmd_execution_info):
 def convert_cmd_exec_info_cmd_based_to_id_based_dict(cmd_execution_info_cmd_based_key):
     return {cmd_obj.id: cmd_obj for cmd_obj in cmd_execution_info_cmd_based_key.values()}
 
+## TODO: Modify its arguments to be the workset and the partial_program_order
+## TODO: Modify its return value to be a dictionary form node_ids to read, write set)
 def execute_workset_and_find_rw_dependencies(cmd_execution_info, workset):
     ## Warning! HACK: Remove these functions in later iteration
     ##                cmd_execution_info is converted to cmd-based dict (instead of id)

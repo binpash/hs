@@ -67,16 +67,43 @@ class PartialProgramOrder:
     def get_all_enumerate(self):
         return enumerate(self.nodes)
 
-    ## Needs to be called after get_all_enumerate
-    def get_suffix(self, i):
-        return self.list_of_cmds[i+1:]
+    # ## Needs to be called after get_all_enumerate
+    # def get_suffix(self, i):
+    #     return self.list_of_cmds[i+1:]
+
+    def get_all_next_to_execute(self, node):
+        next_nodes = set()
+        for frontier_node in self.frontier:
+            next_node = self.get_next_adjacent_of_node(frontier_node)
+            if not next_node.in_forntier:
+                next_nodes.add(next_node)
+        return next_nodes
+
 
 class Node:
-    def __init__(self, cmd, id):
+    def __init__(self, id, cmd):
         self.cmd = cmd
         self.id = id
         self.committed = False
         self.in_frontier = False
+        self.executed_successfully = False
+        self.read_set = set()
+        self.write_set = set()
+
+    def __str__(self):
+        return f"ID: {self.id}\nCMD: {self.cmd}\nR: {self.read_set}\nW: {self.write_set}"
+
+    def update_read_set(self, read_set):
+        self.read_set = set(read_set)
+
+    def add_to_read_set(self, ref):
+        self.read_set.add(ref)
+
+    def update_write_set(self, write_set):
+        self.write_set = set(write_set)
+    
+    def add_to_write_set(self, ref):
+        self.write_set.add(ref)
 
     def __eq__(self, other):
         if isinstance(other, Node):
@@ -84,3 +111,11 @@ class Node:
                 return True
             else:
                 return False
+            
+    def log_simplified(self):
+        logging.debug(f"ID:{self.id}")
+        logging.debug(f"CMD:{self.cmd}")
+        logging.debug(f"R:{[ref_name for ref_name in self.read_set]}")
+        logging.debug(f"W:{[ref_name for ref_name in self.write_set]}")
+        logging.debug(f"C:{self.commited}\n")
+

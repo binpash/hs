@@ -1,7 +1,7 @@
 #!/bin/env python3
 
 from argparse import ArgumentParser
-from partial_program_order import Node, PartialProgramOrder
+from partial_program_order import Node, PartialProgramOrder, RWSet
 import sys
 import logging
 import executor
@@ -135,28 +135,30 @@ def generate_cmd_to_id(cmd_exec_info):
         cmd_to_id[cmd.cmd] = cmd.id
     return cmd_to_id
 
-def extract_rw_sets_from_trace(cmd_execution_info, workset, trace_object):
+def extract_rw_sets_from_trace(partial_program_order, workset, trace_object):
     # For each command we get read and write initial sets
     # For now this works only for reads
     # Warning! HACK
-    for cmd in [trace.remove_command_redir(cmd) for cmd in workset]:
-        cmd_execution_info = gather_and_parse_rw(cmd, cmd_execution_info, trace_object)
-    return add_launch_assignments_to_rw_sets(cmd_execution_info, trace_object)
+    for node_id in workset:
+        cmd_no_redir = partial_program_order.get_node(node_id).get_cmd_no_redir()
+        rw_set = gather_and_parse_rw(cmd_no_redir, trace_object)
+        partial_program_order.update_rw_set(node_id, rw_set)
+    add_launch_assignments_to_rw_sets(partial_program_order, trace_object)
 
 ## Gather and parse the reads and writes for each command
-def gather_and_parse_rw(cmd, cmd_execution_info, trace_object):
+def gather_and_parse_rw(cmd_no_redir: str, trace_object) -> RWSet:
     ## Parse the trace object and gather rw sets for this command
-    read_set, write_set = trace.parse_and_gather_cmd_rw_sets(cmd, trace_object)
-    
-    # Update the sets in cmd_execution_info
-    cmd_execution_info[cmd].update_read_set(read_set)
-    cmd_execution_info[cmd].update_write_set(write_set)
-    return cmd_execution_info
+    read_set, write_set = trace.parse_and_gather_cmd_rw_sets(cmd_no_redir, trace_object)
+    return RWSet(read_set, write_set)
+    # # Update the sets in cmd_execution_info
+    # cmd_execution_info[cmd].update_read_set(read_set)
+    # cmd_execution_info[cmd].update_write_set(write_set)
+    # return cmd_execution_info
 
 ## FIXME: Read sets are not generated correctly for nested reads.
 ##        Find a way to do that correctly.
 ##        Solution can also apply to non-nested command reads
-def add_launch_assignments_to_rw_sets(cmd_execution_info, trace_object):
+def add_launch_assignments_to_rw_sets(partial_program_order, trace_object):
     open_refs = {}
     for line in trace_object:
             if trace.is_new_path_ref(line):
@@ -179,10 +181,15 @@ def add_launch_assignments_to_rw_sets(cmd_execution_info, trace_object):
                     if rhs in open_refs[command_prefix]:
                         path_ref = open_refs[command_prefix][rhs]
                         if trace.is_path_ref_read(path_ref):
-                            cmd_execution_info[launch_name].add_to_read_set(trace.get_path_ref_name(path_ref))
+                            # cmd_execution_info[launch_name].add_to_read_set(trace.get_path_ref_name(path_ref))
+                            # TODO: HACK normally we should never find an id from a command name,
+                            # and we should trace based on cmd_id
+                            node_id = partial_program_order.get_node_id_from_cmd_no_redir(launch_name)
+                            partial_program_order.add_to_read_set(node_id, trace.get_path_ref_name(path_ref))
                         if trace.is_path_ref_write(path_ref):
-                            cmd_execution_info[launch_name].add_to_write_set(trace.get_path_ref_name(path_ref))
-    return cmd_execution_info
+                            # cmd_execution_info[launch_name].add_to_write_set(trace.get_path_ref_name(path_ref))
+                            node_id = partial_program_order.get_node_id_from_cmd_no_redir(launch_name)
+                            partial_program_order.add_to_write_set(node_id, trace.get_path_ref_name(path_ref))
 
 def has_forward_dependency(cmd_execution_info, first, second):
     first_write_set = cmd_execution_info[first].write_set
@@ -245,21 +252,21 @@ def workset_cmds_to_list(cmd_execution_info):
 ## Warning! HACK: Get rid of these functions on a later iteration.
 ## TODO: We should maybe use a more efficient way 
 ##       to pass the cmd_exec_info structure to trace      
-def convert_cmd_exec_info_to_cmd_based_dict(cmd_execution_info):
-    return {trace.remove_command_redir(cmd_obj.cmd): cmd_obj for cmd_obj in cmd_execution_info.values()}
+# def convert_cmd_exec_info_to_cmd_based_dict(cmd_execution_info):
+#     return {trace.remove_command_redir(cmd_obj.cmd): cmd_obj for cmd_obj in cmd_execution_info.values()}
 
 def convert_cmd_exec_info_cmd_based_to_id_based_dict(cmd_execution_info_cmd_based_key):
     return {cmd_obj.id: cmd_obj for cmd_obj in cmd_execution_info_cmd_based_key.values()}
 
 ## TODO: Modify its arguments to be the workset and the partial_program_order
 ## TODO: Modify its return value to be a dictionary form node_ids to read, write set)
-def execute_workset_and_find_rw_dependencies(cmd_execution_info, workset):
+def execute_workset_and_find_rw_dependencies(partial_program_order: PartialProgramOrder, workset):
     ## Warning! HACK: Remove these functions in later iteration
     ##                cmd_execution_info is converted to cmd-based dict (instead of id)
-    cmd_exec_info_cmd_based_dict = convert_cmd_exec_info_to_cmd_based_dict(cmd_execution_info)
-    
+    # cmd_exec_info_cmd_based_dict = convert_cmd_exec_info_to_cmd_based_dict(cmd_execution_info)
 
-    trace_objects = run_and_trace_workset(workset, cmd_execution_info)
+    trace_objects = run_and_trace_workset(workset, partial_program_order)
+
 
     ## TODO: Fix the rest of code to work with a trace dictionary 
     ##         from command ids to trace objects
@@ -274,9 +281,12 @@ def execute_workset_and_find_rw_dependencies(cmd_execution_info, workset):
         trace_object += trace_obj
 
     ## HACK: Convert workset from id list to cmd list. Same as above
-    cmd_workset = [cmd_execution_info[cmd_id].cmd for cmd_id in workset]
+    # cmd_workset = [cmd_execution_info[cmd_id].cmd for cmd_id in workset]
+
     # Changes are made on the cmd-based structures
-    cmd_exec_info_cmd_based_dict = extract_rw_sets_from_trace(cmd_exec_info_cmd_based_dict, cmd_workset, trace_object)
+    extract_rw_sets_from_trace(partial_program_order, workset, trace_object)
+    print(partial_program_order.get_rw_sets())
+    exit()
     ## HACK: Remove in later iteration 
     ## above conversion is reverted back to id based
     return convert_cmd_exec_info_cmd_based_to_id_based_dict(cmd_exec_info_cmd_based_dict)
@@ -298,12 +308,20 @@ def execute_workset_and_find_rw_dependencies(cmd_execution_info, workset):
 ##             which just means execute the command and see its effects,
 ##             and the orchestrator commit, which means that this command
 ##             has completed and will never run again (and all its prefix has also completed).
-def run_and_trace_workset(workset, cmd_execution_info):
+def run_and_trace_workset(workset, partial_program_order: PartialProgramOrder):
     cmd_procs_and_trace_files = {}
 
     ## Get the first command in the workset and run it just with riker
-    first_cmd_id = workset.get_first()
-    first_cmd = cmd_execution_info[first_cmd_id].cmd
+    # first_cmd_id = workset.get_first()
+    # first_cmd = cmd_execution_info[first_cmd_id].cmd
+
+    frontier_ids = [node_id for node_id in workset if partial_program_order.is_frontier(node_id)]
+    frontier_cmds = [partial_program_order.get_node(node_id).get_cmd() for node_id in frontier_ids]
+    # We are only working with sequences of commands
+    # TODO: In a future iteration, remove this assumption
+    assert(len(frontier_cmds) == 1)
+    first_cmd_id = frontier_ids[0]
+    first_cmd = frontier_cmds[0]
 
     ## Launch all commands to run and be traced
     first_command_trace_file = util.ptempfile()
@@ -311,14 +329,16 @@ def run_and_trace_workset(workset, cmd_execution_info):
     process = executor.async_run_and_trace_command(first_cmd, first_command_trace_file)
     cmd_procs_and_trace_files[first_cmd_id] = (process, first_command_trace_file)
 
-    for cmd_id in workset.get_rest():
-        cmd = cmd_execution_info[cmd_id].cmd
+    non_frontier_ids = [node_id for node_id in workset if not partial_program_order.is_frontier(node_id)]
+    non_frontier_cmds = [partial_program_order.get_node(node_id).get_cmd() for node_id in non_frontier_ids]
+
+    for cmd_id in non_frontier_ids:
+        cmd = partial_program_order.get_node(cmd_id).get_cmd()
         trace_file = util.ptempfile()
         print("Command:", cmd, "trace will be saved in:", trace_file)
         process = executor.async_run_and_trace_command_in_sandbox(cmd, trace_file)
         cmd_procs_and_trace_files[cmd_id] = (process, trace_file)
         
-
     ## Wait for all processes to be done executing
     for cmd_id in sorted(cmd_procs_and_trace_files.keys()):
         p, _file = cmd_procs_and_trace_files[cmd_id]
@@ -345,10 +365,9 @@ def scheduling_algorithm(partial_program_order):
     ## TODO: This will change when we actually hook up with riker
     while len(workset) > 0:
         log_run_and_workset_info(partial_program_order, reps, workset)
-        exit()
         ## In every loop iteration we are guaranteed to decrease the workset by 1, 
         ## since the first command will not need to re-execute 
-        cmd_execution_info = execute_workset_and_find_rw_dependencies(cmd_execution_info, workset)
+        cmd_execution_info = execute_workset_and_find_rw_dependencies(partial_program_order, workset)
         cmd_execution_info_simplified(cmd_execution_info)
         # Check forward dependencies and update workset accordingly
         workset = check_dependencies(cmd_execution_info, workset)

@@ -1,5 +1,4 @@
-from collections import defaultdict
-
+import trace
 
 class Node:
     def __init__(self, id, cmd):
@@ -9,24 +8,25 @@ class Node:
         self.committed = False
         self.in_frontier = False
         self.executed_successfully = False
-        self.read_set = set()
-        self.write_set = set()
+        # self.read_set = set()
+        # self.write_set = set()
+        self.cmd_no_redir = trace.remove_command_redir(self.cmd)
 
     def __str__(self):
         # return f"ID: {self.id}\nCMD: {self.cmd}\nR: {self.read_set}\nW: {self.write_set}"
         return self.cmd
 
-    def update_read_set(self, read_set):
-        self.read_set = set(read_set)
+    # def update_read_set(self, read_set):
+    #     self.read_set = set(read_set)
 
-    def add_to_read_set(self, ref):
-        self.read_set.add(ref)
+    # def add_to_read_set(self, ref):
+    #     self.read_set.add(ref)
 
-    def update_write_set(self, write_set):
-        self.write_set = set(write_set)
+    # def update_write_set(self, write_set):
+    #     self.write_set = set(write_set)
     
-    def add_to_write_set(self, ref):
-        self.write_set.add(ref)
+    # def add_to_write_set(self, ref):
+    #     self.write_set.add(ref)
 
     def __eq__(self, other):
         if isinstance(other, Node):
@@ -42,6 +42,26 @@ class Node:
         logging.debug(f"W:{[ref_name for ref_name in self.write_set]}")
         logging.debug(f"C:{self.commited}\n")
 
+    def get_cmd(self):
+        return self.cmd
+
+    def get_cmd_no_redir(self):
+        return self.cmd_no_redir
+
+
+
+class RWSet:
+
+    def __init__(self, read_set: set, write_set: set):
+        self.read_set = read_set
+        self.write_set = write_set
+
+    def add_to_read_set(self, item):
+        self.read_set.add(item)
+
+    def add_to_write_set(self, item):
+        self.write_set.add(item)
+
 
 
 class PartialProgramOrder:
@@ -56,6 +76,7 @@ class PartialProgramOrder:
         ## Nodes that are in the frontier can only move to committed
         self.frontier = self.get_source_nodes()
         self.speculated = []
+        self.rw_sets = {node_id: None for node_id in self.nodes.keys()}
     
     def __str__(self):
         return f"Nodes: {len(self.nodes.keys())}\nEdges: {self.adjacency}"
@@ -104,6 +125,31 @@ class PartialProgramOrder:
             workset.extend(new_next)
         return list(all_next_transitive)
 
+    def is_frontier(self, node_id: int) -> bool:
+        return node_id in self.frontier
+    
+    def update_rw_set(self, node_id, rw_set):
+        self.rw_sets[node_id] = rw_set
+
+    def get_rw_set(self, node_id):
+        return self.rw_sets[node_id]
+    
+    def get_rw_sets(self):
+        return self.rw_sets
+
+    def add_to_read_set(self, node_id: int, item: str):
+        self.rw_sets[node_id].add_to_read_set(item)
+
+    def add_to_write_set(self, node_id: int, item: str):
+        self.rw_sets[node_id].add_to_write_set(item)
+
+
+    # TODO: HACK delete this method ASAP
+    def get_node_id_from_cmd_no_redir(self, cmd_no_redir: str) -> int:
+        for node_id, node in self.nodes.items():
+            if node.get_cmd_no_redir() == cmd_no_redir:
+                return node_id
+        assert(False)
     
     ## Old ones below
 
@@ -157,5 +203,3 @@ class PartialProgramOrder:
     #         if not next_node.in_forntier:
     #             next_nodes.add(next_node)
     #     return next_nodes
-    
-

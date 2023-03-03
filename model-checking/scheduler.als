@@ -13,7 +13,7 @@ sig Command {
     var command_state: one State,
 
     -- These are the dependencies predicted by the preprocessor.
-    preprocessor_next : set Command,    
+    var preprocessor_next : set Command,    
     -- These are the real dependencies, that will only be found by the trace executor.
     dependency: set Command
 }
@@ -35,8 +35,10 @@ sig Command {
         partialOrder[preprocessor_next]
         partialOrder[~dependency]
 
-        //The preprocessor does not have false negs
-       preprocessor_next in ~dependency
+        //The preprocessor does not create a cycle with the actual dependencies
+        no (^preprocessor_next).(^~dependency)
+       
+       
     }
 
 ------------------------------------------------------------------------------------------------------
@@ -58,11 +60,25 @@ sig Command {
 
         {(c.command_state) = C} implies always (c.command_state = C)
         {(c.command_state) = CN} implies always (c.command_state = CN)
+
+        {(c.command_state) = C or (c.command_state = CN)} implies always (c.preprocessor_next' = c.preprocessor_next)
     }
 
     fun nonCommittedDependencies[c : Command, previous : set (Command -> Command)] : set Command
     {
         {x : Command | (x in c.^previous) and !committed[x] }
+    }
+    pred nonCommittedDep[c : Command] 
+    {
+        some newdep : Command {
+            !committed[newdep]
+            after(c in newdep.preprocessor_next)
+        }
+    }
+    
+    // Command does not develop new preprocs
+    pred preprocSame[c : Command] {
+        c.preprocessor_next' = c.preprocessor_next
     }
 
 ---------------------------------------------------------------------------------------------------------
@@ -74,6 +90,8 @@ sig Command {
         after (c.command_state = NE)
 
         (some nonCommittedDependencies[c, (~preprocessor_next)])
+        //TODO: is this correct?
+        preprocSame[c]
     }
 
     // NE -> S
@@ -95,7 +113,7 @@ sig Command {
     // S -> C
     pred commit_frontier[c : Command] {
         c.command_state = S
-         after (c.command_state = C )
+        after (c.command_state = C )
 
         (no nonCommittedDependencies[c, dependency])
     }
@@ -113,6 +131,8 @@ sig Command {
         c.command_state = NE
         after (c.command_state = NE)
         c not in firstNE[preprocessor_next]
+
+        preprocSame[c]
     }
 
     pred speculatively_execute[c : Command] {
@@ -125,6 +145,7 @@ sig Command {
     }
 
     pred validAction[c : Command] {
+       after(no (preprocessor_next & iden))
        awaiting_predecessors[c] or speculatively_execute[c] or run_trace_executor[c] or committed[c]
     }
 ------------------------------------------------------------------------------------------------
@@ -165,5 +186,5 @@ check { always (scheduler_e2e implies dependency_preservation)} for exactly 4 St
 // Once terminated, nothing is scheduled.
 check {final implies (always final)  } for exactly 4 State , 6 Command
 // This shows that the scheduler terminates, with all Commands committed.
-check  {scheduler_e2e implies (eventually final) } for exactly 4 State , 6 Command
+check  {scheduler_e2e implies (eventually final) } for exactly 4 State ,6 Command
 

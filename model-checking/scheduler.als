@@ -36,9 +36,24 @@ sig Command {
         partialOrder[~dependency]
 
         //The preprocessor does not create a cycle with the actual dependencies
-        no (^preprocessor_next).(^~dependency)
        
+       all c : Command {
+         (not preprocSame[c]) iff { 
+            // The command find dependencies (forward/backward)
+            (trace_executor_found_dependency[c]) or 
+            {
+                // someother command finds a dependency
+                let backdep = (c.preprocessor_next' - c.preprocessor_next)  | {
+                    trace_executor_found_dependency[backdep]
+                }
+                
+                let forwarddep = (preprocessor_next'.c - preprocessor_next.c)  | {
+                    trace_executor_found_dependency[forwarddep]
+                }
+            }
+       }
        
+        }
     }
 
 ------------------------------------------------------------------------------------------------------
@@ -61,7 +76,6 @@ sig Command {
         {(c.command_state) = C} implies always (c.command_state = C)
         {(c.command_state) = CN} implies always (c.command_state = CN)
 
-        {(c.command_state) = C or (c.command_state = CN)} implies always (c.preprocessor_next' = c.preprocessor_next)
     }
 
     fun nonCommittedDependencies[c : Command, previous : set (Command -> Command)] : set Command
@@ -79,6 +93,7 @@ sig Command {
     // Command does not develop new preprocs
     pred preprocSame[c : Command] {
         c.preprocessor_next' = c.preprocessor_next
+        preprocessor_next'.c = preprocessor_next.c
     }
 
 ---------------------------------------------------------------------------------------------------------
@@ -90,8 +105,8 @@ sig Command {
         after (c.command_state = NE)
 
         (some nonCommittedDependencies[c, (~preprocessor_next)])
-        //TODO: is this correct?
-        preprocSame[c]
+
+        
     }
 
     // NE -> S
@@ -108,6 +123,10 @@ sig Command {
         after (c.command_state = NE)
 
         (some nonCommittedDependencies[c, dependency])
+
+        //TODO: shouldn't we have to specify something here?
+       
+
     }
 
     // S -> C
@@ -131,8 +150,6 @@ sig Command {
         c.command_state = NE
         after (c.command_state = NE)
         c not in firstNE[preprocessor_next]
-
-        preprocSame[c]
     }
 
     pred speculatively_execute[c : Command] {
@@ -145,7 +162,6 @@ sig Command {
     }
 
     pred validAction[c : Command] {
-       after(no (preprocessor_next & iden))
        awaiting_predecessors[c] or speculatively_execute[c] or run_trace_executor[c] or committed[c]
     }
 ------------------------------------------------------------------------------------------------
@@ -180,6 +196,7 @@ sig Command {
 pred dependency_preservation {
     all x : Command | committed[x] => always ((no x.^dependency) or committed[x.^dependency])
 }
+
 
 check { always (scheduler_e2e implies dependency_preservation)} for exactly 4 State, 6 Command
     

@@ -97,35 +97,6 @@ class Cmd_exec_info:
         logging.debug(f"W:{[ref_name for ref_name in self.write_set]}")
         logging.debug(f"C:{self.commited}\n")
 
-## Currently this abstracts a list of cmds
-##
-## In the future we will modify it to be a partial order
-## TODO: Delete this structure!
-class Workset:
-    def __init__(self, list_of_cmds):
-        self.list_of_cmds = list_of_cmds
-
-    def __len__(self):
-        return len(self.list_of_cmds)
-
-    def __iter__(self):
-        return iter(self.list_of_cmds)
-
-    def get_first(self):
-        return self.list_of_cmds[0]
-
-    def get_rest(self):
-        return self.list_of_cmds[1:]    
-
-    def insert_at_end(self, cmd_id):
-        self.list_of_cmds.append(cmd_id)
-
-    def get_all_enumerate(self):
-        return enumerate(self.list_of_cmds)
-
-    ## Needs to be called after get_all_enumerate
-    def get_suffix(self, i):
-        return self.list_of_cmds[i+1:]
 
 ## cmd_to_id is a dictionary that maps full commands to their ids.
 ## command : id
@@ -191,57 +162,6 @@ def add_launch_assignments_to_rw_sets(partial_program_order, trace_object):
                             node_id = partial_program_order.get_node_id_from_cmd_no_redir(launch_name)
                             partial_program_order.add_to_write_set(node_id, trace.get_path_ref_name(path_ref))
 
-def has_forward_dependency(cmd_execution_info, first, second):
-    first_write_set = cmd_execution_info[first].write_set
-    second_read_set = cmd_execution_info[second].read_set
-    # We want the write set of the first command to not have 
-    # common elements with the read set of the second command,
-    # otherwise the second is forward-dependent
-    return not first_write_set.isdisjoint(second_read_set)
-
-def has_backward_dependency(cmd_execution_info, first, second):
-    first_write_set = cmd_execution_info[first].read_set
-    second_read_set = cmd_execution_info[second].write_set
-    # We want the read set of the first command to not have 
-    # common elements with the write set of the second command,
-    # otherwise the second is forward-dependent
-    return not first_write_set.isdisjoint(second_read_set)
-
-def has_write_dependency(cmd_execution_info, first, second):
-    first_write_set = cmd_execution_info[first].write_set
-    second_read_set = cmd_execution_info[second].write_set
-    # We want the write set of the first command to not have 
-    # common elements with the write set of the second command,
-    # otherwise the second is write-dependent
-    return not first_write_set.isdisjoint(second_read_set)
-
-## Resolve all the forward dependencies and update the workset
-## Forward dependency is when a command's output is the same
-## as the input of a following command
-## TODO: Move that into the partial_program_order as follows
-##       def resolve_dependencies(self, read_write_deps)
-##       where read_write_deps is a dictionary from node_ids to read and write deps
-##       In this method, we should update which node ids are in the committed/frontier/speculated
-def check_dependencies(cmd_execution_info, workset):
-    new_workset = Workset([])    
-    for i, first_cmd_id in workset.get_all_enumerate():
-        for second_cmd_id in workset.get_suffix(i):
-            # TODO: Optimization, maybe we could not run 
-            # Configurable 
-            # Priorities
-            if second_cmd_id not in new_workset and \
-               has_forward_dependency(cmd_execution_info, first_cmd_id, second_cmd_id):
-                new_workset.insert_at_end(second_cmd_id)
-                logging.debug(f"Forward dependency: {first_cmd_id}, {second_cmd_id}")
-            elif second_cmd_id not in new_workset and \
-               has_backward_dependency(cmd_execution_info, first_cmd_id, second_cmd_id):
-                new_workset.insert_at_end(second_cmd_id)
-                logging.debug(f"Backward dependency: {first_cmd_id}, {second_cmd_id}")
-            elif second_cmd_id not in new_workset and \
-               has_write_dependency(cmd_execution_info, first_cmd_id, second_cmd_id):
-                new_workset.insert_at_end(second_cmd_id)
-                logging.debug(f"Write dependency: {first_cmd_id}, {second_cmd_id}")
-    return new_workset
 
 def workset_cmds_to_list(cmd_execution_info):
     cmds_to_run = []
@@ -285,11 +205,6 @@ def execute_workset_and_find_rw_dependencies(partial_program_order: PartialProgr
 
     # Changes are made on the cmd-based structures
     extract_rw_sets_from_trace(partial_program_order, workset, trace_object)
-    print(partial_program_order.get_rw_sets())
-    exit()
-    ## HACK: Remove in later iteration 
-    ## above conversion is reverted back to id based
-    return convert_cmd_exec_info_cmd_based_to_id_based_dict(cmd_exec_info_cmd_based_dict)
 
 ## TODO: In order to be able to combine forward and backward dependencies
 ##       we need to execute all except the first cmd in a sandbox (and riker in the sandbox)
@@ -367,10 +282,12 @@ def scheduling_algorithm(partial_program_order):
         log_run_and_workset_info(partial_program_order, reps, workset)
         ## In every loop iteration we are guaranteed to decrease the workset by 1, 
         ## since the first command will not need to re-execute 
-        cmd_execution_info = execute_workset_and_find_rw_dependencies(partial_program_order, workset)
-        cmd_execution_info_simplified(cmd_execution_info)
-        # Check forward dependencies and update workset accordingly
-        workset = check_dependencies(cmd_execution_info, workset)
+        execute_workset_and_find_rw_dependencies(partial_program_order, workset)
+        # TODO: make log_rw_sets function in partial order
+        # cmd_execution_info_simplified(cmd_execution_info)
+        print(partial_program_order.get_rw_sets())
+        # Check dependencies and anti-dependencies and update speculated commands accordingly
+        partial_program_order.resolve_dependencies(workset)
         reps += 1
 
 def main():

@@ -102,9 +102,12 @@ class PartialProgramOrder:
     ## TODO: (When there is time) Define a function that checks that the graph is valid
     def valid(self):
         ## TODO: Check that committed is prefix closed w.r.t partial order
-        ## TODO: Check that frontier and committed do not intersect
+        
         ## TODO: Check that all frontier nodes are after committed nodes
+
         ## TODO: Check that speculated have no intersection with committed and frontier
+        ## TODO: Check that frontier and committed do not intersect
+        assert(not self.sets_intersect())
         return True
 
     def sets_intersect(self):
@@ -214,8 +217,16 @@ class PartialProgramOrder:
     #     return next_nodes
 
 
+    ## Resolve all the forward dependencies and update the workset
+    ## Forward dependency is when a command's output is the same
+    ## as the input of a following command
+    ## TODO: Move that into the partial_program_order as follows
+    ##       def resolve_dependencies(self, read_write_deps)
+    ##       where read_write_deps is a dictionary from node_ids to read and write deps
+    ##       In this method, we should update which node ids are in the committed/frontier/speculated
     def resolve_dependencies(self, workset):
         for first_cmd_id in workset:
+            # We look at the transitive closure instead of workset because we want to also check the speculated cmds that are not in the workset
             for second_cmd_id in self.get_transitive_closure([first_cmd_id]):
                 # If no anti-dependencies exist, we proceed to check for dependencies
                 if not (self.has_backward_dependency(first_cmd_id, second_cmd_id)
@@ -223,19 +234,13 @@ class PartialProgramOrder:
                     if self.has_forward_dependency(first_cmd_id, second_cmd_id):
                         # When a forward dependency exists
                         # the first command can be speculated but we need to rerun the second one
-                        self.speculated.add(second_cmd_id)
+                        self.speculated.add(first_cmd_id)
                     else:
                         # No dependency exist so both commands are speculated successfully
                         self.speculated.add(first_cmd_id)
                         self.speculated.add(second_cmd_id)
 
-    # ## Resolve all the forward dependencies and update the workset
-    # ## Forward dependency is when a command's output is the same
-    # ## as the input of a following command
-    # ## TODO: Move that into the partial_program_order as follows
-    # ##       def resolve_dependencies(self, read_write_deps)
-    # ##       where read_write_deps is a dictionary from node_ids to read and write deps
-    # ##       In this method, we should update which node ids are in the committed/frontier/speculated
+
     # def check_dependencies(cmd_execution_info, workset):
     #     new_workset = Workset([])    
     #     for i in workset.get_all_enumerate():

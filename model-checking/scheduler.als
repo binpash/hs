@@ -35,7 +35,6 @@ sig Command {
         partialOrder[preprocessor_next]
         partialOrder[~dependency]
 
-        //The preprocessor does not create a cycle with the actual dependencies
        
        all c : Command {
          (not preprocSame[c]) iff { 
@@ -45,10 +44,12 @@ sig Command {
                 // someother command finds a dependency
                 let backdep = (c.preprocessor_next' - c.preprocessor_next)  | {
                     trace_executor_found_dependency[backdep]
+                    (backdep->c) in dependency
                 }
                 
                 let forwarddep = (preprocessor_next'.c - preprocessor_next.c)  | {
                     trace_executor_found_dependency[forwarddep]
+                    (c->forwarddep) in dependency
                 }
             }
        }
@@ -105,8 +106,6 @@ sig Command {
         after (c.command_state = NE)
 
         (some nonCommittedDependencies[c, (~preprocessor_next)])
-
-        
     }
 
     // NE -> S
@@ -125,8 +124,6 @@ sig Command {
         (some nonCommittedDependencies[c, dependency])
 
         //TODO: shouldn't we have to specify something here?
-       
-
     }
 
     // S -> C
@@ -197,6 +194,12 @@ pred dependency_preservation {
     all x : Command | committed[x] => always ((no x.^dependency) or committed[x.^dependency])
 }
 
+run{
+    scheduler_e2e
+    some dependency
+    no preprocessor_next 
+    #dependency >= 4
+    } for exactly 4 State, exactly 6 Command
 
 check { always (scheduler_e2e implies dependency_preservation)} for exactly 4 State, 6 Command
     

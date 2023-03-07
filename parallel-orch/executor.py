@@ -25,12 +25,6 @@ def async_run_and_trace_command_in_sandbox(command, trace_file):
     process = async_run_and_trace_command(command, trace_file, sandbox_mode=True)
     return process
 
-## Write a Rikerfile with these commands to execute them
-def write_cmds_to_rikerfile(cmds_to_run):
-    with open("Rikerfile", "w") as f:
-        for cmd in cmds_to_run:
-            f.write(cmd + "\n")
-
 ## Read trace and capture each command
 def read_trace(trace_file):
     with open(trace_file) as f:

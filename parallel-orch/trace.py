@@ -45,10 +45,9 @@ def get_path_ref_name(trace_item):
     open_config = trace_item.split(", ")[1].replace('"', '')
     return open_config
 
-def is_line_for_commands(cmds, line):
-    for cmd in cmds:
-        if line.startswith(f"[Command {cmd}]:"):
-            return True
+def is_command_prefix(line):
+    if line.startswith(f"[Command"):
+        return True
     return False
 
 def is_launch(line):
@@ -70,7 +69,7 @@ def get_lauch_name(trace_item):
 ## Parse the trace object and gather rw sets for this command
 def parse_and_gather_cmd_rw_sets(cmd, trace_object):
     relevant_trace_lines = [line for line in trace_object
-                            if is_line_for_commands([cmd], line)]
+                            if is_command_prefix(line)]
     relevant_trace_items = [remove_command_prefix(line) for line in relevant_trace_lines]
 
     new_path_ref_items = [item for item in relevant_trace_items if is_new_path_ref(item)]

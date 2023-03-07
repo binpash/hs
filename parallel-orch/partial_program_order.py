@@ -18,7 +18,7 @@ class Node:
             else:
                 return False
             
-    def log_simplified(self):
+    def log_simplified(self, logging):
         logging.debug(f"ID:{self.id}")
         logging.debug(f"CMD:{self.cmd}")
         logging.debug(f"R:{[ref_name for ref_name in self.read_set]}")
@@ -226,6 +226,12 @@ class PartialProgramOrder:
                 new_frontier.extend(self.get_next_non_speculated(node_id))
 
     def create_new_workset(self):
-        self.workset = [node_id for node_id in self.get_all_non_committed() if node_id not in self.speculated]
-        print(">>>",self.workset)
-        print(">>>",self.frontier)
+        # It doesn't work correctly if we only check for speculated
+        self.workset = [node_id for node_id in self.get_all_non_committed() if node_id not in self.speculated and node_id not in self.committed and node_id not in self.frontier]
+
+    def log_rw_sets(self, logging):
+        logging.debug("====== |RW Sets| ======")
+        for node_id, rw_set in self.rw_sets.items():
+            logging.debug(f"ID: {node_id}")
+            logging.debug(f"Read: {rw_set.get_read_set()}")
+            logging.debug(f"Write: {rw_set.get_write_set()}")

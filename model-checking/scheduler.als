@@ -35,7 +35,16 @@ sig Command {
         partialOrder[preprocessor_next]
         partialOrder[~dependency]
 
+    // Maybe this should be a seperate predicate but this is enforcing wellformedness of
+    // the preproc relation.
+    // We don't want preproc to arbitarily change it should only change if and only if 
+    // the trace executor finds a dependency. However a dependency may be discovered by another 
+    // command as well. Say for example C1 is not in the trace executor state but C2 is and discovers 
+    // a dependency on C1
        
+    //  For all commands . The preproc relation affects the command C if and only if 
+    // either the trace executor finds a dependency for that command or some other 
+    // command finds a dependency on C. Any such new dependency must be a true dependency.
        all c : Command {
          (not preprocSame[c]) iff { 
             // The command find dependencies (forward/backward)
@@ -54,7 +63,7 @@ sig Command {
             }
        }
        
-        }
+    }
     }
 
 ------------------------------------------------------------------------------------------------------

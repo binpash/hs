@@ -1,8 +1,9 @@
 import re
+from typing import Tuple
 
 # Parse the Riker trace structure
 #
-# TODOO: This module will need to contain the definition 
+# TODO: This module will need to contain the definition 
 # of the trace structure and its methods that we will use to parse it.
 
 ## TODO: We should change trace structure to support full command
@@ -67,16 +68,16 @@ def get_lauch_name(trace_item):
     return launch_name
 
 ## Parse the trace object and gather rw sets for this command
-def parse_and_gather_cmd_rw_sets(cmd, trace_object):
+def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
     relevant_trace_lines = [line for line in trace_object
                             if is_command_prefix(line)]
     relevant_trace_items = [remove_command_prefix(line) for line in relevant_trace_lines]
 
     new_path_ref_items = [item for item in relevant_trace_items if is_new_path_ref(item)]
 
-    read_set = [get_path_ref_name(item) for item in new_path_ref_items 
-                if is_path_ref_read(item)]
-    write_set = [get_path_ref_name(item) for item in new_path_ref_items 
-                if is_path_ref_write(item)]
+    read_set = {get_path_ref_name(item) for item in new_path_ref_items 
+                if is_path_ref_read(item)}
+    write_set = {get_path_ref_name(item) for item in new_path_ref_items 
+                if is_path_ref_write(item)}
 
     return read_set, write_set

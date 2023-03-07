@@ -1,3 +1,4 @@
+from typing import List, Set, Dict
 import trace
 
 class Node:
@@ -9,14 +10,6 @@ class Node:
     def __str__(self):
         # return f"ID: {self.id}\nCMD: {self.cmd}\nR: {self.read_set}\nW: {self.write_set}"
         return self.cmd
-
-
-    def __eq__(self, other):
-        if isinstance(other, Node):
-            if self.id == other.id:
-                return True
-            else:
-                return False
             
     def log_simplified(self, logging):
         logging.debug(f"ID:{self.id}")
@@ -25,10 +18,10 @@ class Node:
         logging.debug(f"W:{[ref_name for ref_name in self.write_set]}")
         logging.debug(f"C:{self.commited}\n")
 
-    def get_cmd(self):
+    def get_cmd(self) -> str:
         return self.cmd
 
-    def get_cmd_no_redir(self):
+    def get_cmd_no_redir(self) -> str:
         return self.cmd_no_redir
 
 
@@ -38,22 +31,22 @@ class RWSet:
         self.read_set = read_set
         self.write_set = write_set
 
-    def add_to_read_set(self, item):
+    def add_to_read_set(self, item: str):
         self.read_set.add(item)
 
-    def add_to_write_set(self, item):
+    def add_to_write_set(self, item: str):
         self.write_set.add(item)
 
-    def get_read_set(self):
+    def get_read_set(self) -> set:
         return self.read_set
 
-    def get_write_set(self):
+    def get_write_set(self) -> set:
         return self.write_set
 
 
 class PartialProgramOrder:
 
-    def __init__(self, nodes:dict, edges:dict):
+    def __init__(self, nodes, edges):
         self.nodes = nodes
         # TODO: consider changing values to sets instead of lists
         self.adjacency = edges
@@ -69,7 +62,7 @@ class PartialProgramOrder:
     def __str__(self):
         return f"Nodes: {len(self.nodes.keys())}\nEdges: {self.adjacency}"
 
-    def get_source_nodes(self):
+    def get_source_nodes(self) -> list:
         sources = set()
         for to_id, from_ids in self.inverse_adjacency.items():
             if len(from_ids) == 0:
@@ -131,10 +124,10 @@ class PartialProgramOrder:
     def update_rw_set(self, node_id, rw_set):
         self.rw_sets[node_id] = rw_set
 
-    def get_rw_set(self, node_id):
+    def get_rw_set(self, node_id) -> RWSet:
         return self.rw_sets[node_id]
     
-    def get_rw_sets(self):
+    def get_rw_sets(self) -> dict:
         return self.rw_sets
 
     def add_to_read_set(self, node_id: int, item: str):

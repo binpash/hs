@@ -58,7 +58,6 @@ def log_run_and_workset_info(partial_program_order, reps):
     logging.debug(f"WORKSET:{[str(partial_program_order.get_node(node_id)) for node_id in partial_program_order.get_workset()]}")
     logging.debug(f"=" * 60)
 
-
 ## cmd_to_id is a dictionary that maps full commands to their ids.
 ## command : id
 def generate_cmd_to_id(cmd_exec_info):
@@ -72,15 +71,14 @@ def extract_rw_sets_from_trace(partial_program_order, trace_object):
     # For now this works only for reads
     # Warning! HACK
     for node_id in partial_program_order.get_workset():
-        cmd_no_redir = partial_program_order.get_node(node_id).get_cmd_no_redir()
-        rw_set = gather_and_parse_rw(cmd_no_redir, trace_object)
+        rw_set = gather_and_parse_rw(trace_object)
         partial_program_order.update_rw_set(node_id, rw_set)
     add_launch_assignments_to_rw_sets(partial_program_order, trace_object)
 
 ## Gather and parse the reads and writes for each command
-def gather_and_parse_rw(cmd_no_redir: str, trace_object) -> RWSet:
+def gather_and_parse_rw(trace_object) -> RWSet:
     ## Parse the trace object and gather rw sets for this command
-    read_set, write_set = trace.parse_and_gather_cmd_rw_sets(cmd_no_redir, trace_object)
+    read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
     return RWSet(read_set, write_set)
 
 ## FIXME: Read sets are not generated correctly for nested reads.

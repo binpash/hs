@@ -6,7 +6,6 @@ import subprocess
 # TODO: isolate the execution of the [1:N] commands 
 # with overlay.
 
-
 ## TODO: Modify this function to just run one command
 def async_run_and_trace_command(command, trace_file, sandbox_mode=False):
     ## Call Riker to execute the command

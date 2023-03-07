@@ -6,8 +6,6 @@ from typing import Tuple
 # TODO: This module will need to contain the definition 
 # of the trace structure and its methods that we will use to parse it.
 
-## TODO: We should change trace structure to support full command
-
 def remove_command_redir(cmd):
     return cmd.split(">")[0].rstrip()
 

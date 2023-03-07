@@ -24,7 +24,6 @@ def parse_args(args=sys.argv[1:]):
     parser.add_argument("-t", "--riker_trace_file", 
                         default="rkr-trace.txt", 
                         help="the name of the riker trace file")
-    # TODO: Extend to work with all file references
     parser.add_argument("-s", "--simple_print",
                         help="Print only r/w set filenames")
     parser.add_argument("-d", "--debug-level", 
@@ -45,8 +44,6 @@ def generate_partial_program_order(input_cmds_to_run):
         edges[i-1] = [i]
     edges[len(input_cmds_to_run) - 1] = []
     return PartialProgramOrder(nodes, edges)
-
-        
 
 def cmd_execution_info_simplified(cmd_execution_info):
     for cmd in cmd_execution_info.values():
@@ -117,18 +114,11 @@ def add_launch_assignments_to_rw_sets(partial_program_order, trace_object):
                             node_id = partial_program_order.get_node_id_from_cmd_no_redir(launch_name)
                             partial_program_order.add_to_write_set(node_id, trace.get_path_ref_name(path_ref))
 
-
 def workset_cmds_to_list(cmd_execution_info):
     cmds_to_run = []
     for cmd in cmd_execution_info.values():
         cmds_to_run.append(cmd.cmd)
     return cmds_to_run
-
-## Warning! HACK: Get rid of these functions on a later iteration.
-## TODO: We should maybe use a more efficient way 
-##       to pass the cmd_exec_info structure to trace      
-# def convert_cmd_exec_info_to_cmd_based_dict(cmd_execution_info):
-#     return {trace.remove_command_redir(cmd_obj.cmd): cmd_obj for cmd_obj in cmd_execution_info.values()}
 
 def convert_cmd_exec_info_cmd_based_to_id_based_dict(cmd_execution_info_cmd_based_key):
     return {cmd_obj.id: cmd_obj for cmd_obj in cmd_execution_info_cmd_based_key.values()}

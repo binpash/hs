@@ -220,7 +220,10 @@ class PartialProgramOrder:
 
     def create_new_workset(self):
         # It doesn't work correctly if we only check for speculated
-        self.workset = [node_id for node_id in self.get_all_non_committed() if node_id not in self.speculated and node_id not in self.committed and node_id not in self.frontier]
+        self.workset = [node_id for node_id in self.get_all_non_committed() 
+                        if node_id not in self.speculated
+                        and node_id not in self.committed
+                        and node_id not in self.frontier]
 
     def log_rw_sets(self, logging):
         logging.debug("====== |RW Sets| ======")

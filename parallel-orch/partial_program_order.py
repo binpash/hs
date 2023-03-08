@@ -43,6 +43,9 @@ class RWSet:
     def get_write_set(self) -> set:
         return self.write_set
 
+    def __str__(self):
+        return f"RW(R:{self.get_read_set()}, W:{self.get_write_set()}"
+
 
 class PartialProgramOrder:
 
@@ -217,7 +220,6 @@ class PartialProgramOrder:
         for node_id in self.frontier:
             if not node_id in new_frontier:
                 new_frontier.extend(self.get_next_non_speculated(node_id))
-        print(">>>", new_frontier)
         self.frontier = new_frontier
 
     def create_new_workset(self):

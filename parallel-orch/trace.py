@@ -67,6 +67,7 @@ def get_lauch_name(trace_item):
 
 ## Parse the trace object and gather rw sets for this command
 def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
+
     relevant_trace_lines = [line for line in trace_object
                             if is_command_prefix(line)]
     relevant_trace_items = [remove_command_prefix(line) for line in relevant_trace_lines]

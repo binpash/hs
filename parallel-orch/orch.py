@@ -155,6 +155,8 @@ def run_and_trace_workset(partial_program_order: PartialProgramOrder):
     frontier_cmds = [partial_program_order.get_node(node_id).get_cmd() for node_id in frontier_ids]
     # We are only working with sequences of commands
     # TODO: In a future iteration, remove this assumption
+    print(">", frontier_cmds)
+    print(partial_program_order.workset)
     assert(len(frontier_cmds) == 1)
     first_cmd_id = frontier_ids[0]
     first_cmd = frontier_cmds[0]

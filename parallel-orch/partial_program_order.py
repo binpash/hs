@@ -112,9 +112,9 @@ class PartialProgramOrder:
         workset = target_node_ids.copy()
         while len(workset) > 0:
             node_id = workset.pop()
-            next = self.get_next(node_id)
-            new_next = all_next_transitive.intersection(next)
-            all_next_transitive = all_next_transitive.union(next)
+            successors = set(self.get_next(node_id))
+            new_next = successors - all_next_transitive
+            all_next_transitive = all_next_transitive.union(successors)
             workset.extend(new_next)
         return list(all_next_transitive)
 
@@ -217,13 +217,14 @@ class PartialProgramOrder:
         for node_id in self.frontier:
             if not node_id in new_frontier:
                 new_frontier.extend(self.get_next_non_speculated(node_id))
+        print(">>>", new_frontier)
+        self.frontier = new_frontier
 
     def create_new_workset(self):
         # It doesn't work correctly if we only check for speculated
         self.workset = [node_id for node_id in self.get_all_non_committed() 
                         if node_id not in self.speculated
-                        and node_id not in self.committed
-                        and node_id not in self.frontier]
+                        and node_id not in self.committed]
 
     def log_rw_sets(self, logging):
         logging.debug("====== |RW Sets| ======")

@@ -13,7 +13,7 @@ sig Command {
     var command_state: one State,
 
     -- These are the dependencies predicted by the preprocessor.
-    preprocessor_next : set Command,    
+    var preprocessor_next : set Command,    
     -- These are the real dependencies, that will only be found by the trace executor.
     dependency: set Command
 }
@@ -36,7 +36,7 @@ sig Command {
         partialOrder[~dependency]
 
         //The preprocessor does not have false negs
-       preprocessor_next in ~dependency
+       // preprocessor_next in ~dependency
     }
 
 ------------------------------------------------------------------------------------------------------
@@ -74,6 +74,9 @@ sig Command {
         after (c.command_state = NE)
 
         (some nonCommittedDependencies[c, (~preprocessor_next)])
+
+        // Preprocessor dependencies do not change
+        c.preprocessor_next = c'.preprocessor_next
     }
 
     // NE -> S
@@ -82,6 +85,9 @@ sig Command {
         after (c.command_state = S)
 
         (no nonCommittedDependencies[c, (~preprocessor_next)])
+
+        // Preprocessor dependencies do not change
+        c.preprocessor_next = c'.preprocessor_next
     }
 
     // S -> NE
@@ -90,6 +96,19 @@ sig Command {
         after (c.command_state = NE)
 
         (some nonCommittedDependencies[c, dependency])
+
+
+        some c1 : nonCommittedDependencies[c, dependency] | {
+
+            //Some non-committed dependencies (these represent those identified by the trace executor)
+            // are now added to the preprocessor's predictions.
+            (after (c1->c in preprocessor_next))
+
+            // And we ensure that the reverse dependency is not in the pre-processor's next.
+            // We could do more here! (TODO: See what the algorithm does, do we also ensure all other dependencies are added in?)
+            (after c->c1 not in preprocessor_next)
+
+        }
     }
 
     // S -> C
@@ -98,13 +117,18 @@ sig Command {
          after (c.command_state = C )
 
         (no nonCommittedDependencies[c, dependency])
+        // Preprocessor dependencies do not change
+        c.preprocessor_next = c'.preprocessor_next
     }
 
-    // S -> NE
+    // S -> CN
     pred speculated_not_executed[c : Command] {
         c.command_state = S
          after (c.command_state = CN )
         (no nonCommittedDependencies[c, dependency])
+
+        // Preprocessor dependencies do not change
+        c.preprocessor_next = c'.preprocessor_next
     }
 
 ------------------------------------------------------------------------------------------------
@@ -113,6 +137,8 @@ sig Command {
         c.command_state = NE
         after (c.command_state = NE)
         c not in firstNE[preprocessor_next]
+
+        c.preprocessor_next = c'.preprocessor_next
     }
 
     pred speculatively_execute[c : Command] {

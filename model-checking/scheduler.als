@@ -58,6 +58,9 @@ sig Command {
 
         {(c.command_state) = C} implies always (c.command_state = C)
         {(c.command_state) = CN} implies always (c.command_state = CN)
+
+        // Preprocessor dependencies do not change
+        (preprocessor_next[c] = preprocessor_next'[c])
     }
 
     fun nonCommittedDependencies[c : Command, previous : set (Command -> Command)] : set Command
@@ -76,7 +79,7 @@ sig Command {
         (some nonCommittedDependencies[c, (~preprocessor_next)])
 
         // Preprocessor dependencies do not change
-        c.preprocessor_next = c'.preprocessor_next
+        (preprocessor_next[c] = preprocessor_next'[c])
     }
 
     // NE -> S
@@ -87,8 +90,15 @@ sig Command {
         (no nonCommittedDependencies[c, (~preprocessor_next)])
 
         // Preprocessor dependencies do not change
-        c.preprocessor_next = c'.preprocessor_next
+        (preprocessor_next[c] = preprocessor_next'[c])
     }
+
+    check {
+
+        all c : Command | ((preprocessor_next[c] = preprocessor_next'[c])) implies (preprocessor_next[c] = preprocessor_next'[c])
+    } 
+
+
 
     // S -> NE
     pred trace_executor_found_dependency[c : Command] {
@@ -118,7 +128,7 @@ sig Command {
 
         (no nonCommittedDependencies[c, dependency])
         // Preprocessor dependencies do not change
-        c.preprocessor_next = c'.preprocessor_next
+        (preprocessor_next[c] = preprocessor_next'[c])
     }
 
     // S -> CN
@@ -128,7 +138,7 @@ sig Command {
         (no nonCommittedDependencies[c, dependency])
 
         // Preprocessor dependencies do not change
-        c.preprocessor_next = c'.preprocessor_next
+        (preprocessor_next[c] = preprocessor_next'[c])
     }
 
 ------------------------------------------------------------------------------------------------
@@ -138,7 +148,7 @@ sig Command {
         after (c.command_state = NE)
         c not in firstNE[preprocessor_next]
 
-        c.preprocessor_next = c'.preprocessor_next
+        (preprocessor_next[c] = preprocessor_next'[c])
     }
 
     pred speculatively_execute[c : Command] {
@@ -192,4 +202,10 @@ check { always (scheduler_e2e implies dependency_preservation)} for exactly 4 St
 check {final implies (always final)  } for exactly 4 State , 6 Command
 // This shows that the scheduler terminates, with all Commands committed.
 check  {scheduler_e2e implies (eventually final) } for exactly 4 State , 6 Command
+
+
+
+
+
+check  {scheduler_e2e implies (eventually final) } for exactly 4 State , 3 Command
 

@@ -3,10 +3,8 @@ import subprocess
 
 # This module executes a sequence of commands 
 # and traces them with Riker. 
-# TODO: isolate the execution of the [1:N] commands 
-# with overlay.
+# Commands [1:N] are run inside an overlay sandbox.
 
-## TODO: Modify this function to just run one command
 def async_run_and_trace_command(command, trace_file, sandbox_mode=False):
     ## Call Riker to execute the command
     print(">>", command)
@@ -22,7 +20,6 @@ def async_run_and_trace_command(command, trace_file, sandbox_mode=False):
     return process
 
 def async_run_and_trace_command_in_sandbox(command, trace_file):
-    ## TODO: Run all the following in a sandbox
     process = async_run_and_trace_command(command, trace_file, sandbox_mode=True)
     return process
 

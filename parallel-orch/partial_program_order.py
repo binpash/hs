@@ -1,4 +1,3 @@
-from typing import List, Set, Dict
 import trace
 
 class Node:
@@ -10,13 +9,6 @@ class Node:
     def __str__(self):
         # return f"ID: {self.id}\nCMD: {self.cmd}\nR: {self.read_set}\nW: {self.write_set}"
         return self.cmd
-            
-    def log_simplified(self, logging):
-        logging.debug(f"ID:{self.id}")
-        logging.debug(f"CMD:{self.cmd}")
-        logging.debug(f"R:{[ref_name for ref_name in self.read_set]}")
-        logging.debug(f"W:{[ref_name for ref_name in self.write_set]}")
-        logging.debug(f"C:{self.commited}\n")
 
     def get_cmd(self) -> str:
         return self.cmd

@@ -7,8 +7,6 @@ import logging
 import executor
 import trace
 import util
-from pprint import pprint
-import time
 
 ## TODO: For much later, ignore for now. We can discover W-R dependencies and stream their outputs
 ##       instead of just waiting for execution to complete.
@@ -52,7 +50,7 @@ def cmd_execution_info_simplified(cmd_execution_info):
         cmd.log_simplified()
 
 def log_run_and_workset_info(partial_program_order, reps):
-    logging.debug(f"=" * 20)
+    logging.debug(f"=" * 60)
     logging.debug(f"RUN:{reps}")
     logging.debug(f"WORKSET:{[str(partial_program_order.get_node(node_id)) for node_id in partial_program_order.get_workset()]}")
     logging.debug(f"=" * 60)
@@ -66,16 +64,10 @@ def generate_cmd_to_id(cmd_exec_info):
     return cmd_to_id
 
 def extract_rw_sets_from_traces(partial_program_order, trace_objects: dict):
-    # For each command we get read and write initial sets
-    # For now this works only for reads
-    # Warning! HACK
     for node_id in partial_program_order.get_workset():
         trace_object = trace_objects[node_id]
         rw_set = gather_and_parse_rw(trace_object)
-        print(">>>", rw_set)
-        # pprint(trace_object)
         partial_program_order.update_rw_set(node_id, rw_set)
-    # add_launch_assignments_to_rw_sets(partial_program_order, trace_object)
 
 ## Gather and parse the reads and writes for each command
 def gather_and_parse_rw(trace_object) -> RWSet:
@@ -132,23 +124,8 @@ def execute_workset_and_find_rw_dependencies(partial_program_order: PartialProgr
     ## Warning! HACK: Remove these functions in later iteration
     ##                cmd_execution_info is converted to cmd-based dict (instead of id)
     trace_objects = run_and_trace_workset(partial_program_order)
-    # pprint(trace_objects)
-    # exit()
-    ## TODO: Fix the rest of code to work with a trace dictionary 
-    ##         from command ids to trace objects
-
-    ## HACK: Just to make tests run for now we concatenate all traces into a big trace
-    ##       to just run tests and code as it was.
-    ##       The good thing is that now we have a trace for each cmd_id
-    ##       and therefore we can parse dependencies even easier and better!
-    # trace_object =  []
-    # for cmd_id in sorted(trace_objects.keys()):
-    #     trace_obj = trace_objects[cmd_id]
-    #     trace_object += trace_obj
-
     # Changes are made on the cmd-based structures
     extract_rw_sets_from_traces(partial_program_order, trace_objects)
-
 
 ## NOTE: There are two different types of commits, the sandbox commit,
 ##     which just means execute the command and see its effects,
@@ -232,7 +209,6 @@ if args.debug_level == 1:
     logging.getLogger().setLevel(logging.INFO)
 elif args.debug_level >= 2:
     logging.getLogger().setLevel(logging.DEBUG)
-
 
 if __name__ == "__main__":
     main()

@@ -13,7 +13,7 @@ sig Command {
     var command_state: one State,
 
     -- These are the dependencies predicted by the preprocessor.
-    preprocessor_next : set Command,    
+    var preprocessor_next : set Command,    
     -- These are the real dependencies, that will only be found by the trace executor.
     dependency: set Command
 }
@@ -30,13 +30,45 @@ sig Command {
         }
         no (r & ~r) // anti-symmetric
     }
+    pred preprocWellFormed {
 
+        all c1,c2 : Command | {
+            
+            // Only remove edges which have been there since the beginning [preproc prediciton]
+            // and would violate the partial Order
+            (c1->c2) in (preprocessor_next - preprocessor_next') iff {
+                historically (c1->c2 in preprocessor_next) 
+                not partialOrder[preprocessor_next' + (c1->c2)]
+            }
+
+            // Adding an edge implies :
+            (c1->c2 in preprocessor_next' - preprocessor_next) implies {
+                (c1->c2) in ~dependency //should be a real dependency
+                some c3 : Command | {
+                    run_trace_executor[c3]
+                    // should be added by c2 (backward dependency) or due to transitivity
+                    (c3=c2) or 
+                    {
+                        c3 in c1.^preprocessor_next 
+                        c2 in c3.^preprocessor_next
+                    }
+                }
+            }
+
+            // if you run the trace executor with some non committed dependencies then you should add some edges
+            run_trace_executor[c1] and some (nonCommittedDependencies[c1,dependency]) implies {
+                some (preprocessor_next' - preprocessor_next)
+            }
+
+        }
+        
+    }
     pred wellFormed {
         partialOrder[preprocessor_next]
         partialOrder[~dependency]
 
         //The preprocessor does not have false negs
-       preprocessor_next in ~dependency
+        preprocWellFormed
     }
 
 ------------------------------------------------------------------------------------------------------
@@ -140,6 +172,7 @@ sig Command {
     // Initial state
     pred init {
         all c : Command | c.command_state = NE
+
     }
 
     // Scheduler behavior
@@ -167,3 +200,21 @@ check {final implies (always final)  } for exactly 4 State , 6 Command
 // This shows that the scheduler terminates, with all Commands committed.
 check  {scheduler_e2e implies (eventually final) } for exactly 4 State , 6 Command
 
+// should be SAT
+run  {
+    scheduler_e2e 
+    some dependency
+    no preprocessor_next  
+    } for exactly 4 State , 3 Command
+
+// should be UNSAT 
+run {
+    scheduler_e2e 
+    some dependency
+    some c1 ,c2 : Command {
+         (c1->c2) in preprocessor_next
+         (c1->c2) in ~dependency
+         
+        eventually( not (c1->c2 in preprocessor_next))
+    }
+}  for exactly 4 State , 6 Command

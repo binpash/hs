@@ -79,7 +79,7 @@ sig Command {
         (some nonCommittedDependencies[c, (~preprocessor_next)])
 
         // Preprocessor dependencies do not change
-        (preprocessor_next[c] = preprocessor_next'[c])
+        //(preprocessor_next[c] = preprocessor_next'[c])
     }
 
     // NE -> S
@@ -89,16 +89,8 @@ sig Command {
 
         (no nonCommittedDependencies[c, (~preprocessor_next)])
 
-        // Preprocessor dependencies do not change
-        (preprocessor_next[c] = preprocessor_next'[c])
+        // Preproc dependencies MAY change here!
     }
-
-    check {
-
-        all c : Command | ((preprocessor_next[c] = preprocessor_next'[c])) implies (preprocessor_next[c] = preprocessor_next'[c])
-    } 
-
-
 
     // S -> NE
     pred trace_executor_found_dependency[c : Command] {
@@ -128,7 +120,8 @@ sig Command {
 
         (no nonCommittedDependencies[c, dependency])
         // Preprocessor dependencies do not change
-        (preprocessor_next[c] = preprocessor_next'[c])
+       // (preprocessor_next[c] = preprocessor_next'[c])
+
     }
 
     // S -> CN
@@ -138,7 +131,7 @@ sig Command {
         (no nonCommittedDependencies[c, dependency])
 
         // Preprocessor dependencies do not change
-        (preprocessor_next[c] = preprocessor_next'[c])
+        //(preprocessor_next[c] = preprocessor_next'[c])
     }
 
 ------------------------------------------------------------------------------------------------
@@ -162,6 +155,18 @@ sig Command {
 
     pred validAction[c : Command] {
        awaiting_predecessors[c] or speculatively_execute[c] or run_trace_executor[c] or committed[c]
+
+        // Preprocessor dependencies MAY change here if
+        // some other command had to revise its dependencies.
+        // We constrain transitions by saying something to the effect of if preproc_next[c] changes,
+        // it's because either trace_executor_found_dep[c] OR some other command had trace exec_found_dep
+        (preprocessor_next[c] != preprocessor_next'[c]) implies {
+
+             some x : Command | {
+                 trace_executor_found_dependency[x]
+                 x = c or {x->c in dependency}
+             }
+        }
     }
 ------------------------------------------------------------------------------------------------
 
@@ -208,4 +213,10 @@ check  {scheduler_e2e implies (eventually final) } for exactly 4 State , 6 Comma
 
 
 check  {scheduler_e2e implies (eventually final) } for exactly 4 State , 3 Command
+
+
+run  {
+    scheduler_e2e 
+    some dependency
+    no preprocessor_next  } for exactly 4 State , 3 Command
 

@@ -132,14 +132,14 @@ sig Command {
         c.command_state = S
          after (c.command_state = C )
 
-        (no nonCommittedDependencies[c, dependency])
+        (no nonCommittedDependencies[c, ~preprocessor_next])
     }
 
     // S -> NE
     pred speculated_not_executed[c : Command] {
         c.command_state = S
          after (c.command_state = CN )
-        (no nonCommittedDependencies[c, dependency])
+        (no nonCommittedDependencies[c, ~preprocessor_next])
     }
 
 ------------------------------------------------------------------------------------------------
@@ -196,7 +196,7 @@ pred dependency_preservation {
     all x : Command | committed[x] => always ((no x.^dependency) or committed[x.^dependency])
 }
 //
-check { always (scheduler_e2e implies dependency_preservation)} for exactly 4 State, 3 Command
+check { always (scheduler_e2e implies dependency_preservation)} for exactly 4 State, 6 Command
 //    
 // Once terminated, nothing is scheduled.
 check  {final implies (always final)  } for exactly 4 State , 6 Command
@@ -211,21 +211,20 @@ run  {
     no preprocessor_next  
     } for exactly 4 State , 3 Command
 
-// should be UNSAT 
-run {
-    scheduler_e2e 
-    some dependency
-    some c1 ,c2 : Command {
-         (c1->c2) in preprocessor_next
-         (c1->c2) in ~dependency
-         
-        eventually( not (c1->c2 in preprocessor_next))
-    }
-}  for exactly 4 State , 6 Command
-
-
 run {
     scheduler_e2e
     no dependency
     some preprocessor_next
 } for exactly 4 State , 4 Command
+
+// what should this return?
+// run {
+//     {scheduler_e2e 
+//     some dependency
+//     some c1 ,c2 : Command {
+//          (c1->c2) in preprocessor_next
+//          (c1->c2) in ~dependency
+         
+//         eventually( not (c1->c2 in preprocessor_next))
+//     }} 
+// }  for exactly 4 State , 3 Command

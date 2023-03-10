@@ -179,12 +179,7 @@ class PartialProgramOrder:
             # We look at the transitive closure instead of workset because we want to also check the speculated cmds that are not in the workset
             for second_cmd_id in transitive_closure:
                 # If no anti-dependencies exist, we proceed to check for dependencies
-                ## TODO: Add a clause here that only checks for commands that have finished executing.
-                ##       Maybe we can make RWset to be None if a command hasn't executed yet and not make the check
-                ##        if that is the case. Actually we have to keep track of invalidations continuously, this is very interesting!
-                ## TODO: Start with None for RWSet to allow for sequential execution, to make tests pass, and then think about continuous invalidation.
-                # 1. Don't add the cmd in the workset if it is already there
-                # 2. Don't add the cmd in the workset if it has not 
+                ## TODO:  We need to keep track of invalidations continuously, which is non trivial!
                 if second_cmd_id not in new_workset:
                     ## If it is None, it means that it has not executed at all,
                     ## so we need to add it in the workset
@@ -246,9 +241,7 @@ class PartialProgramOrder:
                 next_non_speculated.append(node_id)
         return next_non_speculated
     
-    ## TODO: This should normally become non-blocking, 
-    ##       and when the command finishes executing it 
-    ##       should send a message to the scheduler socket.
+    ## Run a command and add it to the dictionary of executing ones
     def run_cmd_non_blocking(self, node_id: int):
         ## TODO: A command should only be run if it's in the frontier, otherwise it should be spec run
         assert(self.is_frontier(node_id))

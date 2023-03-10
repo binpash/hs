@@ -6,6 +6,7 @@
 
 ## Find the source code top directory
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
+export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
 
 ## Generate a temporary directory to store the workfiles
 mkdir -p /tmp/pash_spec

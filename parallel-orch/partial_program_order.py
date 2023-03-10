@@ -60,6 +60,8 @@ class PartialProgramOrder:
         self.speculated = set()
         self.rw_sets = {node_id: None for node_id in self.nodes.keys()}
         self.workset = []
+        ## A dictionary from cmd_ids that are currently executing that contains their trace_files
+        self.commands_currently_executing = {}
     
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -247,15 +249,18 @@ class PartialProgramOrder:
     ## TODO: This should normally become non-blocking, 
     ##       and when the command finishes executing it 
     ##       should send a message to the scheduler socket.
-    def run_cmd_blocking(self, node_id: int):
+    def run_cmd_non_blocking(self, node_id: int):
         ## TODO: A command should only be run if it's in the frontier, otherwise it should be spec run
         assert(self.is_frontier(node_id))
         node = self.get_node(node_id)
         cmd = node.get_cmd()
-        print("Running command:", node_id, self.get_node(node_id))
-        proc, trace_file = executor.async_run_and_trace_command_return_trace(cmd)
-        proc.wait()
-        print("Read trace from:", trace_file)
+        logging.debug(f'Running command: {node_id} {self.get_node(node_id)}')
+        _proc, trace_file = executor.async_run_and_trace_command_return_trace(cmd, node_id)
+        logging.debug(f'Read trace from: {trace_file}')
+        self.commands_currently_executing[node_id] = trace_file
+
+    def command_execution_completed(self, node_id: int):
+        trace_file = self.commands_currently_executing.pop(node_id)
         trace_object = executor.read_trace(trace_file)
         # print(trace_object)
         read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
@@ -272,12 +277,12 @@ class PartialProgramOrder:
             logging.debug(f"Write: {rw_set.get_write_set()}")
 
     def log_partial_program_order_info(self):
-        print(f"=" * 60)
-        print(f"WORKSET:{self.get_workset()}")
-        print(f"COMMITTED:{self.get_committed()}")
-        print(f"FRONTIER:{self.get_frontier()}")
-        print(f"SPECULATED:{self.get_speculated()}")
-        print(f"=" * 60)
+        logging.debug(f"=" * 60)
+        logging.debug(f"WORKSET:{self.get_workset()}")
+        logging.debug(f"COMMITTED:{self.get_committed()}")
+        logging.debug(f"FRONTIER:{self.get_frontier()}")
+        logging.debug(f"SPECULATED:{self.get_speculated()}")
+        logging.debug(f"=" * 60)
 
 def parse_cmd_from_file(file_path: str) -> str:
     with open(file_path) as f:

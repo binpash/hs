@@ -88,18 +88,44 @@ class Scheduler:
         node_id = int(input_cmd.split(":")[1].rstrip())
         logging.debug(f'Scheduler: Received wait for node_id: {node_id}')
         
+        ## If the node_id is already committed, just return its exit code
+        # if node_id in self.partial_program_order.get_committed():
+
         ## TODO: If the node_id is already committed, just return its exit code
         ##       Else, add this wait to self.waiting_for_response
 
-        self.partial_program_order.run_cmd_blocking(node_id)
+        ## Command has not executed yet, so we need to wait for it
+        self.waiting_for_response[node_id] = connection
 
+        self.partial_program_order.run_cmd_non_blocking(node_id)
+
+
+    def __parse_command_exec_complete(self, input_cmd: str) -> "tuple[int, int]":
+        try:
+            components = input_cmd.rstrip().split("|")
+            command_id = int(components[0].split(":")[1])
+            exit_code = int(components[1].split(":")[1])
+            return command_id, exit_code
+        except:
+            raise Exception(f'Parsing failure for line: {input_cmd}')
+
+    def handle_command_exec_complete(self, input_cmd: str):
+        assert(input_cmd.startswith("CommandExecComplete:"))
+        logging.debug(f'Command exec complete: {input_cmd}')
+
+        ## Read the node id from the command argument 
+        cmd_id, exit_code = self.__parse_command_exec_complete(input_cmd)
+
+        ## Gather RWset, resolve dependencies, and progress graph
+        self.partial_program_order.command_execution_completed(cmd_id)
+        
         self.partial_program_order.log_partial_program_order_info()
-
-        exit_code = "0"
-        socket_respond(connection, success_response(exit_code))
-
-        ## TODO: Normally we don't always want to close the connection
-        connection.close()
+        
+        ## If there is a connection waiting for this node_id, respond to it
+        if cmd_id in self.waiting_for_response:
+            connection = self.waiting_for_response.pop(cmd_id)
+            socket_respond(connection, success_response(exit_code))
+            connection.close()
 
     def process_next_cmd(self):
         connection, input_cmd = socket_get_next_cmd(self.socket)
@@ -117,10 +143,7 @@ class Scheduler:
             ## The runner should have already parsed RWsets and serialized them to
             ## a file.
             connection.close()
-            ## TODO: Read the node id from the command argument and the RWSets from file and 
-            ## TODO: Progress the graph as much as possible,
-            ##       i.e., resolve dependencies and see if we can move commands from frontier to committed etc
-            ## TODO: If there is a connection waiting for this node_id, respond to it
+            self.handle_command_exec_complete(input_cmd)
         elif (input_cmd.startswith("Wait")):
             self.handle_wait(input_cmd, connection)
         elif (input_cmd.startswith("Done")):
@@ -184,10 +207,8 @@ def shutdown():
 def main():
     args = init()
 
-    unix_socket_file = os.getenv("PASH_SPEC_SCHEDULER_SOCKET")
-
     # print(unix_socket_file)
-    scheduler = Scheduler(unix_socket_file)
+    scheduler = Scheduler(config.SCHEDULER_SOCKET)
     scheduler.run()
    
 

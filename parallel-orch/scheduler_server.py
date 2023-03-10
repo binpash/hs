@@ -80,6 +80,22 @@ class Scheduler:
         logging.debug(f'Parsed partial program order:')
         self.partial_program_order.log_partial_program_order_info()
 
+    def handle_wait(self, input_cmd: str, connection):
+        assert(input_cmd.startswith("Wait"))
+        ## We have received this message by the JIT, which waits for a node_id to
+        ## finish execution.
+        node_id = int(input_cmd.split(":")[1].rstrip())
+        logging.debug(f'Scheduler: Received wait for node_id: {node_id}')
+        
+        ## TODO: If the node_id is already committed, just return its exit code
+        ##       Else, add this wait to self.waiting_for_response
+
+        exit_code = "0"
+        socket_respond(connection, success_response(exit_code))
+
+        ## TODO: Normally we don't always want to close the connection
+        connection.close()
+
     def process_next_cmd(self):
         connection, input_cmd = socket_get_next_cmd(self.socket)
 
@@ -101,14 +117,7 @@ class Scheduler:
             ##       i.e., resolve dependencies and see if we can move commands from frontier to committed etc
             ## TODO: If there is a connection waiting for this node_id, respond to it
         elif (input_cmd.startswith("Wait")):
-            ## We have received this message by the JIT, which waits for a node_id to
-            ## finish execution.
-            ##
-            ## TODO: If the node_id is already committed, just return its exit code
-            ##       Else, add this wait to self.waiting_for_response
-
-            response_message = "TODO"
-            socket_respond(connection, success_response(response_message))
+            self.handle_wait(input_cmd, connection)
         elif (input_cmd.startswith("Done")):
             ## TODO: Make sure everything is done here too (assert that the graph is fully committed)
             ##

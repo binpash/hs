@@ -171,14 +171,7 @@ class Scheduler:
     ## It should add some work (if possible), and then return immediately.
     ## It is called once per loop iteration, making sure that there is always work happening
     def schedule_work(self):
-        self.partial_program_order.run_all_frontier_cmds()
-        ## TODO: Use the partial order object to pick a few commands (for start let's do all)
-        ##       and run them using the scheduler.
-        ##
-        ## TODO: When scheduling commands, run them with subprocess.run and make sure that at the end
-        ##       they will try to connect to our scheduler socket $PASH_SPEC_SCHEDULER_SOCKET to let us
-        ##       know that they are done.
-        pass
+        self.partial_program_order.schedule_work()
 
     def run(self):
         ## The first command should be the daemon start

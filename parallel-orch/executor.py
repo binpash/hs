@@ -11,6 +11,10 @@ def async_run_and_trace_command_return_trace(command, node_id, sandbox_mode=Fals
     process = async_run_and_trace_command(command, trace_file, node_id, sandbox_mode)
     return process, trace_file
 
+def async_run_and_trace_command_return_trace_in_sandbox(command, node_id):
+    process, trace_file = async_run_and_trace_command_return_trace(command, node_id, sandbox_mode=True)
+    return process, trace_file
+
 def async_run_and_trace_command(command, trace_file, node_id, sandbox_mode=False):
     ## Call Riker to execute the command
     run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command.sh'

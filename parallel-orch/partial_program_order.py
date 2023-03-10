@@ -184,8 +184,13 @@ class PartialProgramOrder:
                     ## If it is None, it means that it has not executed at all,
                     ## so we need to add it in the workset
                     if self.get_rw_set(second_cmd_id) is None:
+                        ## TODO: Check if this could lead to overwork
+                        logging.debug(f'Command: {second_cmd_id} was added to the workset, because it was never executed before')
                         new_workset.append(second_cmd_id)
                     elif self.has_backward_dependency(first_cmd_id, second_cmd_id) or self.has_write_dependency(first_cmd_id, second_cmd_id) or self.has_forward_dependency(first_cmd_id, second_cmd_id):
+                        ## TODO: make the logging more precise, what type of dependency
+                        ## TODO: Check for overwork
+                        logging.debug(f'Command: {second_cmd_id} was added to the workset, due to a dependency')
                         new_workset.append(second_cmd_id)                    
         # Set the new speculated set
         
@@ -193,7 +198,7 @@ class PartialProgramOrder:
         self.speculated = {cmd_id for cmd_id in self.workset if cmd_id not in new_workset and cmd_id not in self.frontier}
         # Set the new workset
         self.workset = new_workset
-        self.step_forward(old_speculated)
+        self.step_forward(old_speculated)        
 
     def has_forward_dependency(self, first_id, second_id):
         first_write_set = set(self.rw_sets[first_id].get_write_set())
@@ -241,6 +246,25 @@ class PartialProgramOrder:
                 next_non_speculated.append(node_id)
         return next_non_speculated
     
+    ## TODO: Eventually, in the future, let's add here some form of limit
+    def schedule_work(self, limit=0):
+        self.run_all_frontier_cmds()
+        self.schedule_all_workset_non_frontier_cmds()
+        ## TODO: Use the partial order object to pick a few commands (for start let's do all)
+        ##       and run them using the scheduler.
+        ##
+        ## TODO: When scheduling commands, run them with subprocess.run and make sure that at the end
+        ##       they will try to connect to our scheduler socket $PASH_SPEC_SCHEDULER_SOCKET to let us
+        ##       know that they are done.
+        pass
+
+    def schedule_all_workset_non_frontier_cmds(self):
+        non_frontier_ids = [node_id for node_id in self.get_workset() 
+                            if not self.is_frontier(node_id)]
+        for cmd_id in non_frontier_ids:
+            if not cmd_id in self.commands_currently_executing:
+                self.speculate_cmd_non_blocking(cmd_id)
+
     def run_all_frontier_cmds(self):
         logging.debug("Starting execution on the whole frontier")
         cmd_ids = self.get_frontier()
@@ -250,12 +274,21 @@ class PartialProgramOrder:
 
     ## Run a command and add it to the dictionary of executing ones
     def run_cmd_non_blocking(self, node_id: int):
-        ## TODO: A command should only be run if it's in the frontier, otherwise it should be spec run
+        ## A command should only be run if it's in the frontier, otherwise it should be spec run
         assert(self.is_frontier(node_id))
         node = self.get_node(node_id)
         cmd = node.get_cmd()
         logging.debug(f'Running command: {node_id} {self.get_node(node_id)}')
         proc, trace_file = executor.async_run_and_trace_command_return_trace(cmd, node_id)
+        logging.debug(f'Read trace from: {trace_file}')
+        self.commands_currently_executing[node_id] = (proc, trace_file)
+
+    ## Run a command and add it to the dictionary of executing ones
+    def speculate_cmd_non_blocking(self, node_id: int):
+        node = self.get_node(node_id)
+        cmd = node.get_cmd()
+        logging.debug(f'Speculating command: {node_id} {self.get_node(node_id)}')
+        proc, trace_file = executor.async_run_and_trace_command_return_trace_in_sandbox(cmd, node_id)
         logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file)
 
@@ -266,6 +299,8 @@ class PartialProgramOrder:
         read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
         rw_set = RWSet(read_set, write_set)
         self.update_rw_set(node_id, rw_set)
+
+        ## TODO: Maybe we can just resolve dependencies of a single command and not the whole workset.
         self.resolve_dependencies()
 
 

@@ -1,3 +1,6 @@
+import logging
+
+import executor
 import trace
 
 class Node:
@@ -9,6 +12,10 @@ class Node:
     def __str__(self):
         # return f"ID: {self.id}\nCMD: {self.cmd}\nR: {self.read_set}\nW: {self.write_set}"
         return self.cmd
+
+    def __repr__(self):
+        # return f"ID: {self.id}\nCMD: {self.cmd}\nR: {self.read_set}\nW: {self.write_set}"
+        return f'N({self.cmd})'
 
     def get_cmd(self) -> str:
         return self.cmd
@@ -51,8 +58,10 @@ class PartialProgramOrder:
         ## Nodes that are in the frontier can only move to committed
         self.frontier = self.get_source_nodes()
         self.speculated = set()
-        self.rw_sets = {node_id: RWSet([], []) for node_id in self.nodes.keys()}
+        self.rw_sets = {node_id: None for node_id in self.nodes.keys()}
         self.workset = []
+        ## A dictionary from cmd_ids that are currently executing that contains their trace_files
+        self.commands_currently_executing = {}
     
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -66,7 +75,11 @@ class PartialProgramOrder:
 
     def init_workset(self):
         self.workset = self.get_all_non_committed()
-    
+
+    ## Check if the partial order is done
+    def is_completed(self) -> bool:
+        return len(self.get_all_non_committed()) == 0
+
     def get_workset(self) -> list:
         return self.workset
     
@@ -166,10 +179,14 @@ class PartialProgramOrder:
             # We look at the transitive closure instead of workset because we want to also check the speculated cmds that are not in the workset
             for second_cmd_id in transitive_closure:
                 # If no anti-dependencies exist, we proceed to check for dependencies
-                if second_cmd_id not in new_workset and (self.has_backward_dependency(first_cmd_id, second_cmd_id) or self.has_write_dependency(first_cmd_id, second_cmd_id) or self.has_forward_dependency(first_cmd_id, second_cmd_id)):
-                    new_workset.append(second_cmd_id)
-                else:
-                    pass
+                ## TODO:  We need to keep track of invalidations continuously, which is non trivial!
+                if second_cmd_id not in new_workset:
+                    ## If it is None, it means that it has not executed at all,
+                    ## so we need to add it in the workset
+                    if self.get_rw_set(second_cmd_id) is None:
+                        new_workset.append(second_cmd_id)
+                    elif self.has_backward_dependency(first_cmd_id, second_cmd_id) or self.has_write_dependency(first_cmd_id, second_cmd_id) or self.has_forward_dependency(first_cmd_id, second_cmd_id):
+                        new_workset.append(second_cmd_id)                    
         # Set the new speculated set
         
         old_speculated = self.speculated.copy()
@@ -212,17 +229,38 @@ class PartialProgramOrder:
         self.frontier = new_frontier
 
     def get_next_non_speculated(self, start, old_speculated: set):
-        workset = self.get_next(start)
+        traversal_workset = self.get_next(start)
         next_non_speculated = []
-        while len(workset) > 0:
-            node_id = workset.pop()
+        while len(traversal_workset) > 0:
+            node_id = traversal_workset.pop()
             if node_id in old_speculated.union(self.speculated):
                 self.speculated.discard(node_id)
                 self.committed.add(node_id)
-                workset.extend(self.get_next(node_id))
+                traversal_workset.extend(self.get_next(node_id))
             else:
                 next_non_speculated.append(node_id)
         return next_non_speculated
+    
+    ## Run a command and add it to the dictionary of executing ones
+    def run_cmd_non_blocking(self, node_id: int):
+        ## TODO: A command should only be run if it's in the frontier, otherwise it should be spec run
+        assert(self.is_frontier(node_id))
+        node = self.get_node(node_id)
+        cmd = node.get_cmd()
+        logging.debug(f'Running command: {node_id} {self.get_node(node_id)}')
+        _proc, trace_file = executor.async_run_and_trace_command_return_trace(cmd, node_id)
+        logging.debug(f'Read trace from: {trace_file}')
+        self.commands_currently_executing[node_id] = trace_file
+
+    def command_execution_completed(self, node_id: int):
+        trace_file = self.commands_currently_executing.pop(node_id)
+        trace_object = executor.read_trace(trace_file)
+        # print(trace_object)
+        read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
+        rw_set = RWSet(read_set, write_set)
+        self.update_rw_set(node_id, rw_set)
+        self.resolve_dependencies()
+
 
     def log_rw_sets(self, logging):
         logging.debug("====== |RW Sets| ======")
@@ -232,9 +270,55 @@ class PartialProgramOrder:
             logging.debug(f"Write: {rw_set.get_write_set()}")
 
     def log_partial_program_order_info(self):
-        print(f"=" * 60)
-        print(f"WORKSET:{self.get_workset()}")
-        print(f"COMMITTED:{self.get_committed()}")
-        print(f"FRONTIER:{self.get_frontier()}")
-        print(f"SPECULATED:{self.get_speculated()}")
-        print(f"=" * 60)
+        logging.debug(f"=" * 60)
+        logging.debug(f"WORKSET:{self.get_workset()}")
+        logging.debug(f"COMMITTED:{self.get_committed()}")
+        logging.debug(f"FRONTIER:{self.get_frontier()}")
+        logging.debug(f"SPECULATED:{self.get_speculated()}")
+        logging.debug(f"=" * 60)
+
+def parse_cmd_from_file(file_path: str) -> str:
+    with open(file_path) as f:
+        cmd = f.read()
+    return cmd
+
+def parse_edge_line(line: str) -> "tuple[int, int]":
+    from_str, to_str = line.split(" -> ")
+    return (int(from_str), int(to_str))
+    
+
+def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder:
+    with open(file_path) as f:
+        raw_lines = f.readlines()
+    
+    ## Filter comments and remove new lines
+    lines = [line.rstrip() for line in raw_lines
+             if not line.startswith("#")]
+
+    ## The first line is the directory in which cmd_files are
+    cmds_directory = str(lines[0])
+    logging.debug(f'Cmds are stored in: {cmds_directory}')
+
+    ## The last line is the number of nodes
+    number_of_nodes = int(lines[-1])
+    logging.debug(f'Number of po cmds: {number_of_nodes}')
+
+    ## The rest of the lines are edge_lines
+    edge_lines = lines[1:-1]
+    logging.debug(f'Edges: {edge_lines}')
+
+    nodes = {}
+    for i in range(number_of_nodes):
+        file_path = f'{cmds_directory}/{i}'
+        cmd = parse_cmd_from_file(file_path)
+        nodes[i] = Node(i, cmd)
+
+    # print(nodes)
+
+    edges = {i : [] for i in range(number_of_nodes)}
+    for edge_line in edge_lines:
+        from_id, to_id = parse_edge_line(edge_line)
+        # print("Edge:", from_id, to_id)
+        edges[from_id].append(to_id)
+    
+    return PartialProgramOrder(nodes, edges)

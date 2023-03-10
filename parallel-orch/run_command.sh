@@ -4,6 +4,9 @@
 export CMD_STRING=${1?No command was given to execute}
 export TRACE_FILE=${2?No trace file path given}
 export EXEC_MODE=${3?No execution mode given}
+export CMD_ID=${4?No command id given}
+
+source "$PASH_TOP/compiler/orchestrator_runtime/speculative/pash_spec_init_setup.sh"
 
 if [ "sandbox" == "$EXEC_MODE" ]; then
     export sandbox_flag=1
@@ -23,4 +26,11 @@ else
     "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute_in_overlay.sh"
 fi
 
+## Send a message to the scheduler socket
+## Assumes "${PASH_SPEC_SCHEDULER_SOCKET}" is set and exported
+
+## TODO: Pass the proper exit code
+exit_code=0
+msg="CommandExecComplete:${CMD_ID}|Exit code:${exit_code}"
+daemon_response=$(pash_spec_communicate_scheduler_just_send "$msg") # Blocking step, daemon will not send response until it's safe to continue
 

@@ -2,6 +2,19 @@
 
 A dynamic parallelizer that optimistically/speculatively executes everything in a script in parallel and ensures that it executes correctly by tracing it and reexecuting the parts that were erroneous.
 
+## Installing
+
+```sh
+./scripts/install_deps_ubuntu20.sh
+```
+
+## Tests
+
+To run the tests:
+```sh
+cd test
+./test_orch.sh
+```
 
 ### TODO Items
 

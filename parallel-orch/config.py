@@ -16,3 +16,7 @@ else:
 ## Ensure that PASH_TMP_PREFIX is set by pa.sh
 assert(not os.getenv('PASH_SPEC_TMP_PREFIX') is None)
 PASH_SPEC_TMP_PREFIX = os.getenv('PASH_SPEC_TMP_PREFIX')
+
+SOCKET_BUF_SIZE = 8192
+
+SCHEDULER_SOCKET = os.getenv("PASH_SPEC_SCHEDULER_SOCKET")

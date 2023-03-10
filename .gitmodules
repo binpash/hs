@@ -2,3 +2,6 @@
 	path = deps/riker
 	url = https://github.com/angelhof/riker.git
 	branch = dyn-par-investigation
+[submodule "deps/pash"]
+	path = deps/pash
+	url = https://github.com/binpash/pash.git

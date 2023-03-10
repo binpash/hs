@@ -13,8 +13,9 @@ fi
 
 export pash_spec_dir=$(git rev-parse --show-toplevel --show-superproject-working-tree)
 
+excludes="--exclude .git/modules/deps --exclude *.tar.gz"
 ## Upload the whole directory to a cloudlab machine
-rsync --rsh="ssh -p 22 ${key_flag}" --progress -p -r "${pash_spec_dir}" "${user}@${ip}:/users/${user}"
+rsync --rsh="ssh -p 22 ${key_flag}" --progress ${excludes} -p -r "${pash_spec_dir}" "${user}@${ip}:/users/${user}"
     
 
 

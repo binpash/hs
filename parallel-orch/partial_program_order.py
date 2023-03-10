@@ -177,6 +177,10 @@ class PartialProgramOrder:
             # We look at the transitive closure instead of workset because we want to also check the speculated cmds that are not in the workset
             for second_cmd_id in transitive_closure:
                 # If no anti-dependencies exist, we proceed to check for dependencies
+                ## TODO: Add a clause here that only checks for commands that have finished executing.
+                ##       Maybe we can make RWset to be None if a command hasn't executed yet and not make the check
+                ##        if that is the case. Actually we have to keep track of invalidations continuously, this is very interesting!
+                ## TODO: Start with None for RWSet to allow for sequential execution, to make tests pass, and then think about continuous invalidation.
                 if second_cmd_id not in new_workset and (self.has_backward_dependency(first_cmd_id, second_cmd_id) or self.has_write_dependency(first_cmd_id, second_cmd_id) or self.has_forward_dependency(first_cmd_id, second_cmd_id)):
                     new_workset.append(second_cmd_id)
                 else:

@@ -5,11 +5,13 @@ import os
 import signal
 
 from util import *
+from partial_program_order import parse_partial_program_order_from_file
 
 ##
 ## A scheduler server
 ##
 
+## TODO: Figure out how logging here plays out together with the log() in PaSh
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(message)s")
 
 
@@ -35,6 +37,7 @@ def parse_args():
 
 
     return args
+
 
 def init():
     args = parse_args()
@@ -67,17 +70,27 @@ class Scheduler:
         self.socket = init_unix_socket(socket_file)
         ## A map containing connections for node_ids that are waiting for a response
         self.waiting_for_response = {}
+        self.partial_program_order = None
 
+    def handle_init(self, input_cmd: str):
+        assert(input_cmd.startswith("Init"))
+        partial_order_file = input_cmd.split(":")[1].rstrip()
+        logging.debug(f'Scheduler: Received partial_order_file: {partial_order_file}')
+        self.partial_program_order = parse_partial_program_order_from_file(partial_order_file)
+        logging.debug(f'Parsed partial program order:')
+        self.partial_program_order.log_partial_program_order_info()
 
     def process_next_cmd(self):
         connection, input_cmd = socket_get_next_cmd(self.socket)
 
         if(input_cmd.startswith("Init")):
             connection.close()
+            self.handle_init(input_cmd)
             ## TODO: Read the partial order from the given file  
         elif (input_cmd.startswith("Daemon Start") or input_cmd == ""):
-            ## This happens when pa.sh first connects to daemon to see if it is on
             connection.close()
+            ## This happens when pa.sh first connects to daemon to see if it is on
+            logging.debug(f'PaSh made first contact with scheduler server.')
         elif (input_cmd.startswith("CommandExecComplete:")):
             ## We have received this message from an a runner (tracer +isolation)
             ## The runner should have already parsed RWsets and serialized them to
@@ -101,6 +114,7 @@ class Scheduler:
             ##
             ## We send output to the top level pash process
             ## to signify that we are done.
+            logging.debug(f'Scheduler server received shutdown message.')
             socket_respond(connection, success_response("All finished!"))
             self.done = True
         else:
@@ -153,7 +167,7 @@ def main():
 
     unix_socket_file = os.getenv("PASH_SPEC_SCHEDULER_SOCKET")
 
-    print(unix_socket_file)
+    # print(unix_socket_file)
     scheduler = Scheduler(unix_socket_file)
     scheduler.run()
    

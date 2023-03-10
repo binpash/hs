@@ -1,3 +1,4 @@
+import logging
 import trace
 
 class Node:
@@ -9,6 +10,10 @@ class Node:
     def __str__(self):
         # return f"ID: {self.id}\nCMD: {self.cmd}\nR: {self.read_set}\nW: {self.write_set}"
         return self.cmd
+
+    def __repr__(self):
+        # return f"ID: {self.id}\nCMD: {self.cmd}\nR: {self.read_set}\nW: {self.write_set}"
+        return f'N({self.cmd})'
 
     def get_cmd(self) -> str:
         return self.cmd
@@ -238,3 +243,49 @@ class PartialProgramOrder:
         print(f"FRONTIER:{self.get_frontier()}")
         print(f"SPECULATED:{self.get_speculated()}")
         print(f"=" * 60)
+
+def parse_cmd_from_file(file_path: str) -> str:
+    with open(file_path) as f:
+        cmd = f.read()
+    return cmd
+
+def parse_edge_line(line: str) -> "tuple[int, int]":
+    from_str, to_str = line.split(" -> ")
+    return (int(from_str), int(to_str))
+    
+
+def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder:
+    with open(file_path) as f:
+        raw_lines = f.readlines()
+    
+    ## Filter comments and remove new lines
+    lines = [line.rstrip() for line in raw_lines
+             if not line.startswith("#")]
+
+    ## The first line is the directory in which cmd_files are
+    cmds_directory = str(lines[0])
+    logging.debug(f'Cmds are stored in: {cmds_directory}')
+
+    ## The last line is the number of nodes
+    number_of_nodes = int(lines[-1])
+    logging.debug(f'Number of po cmds: {number_of_nodes}')
+
+    ## The rest of the lines are edge_lines
+    edge_lines = lines[1:-1]
+    logging.debug(f'Edges: {edge_lines}')
+
+    nodes = {}
+    for i in range(number_of_nodes):
+        file_path = f'{cmds_directory}/{i}'
+        cmd = parse_cmd_from_file(file_path)
+        nodes[i] = Node(i, cmd)
+
+    # print(nodes)
+
+    edges = {i : [] for i in range(number_of_nodes)}
+    for edge_line in edge_lines:
+        from_id, to_id = parse_edge_line(edge_line)
+        # print("Edge:", from_id, to_id)
+        edges[from_id].append(to_id)
+    
+    return PartialProgramOrder(nodes, edges)

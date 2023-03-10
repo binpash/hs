@@ -7,3 +7,6 @@ sudo update-alternatives --install /usr/bin/cram cram /usr/bin/cram3 100
 
 ## Install Riker
 (git submodule update --init --recursive; cd deps/riker; make; sudo make install)
+
+## Install PaSh
+(git submodule update --init --recursive; cd deps/pash; ./scripts/distro-deps.sh; ./scripts/setup-pash.sh)

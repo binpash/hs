@@ -5,8 +5,6 @@ echo $CMD_STRING > ./Rikerfile
 
 ## Call Riker to execute the command
 # rkr --debug --log all --show
-echo "------"
-cat Rikerfile
 rkr --show
 ## TODO: Run with gdb for debugging
 ## ```sh

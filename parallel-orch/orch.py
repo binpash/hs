@@ -8,9 +8,6 @@ import executor
 import trace
 import util
 
-## TODO: For much later, ignore for now. We can discover W-R dependencies and stream their outputs
-##       instead of just waiting for execution to complete.
-
 # TODO: Currently cmd_execution_info does not create correct r/w sets for
 #       commands with same first part but different redir.
 #       Trace file also ignores redir.
@@ -63,15 +60,6 @@ def log_run_and_workset_info(partial_program_order, reps):
     logging.debug(f"SPECULATED:{partial_program_order.get_speculated()}")
     logging.debug(f"=" * 60)
 
-
-## cmd_to_id is a dictionary that maps full commands to their ids.
-## command : id
-def generate_cmd_to_id(cmd_exec_info):
-    cmd_to_id = {}
-    for cmd in cmd_exec_info.values():
-        cmd_to_id[cmd.cmd] = cmd.id
-    return cmd_to_id
-
 def extract_rw_sets_from_traces(partial_program_order, trace_objects: dict):
     for node_id in partial_program_order.get_workset():
         trace_object = trace_objects[node_id]
@@ -84,9 +72,6 @@ def gather_and_parse_rw(trace_object) -> RWSet:
     read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
     return RWSet(read_set, write_set)
 
-## FIXME: Read sets are not generated correctly for nested reads.
-##        Find a way to do that correctly.
-##        Solution can also apply to non-nested command reads
 def add_launch_assignments_to_rw_sets(partial_program_order, trace_object):
     open_refs = {}
     for line in trace_object:
@@ -110,28 +95,15 @@ def add_launch_assignments_to_rw_sets(partial_program_order, trace_object):
                     if rhs in open_refs[command_prefix]:
                         path_ref = open_refs[command_prefix][rhs]
                         if trace.is_path_ref_read(path_ref):
-                            # cmd_execution_info[launch_name].add_to_read_set(trace.get_path_ref_name(path_ref))
                             # TODO: HACK normally we should never find an id from a command name,
                             # and we should trace based on cmd_id
                             node_id = partial_program_order.get_node_id_from_cmd_no_redir(launch_name)
                             partial_program_order.add_to_read_set(node_id, trace.get_path_ref_name(path_ref))
                         if trace.is_path_ref_write(path_ref):
-                            # cmd_execution_info[launch_name].add_to_write_set(trace.get_path_ref_name(path_ref))
                             node_id = partial_program_order.get_node_id_from_cmd_no_redir(launch_name)
                             partial_program_order.add_to_write_set(node_id, trace.get_path_ref_name(path_ref))
 
-def workset_cmds_to_list(cmd_execution_info):
-    cmds_to_run = []
-    for cmd in cmd_execution_info.values():
-        cmds_to_run.append(cmd.cmd)
-    return cmds_to_run
-
-def convert_cmd_exec_info_cmd_based_to_id_based_dict(cmd_execution_info_cmd_based_key):
-    return {cmd_obj.id: cmd_obj for cmd_obj in cmd_execution_info_cmd_based_key.values()}
-
 def execute_workset_and_find_rw_dependencies(partial_program_order: PartialProgramOrder):
-    ## Warning! HACK: Remove these functions in later iteration
-    ##                cmd_execution_info is converted to cmd-based dict (instead of id)
     trace_objects = run_and_trace_workset(partial_program_order)
     # Changes are made on the cmd-based structures
     extract_rw_sets_from_traces(partial_program_order, trace_objects)
@@ -190,9 +162,8 @@ def scheduling_algorithm(partial_program_order):
     partial_program_order.init_workset()
     # Count tracing cycles
     reps = 1
-    ## TODO: This will change when we actually hook up with riker
     while len(partial_program_order.get_workset()) > 0:
-        ## In every loop iteration we are guaranteed to decrease the workset by 1, 
+        ## In every loop iteration we are guaranteed to decrease the workset at least by 1, 
         ## since the first command will not need to re-execute 
         execute_workset_and_find_rw_dependencies(partial_program_order)
         partial_program_order.log_rw_sets(logging)

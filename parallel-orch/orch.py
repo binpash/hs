@@ -17,6 +17,11 @@ import util
 #       Maybe convert cmd_execution_info to multiple value dictionary 
 #       and also keep ref number for each command
 
+def log_partial_program_order_graph(partial_program_order):
+    logging.debug(f"=" * 18 + "|PARTIAL PROGRAM ORDER|" + "=" * 19)
+    logging.debug(f"{partial_program_order}")
+    logging.debug(f"=" * 60)
+
 def parse_args(args=sys.argv[1:]):
     parser = ArgumentParser(description='Dynamic parallelizer scheduler')
     parser.add_argument("input_file", 
@@ -52,8 +57,12 @@ def cmd_execution_info_simplified(cmd_execution_info):
 def log_run_and_workset_info(partial_program_order, reps):
     logging.debug(f"=" * 60)
     logging.debug(f"RUN:{reps}")
-    logging.debug(f"WORKSET:{[str(partial_program_order.get_node(node_id)) for node_id in partial_program_order.get_workset()]}")
+    logging.debug(f"WORKSET:{partial_program_order.get_workset()}")
+    logging.debug(f"COMMITTED:{partial_program_order.get_committed()}")
+    logging.debug(f"FRONTIER:{partial_program_order.get_frontier()}")
+    logging.debug(f"SPECULATED:{partial_program_order.get_speculated()}")
     logging.debug(f"=" * 60)
+
 
 ## cmd_to_id is a dictionary that maps full commands to their ids.
 ## command : id
@@ -139,12 +148,13 @@ def run_and_trace_workset(partial_program_order: PartialProgramOrder):
     # We are only working with sequences of commands
     # TODO: In a future iteration, remove this assumption
     assert(len(frontier_cmds) == 1)
+    
     first_cmd_id = frontier_ids[0]
     first_cmd = frontier_cmds[0]
 
     ## Launch all commands to run and be traced
     first_command_trace_file = util.ptempfile()
-    print("First command:", first_cmd, "trace will be saved in:", first_command_trace_file)
+    logging.debug("First command:", first_cmd, "trace will be saved in:", first_command_trace_file)
     process = executor.async_run_and_trace_command(first_cmd, first_command_trace_file)
     cmd_procs_and_trace_files[first_cmd_id] = (process, first_command_trace_file)
 
@@ -154,7 +164,7 @@ def run_and_trace_workset(partial_program_order: PartialProgramOrder):
     for cmd_id in non_frontier_ids:
         cmd = partial_program_order.get_node(cmd_id).get_cmd()
         trace_file = util.ptempfile()
-        print("Command:", cmd, "trace will be saved in:", trace_file)
+        logging.debug("Command:", cmd, "trace will be saved in:", trace_file)
         process = executor.async_run_and_trace_command_in_sandbox(cmd, trace_file)
         cmd_procs_and_trace_files[cmd_id] = (process, trace_file)
         
@@ -182,21 +192,19 @@ def scheduling_algorithm(partial_program_order):
     reps = 1
     ## TODO: This will change when we actually hook up with riker
     while len(partial_program_order.get_workset()) > 0:
-        log_run_and_workset_info(partial_program_order, reps)
         ## In every loop iteration we are guaranteed to decrease the workset by 1, 
         ## since the first command will not need to re-execute 
         execute_workset_and_find_rw_dependencies(partial_program_order)
         partial_program_order.log_rw_sets(logging)
         # Check dependencies and anti-dependencies and update speculated commands accordingly
         partial_program_order.resolve_dependencies()
-        # Create new frontier and workset
-        partial_program_order.step_forward()
         reps += 1
+        log_run_and_workset_info(partial_program_order, reps)
 
 def main():
     cmds_to_run = parse_input(args.input_file)
     partial_program_order = generate_partial_program_order(cmds_to_run)
-    print(partial_program_order)
+    log_partial_program_order_graph(partial_program_order)
     scheduling_algorithm(partial_program_order)
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(message)s")

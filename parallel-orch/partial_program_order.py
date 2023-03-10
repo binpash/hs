@@ -36,7 +36,7 @@ class RWSet:
         return self.write_set
 
     def __str__(self):
-        return f"RW(R:{self.get_read_set()}, W:{self.get_write_set()}"
+        return f"RW(R:{self.get_read_set()}, W:{self.get_write_set()})"
 
 
 class PartialProgramOrder:
@@ -55,7 +55,7 @@ class PartialProgramOrder:
         self.workset = []
     
     def __str__(self):
-        return f"Nodes: {len(self.nodes.keys())}\nEdges: {self.adjacency}"
+        return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
 
     def get_source_nodes(self) -> list:
         sources = set()
@@ -69,6 +69,15 @@ class PartialProgramOrder:
     
     def get_workset(self) -> list:
         return self.workset
+    
+    def get_committed(self) -> list:
+        return sorted(list(self.committed))
+
+    def get_frontier(self) -> list:
+        return sorted(list(self.frontier))
+
+    def get_speculated(self) -> set:
+        return sorted(list(self.speculated))
 
     def init_inverse_adjacency(self):
         self.inverse_adjacency = {i: [] for i in self.nodes.keys()}
@@ -142,6 +151,7 @@ class PartialProgramOrder:
     ## Forward dependency is when a command's output is the same
     ## as the input of a following command
     def resolve_dependencies(self):
+        new_workset = []
         for first_cmd_id in self.get_workset():
             # We don't want the first cmd, so we remove it from the transitive closure.
             transitive_closure = self.get_transitive_closure([first_cmd_id])
@@ -149,16 +159,17 @@ class PartialProgramOrder:
             # We look at the transitive closure instead of workset because we want to also check the speculated cmds that are not in the workset
             for second_cmd_id in transitive_closure:
                 # If no anti-dependencies exist, we proceed to check for dependencies
-                if not (self.has_backward_dependency(first_cmd_id, second_cmd_id)
-                        or self.has_write_dependency(first_cmd_id, second_cmd_id)):
-                    if self.has_forward_dependency(first_cmd_id, second_cmd_id):
-                        # When a forward dependency exists
-                        # the first command can be speculated but we need to rerun the second one
-                        self.speculated.add(first_cmd_id)
-                    else:
-                        # No dependency exist so both commands are speculated successfully
-                        self.speculated.add(first_cmd_id)
-                        self.speculated.add(second_cmd_id)
+                if second_cmd_id not in new_workset and (self.has_backward_dependency(first_cmd_id, second_cmd_id) or self.has_write_dependency(first_cmd_id, second_cmd_id) or self.has_forward_dependency(first_cmd_id, second_cmd_id)):
+                    new_workset.append(second_cmd_id)
+                else:
+                    pass
+        # Set the new speculated set
+        
+        old_speculated = self.speculated.copy()
+        self.speculated = {cmd_id for cmd_id in self.workset if cmd_id not in new_workset and cmd_id not in self.frontier}
+        # Set the new workset
+        self.workset = new_workset
+        self.step_forward(old_speculated)
 
     def has_forward_dependency(self, first_id, second_id):
         first_write_set = set(self.rw_sets[first_id].get_write_set())
@@ -179,46 +190,32 @@ class PartialProgramOrder:
     # move the frontier one step forward
     # and then generate the new workset,
     # ignoring the speculated cmds
-    def step_forward(self):
+    def step_forward(self, old_speculated: set):
         self.commit_frontier()
-        self.move_frontier_forward()
-        self.create_new_workset()
+        self.move_frontier_forward(old_speculated)
 
     # Add frontier commands to committed set
     def commit_frontier(self):
         self.committed.update(self.frontier)
 
-    # Returns all the uncommitted, non-speculated nodes
-    # directly or indirectly adjacent to the given node
-    def get_next_non_speculated(self, node_id):
-        next_node_ids = self.adjacency[node_id]
-        next_non_speculated_node_ids = []
-        for next_node_id in next_node_ids:
-            # If node already committed, do nothing
-            if next_node_id in self.committed:
-                continue
-            # We want to commit the speculated node right away
-            # and then move another step forward
-            if next_node_id in self.speculated:
-                self.speculated.remove(next_node_id)
-                self.committed.add(next_node_id)
-                next_non_speculated_node_ids.extend(self.get_next_non_speculated(next_node_id))
-            else:
-                next_non_speculated_node_ids.append(next_node_id)
-        return next_non_speculated_node_ids
-
-    def move_frontier_forward(self):
+    def move_frontier_forward(self, old_speculated: set):
         new_frontier = []
-        for node_id in self.frontier:
-            if not node_id in new_frontier:
-                new_frontier.extend(self.get_next_non_speculated(node_id))
+        for node in self.frontier:
+            new_frontier.extend(self.get_next_non_speculated(node, old_speculated))
         self.frontier = new_frontier
 
-    def create_new_workset(self):
-        # It doesn't work correctly if we only check for speculated
-        self.workset = [node_id for node_id in self.get_all_non_committed() 
-                        if node_id not in self.speculated
-                        and node_id not in self.committed]
+    def get_next_non_speculated(self, start, old_speculated: set):
+        workset = self.get_next(start)
+        next_non_speculated = []
+        while len(workset) > 0:
+            node_id = workset.pop()
+            if node_id in old_speculated.union(self.speculated):
+                self.speculated.discard(node_id)
+                self.committed.add(node_id)
+                workset.extend(self.get_next(node_id))
+            else:
+                next_non_speculated.append(node_id)
+        return next_non_speculated
 
     def log_rw_sets(self, logging):
         logging.debug("====== |RW Sets| ======")
@@ -226,3 +223,11 @@ class PartialProgramOrder:
             logging.debug(f"ID: {node_id}")
             logging.debug(f"Read: {rw_set.get_read_set()}")
             logging.debug(f"Write: {rw_set.get_write_set()}")
+
+    def log_partial_program_order_info(self):
+        print(f"=" * 60)
+        print(f"WORKSET:{self.get_workset()}")
+        print(f"COMMITTED:{self.get_committed()}")
+        print(f"FRONTIER:{self.get_frontier()}")
+        print(f"SPECULATED:{self.get_speculated()}")
+        print(f"=" * 60)

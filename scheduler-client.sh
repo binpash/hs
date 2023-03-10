@@ -8,7 +8,7 @@
 
 ## Only for debugging
 
-export PASH_SPEC_TOP=/home/konstantinos/University/research/pash/dynamic-parallelizer
+export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
 ## Generate a temporary directory to store the workfiles
 mkdir -p /tmp/pash_spec
 

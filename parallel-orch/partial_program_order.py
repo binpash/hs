@@ -58,7 +58,7 @@ class PartialProgramOrder:
         ## Nodes that are in the frontier can only move to committed
         self.frontier = self.get_source_nodes()
         self.speculated = set()
-        self.rw_sets = {node_id: RWSet([], []) for node_id in self.nodes.keys()}
+        self.rw_sets = {node_id: None for node_id in self.nodes.keys()}
         self.workset = []
     
     def __str__(self):
@@ -181,10 +181,15 @@ class PartialProgramOrder:
                 ##       Maybe we can make RWset to be None if a command hasn't executed yet and not make the check
                 ##        if that is the case. Actually we have to keep track of invalidations continuously, this is very interesting!
                 ## TODO: Start with None for RWSet to allow for sequential execution, to make tests pass, and then think about continuous invalidation.
-                if second_cmd_id not in new_workset and (self.has_backward_dependency(first_cmd_id, second_cmd_id) or self.has_write_dependency(first_cmd_id, second_cmd_id) or self.has_forward_dependency(first_cmd_id, second_cmd_id)):
-                    new_workset.append(second_cmd_id)
-                else:
-                    pass
+                # 1. Don't add the cmd in the workset if it is already there
+                # 2. Don't add the cmd in the workset if it has not 
+                if second_cmd_id not in new_workset:
+                    ## If it is None, it means that it has not executed at all,
+                    ## so we need to add it in the workset
+                    if self.get_rw_set(second_cmd_id) is None:
+                        new_workset.append(second_cmd_id)
+                    elif self.has_backward_dependency(first_cmd_id, second_cmd_id) or self.has_write_dependency(first_cmd_id, second_cmd_id) or self.has_forward_dependency(first_cmd_id, second_cmd_id):
+                        new_workset.append(second_cmd_id)                    
         # Set the new speculated set
         
         old_speculated = self.speculated.copy()
@@ -227,14 +232,14 @@ class PartialProgramOrder:
         self.frontier = new_frontier
 
     def get_next_non_speculated(self, start, old_speculated: set):
-        workset = self.get_next(start)
+        traversal_workset = self.get_next(start)
         next_non_speculated = []
-        while len(workset) > 0:
-            node_id = workset.pop()
+        while len(traversal_workset) > 0:
+            node_id = traversal_workset.pop()
             if node_id in old_speculated.union(self.speculated):
                 self.speculated.discard(node_id)
                 self.committed.add(node_id)
-                workset.extend(self.get_next(node_id))
+                traversal_workset.extend(self.get_next(node_id))
             else:
                 next_non_speculated.append(node_id)
         return next_non_speculated
@@ -252,7 +257,7 @@ class PartialProgramOrder:
         proc.wait()
         print("Read trace from:", trace_file)
         trace_object = executor.read_trace(trace_file)
-        print(trace_object)
+        # print(trace_object)
         read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
         rw_set = RWSet(read_set, write_set)
         self.update_rw_set(node_id, rw_set)

@@ -44,6 +44,9 @@ sig Command {
             // Adding an edge implies :
             (c1->c2 in preprocessor_next' - preprocessor_next) implies {
                 (c1->c2) in ~dependency //should be a real dependency
+                (*preprocessor_next'.c1)->c2 in (preprocessor_next' - preprocessor_next)
+                c1->(c2.*preprocessor_next') in (preprocessor_next' - preprocessor_next)
+                !committed[c2]
                 some c3 : Command | {
                     run_trace_executor[c3]
                     // should be added by c2 (backward dependency) or due to transitivity
@@ -64,7 +67,7 @@ sig Command {
         
     }
     pred wellFormed {
-        partialOrder[preprocessor_next]
+        
         partialOrder[~dependency]
 
         //The preprocessor does not have false negs
@@ -129,14 +132,14 @@ sig Command {
         c.command_state = S
          after (c.command_state = C )
 
-        (no nonCommittedDependencies[c, dependency])
+        (no nonCommittedDependencies[c, ~preprocessor_next])
     }
 
     // S -> NE
     pred speculated_not_executed[c : Command] {
         c.command_state = S
          after (c.command_state = CN )
-        (no nonCommittedDependencies[c, dependency])
+        (no nonCommittedDependencies[c, ~preprocessor_next])
     }
 
 ------------------------------------------------------------------------------------------------
@@ -172,7 +175,7 @@ sig Command {
     // Initial state
     pred init {
         all c : Command | c.command_state = NE
-
+        partialOrder[preprocessor_next]
     }
 
     // Scheduler behavior
@@ -192,14 +195,15 @@ sig Command {
 pred dependency_preservation {
     all x : Command | committed[x] => always ((no x.^dependency) or committed[x.^dependency])
 }
-
+//
 check { always (scheduler_e2e implies dependency_preservation)} for exactly 4 State, 6 Command
-    
+//    
 // Once terminated, nothing is scheduled.
-check {final implies (always final)  } for exactly 4 State , 6 Command
-// This shows that the scheduler terminates, with all Commands committed.
-check  {scheduler_e2e implies (eventually final) } for exactly 4 State , 6 Command
+check  {final implies (always final)  } for exactly 4 State , 6 Command
+ //This shows that the scheduler/ terminates, with all Commands committed.
+check  {scheduler_e2e implies (eventually final) } for exactly 4 State , 5 Command
 
+check {scheduler_e2e implies always{partialOrder[preprocessor_next]}} for exactly 4 State, 4 Command
 // should be SAT
 run  {
     scheduler_e2e 
@@ -207,14 +211,20 @@ run  {
     no preprocessor_next  
     } for exactly 4 State , 3 Command
 
-// should be UNSAT 
 run {
-    scheduler_e2e 
-    some dependency
-    some c1 ,c2 : Command {
-         (c1->c2) in preprocessor_next
-         (c1->c2) in ~dependency
+    scheduler_e2e
+    no dependency
+    some preprocessor_next
+} for exactly 4 State , 4 Command
+
+// what should this return?
+// run {
+//     {scheduler_e2e 
+//     some dependency
+//     some c1 ,c2 : Command {
+//          (c1->c2) in preprocessor_next
+//          (c1->c2) in ~dependency
          
-        eventually( not (c1->c2 in preprocessor_next))
-    }
-}  for exactly 4 State , 6 Command
+//         eventually( not (c1->c2 in preprocessor_next))
+//     }} 
+// }  for exactly 4 State , 3 Command

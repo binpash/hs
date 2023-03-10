@@ -241,6 +241,13 @@ class PartialProgramOrder:
                 next_non_speculated.append(node_id)
         return next_non_speculated
     
+    def run_all_frontier_cmds(self):
+        logging.debug("Starting execution on the whole frontier")
+        cmd_ids = self.get_frontier()
+        for cmd_id in cmd_ids:
+            if not cmd_id in self.commands_currently_executing:
+                self.run_cmd_non_blocking(cmd_id)
+
     ## Run a command and add it to the dictionary of executing ones
     def run_cmd_non_blocking(self, node_id: int):
         ## TODO: A command should only be run if it's in the frontier, otherwise it should be spec run
@@ -248,12 +255,12 @@ class PartialProgramOrder:
         node = self.get_node(node_id)
         cmd = node.get_cmd()
         logging.debug(f'Running command: {node_id} {self.get_node(node_id)}')
-        _proc, trace_file = executor.async_run_and_trace_command_return_trace(cmd, node_id)
+        proc, trace_file = executor.async_run_and_trace_command_return_trace(cmd, node_id)
         logging.debug(f'Read trace from: {trace_file}')
-        self.commands_currently_executing[node_id] = trace_file
+        self.commands_currently_executing[node_id] = (proc, trace_file)
 
     def command_execution_completed(self, node_id: int):
-        trace_file = self.commands_currently_executing.pop(node_id)
+        _proc, trace_file = self.commands_currently_executing.pop(node_id)
         trace_object = executor.read_trace(trace_file)
         # print(trace_object)
         read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)

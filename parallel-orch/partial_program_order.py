@@ -86,18 +86,25 @@ class PartialProgramOrder:
                 self.inverse_adjacency[to_id].append(from_id)
 
     # ## TODO: (When there is time) Define a function that checks that the graph is valid
-    # def valid(self):
-    #     ## TODO: Check that committed is prefix closed w.r.t partial order
-        
-    #     ## TODO: Check that all frontier nodes are after committed nodes
+    def valid(self):
+        ## TODO: Check that committed is prefix closed w.r.t partial order
+        self.all_frontier_nodes_after_committed_nodes()
+        self.frontier_and_committed_intersect()
+        self.speculated_intersects_with_frontier_or_committed()
+        return True
 
-    #     ## TODO: Check that speculated have no intersection with committed and frontier
-    #     ## TODO: Check that frontier and committed do not intersect
-    #     assert(not self.sets_intersect())
-    #     return True
+    # Check if all frontier nodes are after committed nodes
+    def all_frontier_nodes_after_committed_nodes(self):
+        return max(self.committed) < min(self.frontier)
 
-    # def sets_intersect(self):
-    #     return len(set.intersection(set(self.committed), set(self.frontier), set(self.speculated))) > 0
+    # Checks if frontier and committed intersect
+    def frontier_and_committed_intersect(self):
+        return len(set.intersection(set(self.get_committed()), set(self.get_frontier()))) > 0
+    
+    # Checks if speculated intersects with committed and frontier
+    def speculated_intersects_with_frontier_or_committed(self):
+        return len(set.intersection(set(self.get_speculated()), set(self.get_frontier()))) > 0 \
+            or len(set.intersection(set(self.get_speculated()), set(self.get_committed()))) > 0
 
     def __len__(self):
         return len(self.nodes)

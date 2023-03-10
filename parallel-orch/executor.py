@@ -1,9 +1,15 @@
 import config
 import subprocess
+import util
 
 # This module executes a sequence of commands 
 # and traces them with Riker. 
 # Commands [1:N] are run inside an overlay sandbox.
+
+def async_run_and_trace_command_return_trace(command, sandbox_mode=False):
+    trace_file = util.ptempfile()
+    process = async_run_and_trace_command(command, trace_file, sandbox_mode=False)
+    return process, trace_file
 
 def async_run_and_trace_command(command, trace_file, sandbox_mode=False):
     ## Call Riker to execute the command

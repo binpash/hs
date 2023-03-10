@@ -1,4 +1,6 @@
 import logging
+
+import executor
 import trace
 
 class Node:
@@ -71,7 +73,11 @@ class PartialProgramOrder:
 
     def init_workset(self):
         self.workset = self.get_all_non_committed()
-    
+
+    ## Check if the partial order is done
+    def is_completed(self) -> bool:
+        return len(self.get_all_non_committed()) == 0
+
     def get_workset(self) -> list:
         return self.workset
     
@@ -228,6 +234,26 @@ class PartialProgramOrder:
             else:
                 next_non_speculated.append(node_id)
         return next_non_speculated
+    
+    ## TODO: This should normally become non-blocking, 
+    ##       and when the command finishes executing it 
+    ##       should send a message to the scheduler socket.
+    def run_cmd_blocking(self, node_id: int):
+        ## TODO: A command should only be run if it's in the frontier, otherwise it should be spec run
+        assert(self.is_frontier(node_id))
+        node = self.get_node(node_id)
+        cmd = node.get_cmd()
+        print("Running command:", node_id, self.get_node(node_id))
+        proc, trace_file = executor.async_run_and_trace_command_return_trace(cmd)
+        proc.wait()
+        print("Read trace from:", trace_file)
+        trace_object = executor.read_trace(trace_file)
+        print(trace_object)
+        read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
+        rw_set = RWSet(read_set, write_set)
+        self.update_rw_set(node_id, rw_set)
+        self.resolve_dependencies()
+
 
     def log_rw_sets(self, logging):
         logging.debug("====== |RW Sets| ======")

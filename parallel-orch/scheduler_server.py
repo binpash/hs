@@ -77,6 +77,7 @@ class Scheduler:
         partial_order_file = input_cmd.split(":")[1].rstrip()
         logging.debug(f'Scheduler: Received partial_order_file: {partial_order_file}')
         self.partial_program_order = parse_partial_program_order_from_file(partial_order_file)
+        self.partial_program_order.init_workset()
         logging.debug(f'Parsed partial program order:')
         self.partial_program_order.log_partial_program_order_info()
 
@@ -89,6 +90,10 @@ class Scheduler:
         
         ## TODO: If the node_id is already committed, just return its exit code
         ##       Else, add this wait to self.waiting_for_response
+
+        self.partial_program_order.run_cmd_blocking(node_id)
+
+        self.partial_program_order.log_partial_program_order_info()
 
         exit_code = "0"
         socket_respond(connection, success_response(exit_code))
@@ -124,6 +129,11 @@ class Scheduler:
             ## We send output to the top level pash process
             ## to signify that we are done.
             logging.debug(f'Scheduler server received shutdown message.')
+            if not self.partial_program_order.is_completed():
+                logging.warning(f'The partial program order was not completed!')
+            else:
+                logging.debug(f'The partial order was successfully completed.')
+
             socket_respond(connection, success_response("All finished!"))
             self.done = True
         else:

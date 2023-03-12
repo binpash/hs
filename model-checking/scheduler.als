@@ -55,12 +55,6 @@ sig Command {
             all a, b : Command| (a->b in dependency) => (not independent[a,b])
         }
 
-    // Tests for dependency /// could sit elsewhere
-        run {(some a : Command, b : Command | not independent[a,b])}
-        run {dependencies_valid and (some dependency)} 
-
-
-
 // Well Formedness
 
     pred partialOrder[r: set (Command -> Command)] {
@@ -178,6 +172,10 @@ sig Command {
         (no nonCommittedDependencies[c, dependency])
 
         // Apply the command's operation_on_filesystems to the system.
+
+        // This operation of the filesystem could be a read or a write.
+        // By virtue of the type signatures of File and operation_on_filesystem,
+        // Alloy models 
         files' = c.operation_on_filesystem[files]
     }
 

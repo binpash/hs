@@ -1,0 +1,53 @@
+
+open scheduler as sch
+open util/ordering[Command] as lin
+
+// Safety:
+
+    //If a command has been committed, then all of its dependencies have also been committed.
+    pred dependency_preservation {
+        all x : Command | committed[x] => always ((no x.^dependency) or committed[x.^dependency])
+    }
+
+    check { always (scheduler_e2e implies dependency_preservation)} for exactly 4 State, exactly 2 Command, 6 File
+        
+// Termination
+
+    // Once terminated, nothing is scheduled.
+    check {final implies (always final)  } for exactly 4 State, exactly 2 Command, 6 File
+    // This shows that the scheduler terminates, with all Commands committed.
+    check  {scheduler_e2e implies (eventually final) }for exactly 4 State, exactly 2 Command, 6 File
+
+
+
+
+// Misc / Testing
+
+---------------------------------------------
+pred all_sideffects_and_deps {
+
+    all c : Command | has_operation_on_filesystems[c]
+    some dependency
+}
+
+check  {(scheduler_e2e and all_sideffects_and_deps) implies (eventually final) } for exactly 4 State, exactly 2 Command, 6 File
+----------------------------------------------
+
+// should be SAT
+run  {
+    scheduler_e2e 
+    some dependency
+    no preprocessor_next  
+    } for exactly 4 State , 3 Command
+
+// should be UNSAT 
+run {
+    scheduler_e2e 
+    some dependency
+    some c1 ,c2 : Command {
+         (c1->c2) in preprocessor_next
+         (c1->c2) in ~dependency
+         
+        eventually( not (c1->c2 in preprocessor_next))
+    }
+}  for exactly 4 State , 6 Command

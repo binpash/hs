@@ -1,6 +1,17 @@
+module scheduler 
 
-// Assumption: Real dependencies ALSO form a partial order (no dependecy cycles)
-// Assumption: the predicted dependecies are a subset of real dependecies (enforced in wellFormed. This may very likely be too strong)
+---------- Filesystem ----------------
+    sig File {
+        var content: one Int
+    }
+
+    one sig Filesystem {
+        files: seq File,
+    }
+    {
+        File in files.elems
+    }
+---------------------------------------
 
 abstract sig State {}
 one sig NE extends State {}
@@ -15,9 +26,39 @@ sig Command {
     -- These are the dependencies predicted by the preprocessor.
     var preprocessor_next : set Command,    
     -- These are the real dependencies, that will only be found by the trace executor.
-    dependency: set Command
+    dependency: set Command,
+
+    // Details the operation_on_filesystems of each command from File to File for each possible state.
+    // A read is of the form of an identity transformation for a File (ie content is unchanged)
+    // while a write involves changing the content of a file!
+
+    operation_on_filesystem: File->File 
 }
 ----------------------------------------------------------------------------------------------------
+
+
+// Dependency in terms of Filesystem
+
+        pred independent[a : Command, b : Command] {
+                let a_then_b = (operation_on_filesystem[a]).(operation_on_filesystem[b]),
+                    b_then_a = (operation_on_filesystem[b]).(operation_on_filesystem[a])
+                    | a_then_b = b_then_a
+            
+        }
+
+        pred has_operation_on_filesystems [c : Command] {
+            some f : File | c.operation_on_filesystem[f] != f
+        }
+
+        pred dependencies_valid {
+            // Encoding dependency in terms of the filesystem.
+            all a, b : Command| (a->b in dependency) => (not independent[a,b])
+        }
+
+    // Tests for dependency /// could sit elsewhere
+        run {(some a : Command, b : Command | not independent[a,b])}
+        run {dependencies_valid and (some dependency)} 
+
 
 
 // Well Formedness
@@ -30,6 +71,8 @@ sig Command {
         }
         no (r & ~r) // anti-symmetric
     }
+
+
     pred preprocWellFormed {
 
         all c1,c2 : Command | {
@@ -69,6 +112,9 @@ sig Command {
 
         //The preprocessor does not have false negs
         preprocWellFormed
+
+        // Filesystem chages only if there is some c that is comitted
+        (files != files') implies { some c : Command | commit_frontier[c]    }
     }
 
 ------------------------------------------------------------------------------------------------------
@@ -130,6 +176,9 @@ sig Command {
          after (c.command_state = C )
 
         (no nonCommittedDependencies[c, dependency])
+
+        // Apply the command's operation_on_filesystems to the system.
+        files' = c.operation_on_filesystem[files]
     }
 
     // S -> NE
@@ -185,36 +234,3 @@ sig Command {
     pred final {
         all c : Command | committed[c]
     }
-
-// Verification properties
-
-    //If a command has been committed, then all of its dependencies have also been committed.
-pred dependency_preservation {
-    all x : Command | committed[x] => always ((no x.^dependency) or committed[x.^dependency])
-}
-
-check { always (scheduler_e2e implies dependency_preservation)} for exactly 4 State, 6 Command
-    
-// Once terminated, nothing is scheduled.
-check {final implies (always final)  } for exactly 4 State , 6 Command
-// This shows that the scheduler terminates, with all Commands committed.
-check  {scheduler_e2e implies (eventually final) } for exactly 4 State , 6 Command
-
-// should be SAT
-run  {
-    scheduler_e2e 
-    some dependency
-    no preprocessor_next  
-    } for exactly 4 State , 3 Command
-
-// should be UNSAT 
-run {
-    scheduler_e2e 
-    some dependency
-    some c1 ,c2 : Command {
-         (c1->c2) in preprocessor_next
-         (c1->c2) in ~dependency
-         
-        eventually( not (c1->c2 in preprocessor_next))
-    }
-}  for exactly 4 State , 6 Command

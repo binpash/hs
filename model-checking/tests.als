@@ -26,3 +26,16 @@ run {
     // Tests for dependency 
         run {(some a : Command, b : Command | not independent[a,b])}
         run {dependencies_valid and (some dependency)} 
+
+
+        // Misc / Testing
+
+---------------------------------------------
+pred all_sideffects_and_deps {
+
+    all c : Command | has_operation_on_filesystems[c]
+    some dependency
+}
+
+check  {(scheduler_e2e and all_sideffects_and_deps) implies (eventually final) } for exactly 4 State, exactly 2 Command, 6 File
+----------------------------------------------

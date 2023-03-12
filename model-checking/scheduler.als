@@ -66,9 +66,7 @@ sig Command {
         no (r & ~r) // anti-symmetric
     }
 
-
     pred preprocWellFormed {
-
         all c1,c2 : Command | {
             
             // Only remove edges which have been there since the beginning [preproc prediciton]
@@ -100,6 +98,7 @@ sig Command {
         }
         
     }
+
     pred wellFormed {
         partialOrder[preprocessor_next]
         partialOrder[~dependency]
@@ -172,7 +171,6 @@ sig Command {
         (no nonCommittedDependencies[c, dependency])
 
         // Apply the command's operation_on_filesystems to the system.
-
         // This operation of the filesystem could be a read or a write.
         // By virtue of the type signatures of File and operation_on_filesystem,
         // Alloy models 

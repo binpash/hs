@@ -17,18 +17,3 @@ open util/ordering[Command] as lin
     check {final implies (always final)  } for exactly 4 State, exactly 2 Command, 6 File
     // This shows that the scheduler terminates, with all Commands committed.
     check  {scheduler_e2e implies (eventually final) }for exactly 4 State, exactly 2 Command, 6 File
-
-
-
-
-// Misc / Testing
-
----------------------------------------------
-pred all_sideffects_and_deps {
-
-    all c : Command | has_operation_on_filesystems[c]
-    some dependency
-}
-
-check  {(scheduler_e2e and all_sideffects_and_deps) implies (eventually final) } for exactly 4 State, exactly 2 Command, 6 File
-----------------------------------------------

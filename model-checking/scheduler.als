@@ -79,6 +79,9 @@ sig Command {
             // Adding an edge implies :
             (c1->c2 in preprocessor_next' - preprocessor_next) implies {
                 (c1->c2) in ~dependency //should be a real dependency
+                // Below 2 statements enforce transitivity
+                (*preprocessor_next'.c1)->c2 in (preprocessor_next' - preprocessor_next)
+                c1->(c2.*preprocessor_next') in (preprocessor_next' - preprocessor_next)
                 some c3 : Command | {
                     run_trace_executor[c3]
                     // should be added by c2 (backward dependency) or due to transitivity
@@ -100,10 +103,9 @@ sig Command {
     }
 
     pred wellFormed {
-        partialOrder[preprocessor_next]
         partialOrder[~dependency]
 
-        //The preprocessor does not have false negs
+        // Enforce constraints on changes in preproc
         preprocWellFormed
 
         // Filesystem chages only if there is some c that is comitted
@@ -217,6 +219,7 @@ sig Command {
     // Initial state
     pred init {
         all c : Command | c.command_state = NE
+        partialOrder[preprocessor_next]
 
     }
 

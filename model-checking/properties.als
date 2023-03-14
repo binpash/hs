@@ -17,3 +17,6 @@ open util/ordering[Command] as lin
     check {final implies (always final)  } for exactly 4 State, exactly 2 Command, 6 File
     // This shows that the scheduler terminates, with all Commands committed.
     check  {scheduler_e2e implies (eventually final) }for exactly 4 State, exactly 2 Command, 6 File
+
+    // We maintain the partial Order
+    check {scheduler_e2e implies always(partialOrder[preprocessor_next])} for exactly 4 State, exactly 4 Command, 6 File

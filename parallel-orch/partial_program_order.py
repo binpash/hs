@@ -205,8 +205,11 @@ class PartialProgramOrder:
             else:
                 cmds_to_resolve.append(cmd_id)
                 # We remove the command from the waiting to be resolved set
-                logging.debug(f"> Removing node {cmd_id} from waiting list")
-                self.to_be_resolved.discard(cmd_id)
+                if cmd_id in self.to_be_resolved:
+                    logging.debug(f"> Removing node {cmd_id} from waiting list")
+                    self.to_be_resolved.remove(cmd_id)
+                else:
+                    logging.debug(f"> Node {cmd_id} is able to be resolved")
         logging.debug(sorted(cmds_to_resolve))
         return sorted(cmds_to_resolve)
 
@@ -215,38 +218,23 @@ class PartialProgramOrder:
     ## Forward dependency is when a command's output is the same
     ## as the input of a following command
     def resolve_dependencies_continuous(self, new_node_id):
-        logging.debug(f"Node to be examined ----> {new_node_id}")
-        self.log_partial_program_order_info()
         # We want to check every single command that has already finished executing but
         # not yet able to be resolved
         cmds_to_resolve = self.find_cmds_to_resolve(sorted(list(self.to_be_resolved.union({new_node_id}))))
         # If no commands can be resolved this round, do nothing and wait until a new command finishes executing
         if len(cmds_to_resolve) == 0:
+            logging.debug("No resolvable nodes were found in this iteration")
             return
         
-        # Commit right away as it is the only command to resolve
-        if len(cmds_to_resolve) == 1:
-            to_commit = cmds_to_resolve.pop()
-            self.committed.add(to_commit)
-            # If cmd exists in speculated it means it should have been resolved 
-            # in a cycle with len(cmds_to_resolve) > 1
-            assert(to_commit not in self.speculated)
-            self.workset.remove(to_commit)
-            # The cmd should also be in the frontier
-            assert(to_commit in self.frontier)
-            self.frontier.remove(to_commit)
-            self.frontier.extend(self.get_next(to_commit))
-            return
-        # If we reach this point, we follow the traditional cycle approach
-        # This will help us determine the new specualted set
         independent_cmds_this_cycle = set(cmds_to_resolve)
         # This doesn't work for true partial program order
         # TODO: use get_transitive_closure()
-        new_workset = {}
+        new_workset = set()
         for first_cmd_id in cmds_to_resolve:
             # We don't want the first cmd, so we remove it from the transitive closure.
             transitive_closure = self.get_transitive_closure_if_can_be_resolved(cmds_to_resolve, [first_cmd_id])
             transitive_closure.remove(first_cmd_id)
+            logging.debug(f">>>>>>>{first_cmd_id}, {transitive_closure}")
             # We look at the transitive closure instead of workset because we want to also check the speculated cmds that are not in the workset
             for second_cmd_id in transitive_closure:
                 # If no anti-dependencies exist, we proceed to check for dependencies
@@ -263,43 +251,48 @@ class PartialProgramOrder:
                         ## TODO: Check for overwork
                         logging.debug(f'Command: {second_cmd_id} was added to the workset, due to a dependency')
                         new_workset.add(second_cmd_id)
-        logging.debug(f"!!!!!!!!!!!!!!!{new_workset}")
+        logging.debug(f"Workset from examining nodes {cmds_to_resolve} is: {new_workset}")
 
         old_speculated = self.speculated.copy()
         self.speculated = {cmd_id for cmd_id in cmds_to_resolve if cmd_id not in new_workset and cmd_id not in self.frontier}
         # Set the new workset
-        self.workset = new_workset
-        self.step_forward_continuous(cmds_to_resolve, old_speculated)
+        self.log_partial_program_order_info()
+        self.workset = [cmd_id for cmd_id in self.workset if cmd_id not in cmds_to_resolve]
+        self.workset.extend((list(new_workset)))
+        self.log_partial_program_order_info()
+        logging.debug("-")
+        self.step_forward(old_speculated)
+        self.log_partial_program_order_info()
 
-    def step_forward(self, old_speculated, cmds_to_resolve):
-        self.commit_frontier(cmds_to_resolve)
-        self.move_frontier_forward(old_speculated, cmds_to_resolve)
+    def step_forward(self, old_speculated):
+        self.commit_frontier()
+        self.move_frontier_forward(old_speculated)
 
     # Add frontier commands to committed set
-    def commit_frontier(self, cmds_to_resolve):
+    def commit_frontier(self):
         # Second condition below may be unecessary
-        self.committed.update({frontier_node for frontier_node in self.frontier in frontier_node in cmds_to_resolve})
+        self.committed.update({frontier_node for frontier_node in self.frontier})
 
-    def move_frontier_node_forward(self, old_speculated: set, cmds_to_resolve: set):
+    def move_frontier_forward(self, old_speculated: set):
         new_frontier = []
         for node in self.frontier:
-            if node in cmds_to_resolve:
-                new_frontier.extend(self.get_next_non_speculated_continuous(node, old_speculated, cmds_to_resolve))
-        self.frontier.discard(node)
-        self.frontier.node.extend(new_frontier)
+            new_frontier.extend(self.get_next_non_speculated(node, old_speculated))
+        
+        self.frontier = new_frontier
+        # self.frontier.node.extend(new_frontier)
 
-    def get_next_non_speculated(self, start, old_speculated: set, cmds_to_resolve):
+    def get_next_non_speculated(self, start, old_speculated: set):
             traversal_workset = self.get_next(start)
             next_non_speculated = []
             while len(traversal_workset) > 0:
                 node_id = traversal_workset.pop()
-                if node_id in cmds_to_resolve:
-                    if node_id in old_speculated.union(self.speculated):
-                        self.speculated.discard(node_id)
-                        self.committed.add(node_id)
-                        traversal_workset.extend(self.get_next(node_id))
-                    else:
-                        next_non_speculated.append(node_id)
+                if node_id in old_speculated.union(self.speculated):
+                    logging.debug(f"Committing speculated node: {node_id}")
+                    self.speculated.discard(node_id)
+                    self.committed.add(node_id)
+                    traversal_workset.extend(self.get_next(node_id))
+                else:
+                    next_non_speculated.append(node_id)
             return next_non_speculated
   
     def has_forward_dependency(self, first_id, second_id):
@@ -333,7 +326,8 @@ class PartialProgramOrder:
         non_frontier_ids = [node_id for node_id in self.get_workset() 
                             if not self.is_frontier(node_id)]
         for cmd_id in non_frontier_ids:
-            if not cmd_id in self.commands_currently_executing:
+            # We also need for a cmd to not be waiting to be resolved.
+            if not cmd_id in self.commands_currently_executing and not cmd_id in self.to_be_resolved:
                 self.speculate_cmd_non_blocking(cmd_id)
 
     def run_all_frontier_cmds(self):
@@ -371,7 +365,10 @@ class PartialProgramOrder:
         self.update_rw_set(node_id, rw_set)
 
         ## TODO: Maybe we can just resolve dependencies of a single command and not the whole workset.
+        logging.debug(f"Node to be examined ----> {node_id}")
+        self.log_partial_program_order_info()
         self.resolve_dependencies_continuous(node_id)
+        self.log_partial_program_order_info()
 
 
     def log_rw_sets(self, logging):

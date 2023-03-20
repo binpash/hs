@@ -79,7 +79,10 @@ class Scheduler:
         self.partial_program_order = parse_partial_program_order_from_file(partial_order_file)
         self.partial_program_order.init_workset()
         logging.debug(f'Parsed partial program order:')
-        # self.partial_program_order.log_partial_program_order_info()
+        self.partial_program_order.log_partial_program_order_info()
+        self.partial_program_order.populate_to_be_resolved_dict()
+        logging.debug(f'To be resolved sets per node:')
+        logging.debug(self.partial_program_order.to_be_resolved)
 
     def handle_wait(self, input_cmd: str, connection):
         assert(input_cmd.startswith("Wait"))
@@ -91,7 +94,9 @@ class Scheduler:
         ## If the node_id is already committed, just return its exit code
         if node_id in self.partial_program_order.get_committed():
             logging.debug(f'Node: {node_id} found in committed, responding immediately!')
+            self.waiting_for_response[node_id] = connection
             self.respond_to_pending_wait(node_id, 0)
+            
         else:
             ## Command has not executed yet, so we need to wait for it
             logging.debug(f'Node: {node_id} has not finished execution, waiting for response...')

@@ -79,7 +79,7 @@ class Scheduler:
         self.partial_program_order = parse_partial_program_order_from_file(partial_order_file)
         self.partial_program_order.init_workset()
         logging.debug(f'Parsed partial program order:')
-        self.partial_program_order.log_partial_program_order_info()
+        # self.partial_program_order.log_partial_program_order_info()
 
     def handle_wait(self, input_cmd: str, connection):
         assert(input_cmd.startswith("Wait"))
@@ -123,7 +123,7 @@ class Scheduler:
         ## Gather RWset, resolve dependencies, and progress graph
         self.partial_program_order.command_execution_completed(cmd_id)
         
-        self.partial_program_order.log_partial_program_order_info()
+        # self.partial_program_order.log_partial_program_order_info()
         
         ## If there is a connection waiting for this node_id, respond to it
         if cmd_id in self.waiting_for_response:

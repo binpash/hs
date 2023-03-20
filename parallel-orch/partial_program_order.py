@@ -180,37 +180,36 @@ class PartialProgramOrder:
         assert(False)
 
 
-    # If the cmd id is less than
-    def can_be_resolved(self, node_id: int) -> bool:
-        logging.debug(f"Examining if can be resolved: {node_id}, {self.get_currently_executing()}")
+    # Check if the specific command can be resolved.
+    # TODO: this does not truly follow partial program order, we should implement it correctly
+    def cmd_can_be_resolved(self, node_id: int) -> bool:
+        # If the command we evaluate has no earlier command currently executing, it can be resolved this round
         if len(self.get_currently_executing()) > 0:
             return node_id < min(self.get_currently_executing())
         else:
             return True
-
-
+    
     def find_cmds_to_resolve(self, cmd_ids_to_check: list):
         cmds_to_resolve = []
-        logging.debug(f"Cmds to check: {cmd_ids_to_check}")
+        logging.debug(f" > Uncommitted commands done executing to be checked: {cmd_ids_to_check}")
         for cmd_id in cmd_ids_to_check:
             # We check if we can resolve any possible dependencies
             # If we can't, we have to wait for another cycle
-            if not self.can_be_resolved(cmd_id):
+            if not self.cmd_can_be_resolved(cmd_id):
                 if cmd_id not in self.to_be_resolved:
-                    logging.debug(f"> Adding node {cmd_id} to waiting list")
+                    logging.debug(f" > Adding node {cmd_id} to waiting list")
                     self.to_be_resolved.add(cmd_id)
                 else:
-                    logging.debug(f"> Keeping node {cmd_id} to waiting list")
+                    logging.debug(f" > Keeping node {cmd_id} to waiting list")
             # If we are in this branch it means that we can resolve the dependencies of the current command
             else:
                 cmds_to_resolve.append(cmd_id)
                 # We remove the command from the waiting to be resolved set
                 if cmd_id in self.to_be_resolved:
-                    logging.debug(f"> Removing node {cmd_id} from waiting list")
+                    logging.debug(f" > Removing node {cmd_id} from waiting list")
                     self.to_be_resolved.remove(cmd_id)
                 else:
-                    logging.debug(f"> Node {cmd_id} is able to be resolved")
-        logging.debug(sorted(cmds_to_resolve))
+                    logging.debug(f" > Node {cmd_id} is able to be resolved")
         return sorted(cmds_to_resolve)
 
 
@@ -220,52 +219,82 @@ class PartialProgramOrder:
     def resolve_dependencies_continuous(self, new_node_id):
         # We want to check every single command that has already finished executing but
         # not yet able to be resolved
+        logging.debug("Finding sets of commands that can be resolved after {new_node_id} finished executing")
         cmds_to_resolve = self.find_cmds_to_resolve(sorted(list(self.to_be_resolved.union({new_node_id}))))
-        # If no commands can be resolved this round, do nothing and wait until a new command finishes executing
-        if len(cmds_to_resolve) == 0:
-            logging.debug("No resolvable nodes were found in this iteration")
-            return
+        logging.debug(f"Commands to check for dependencies this round are:  {sorted(cmds_to_resolve)}")
+        logging.debug(f"Commands that can not be resolved this round are:   {sorted(self.to_be_resolved)}")
         
+        # If no commands can be resolved this round, 
+        # do nothing and wait until a new command finishes executing
+        if len(cmds_to_resolve) == 0:
+            logging.debug("No resolvable nodes were found in this round, nothing will change...")
+            return
+
+        # Init stuff
         independent_cmds_this_cycle = set(cmds_to_resolve)
-        # This doesn't work for true partial program order
-        # TODO: use get_transitive_closure()
         new_workset = set()
+        old_workset = self.workset.copy()
+        logging.debug(" --- Starting dependency resolution --- ")
+        logging.debug(f"Commands to be checked for dependencies: {sorted(cmds_to_resolve)}")
         for first_cmd_id in cmds_to_resolve:
             # We don't want the first cmd, so we remove it from the transitive closure.
             transitive_closure = self.get_transitive_closure_if_can_be_resolved(cmds_to_resolve, [first_cmd_id])
             transitive_closure.remove(first_cmd_id)
-            logging.debug(f">>>>>>>{first_cmd_id}, {transitive_closure}")
+            logging.debug(f" > Resolvable transitive closure for node {first_cmd_id} is: {transitive_closure}")
             # We look at the transitive closure instead of workset because we want to also check the speculated cmds that are not in the workset
             for second_cmd_id in transitive_closure:
-                # If no anti-dependencies exist, we proceed to check for dependencies
-                ## TODO: We need to keep track of invalidations continuously, which is non trivial!
+                # If cmd already in new_workset there is no reason to check further, it will be rerun no matter what
                 if second_cmd_id not in new_workset:
                     ## If it is None, it means that it has not executed at all,
                     ## so we need to add it in the workset
+                    ## TODO: Check for overwork
                     if self.get_rw_set(second_cmd_id) is None:
-                        ## TODO: Check if this could lead to overwork
-                        logging.debug(f'Command: {second_cmd_id} was added to the workset, because it was never executed before')
+                        logging.debug(f' > Command: {second_cmd_id} was added to the workset, because it was never executed before')
                         new_workset.add(second_cmd_id)
-                    elif self.has_backward_dependency(first_cmd_id, second_cmd_id) or self.has_write_dependency(first_cmd_id, second_cmd_id) or self.has_forward_dependency(first_cmd_id, second_cmd_id):
-                        ## TODO: make the logging more precise, what type of dependency
-                        ## TODO: Check for overwork
-                        logging.debug(f'Command: {second_cmd_id} was added to the workset, due to a dependency')
+                    elif self.has_backward_dependency(first_cmd_id, second_cmd_id):
+                        logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a backward dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)
-        logging.debug(f"Workset from examining nodes {cmds_to_resolve} is: {new_workset}")
-
+                    elif self.has_write_dependency(first_cmd_id, second_cmd_id):
+                        logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a write dependency with {first_cmd_id}')
+                        new_workset.add(second_cmd_id)
+                    elif self.has_forward_dependency(first_cmd_id, second_cmd_id):
+                        logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
+                        new_workset.add(second_cmd_id)
+        logging.debug(f"New workset after examining nodes {cmds_to_resolve} is: {new_workset}")
+        logging.debug(" --- Done with dependency resolution --- ")
+        
         old_speculated = self.speculated.copy()
+
         self.speculated = {cmd_id for cmd_id in cmds_to_resolve if cmd_id not in new_workset and cmd_id not in self.frontier}
+        logging.debug(" > Modifying speculated set accordingly")
         # Set the new workset
-        self.log_partial_program_order_info()
+        logging.debug(" > Modifying workset accordingly")
+
         self.workset = [cmd_id for cmd_id in self.workset if cmd_id not in cmds_to_resolve]
         self.workset.extend((list(new_workset)))
-        self.log_partial_program_order_info()
-        logging.debug("-")
+        self.workset = [cmd_id for cmd_id in self.workset if cmd_id not in cmds_to_resolve]
+        self.workset.extend((list(new_workset)))
+        
+        old_committed = self.committed.copy()
+        old_frontier = self.frontier.copy()
+        
         self.step_forward(old_speculated)
         self.log_partial_program_order_info()
 
+        logging.debug(f"Commands checked this cycle: {sorted(cmds_to_resolve)}")
+        logging.debug(f"Workset    old: {old_workset}")
+        logging.debug(f"Workset    new: {self.workset}")
+        logging.debug(f"Speculated old: {old_speculated}")
+        logging.debug(f"Speculated new: {self.committed}")
+        logging.debug(f"Committed  old: {old_committed}")
+        logging.debug(f"Committed  new: {self.committed}")
+        logging.debug(f"Frontier   old: {old_frontier}")
+        logging.debug(f"Frontier   new: {self.frontier}")
+
     def step_forward(self, old_speculated):
+        logging.debug(" > Committing frontier")
         self.commit_frontier()
+        logging.debug(" > Moving frontier forward")
         self.move_frontier_forward(old_speculated)
 
     # Add frontier commands to committed set
@@ -312,14 +341,17 @@ class PartialProgramOrder:
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
-        self.run_all_frontier_cmds()
-        self.schedule_all_workset_non_frontier_cmds()
+        if len(self.workset) > 0:
+            self.run_all_frontier_cmds()
+            self.schedule_all_workset_non_frontier_cmds()
         ## TODO: Use the partial order object to pick a few commands (for start let's do all)
         ##       and run them using the scheduler.
         ##
         ## TODO: When scheduling commands, run them with subprocess.run and make sure that at the end
         ##       they will try to connect to our scheduler socket $PASH_SPEC_SCHEDULER_SOCKET to let us
         ##       know that they are done.
+        else:
+            logging.debug("Workset is empty, nothing to be scheduled")
         pass
 
     def schedule_all_workset_non_frontier_cmds(self):
@@ -327,6 +359,7 @@ class PartialProgramOrder:
                             if not self.is_frontier(node_id)]
         for cmd_id in non_frontier_ids:
             # We also need for a cmd to not be waiting to be resolved.
+            logging.debug(f">> Commands to speculatively execute: {[cmd_id for cmd_id in self.commands_currently_executing if cmd_id not in self.to_be_resolved]}")
             if not cmd_id in self.commands_currently_executing and not cmd_id in self.to_be_resolved:
                 self.speculate_cmd_non_blocking(cmd_id)
 
@@ -365,11 +398,10 @@ class PartialProgramOrder:
         self.update_rw_set(node_id, rw_set)
 
         ## TODO: Maybe we can just resolve dependencies of a single command and not the whole workset.
-        logging.debug(f"Node to be examined ----> {node_id}")
-        self.log_partial_program_order_info()
+        logging.debug(f" --- Node {node_id}, just finished execution ---")
+        # self.log_partial_program_order_info()
         self.resolve_dependencies_continuous(node_id)
-        self.log_partial_program_order_info()
-
+        # self.log_partial_program_order_info()
 
     def log_rw_sets(self, logging):
         logging.debug("====== |RW Sets| ======")
@@ -398,7 +430,6 @@ class PartialProgramOrder:
     def get_currently_executing(self) -> list:
         return sorted(list(self.commands_currently_executing.keys()))
 
-
 def parse_cmd_from_file(file_path: str) -> str:
     with open(file_path) as f:
         cmd = f.read()
@@ -407,7 +438,6 @@ def parse_cmd_from_file(file_path: str) -> str:
 def parse_edge_line(line: str) -> "tuple[int, int]":
     from_str, to_str = line.split(" -> ")
     return (int(from_str), int(to_str))
-    
 
 def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder:
     with open(file_path) as f:
@@ -438,7 +468,6 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
     edges = {i : [] for i in range(number_of_nodes)}
     for edge_line in edge_lines:
         from_id, to_id = parse_edge_line(edge_line)
-        # print("Edge:", from_id, to_id)
         edges[from_id].append(to_id)
     
     return PartialProgramOrder(nodes, edges)

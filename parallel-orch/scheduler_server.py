@@ -80,7 +80,7 @@ class Scheduler:
         self.partial_program_order.init_workset()
         logging.debug(f'Parsed partial program order:')
         self.partial_program_order.log_partial_program_order_info()
-        self.partial_program_order.populate_to_be_resolved_dict()
+        self.partial_program_order.populate_to_be_resolved_dict([])
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.partial_program_order.to_be_resolved)
 
@@ -189,9 +189,12 @@ class Scheduler:
         while not self.done:
             ## Scheduler some work (if we are already at capacity this will return immediately)
             self.schedule_work()
-
-            ## Process a single request
-            self.process_next_cmd()
+            if len(self.partial_program_order.workset) == 0:
+                logging.debug("Workset is empty, nothing to be scheduled")
+                exit()
+            else:
+                ## Process a single request
+                self.process_next_cmd()
 
         
         self.socket.close()

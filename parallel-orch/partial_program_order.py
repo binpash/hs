@@ -253,7 +253,6 @@ class PartialProgramOrder:
         #     transitive_closure = self.get_transitive_closure_if_can_be_resolved(cmds_to_resolve, [first_cmd_id])
         for second_cmd_id in sorted(cmds_to_resolve):
             for first_cmd_id in sorted(self.to_be_resolved[second_cmd_id]):
-                logging.debug(f">>>Checking deps of {second_cmd_id} with {first_cmd_id}")
                 if second_cmd_id not in new_workset:
                     ## If it is None, it means that it has not executed at all,
                     ## so we need to add it in the workset
@@ -270,7 +269,6 @@ class PartialProgramOrder:
                     elif self.has_forward_dependency(first_cmd_id, second_cmd_id):
                         logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)
-        logging.debug(f">>>>>>>{new_workset}")
 
         logging.debug(" > Modifying speculated set accordingly")
         old_speculated = self.speculated.copy()
@@ -437,6 +435,7 @@ class PartialProgramOrder:
         logging.debug(f"SPECULATED: {self.get_speculated()}")
         logging.debug(f"EXECUTING:  {list(self.commands_currently_executing.keys())}")
         logging.debug(f"WAITING:    {sorted(list(self.waiting_to_be_resolved))}")
+        logging.debug(f"TO RESOLVE: {}")
         logging.debug(f"=" * 60)
 
 
@@ -465,7 +464,7 @@ class PartialProgramOrder:
                 logging.debug(f"{to_be_resolved_nodes_ids}, {old_committed}<<<<")
                 self.to_be_resolved[node_id] = to_be_resolved_nodes_ids.copy()
                 self.to_be_resolved[node_id] = list(set(self.to_be_resolved[node_id]) - set(old_committed))
-        logging.debug(f"________{self.to_be_resolved}_________{old_committed}")
+        
 
 
 

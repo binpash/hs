@@ -338,9 +338,6 @@ class PartialProgramOrder:
                 #     self.speculated.discard(node_id)
                 else:
                     next_non_speculated.append(node_id)
-                
-
-
             return list(next_non_speculated)
   
     def has_forward_dependency(self, first_id, second_id):
@@ -362,8 +359,6 @@ class PartialProgramOrder:
     def schedule_work(self, limit=0):
         self.run_all_frontier_cmds()
         self.schedule_all_workset_non_frontier_cmds()
-        # Use the partial order object to pick a few commands (for start let's do all)
-        # and run them using the scheduler.
 
     def schedule_all_workset_non_frontier_cmds(self):
         non_frontier_ids = [node_id for node_id in self.get_workset() 
@@ -406,12 +401,8 @@ class PartialProgramOrder:
         read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
         rw_set = RWSet(read_set, write_set)
         self.update_rw_set(node_id, rw_set)
-
-        ## TODO: Maybe we can just resolve dependencies of a single command and not the whole workset.
         logging.debug(f" --- Node {node_id}, just finished execution ---")
-        # self.log_partial_program_order_info()
         self.resolve_dependencies_continuous(node_id)
-        # self.log_partial_program_order_info()
 
     def log_rw_sets(self, logging):
         logging.debug("====== |RW Sets| ======")
@@ -428,24 +419,24 @@ class PartialProgramOrder:
             logging.debug(f"Write: {len(rw_set.get_write_set()) if rw_set is not None else None}")
 
     def log_partial_program_order_info(self):
-        logging.debug(f"=" * 60)
-        logging.debug(f"WORKSET:    {self.get_workset()}")
-        logging.debug(f"COMMITTED:  {self.get_committed()}")
-        logging.debug(f"FRONTIER:   {self.get_frontier()}")
-        logging.debug(f"SPECULATED: {self.get_speculated()}")
-        logging.debug(f"EXECUTING:  {list(self.commands_currently_executing.keys())}")
-        logging.debug(f"WAITING:    {sorted(list(self.waiting_to_be_resolved))}")
-        logging.debug(f"TO RESOLVE: {}")
-        logging.debug(f"=" * 60)
-
+        logging.debug(f"=" * 80)
+        logging.debug(f"WORKSET:        {self.get_workset()}")
+        logging.debug(f"COMMITTED:      {self.get_committed()}")
+        logging.debug(f"FRONTIER:       {self.get_frontier()}")
+        logging.debug(f"SPECULATED:     {self.get_speculated()}")
+        logging.debug(f"EXECUTING:      {list(self.commands_currently_executing.keys())}")
+        logging.debug(f"WAITING:        {sorted(list(self.waiting_to_be_resolved))}")
+        logging.debug(f"TO RESOLVE:     {self.to_be_resolved}")
+        logging.debug(f"=" * 80)
 
     def populate_to_be_resolved_dict(self, old_committed):
         for node_id in self.nodes:
             if node_id in self.committed:
                 self.to_be_resolved[node_id] = []
                 continue
+            # We don't want to modify the set of nodes to check for dependencies for this node
+            # as it started running before previous cmds had started executing
             elif node_id in self.waiting_to_be_resolved or node_id in self.get_currently_executing():
-                logging.debug(f"Node {node_id} waiting/executing")
                 continue
             else:
                 self.to_be_resolved[node_id] = []
@@ -460,8 +451,6 @@ class PartialProgramOrder:
                         to_add = self.inverse_adjacency[current_node_id]
                         to_be_resolved_nodes_ids.extend(to_add)
                         traversal.extend(to_add)
-                    logging.debug(f"{current_node_id}")
-                logging.debug(f"{to_be_resolved_nodes_ids}, {old_committed}<<<<")
                 self.to_be_resolved[node_id] = to_be_resolved_nodes_ids.copy()
                 self.to_be_resolved[node_id] = list(set(self.to_be_resolved[node_id]) - set(old_committed))
         

@@ -187,14 +187,14 @@ class Scheduler:
         
 
         while not self.done:
-            ## Scheduler some work (if we are already at capacity this will return immediately)
+            ## Schedule some work (if we are already at capacity this will return immediately)
             self.schedule_work()
+            ## Process a single request
+            self.process_next_cmd()
+            # If workset is empty we should end.
+            # TODO: ec checks fail for now
             if len(self.partial_program_order.workset) == 0:
-                logging.debug("Workset is empty, nothing to be scheduled")
-                exit()
-            else:
-                ## Process a single request
-                self.process_next_cmd()
+                self.done = True
 
         
         self.socket.close()

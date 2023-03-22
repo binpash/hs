@@ -80,6 +80,9 @@ class Scheduler:
         self.partial_program_order.init_workset()
         logging.debug(f'Parsed partial program order:')
         self.partial_program_order.log_partial_program_order_info()
+        self.partial_program_order.populate_to_be_resolved_dict([])
+        logging.debug(f'To be resolved sets per node:')
+        logging.debug(self.partial_program_order.to_be_resolved)
 
     def handle_wait(self, input_cmd: str, connection):
         assert(input_cmd.startswith("Wait"))
@@ -89,15 +92,15 @@ class Scheduler:
         logging.debug(f'Scheduler: Received wait for node_id: {node_id}')
         
         ## If the node_id is already committed, just return its exit code
-        # if node_id in self.partial_program_order.get_committed():
-
-        ## TODO: If the node_id is already committed, just return its exit code
-        ##       Else, add this wait to self.waiting_for_response
-
-        ## Command has not executed yet, so we need to wait for it
-        self.waiting_for_response[node_id] = connection
-
-        self.partial_program_order.run_cmd_non_blocking(node_id)
+        if node_id in self.partial_program_order.get_committed():
+            logging.debug(f'Node: {node_id} found in committed, responding immediately!')
+            self.waiting_for_response[node_id] = connection
+            self.respond_to_pending_wait(node_id, 0)
+            
+        else:
+            ## Command has not executed yet, so we need to wait for it
+            logging.debug(f'Node: {node_id} has not finished execution, waiting for response...')
+            self.waiting_for_response[node_id] = connection
 
 
     def __parse_command_exec_complete(self, input_cmd: str) -> "tuple[int, int]":
@@ -109,6 +112,12 @@ class Scheduler:
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')
 
+    def respond_to_pending_wait(self, node_id: int, exit_code: int):
+        assert(node_id in self.waiting_for_response)
+        connection = self.waiting_for_response.pop(node_id)
+        socket_respond(connection, success_response(exit_code))
+        connection.close()
+
     def handle_command_exec_complete(self, input_cmd: str):
         assert(input_cmd.startswith("CommandExecComplete:"))
         logging.debug(f'Command exec complete: {input_cmd}')
@@ -119,13 +128,11 @@ class Scheduler:
         ## Gather RWset, resolve dependencies, and progress graph
         self.partial_program_order.command_execution_completed(cmd_id)
         
-        self.partial_program_order.log_partial_program_order_info()
+        # self.partial_program_order.log_partial_program_order_info()
         
         ## If there is a connection waiting for this node_id, respond to it
         if cmd_id in self.waiting_for_response:
-            connection = self.waiting_for_response.pop(cmd_id)
-            socket_respond(connection, success_response(exit_code))
-            connection.close()
+            self.respond_to_pending_wait(cmd_id, exit_code)
 
     def process_next_cmd(self):
         connection, input_cmd = socket_get_next_cmd(self.socket)
@@ -169,13 +176,7 @@ class Scheduler:
     ## It should add some work (if possible), and then return immediately.
     ## It is called once per loop iteration, making sure that there is always work happening
     def schedule_work(self):
-        ## TODO: Use the partial order object to pick a few commands (for start let's do all)
-        ##       and run them using the scheduler.
-        ##
-        ## TODO: When scheduling commands, run them with subprocess.run and make sure that at the end
-        ##       they will try to connect to our scheduler socket $PASH_SPEC_SCHEDULER_SOCKET to let us
-        ##       know that they are done.
-        pass
+        self.partial_program_order.schedule_work()
 
     def run(self):
         ## The first command should be the daemon start
@@ -186,11 +187,14 @@ class Scheduler:
         
 
         while not self.done:
-            ## Scheduler some work (if we are already at capacity this will return immediately)
+            ## Schedule some work (if we are already at capacity this will return immediately)
             self.schedule_work()
-
             ## Process a single request
             self.process_next_cmd()
+            # If workset is empty we should end.
+            # TODO: ec checks fail for now
+            if len(self.partial_program_order.workset) == 0:
+                self.done = True
 
         
         self.socket.close()

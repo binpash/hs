@@ -284,6 +284,9 @@ class PartialProgramOrder:
         logging.debug(self.workset)
         logging.debug(self.get_currently_executing())
         logging.debug(self.frontier)
+
+        # TODO: ideally move this to the point 
+        #       we start executing a new command
         self.step_forward(old_speculated, old_committed)
         self.log_partial_program_order_info()
 
@@ -453,12 +456,8 @@ class PartialProgramOrder:
                         traversal.extend(to_add)
                 self.to_be_resolved[node_id] = to_be_resolved_nodes_ids.copy()
                 self.to_be_resolved[node_id] = list(set(self.to_be_resolved[node_id]) - set(old_committed))
+
         
-
-
-
-
-
     def get_currently_executing(self) -> list:
         return sorted(list(self.commands_currently_executing.keys()))
 

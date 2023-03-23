@@ -123,7 +123,7 @@ TO RESOLVE:     {0: [], 1: [0], 2: [0, 1], 3: [0, 1, 2]}
 ID:0 | R:None   | W:None
 ID:1 | R:[out1] | W:[out2]
 ID:2 | R:[out2] | W:[out3]
-ID:2 | R:[in2]  | W:[out4] *
+ID:3 | R:[in2]  | W:[out4] *
 ```
 
 `node 0` finishes next, it can be ckecked for dependencies. Other waiting nodes are getting rechecked. They can also be checked for dependencies as `node 0` in not executing anymore.
@@ -139,7 +139,7 @@ TO RESOLVE:     {0: [], 1: [0], 2: [0, 1], 3: [0, 1, 2]}
 ID:0 | R:[in1]  | W:[out1] *
 ID:1 | R:[out1] | W:[out2]
 ID:2 | R:[out2] | W:[out3]
-ID:2 | R:[in2]  | W:[out4]
+ID:3 | R:[in2]  | W:[out4]
 ```
 We can now start resolving dependencies for nodes: `[0, 1, 2, 3]`
 
@@ -161,7 +161,7 @@ TO RESOLVE:     {0: [], 1: [0], 2: [0, 1], 3: [0, 1, 2]}
 ID:0 | R:[in1]  | W:[out1]
 ID:1 | R:[out1] | W:[out2]
 ID:2 | R:[out2] | W:[out3]
-ID:2 | R:[in2]  | W:[out4]
+ID:3 | R:[in2]  | W:[out4]
 ```
 
 ---
@@ -184,7 +184,7 @@ TO RESOLVE:     {0: [], 1: [0], 2: [0, 1], 3: [0, 1, 2]}
 ID:0 | R:[in1]  | W:[out1]
 ID:1 | R:[out1] | W:[out2]
 ID:2 | R:[out2] | W:[out3]
-ID:2 | R:[in2]  | W:[out4]
+ID:3 | R:[in2]  | W:[out4]
 ```
 
 ## 4. We move the frontier forward
@@ -206,7 +206,7 @@ TO RESOLVE:     {0: [], 1: [0], 2: [0, 1], 3: [0, 1, 2]}
 ID:0 | R:[in1]  | W:[out1]
 ID:1 | R:[out1] | W:[out2]
 ID:2 | R:[out2] | W:[out3]
-ID:2 | R:[in2]  | W:[out4]
+ID:3 | R:[in2]  | W:[out4]
 ```
 ---
 Case where nodes `[0, 1, 2, 3]` were checked:
@@ -222,7 +222,7 @@ TO RESOLVE:     {0: [], 1: [0], 2: [0, 1], 3: [0, 1, 2]}
 ID:0 | R:[in1]  | W:[out1]
 ID:1 | R:[out1] | W:[out2]
 ID:2 | R:[out2] | W:[out3]
-ID:2 | R:[in2]  | W:[out4]
+ID:3 | R:[in2]  | W:[out4]
 ```
 Nodes to check are: `[0, 1, 2, 3]`
 
@@ -246,5 +246,5 @@ TO RESOLVE:     {0: [], 1: [], 2: [0], 3: [1, 2]} *
 ID:0 | R:[in1]  | W:[out1]
 ID:1 | R:[out1] | W:[out2]
 ID:2 | R:[out2] | W:[out3]
-ID:2 | R:[in2]  | W:[out4]
+ID:3 | R:[in2]  | W:[out4]
 ```

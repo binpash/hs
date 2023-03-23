@@ -37,7 +37,10 @@ The two executors communicate with each other and progress through the script ex
 
 #### Orchestator: Partial Program Order Graph
 
+**Note:** we have moved to a continuous scheduling implementation. An example explaining its operation can be found [here](/docs/example.md).
+
 The orchestrator needs to support arbitrary partial program order graphs (instead of just sequences of instructions), to figure out the precise real program order dependencies.
+
 
 An instance of a graph is shown below:
 

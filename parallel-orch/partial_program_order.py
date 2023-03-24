@@ -254,12 +254,13 @@ class PartialProgramOrder:
                     elif self.has_backward_dependency(first_cmd_id, second_cmd_id):
                         logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a backward dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)
-                    elif self.has_write_dependency(first_cmd_id, second_cmd_id):
-                        logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a write dependency with {first_cmd_id}')
-                        new_workset.add(second_cmd_id)
                     elif self.has_forward_dependency(first_cmd_id, second_cmd_id):
                         logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)
+                    ## No need to handle write dependencies anymore, as selective commit order solves this issue
+                    # elif self.has_write_dependency(first_cmd_id, second_cmd_id):
+                    #     logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a write dependency with {first_cmd_id}')
+                    #     new_workset.add(second_cmd_id)
 
         logging.debug(" > Modifying speculated set accordingly")
         old_speculated = self.speculated.copy()

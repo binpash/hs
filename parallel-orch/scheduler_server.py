@@ -3,6 +3,7 @@ import argparse
 import logging
 import os
 import signal
+import time
 
 from util import *
 from partial_program_order import parse_partial_program_order_from_file
@@ -108,7 +109,8 @@ class Scheduler:
             components = input_cmd.rstrip().split("|")
             command_id = int(components[0].split(":")[1])
             exit_code = int(components[1].split(":")[1])
-            return command_id, exit_code
+            sandbox_dir = components[2].split(":")[1]
+            return command_id, exit_code, sandbox_dir
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')
 
@@ -123,10 +125,11 @@ class Scheduler:
         logging.debug(f'Command exec complete: {input_cmd}')
 
         ## Read the node id from the command argument 
-        cmd_id, exit_code = self.__parse_command_exec_complete(input_cmd)
+        cmd_id, exit_code, sandbox_dir = self.__parse_command_exec_complete(input_cmd)
+
 
         ## Gather RWset, resolve dependencies, and progress graph
-        self.partial_program_order.command_execution_completed(cmd_id)
+        self.partial_program_order.command_execution_completed(cmd_id, sandbox_dir)
         
         # self.partial_program_order.log_partial_program_order_info()
         
@@ -195,7 +198,6 @@ class Scheduler:
             # TODO: ec checks fail for now
             if len(self.partial_program_order.workset) == 0:
                 self.done = True
-
         
         self.socket.close()
         shutdown()

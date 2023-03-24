@@ -64,6 +64,8 @@ class PartialProgramOrder:
         self.commands_currently_executing = {}
         self.to_be_resolved = {}
         self.waiting_to_be_resolved = set()
+        ## Contains the most recent sandbox directory paths
+        self.sandbox_dirs = {}
     
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -155,17 +157,6 @@ class PartialProgramOrder:
             next_work.extend(new_next)
         return list(all_next_transitive)
 
-        # def get_inverse_transitive_closure_if_can_be_resolved(self, can_be_resolved: list, target_node_ids: list) -> list:
-        # all_next_transitive = set(target_node_ids)
-        # next_work = target_node_ids.copy()
-        # while len(next_work) > 0:
-        #     node_id = next_work.pop()
-        #     successors = {next_node_id for next_node_id in self.get_next(node_id) if next_node_id in can_be_resolved}
-        #     new_next = successors - all_next_transitive
-        #     all_next_transitive = all_next_transitive.union(successors)
-        #     next_work.extend(new_next)
-        # return list(all_next_transitive)
-
     def is_frontier(self, node_id: int) -> bool:
         return node_id in self.frontier
     
@@ -229,6 +220,7 @@ class PartialProgramOrder:
     ## Forward dependency is when a command's output is the same
     ## as the input of a following command
     def resolve_dependencies_continuous(self, new_node_id):
+        self.log_partial_program_order_info()
         # We want to check every single command that has already finished executing but
         # not yet able to be resolved
         logging.debug("Finding sets of commands that can be resolved after {new_node_id} finished executing")
@@ -241,10 +233,9 @@ class PartialProgramOrder:
         # do nothing and wait until a new command finishes executing
         if len(cmds_to_resolve) == 0:
             logging.debug("No resolvable nodes were found in this round, nothing will change...")
-            return
+            return []
 
         # Init stuff
-        independent_cmds_this_cycle = set(cmds_to_resolve)
         new_workset = set()
         old_workset = self.workset.copy()
         logging.debug(" --- Starting dependency resolution --- ")
@@ -281,24 +272,14 @@ class PartialProgramOrder:
         
         old_committed = self.committed.copy()
         old_frontier = self.frontier.copy()
-        logging.debug(self.workset)
-        logging.debug(self.get_currently_executing())
-        logging.debug(self.frontier)
 
         # TODO: ideally move this to the point 
         #       we start executing a new command
         self.step_forward(old_speculated, old_committed)
-        self.log_partial_program_order_info()
 
-        logging.debug(f"Commands checked this cycle: {sorted(cmds_to_resolve)}")
-        logging.debug(f"Workset    old: {old_workset}")
-        logging.debug(f"Workset    new: {self.workset}")
-        logging.debug(f"Speculated old: {old_speculated}")
-        logging.debug(f"Speculated new: {self.speculated}")
-        logging.debug(f"Committed  old: {old_committed}")
-        logging.debug(f"Committed  new: {self.committed}")
-        logging.debug(f"Frontier   old: {old_frontier}")
-        logging.debug(f"Frontier   new: {self.frontier}")
+        self.log_partial_program_order_info()
+        return self.committed - old_committed
+
 
     def step_forward(self, old_speculated, old_committed):
         logging.debug(" > Committing frontier")
@@ -398,28 +379,31 @@ class PartialProgramOrder:
         logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file)
 
-    def command_execution_completed(self, node_id: int):
+    def command_execution_completed(self, node_id: int, sandbox_dir: str):
+        self.sandbox_dirs[node_id] = sandbox_dir
         _proc, trace_file = self.commands_currently_executing.pop(node_id)
-        trace_object = executor.read_trace(trace_file)
+        trace_object = executor.read_trace(sandbox_dir, trace_file)
         read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
         rw_set = RWSet(read_set, write_set)
         self.update_rw_set(node_id, rw_set)
         logging.debug(f" --- Node {node_id}, just finished execution ---")
-        self.resolve_dependencies_continuous(node_id)
+        to_commit = self.resolve_dependencies_continuous(node_id)
+        self.commit_cmd_workspaces(to_commit)
 
-    def log_rw_sets(self, logging):
-        logging.debug("====== |RW Sets| ======")
-        for node_id, rw_set in self.rw_sets.items():
-            logging.debug(f"ID: {node_id}")
-            logging.debug(f"Read: {rw_set.get_read_set()}")
-            logging.debug(f"Write: {rw_set.get_write_set()}")
+    def commit_cmd_workspaces(self, to_commit_ids):
+        logging.debug(len(to_commit_ids))
+        for cmd_id in to_commit_ids:
+            workspace = self.sandbox_dirs[cmd_id]
+            if workspace != "":
+                logging.debug(f" (!) Committing workspace of cmd {cmd_id} found in {workspace}")
+                executor.commit_workspace(workspace)
+            else:
+                logging.debug(f" (!) No need to commit workspace of cmd {cmd_id} as it was run in the main workspace")
 
     def log_rw_sets(self):
-        logging.debug("====== |RW Sets| ======")
+        logging.debug("====== RW Sets " + "=" * 65)
         for node_id, rw_set in self.rw_sets.items():
-            logging.debug(f"ID: {node_id}")
-            logging.debug(f"Read: {len(rw_set.get_read_set()) if rw_set is not None else None}")
-            logging.debug(f"Write: {len(rw_set.get_write_set()) if rw_set is not None else None}")
+            logging.debug(f"ID:{node_id} | R:{len(rw_set.get_read_set()) if rw_set is not None else None} | W:{len(rw_set.get_write_set()) if rw_set is not None else None}")
 
     def log_partial_program_order_info(self):
         logging.debug(f"=" * 80)
@@ -430,6 +414,7 @@ class PartialProgramOrder:
         logging.debug(f"EXECUTING:      {list(self.commands_currently_executing.keys())}")
         logging.debug(f"WAITING:        {sorted(list(self.waiting_to_be_resolved))}")
         logging.debug(f"TO RESOLVE:     {self.to_be_resolved}")
+        self.log_rw_sets()
         logging.debug(f"=" * 80)
 
     def populate_to_be_resolved_dict(self, old_committed):

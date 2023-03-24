@@ -20,9 +20,14 @@ fi
 echo "Execution mode: $EXEC_MODE"
 
 if [ $sandbox_flag -eq 1 ]; then
-    "${PASH_SPEC_TOP}/overlay-sandbox/run-sandboxed.sh" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute_in_overlay.sh"
+    ## Generate a temporary directory to store the workfiles
+    echo "In sandbox mode"
+    mkdir -p /tmp/pash_spec
+    export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/sandbox_XXXXXXX)/"
+    "${PASH_SPEC_TOP}/overlay-sandbox/run-sandboxed.sh" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute_in_overlay.sh" "${SANDBOX_DIR}"
 else
     echo "In standard mode"
+    export SANDBOX_DIR=""
     "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute_in_overlay.sh"
 fi
 
@@ -31,6 +36,5 @@ fi
 
 ## TODO: Pass the proper exit code
 exit_code=0
-msg="CommandExecComplete:${CMD_ID}|Exit code:${exit_code}"
+msg="CommandExecComplete:${CMD_ID}|Exit code:${exit_code}|Sandbox dir:${SANDBOX_DIR}"
 daemon_response=$(pash_spec_communicate_scheduler_just_send "$msg") # Blocking step, daemon will not send response until it's safe to continue
-

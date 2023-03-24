@@ -98,17 +98,6 @@ test3()
     $shell $2/semi_dependent_greps.sh
 }
 
-
-## TODO: Should fail at the moment
-# test4()
-# {
-#     local shell=$1
-#     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in1
-#     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in2
-#     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in3
-#     $shell $2/semi_dependent_greps_2.sh
-# }
-
 test4()
 {
     local shell=$1
@@ -125,7 +114,11 @@ test5()
     $shell $2/test5.sh
 }
 
-
+test6()
+{
+    local shell=$1 
+    $shell $2/test6.sh
+}
 
 # We run all tests composed with && to exit on the first that fails
 if [ "$#" -eq 0 ]; then
@@ -138,8 +131,9 @@ if [ "$#" -eq 0 ]; then
     cleanup
     run_test test4
     cleanup
-    # TODO: Fails at the moment, uncomment when fixed
     run_test test5
+    cleanup
+    run_test test6
 else
     for testname in $@
     do

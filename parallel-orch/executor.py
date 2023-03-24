@@ -35,7 +35,19 @@ def async_run_and_trace_command_in_sandbox(command, trace_file):
     process = async_run_and_trace_command(command, trace_file, sandbox_mode=True)
     return process
 
+def commit_workspace(workspace_path):
+    ## Call commit-sandbox.sh to commit the uncommitted sandbox to the main workspace 
+    run_script = f'{config.PASH_SPEC_TOP}/overlay-sandbox/commit-sandbox.sh'
+    args = ["/bin/bash", run_script, workspace_path]
+    process = subprocess.check_output(args)
+    return process
+
 ## Read trace and capture each command
-def read_trace(trace_file):
-    with open(trace_file) as f:
+def read_trace(sandbox_dir, trace_file):
+    if sandbox_dir == "":
+        path = trace_file
+    else:
+        path = f"{sandbox_dir}upperdir/{trace_file}"
+    
+    with open(path) as f:
         return f.readlines()

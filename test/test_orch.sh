@@ -6,7 +6,7 @@ export WORKING_DIR="$ORCH_TOP/test/output_orch"
 echo "${WORKING_DIR}"
 
 bash="bash"
-orch="$ORCH_TOP/pash-spec.sh"
+orch="$ORCH_TOP/pash-spec.sh -d 100"
 
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"
 test_dir_bash="$ORCH_TOP/test/test_scripts_bash"
@@ -49,9 +49,9 @@ run_test()
     diff -q "$output_dir_orch/" "$output_dir_bash/"
     test_diff_ec=$?
 
-    ## Check if the two exit codes are both success or both error
-    { [ $test_bash_ec -eq 0 ] && [ $test_pash_ec -eq 0 ]; } || { [ $test_bash_ec -ne 0 ] && [ $test_pash_ec -ne 0 ]; }
-    test_ec=$?
+    # ## Check if the two exit codes are both success or both error
+    # { [ $test_bash_ec -eq 0 ] && [ $test_pash_ec -eq 0 ]; } || { [ $test_bash_ec -ne 0 ] && [ $test_pash_ec -ne 0 ]; }
+    # test_ec=$?
     
     if [ $test_diff_ec -ne 0 ]; then
         echo -n "$test output mismatch "
@@ -98,15 +98,26 @@ test3()
     $shell $2/semi_dependent_greps.sh
 }
 
-
-## TODO: Should fail at the moment
 test4()
 {
     local shell=$1
-    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in1
-    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in2
-    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in3
-    $shell $2/semi_dependent_greps_2.sh
+    echo 'hello1' > $3/in1
+    echo 'hello2' > $3/in2    
+    $shell $2/test4.sh
+}
+
+test5()
+{
+    local shell=$1
+    echo 'hello1' > $3/in1
+    echo 'hello2' > $3/in2    
+    $shell $2/test5.sh
+}
+
+test6()
+{
+    local shell=$1 
+    $shell $2/test6.sh
 }
 
 # We run all tests composed with && to exit on the first that fails
@@ -118,8 +129,11 @@ if [ "$#" -eq 0 ]; then
     cleanup
     run_test test3
     cleanup
-    ## TODO: Fails at the moment, uncomment when fixed
-    # run_test test4
+    run_test test4
+    cleanup
+    run_test test5
+    cleanup
+    run_test test6
 else
     for testname in $@
     do

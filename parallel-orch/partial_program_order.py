@@ -1,7 +1,7 @@
 import logging
-
 import executor
 import trace
+import sys
 
 class Node:
     def __init__(self, id, cmd):
@@ -380,9 +380,9 @@ class PartialProgramOrder:
         logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file)
 
-    def command_execution_completed(self, node_id: int, sandbox_dir: str):
+    def command_execution_completed(self, node_id: int, exit_code: int, sandbox_dir: str):
         self.sandbox_dirs[node_id] = sandbox_dir
-        _proc, trace_file = self.commands_currently_executing.pop(node_id)
+        proc, trace_file = self.commands_currently_executing.pop(node_id)
         trace_object = executor.read_trace(sandbox_dir, trace_file)
         read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
         rw_set = RWSet(read_set, write_set)
@@ -390,6 +390,15 @@ class PartialProgramOrder:
         logging.debug(f" --- Node {node_id}, just finished execution ---")
         to_commit = self.resolve_dependencies_continuous(node_id)
         self.commit_cmd_workspaces(to_commit)
+        # FIXME: Not suitable for large outputs as it buffers the whole output
+        #        Make it print in real time maybe 
+        #        https://stackoverflow.com/a/803421
+        self.print_cmd_out(proc)
+
+    def print_cmd_out(self, proc):
+        proc_stdout, proc_stderr = proc.communicate()
+        print(proc_stdout.decode())
+        print(proc_stderr.decode(), file=sys.stderr)
 
     def commit_cmd_workspaces(self, to_commit_ids):
         logging.debug(len(to_commit_ids))
@@ -397,14 +406,15 @@ class PartialProgramOrder:
             workspace = self.sandbox_dirs[cmd_id]
             if workspace != "":
                 logging.debug(f" (!) Committing workspace of cmd {cmd_id} found in {workspace}")
-                executor.commit_workspace(workspace)
+                commit_workspace_out = executor.commit_workspace(workspace)
+                logging.debug(commit_workspace_out.decode())
             else:
                 logging.debug(f" (!) No need to commit workspace of cmd {cmd_id} as it was run in the main workspace")
 
     def log_rw_sets(self):
         logging.debug("====== RW Sets " + "=" * 65)
         for node_id, rw_set in self.rw_sets.items():
-            logging.debug(f"ID:{node_id} | R:{len(rw_set.get_read_set()) if rw_set is not None else None} | W:{len(rw_set.get_write_set()) if rw_set is not None else None}")
+            logging.debug(f"ID:{node_id} | R:{len(rw_set.get_read_set()) if rw_set is not None else None} | W:{rw_set.get_write_set() if rw_set is not None else None}")
 
     def log_partial_program_order_info(self):
         logging.debug(f"=" * 80)
@@ -488,4 +498,3 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
         edges[from_id].append(to_id)
     
     return PartialProgramOrder(nodes, edges)
-

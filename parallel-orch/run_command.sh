@@ -28,7 +28,7 @@ if [ $sandbox_flag -eq 1 ]; then
 else
     echo "In standard mode"
     export SANDBOX_DIR=""
-    "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute_in_overlay.sh"
+    "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh"
 fi
 
 ## Send a message to the scheduler socket

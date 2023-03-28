@@ -1,10 +1,7 @@
 
 import argparse
 import logging
-import os
 import signal
-import time
-
 from util import *
 from partial_program_order import parse_partial_program_order_from_file
 
@@ -122,17 +119,13 @@ class Scheduler:
 
     def handle_command_exec_complete(self, input_cmd: str):
         assert(input_cmd.startswith("CommandExecComplete:"))
-        logging.debug(f'Command exec complete: {input_cmd}')
-
-        ## Read the node id from the command argument 
+        ## Read the node id from the command argument
         cmd_id, exit_code, sandbox_dir = self.__parse_command_exec_complete(input_cmd)
-
-
+        logging.debug(input_cmd)
+        
         ## Gather RWset, resolve dependencies, and progress graph
-        self.partial_program_order.command_execution_completed(cmd_id, sandbox_dir)
-        
-        # self.partial_program_order.log_partial_program_order_info()
-        
+        self.partial_program_order.command_execution_completed(cmd_id, exit_code, sandbox_dir)
+
         ## If there is a connection waiting for this node_id, respond to it
         if cmd_id in self.waiting_for_response:
             self.respond_to_pending_wait(cmd_id, exit_code)

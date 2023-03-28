@@ -39,10 +39,15 @@ def is_path_ref_write(trace_item):
     open_config = get_path_ref_open_config(trace_item)
     return (open_config[1] == "w")
 
+def is_path_ref_empty(trace_item):
+    open_config = get_path_ref_open_config(trace_item)
+    return (open_config[1] == "-" and open_config[0] == "-")
+
 def get_path_ref_name(trace_item):
     assert(is_new_path_ref(trace_item))
     open_config = trace_item.split(", ")[1].replace('"', '')
     return open_config
+
 
 def is_command_prefix(line):
     if line.startswith(f"[Command"):
@@ -67,16 +72,30 @@ def get_lauch_name(trace_item):
 
 ## Parse the trace object and gather rw sets for this command
 def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
+    previous_trace_line = ""
+    read_set = set()
+    write_set = []
+    dir_set = []
+    for line in trace_object:
+        line = line.rstrip()
+        if is_command_prefix(line):
+            relevant_trace_item = remove_command_prefix(line)
+            if is_new_path_ref(relevant_trace_item):
+                if is_path_ref_read(relevant_trace_item):
+                    read_set.add(get_path_ref_name(relevant_trace_item))
+                elif is_path_ref_write(relevant_trace_item):
+                    write_set.append(get_path_ref_name(relevant_trace_item))
+                elif is_path_ref_empty(relevant_trace_item):
+                    if is_command_prefix(previous_trace_line):
+                        previous_trace_item = remove_command_prefix(previous_trace_line)
+                        if is_new_path_ref(previous_trace_item):
+                            if is_path_ref_write(previous_trace_item):
+                                dir_set.append(f"{get_path_ref_name(relevant_trace_item)}")
+                                write_set.pop()
+            previous_trace_line = line
 
-    relevant_trace_lines = [line for line in trace_object
-                            if is_command_prefix(line)]
-    relevant_trace_items = [remove_command_prefix(line) for line in relevant_trace_lines]
-
-    new_path_ref_items = [item for item in relevant_trace_items if is_new_path_ref(item)]
-
-    read_set = {get_path_ref_name(item) for item in new_path_ref_items 
-                if is_path_ref_read(item)}
-    write_set = {get_path_ref_name(item) for item in new_path_ref_items 
-                if is_path_ref_write(item)}
-
-    return read_set, write_set
+    dir_string = ""
+    for dir in dir_set:
+        dir_string += dir + "/"
+        write_set.append(dir_string)
+    return read_set, set(write_set)

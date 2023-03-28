@@ -1,4 +1,3 @@
-
 import argparse
 import logging
 import os
@@ -129,7 +128,7 @@ class Scheduler:
 
 
         ## Gather RWset, resolve dependencies, and progress graph
-        self.partial_program_order.command_execution_completed(cmd_id, sandbox_dir)
+        self.partial_program_order.command_execution_completed(cmd_id, exit_code, sandbox_dir)
         
         # self.partial_program_order.log_partial_program_order_info()
         
@@ -201,8 +200,6 @@ class Scheduler:
         
         self.socket.close()
         shutdown()
-
-
 
 
 def shutdown():

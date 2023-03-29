@@ -1,10 +1,43 @@
 import re
+import sys
+import os
 from typing import Tuple
+from enum import Enum
+
+
+class Ref(Enum):
+
+    STDIN = sys.stdin
+    STDOUT = sys.stdout
+    STDERR = sys.stderr
+    ROOT = os.path.abspath(os.sep)
+    CWD = os.getcwd()
+
+
+class PathRef:
+
+    def __init__(self, ref_from, path, permissions):
+        self.ref_from = ref_from
+        self.path = path
+        self.is_read, self.is_write = self.resolve_permissions(permissions)
+
+    def resolve_permissions(self, permissions: str):
+        if "r" in permissions:
+            is_read = True
+        else:
+            is_read = False
+        if "w" in permissions:
+            is_write = True
+        else:
+            is_write = False
+        return is_read, is_write
+
 
 # Parse the Riker trace structure
 #
 # TODO: This module will need to contain the definition 
 # of the trace structure and its methods that we will use to parse it.
+
 
 def remove_command_redir(cmd):
     return cmd.split(">")[0].rstrip()

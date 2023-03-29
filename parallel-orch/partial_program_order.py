@@ -375,7 +375,12 @@ class PartialProgramOrder:
         logging.debug("Starting execution on the whole frontier")
         cmd_ids = self.get_frontier()
         for cmd_id in cmd_ids:
+            # If frontier cmd is still executing, don't re-execute it
             if not cmd_id in self.commands_currently_executing:
+                # We also re-execute stopped frontier cmds,
+                # therefore, they are no longer stopped
+                logging.debug(f" Removing {cmd_id} from stopped")
+                self.stopped.discard(cmd_id)
                 self.run_cmd_non_blocking(cmd_id)
 
     ## Run a command and add it to the dictionary of executing ones
@@ -405,9 +410,6 @@ class PartialProgramOrder:
         if int(exit_code) == 159:
             logging.debug(f" Adding {node_id} to stopped")
             self.stopped.add(node_id)
-        else:
-            logging.debug(f" Removing {node_id} from stopped")
-            self.stopped.discard(node_id)
         trace_object = executor.read_trace(sandbox_dir, trace_file)
         read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
         rw_set = RWSet(read_set, write_set)

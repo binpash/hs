@@ -189,7 +189,7 @@ class Scheduler:
             self.process_next_cmd()
             # If workset is empty we should end.
             # TODO: ec checks fail for now
-            if len(self.partial_program_order.workset) == 0:
+            if len(self.partial_program_order.frontier) == 0:
                 self.done = True
         
         self.socket.close()

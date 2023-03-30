@@ -3,7 +3,7 @@ import sys
 import os
 from typing import Tuple
 from enum import Enum
-
+import logging
 
 class Ref(Enum):
 
@@ -17,7 +17,7 @@ class Ref(Enum):
 class PathRef:
 
     def __init__(self, ref_from, path, permissions):
-        self.ref_from = ref_from
+        self.ref = ref_from
         self.path = path
         self.is_read, self.is_write = self.resolve_permissions(permissions)
 
@@ -31,7 +31,9 @@ class PathRef:
         else:
             is_write = False
         return is_read, is_write
-
+    
+    def __str__(self):
+        return f"PathRef({self.ref}, {self.path}, {'r' if self.is_read else '-'}{'w' if self.is_write else '-'}"
 
 # Parse the Riker trace structure
 #
@@ -78,12 +80,19 @@ def is_path_ref_empty(trace_item):
 
 def get_path_ref_name(trace_item):
     assert(is_new_path_ref(trace_item))
-    open_config = trace_item.split(", ")[1].replace('"', '')
-    return open_config
+    return trace_item.split(", ")[1].replace('"', '')
 
+def get_path_ref_ref(trace_item):
+    assert(is_new_path_ref(trace_item))
+    return trace_item.split(", ")[0].split("(")[1]
 
 def is_command_prefix(line):
     if line.startswith(f"[Command"):
+        return True
+    return False
+
+def is_no_command_prefix(line):
+    if line.startswith(f"[No Command"):
         return True
     return False
 
@@ -101,10 +110,51 @@ def get_lauch_name(trace_item):
     assert(is_launch(trace_item))
     launch_name_dirty = trace_item.split("],")[0]
     launch_name = launch_name_dirty.split("Command ")[1]
-    return launch_name
+    return launch_name   
+
+def get_no_command_ref_id(trace_item):
+    return trace_item.split("=")[0].strip()
+
+def get_no_command_ref_ref(trace_item):
+    return trace_item.split("=")[1].strip()
+
+
+def parse_rw_sets(trace_object):
+    trace_dict = {}
+    refs_dict = {}
+    for line in trace_object:
+        line = line.rstrip()
+        if is_new_path_ref(line):
+            line = remove_command_prefix(line)
+            lhs_ref = get_path_ref_id(line)
+            ref = get_path_ref_ref(line)
+            name = get_path_ref_name(line)
+            open_config = get_path_ref_open_config(line)
+            path_ref = PathRef(ref, name, open_config)
+            trace_dict[lhs_ref] = path_ref
+        elif is_no_command_prefix(line):
+            line = remove_command_prefix(line)
+            if "=" in line:
+                lhs_ref = get_no_command_ref_id(line)
+                rhs_ref = get_no_command_ref_ref(line)
+                if rhs_ref == "CWD":
+                    refs_dict[lhs_ref] = Ref.CWD
+                elif rhs_ref == "ROOT":
+                    refs_dict[lhs_ref] = Ref.ROOT
+                elif rhs_ref == "STDERR":
+                    refs_dict[lhs_ref] = Ref.STDERR
+                elif rhs_ref == "STDIN":
+                    refs_dict[lhs_ref] = Ref.STDIN
+                elif rhs_ref == "STDOUT":
+                    refs_dict[lhs_ref] = Ref.STDOUT
+        return refs_dict, trace_dict
+
+            
+            
 
 ## Parse the trace object and gather rw sets for this command
 def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
+    refs_dict, trace_dict = parse_rw_sets(trace_object)
     previous_trace_line = ""
     read_set = set()
     write_set = []

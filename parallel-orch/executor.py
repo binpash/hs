@@ -26,7 +26,7 @@ def async_run_and_trace_command(command, trace_file, node_id, sandbox_mode=False
         # print(" -- Standard mode")
         args.append("standard")
     args.append(str(node_id))
-    process = subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # For debugging
     # process = subprocess.Popen(args)
     return process

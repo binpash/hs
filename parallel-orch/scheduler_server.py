@@ -1,4 +1,3 @@
-
 import argparse
 import logging
 import signal
@@ -121,10 +120,10 @@ class Scheduler:
         assert(input_cmd.startswith("CommandExecComplete:"))
         ## Read the node id from the command argument
         cmd_id, exit_code, sandbox_dir = self.__parse_command_exec_complete(input_cmd)
-        logging.debug(input_cmd)
-        
+
         ## Gather RWset, resolve dependencies, and progress graph
         self.partial_program_order.command_execution_completed(cmd_id, exit_code, sandbox_dir)
+        logging.debug(input_cmd)
 
         ## If there is a connection waiting for this node_id, respond to it
         if cmd_id in self.waiting_for_response:
@@ -194,8 +193,6 @@ class Scheduler:
         
         self.socket.close()
         shutdown()
-
-
 
 
 def shutdown():

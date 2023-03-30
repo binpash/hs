@@ -1,15 +1,59 @@
 import re
+import sys
+import os
 from typing import Tuple
+from enum import Enum
+import logging
 
-# Parse the Riker trace structure
-#
-# TODO: This module will need to contain the definition 
-# of the trace structure and its methods that we will use to parse it.
+class Ref(Enum):
+
+    STDIN = sys.stdin
+    STDOUT = sys.stdout
+    STDERR = sys.stderr
+    ROOT = os.path.abspath(os.sep)
+    # Not sure this is always correct
+    # but it doesn't affect the results
+    CWD = os.getcwd()
+
+
+class PathRef:
+
+    def __init__(self, ref, path, permissions, no_follow):
+        self.ref = ref
+        self.path = path
+        self.is_read, self.is_write = self.resolve_permissions(permissions)
+        self.is_nofollow = no_follow
+
+    def resolve_permissions(self, permissions: str):
+        if "r" in permissions:
+            is_read = True
+        else:
+            is_read = False
+        if "w" in permissions:
+            is_write = True
+        else:
+            is_write = False
+        return is_read, is_write
+    
+    def __str__(self):
+        return f"PathRef({self.ref}, {self.path}, {'r' if self.is_read else '-'}{'w' if self.is_write else '-'} {'no follow' if self.is_nofollow else ''})"
+
+    def get_resolved_path(self):
+        if not self.is_nofollow:
+            return os.path.join(self.ref, self.path).replace("/./", "/")
+
+
+def log_resolved_trace_items(resolved_dict):
+    for k, v in resolved_dict.items():
+        try:
+            logging.debug(f"{k}: {v.get_resolved_path()} {'r' if v.is_read else '-'}{'w' if v.is_write else '-'} {'no follow' if v.is_nofollow else ''}")
+        except:
+            logging.debug(f'{k}: {v}')
 
 def remove_command_redir(cmd):
     return cmd.split(">")[0].rstrip()
 
-def remove_command_prefix(line):
+def remove_command_prefix(line) -> str:
     return line.split(f"]: ")[1].rstrip()
 
 def get_command_prefix(line):
@@ -31,52 +75,156 @@ def get_path_ref_open_config(trace_item):
     open_config = re.split('\(|\)', open_config_suffix)[0].rstrip()
     return open_config
 
-def is_path_ref_read(trace_item):
-    open_config = get_path_ref_open_config(trace_item)
-    return (open_config[0] == "r")
+def get_path_ref_no_follow(trace_item):
+    return "nofollow" in trace_item
+
+def is_path_ref_read(trace_item: PathRef):
+    return trace_item.is_read
         
-def is_path_ref_write(trace_item):
-    open_config = get_path_ref_open_config(trace_item)
-    return (open_config[1] == "w")
+def is_path_ref_write(trace_item: PathRef):
+    return trace_item.is_write
+
+def is_path_ref_empty(trace_item: PathRef):
+    return not trace_item.is_read and not trace_item.is_write
 
 def get_path_ref_name(trace_item):
     assert(is_new_path_ref(trace_item))
-    open_config = trace_item.split(", ")[1].replace('"', '')
-    return open_config
+    return trace_item.split(", ")[1].replace('"', '')
 
-def is_command_prefix(line):
-    if line.startswith(f"[Command"):
+def get_path_ref_ref(trace_item):
+    assert(is_new_path_ref(trace_item))
+    return trace_item.split(", ")[0].split("(")[1]
+
+def is_no_command_prefix(line):
+    if line.startswith(f"[No Command"):
         return True
     return False
 
 def is_launch(line):
     return "Launch(" in line
 
-def get_launch_assignments(trace_item):
+def parse_launch_command(trace_item):
     assert(is_launch(trace_item))
     assignment_suffix = ", ".join(trace_item.split(", ")[1:])
     assignment_string = assignment_suffix[1:-2].split(",")
     assignments = [(x.split("=")) for x in assignment_string]
     return assignments
 
+def parse_launch(trace_item):
+    assert(is_launch(trace_item))
+
 def get_lauch_name(trace_item):
     assert(is_launch(trace_item))
     launch_name_dirty = trace_item.split("],")[0]
     launch_name = launch_name_dirty.split("Command ")[1]
-    return launch_name
+    return launch_name   
+
+def get_no_command_ref_id(trace_item):
+    return trace_item.split("=")[0].strip()
+
+def get_no_command_ref_ref(trace_item):
+    return trace_item.split("=")[1].strip()
+
+def is_prefix_of_cmd(line, prefix):
+    if prefix is not None and prefix in get_command_prefix(line):
+        return True
+    return False
+
+def parse_rw_sets(trace_object):
+    refs_dict = {}
+    # In the first iteration, we get the refs
+    for line in trace_object:
+        # This branch will always execute first
+        if is_no_command_prefix(line):
+            line = remove_command_prefix(line)
+            if " = " in line:
+                lhs_ref = int(get_no_command_ref_id(line).strip().lstrip("r"))
+                rhs_ref = get_no_command_ref_ref(line).strip().lstrip("r")
+                if rhs_ref == "CWD":
+                    refs_dict[lhs_ref] = Ref.CWD
+                elif rhs_ref == "ROOT":
+                    refs_dict[lhs_ref] = Ref.ROOT
+                elif rhs_ref == "STDERR":
+                    refs_dict[lhs_ref] = Ref.STDERR
+                elif rhs_ref == "STDIN":
+                    refs_dict[lhs_ref] = Ref.STDIN
+                elif rhs_ref == "STDOUT":
+                    refs_dict[lhs_ref] = Ref.STDOUT
+        # Parses launch assignments
+        elif is_launch(line):
+            assignments = parse_launch_command(remove_command_prefix(line))
+            for assignment in assignments:
+                refs_dict[int(assignment[0].strip().lstrip("r"))] = refs_dict[int(assignment[1].strip().lstrip("r"))]
+        # Parses pathrefs
+        elif is_new_path_ref(line):
+            line = remove_command_prefix(line).strip()
+            lhs_ref = int(get_path_ref_id(line).strip().lstrip("r"))
+            ref = int(get_path_ref_ref(line).strip().lstrip("r"))
+            name = get_path_ref_name(line).strip()
+            open_config = get_path_ref_open_config(line).strip()
+            no_follow = get_path_ref_no_follow(line)
+            path_ref = PathRef(ref, name, open_config, no_follow)
+            refs_dict[lhs_ref] = path_ref
+    return refs_dict
+    
+def traverse_path_ref(refs_dict: dict, ref: PathRef):
+    if isinstance(ref, PathRef) and not ref.is_nofollow and isinstance(refs_dict[ref.ref], PathRef):
+        return traverse_path_ref(refs_dict, refs_dict[ref.ref])
+    else:
+        return ref.ref
+
+def resolve_rw_set_refs(refs_dict):
+    for ref_id, ref in refs_dict.items():
+        if isinstance(ref, PathRef):
+            refs_dict[ref_id].ref = traverse_path_ref(refs_dict, ref)
+    return refs_dict
+
+def replace_path_ref_terminal_nodes(refs_dict: dict):
+    for ref in refs_dict.values():
+        if isinstance(ref, PathRef) and not ref.is_nofollow:
+            # HACK: This is hard-coded stdout
+            if ref.ref not in refs_dict:
+                ref.ref = refs_dict[4].value
+            else:
+                ref.ref = refs_dict[ref.ref].value
 
 ## Parse the trace object and gather rw sets for this command
 def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
+    refs_dict = parse_rw_sets(trace_object)
+    resolved_dict = resolve_rw_set_refs(refs_dict)
+    replace_path_ref_terminal_nodes(resolved_dict)
+    log_resolved_trace_items(resolved_dict)
 
-    relevant_trace_lines = [line for line in trace_object
-                            if is_command_prefix(line)]
-    relevant_trace_items = [remove_command_prefix(line) for line in relevant_trace_lines]
+    read_set = set()
+    write_set = []
+    dir_set = []
+    for i in range(len(resolved_dict)):
+        if i not in resolved_dict:
+            continue
+        resolved_trace_object = resolved_dict[i]
+        # We ignore Ref objects
+        if isinstance(resolved_trace_object, Ref):
+            continue
+        if is_path_ref_read(resolved_trace_object):
+            read_set.add(resolved_trace_object.get_resolved_path())
+        if is_path_ref_write(resolved_trace_object):
+            write_set.append(resolved_trace_object.get_resolved_path())
+        # This is a sign that a directory declaration might exist
+        if is_path_ref_empty(resolved_trace_object):
+            if i > 0:
+                previous_resolved_trace_object = resolved_dict[i-1]
+                if isinstance(previous_resolved_trace_object, PathRef) and is_path_ref_write(previous_resolved_trace_object):
+                    dir_set.append(resolved_trace_object.get_resolved_path())
+                    write_set.pop()
 
-    new_path_ref_items = [item for item in relevant_trace_items if is_new_path_ref(item)]
-
-    read_set = {get_path_ref_name(item) for item in new_path_ref_items 
-                if is_path_ref_read(item)}
-    write_set = {get_path_ref_name(item) for item in new_path_ref_items 
-                if is_path_ref_write(item)}
-
-    return read_set, write_set
+    prefix = os.path.commonprefix(dir_set)
+    suffixes = [dir.replace(prefix, "") for dir in dir_set]
+    dir_string = ""
+    for dir in suffixes:
+        dir_string = os.path.join(dir_string, dir)
+        to_add = os.path.join(prefix, dir_string)
+        if to_add.endswith("/"):
+            write_set.append(to_add)
+        else:
+            write_set.append(to_add + "/")
+    return read_set, set(write_set)

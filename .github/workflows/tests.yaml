@@ -2,7 +2,6 @@ name: Tests
 on: 
   pull_request_target:
     types: [assigned, opened, synchronize, reopened, ready_for_review]
-    # the paths that trigger the ci
     paths: 
         - parallel-orch/**
         - overlay-sandbox/**
@@ -19,7 +18,7 @@ on:
 
 # Jobs section
 jobs:
-    Pash-Tests:
+    PaSh-Spec-Tests:
       strategy:
         fail-fast: false
         matrix:

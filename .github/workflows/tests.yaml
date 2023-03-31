@@ -39,7 +39,7 @@ jobs:
           sudo touch /.githubenv
           # install the system deps and pash the environment
           sudo -E bash scripts/install_deps_ubuntu20.sh
-          export PASH_TOP="$PWD/dynamic-parallelizer/deps/pash"
+          export PASH_TOP="$PWD/deps/pash"
           export PATH=$PATH:$PASH_TOP
           # run all the tests
           cd test && bash test_orch.sh  

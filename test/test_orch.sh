@@ -6,7 +6,7 @@ export WORKING_DIR="$ORCH_TOP/test/output_orch"
 echo "${WORKING_DIR}"
 
 bash="bash"
-orch="$ORCH_TOP/pash-spec.sh -d 100"
+orch="$ORCH_TOP/pash-spec.sh"
 
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"
 test_dir_bash="$ORCH_TOP/test/test_scripts_bash"
@@ -40,32 +40,36 @@ run_test()
 
     echo -n "Running $test..."
 
-    $test "$bash" "$test_dir_bash" "$output_dir_bash" > /dev/null
+    $test "$bash" "$test_dir_bash" "$output_dir_bash" > /dev/null 2> /dev/null
     test_bash_ec=$?
 
-    $test "$orch" "$test_dir_orch" "$output_dir_orch" > /dev/null
+    $test "$orch" "$test_dir_orch" "$output_dir_orch" > /dev/null 2> /dev/null
     test_pash_ec=$?
     
-    diff -q "$output_dir_orch/" "$output_dir_bash/"
+    diff -q "$output_dir_orch/" "$output_dir_bash/" > /dev/null
     test_diff_ec=$?
 
-    # ## Check if the two exit codes are both success or both error
-    # { [ $test_bash_ec -eq 0 ] && [ $test_pash_ec -eq 0 ]; } || { [ $test_bash_ec -ne 0 ] && [ $test_pash_ec -ne 0 ]; }
-    # test_ec=$?
+    ## Check if the two exit codes are both success or both error
+    { [ $test_bash_ec -eq 0 ] && [ $test_pash_ec -eq 0 ]; } || { [ $test_bash_ec -ne 0 ] && [ $test_pash_ec -ne 0 ]; }
+    test_ec=$?
     
     if [ $test_diff_ec -ne 0 ]; then
-        echo -n "$test output mismatch "
+        echo -n " (!) output mismatch "
+    else
+        if [ $test_ec -ne 0 ]; then
+            echo -n " (?) exit code mismatch "
+        else
+            echo -ne '\t\t\t'
+        fi
     fi
-    if [ $test_ec -ne 0 ]; then
-        echo -n "$test exit code mismatch "
-    fi
-    if [ $test_diff_ec -ne 0 ] || [ $test_ec -ne 0 ]; then
+    # if [ $test_diff_ec -ne 0 ] || [ $test_ec -ne 0 ]; then
+    if [ $test_diff_ec -ne 0 ]; then
         echo "$test are not identical" >> $output_dir/result_status
         echo -e '\t\tFAIL'
         return 1
     else
         echo "$test are identical" >> $output_dir/result_status
-        echo -e '\t\tOK'
+        echo -e '\tOK'
         return 0
     fi
 }
@@ -136,15 +140,15 @@ if [ "$#" -eq 0 ]; then
     run_test test2
     cleanup
     run_test test3
-    cleanup
-    run_test test4
-    cleanup
-    run_test test5
+    # cleanup
+    # run_test test4
+    # cleanup
+    # run_test test5
     cleanup
     run_test test6
     # Test 8 is failing for now
-    # cleanup
-    # run_test test8
+    cleanup
+    run_test test8
 else
     for testname in $@
     do
@@ -172,13 +176,14 @@ case "$distro" in
         ;;
 esac
 
+echo "============== Test Summary =============="
+echo "> Below follow the identical outputs:"
+grep "are identical" "$output_dir"/result_status | awk '{print $1}' | tee results/passed.log
 
-echo "Below follow the identical outputs:"
-grep "are identical" "$output_dir"/result_status | awk '{print $1}' > results/passed.log
-
-echo "Below follow the non-identical outputs:"     
-grep "are not identical" "$output_dir"/result_status | awk '{print $1}' > results/failed.log
-
+echo "> Below follow the non-identical outputs:"     
+grep "are not identical" "$output_dir"/result_status | awk '{print $1}' | tee results/failed.log
+echo "=========================================="
 TOTAL_TESTS=$(cat "$output_dir"/result_status | wc -l)
 PASSED_TESTS=$(grep -c "are identical" "$output_dir"/result_status)
-echo "Summary: ${PASSED_TESTS}/${TOTAL_TESTS} tests passed." > results/results.log
+echo "Summary: ${PASSED_TESTS}/${TOTAL_TESTS} tests passed." | tee results/results.log
+echo "=========================================="

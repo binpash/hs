@@ -174,11 +174,11 @@ esac
 
 
 echo "Below follow the identical outputs:"
-grep "are identical" "$output_dir"/result_status | awk '{print $1}'
+grep "are identical" "$output_dir"/result_status | awk '{print $1}' > results/passed.log
 
 echo "Below follow the non-identical outputs:"     
-grep "are not identical" "$output_dir"/result_status | awk '{print $1}'
+grep "are not identical" "$output_dir"/result_status | awk '{print $1}' > results/failed.log
 
 TOTAL_TESTS=$(cat "$output_dir"/result_status | wc -l)
 PASSED_TESTS=$(grep -c "are identical" "$output_dir"/result_status)
-echo "Summary: ${PASSED_TESTS}/${TOTAL_TESTS} tests passed."
+echo "Summary: ${PASSED_TESTS}/${TOTAL_TESTS} tests passed." > results/results.log

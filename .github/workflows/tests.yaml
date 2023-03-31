@@ -38,10 +38,10 @@ jobs:
         run: |
           sudo touch /.githubenv
           # install the system deps and pash the environment
-          sudo -E bash scripts/install_deps_ubuntu20.sh -o
-          export PASH_TOP=$PWD
+          sudo -E bash scripts/install_deps_ubuntu20.sh
+          export PASH_TOP="$PWD/dynamic-parallelizer/deps/pash"
           export PATH=$PATH:$PASH_TOP
-          # run all the tests (INTRO, INTERFACE, COMPILER)
+          # run all the tests
           cd test && bash test_orch.sh  
           # get the timer
           timer=$(LANG=en_us_88591; date)

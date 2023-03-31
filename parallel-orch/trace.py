@@ -212,10 +212,11 @@ def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
         # This is a sign that a directory declaration might exist
         if is_path_ref_empty(resolved_trace_object):
             if i > 0:
-                previous_resolved_trace_object = resolved_dict[i-1]
-                if isinstance(previous_resolved_trace_object, PathRef) and is_path_ref_write(previous_resolved_trace_object):
-                    dir_set.append(resolved_trace_object.get_resolved_path())
-                    write_set.pop()
+                if i - 1 in resolved_dict:
+                    previous_resolved_trace_object = resolved_dict[i-1]
+                    if isinstance(previous_resolved_trace_object, PathRef) and is_path_ref_write(previous_resolved_trace_object):
+                        dir_set.append(resolved_trace_object.get_resolved_path())
+                        write_set.pop()
 
     prefix = os.path.commonprefix(dir_set)
     suffixes = [dir.replace(prefix, "") for dir in dir_set]

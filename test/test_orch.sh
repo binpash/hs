@@ -1,9 +1,8 @@
 #!/bin/bash
 
 export ORCH_TOP=${ORCH_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
-export WORKING_DIR="$ORCH_TOP/test/output_bash"
-export WORKING_DIR="$ORCH_TOP/test/output_orch"
-echo "${WORKING_DIR}"
+export WORKING_DIR="$ORCH_TOP/test"
+export TEMPLATE_SCRIPT_DIR="$WORKING_DIR/template_scripts"
 
 bash="bash"
 orch="$ORCH_TOP/pash-spec.sh -d 100"
@@ -37,25 +36,30 @@ run_test()
         return 1
     fi
 
-
     echo -n "Running $test..."
-
-    $test "$bash" "$test_dir_bash" "$output_dir_bash" > /dev/null
+    # Run test with bash
+    export test_output_dir="$WORKING_DIR/output_bash"
+    export generated_test_dir="$WORKING_DIR/test_scripts_bash"
+    generate_test_files
+    $test "$bash" "$generated_test_dir" > /dev/null
     test_bash_ec=$?
 
-    $test "$orch" "$test_dir_orch" "$output_dir_orch" > /dev/null
-    test_pash_ec=$?
+     # Run test with orch
+    export test_output_dir="$WORKING_DIR/output_orch"
+    export generated_test_dir="$WORKING_DIR/test_scripts_orch"
+    generate_test_files
+    $test "$orch" "$generated_test_dir"  > /dev/null
+    test_orch_ec=$?
     
-    diff -q "$output_dir_orch/" "$output_dir_bash/"
+    diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orc/"
     test_diff_ec=$?
 
-    # ## Check if the two exit codes are both success or both error
-    # { [ $test_bash_ec -eq 0 ] && [ $test_pash_ec -eq 0 ]; } || { [ $test_bash_ec -ne 0 ] && [ $test_pash_ec -ne 0 ]; }
-    # test_ec=$?
-    
+    # Check output    
     if [ $test_diff_ec -ne 0 ]; then
         echo -n "$test output mismatch "
     fi
+    # Check exit codes
+    # TODO: For now tests will not fail, just generate a warning
     if [ $test_ec -ne 0 ]; then
         echo -n "$test exit code mismatch "
     fi
@@ -68,6 +72,16 @@ run_test()
         echo -e '\t\tOK'
         return 0
     fi
+}
+
+generate_test_files()
+{
+    rm -f $generated_test_dir/*
+    mkdir -p $generated_test_dir
+
+    for file in `ls $TEMPLATE_SCRIPT_DIR`; do
+        envsubst <$TEMPLATE_SCRIPT_DIR/$file > $generated_test_dir/$file
+    done
 }
 
 test1()
@@ -120,8 +134,6 @@ test6()
     $shell $2/test6.sh
 }
 
-
-
 test8()
 {
     local shell=$1 
@@ -160,7 +172,7 @@ elif [ -e /etc/os-release ] ; then
 fi
 
 distro=$(printf '%s\n' "$distro" | LC_ALL=C tr '[:upper:]' '[:lower:]')
-# now do different things depending on distro
+now do different things depending on distro
 case "$distro" in
     freebsd*)  
         # change sed to gsed
@@ -179,6 +191,6 @@ grep "are identical" "$output_dir"/result_status | awk '{print $1}'
 echo "Below follow the non-identical outputs:"     
 grep "are not identical" "$output_dir"/result_status | awk '{print $1}'
 
-TOTAL_TESTS=$(cat "$output_dir"/result_status | wc -l)
+TOTAL_TESTS=$(cat "$output_dir"/result_status | wc -l | xargs)
 PASSED_TESTS=$(grep -c "are identical" "$output_dir"/result_status)
 echo "Summary: ${PASSED_TESTS}/${TOTAL_TESTS} tests passed."

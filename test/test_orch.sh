@@ -1,9 +1,8 @@
 #!/bin/bash
 
 export ORCH_TOP=${ORCH_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
-export WORKING_DIR="$ORCH_TOP/test/output_bash"
-export WORKING_DIR="$ORCH_TOP/test/output_orch"
-echo "${WORKING_DIR}"
+export WORKING_DIR="$ORCH_TOP/test"
+export TEMPLATE_SCRIPT_DIR="$WORKING_DIR/template_scripts"
 
 bash="bash"
 orch="$ORCH_TOP/pash-spec.sh"
@@ -37,16 +36,22 @@ run_test()
         return 1
     fi
 
-
     echo -n "Running $test..."
-
-    $test "$bash" "$test_dir_bash" "$output_dir_bash" > /dev/null 2> /dev/null
+    # Run test with bash
+    export test_output_dir="$WORKING_DIR/output_bash"
+    export generated_test_dir="$WORKING_DIR/test_scripts_bash"
+    generate_test_files
+    $test "$bash" "$generated_test_dir" "$test_output_dir" > /dev/null 2>/dev/null
     test_bash_ec=$?
 
-    $test "$orch" "$test_dir_orch" "$output_dir_orch" > /dev/null 2> /dev/null
-    test_pash_ec=$?
+     # Run test with orch
+    export test_output_dir="$WORKING_DIR/output_orch"
+    export generated_test_dir="$WORKING_DIR/test_scripts_orch"
+    generate_test_files
+    $test "$orch" "$generated_test_dir" "$test_output_dir" > /dev/null 2>/dev/null
+    test_orch_ec=$?
     
-    diff -q "$output_dir_orch/" "$output_dir_bash/" > /dev/null
+    diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
     test_diff_ec=$?
 
     ## Check if the two exit codes are both success or both error
@@ -72,6 +77,16 @@ run_test()
         echo -e '\tOK'
         return 0
     fi
+}
+
+generate_test_files()
+{
+    rm -f $generated_test_dir/*
+    mkdir -p $generated_test_dir
+
+    for file in `ls $TEMPLATE_SCRIPT_DIR`; do
+        envsubst <$TEMPLATE_SCRIPT_DIR/$file > $generated_test_dir/$file
+    done
 }
 
 test1()
@@ -124,8 +139,6 @@ test6()
     $shell $2/test6.sh
 }
 
-
-
 test8()
 {
     local shell=$1 
@@ -164,7 +177,7 @@ elif [ -e /etc/os-release ] ; then
 fi
 
 distro=$(printf '%s\n' "$distro" | LC_ALL=C tr '[:upper:]' '[:lower:]')
-# now do different things depending on distro
+# do different things depending on distro
 case "$distro" in
     freebsd*)  
         # change sed to gsed

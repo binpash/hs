@@ -41,17 +41,17 @@ run_test()
     export test_output_dir="$WORKING_DIR/output_bash"
     export generated_test_dir="$WORKING_DIR/test_scripts_bash"
     generate_test_files
-    $test "$bash" "$generated_test_dir" > /dev/null
+    $test "$bash" "$generated_test_dir" "$test_output_dir" > /dev/null 2>/dev/null
     test_bash_ec=$?
 
      # Run test with orch
     export test_output_dir="$WORKING_DIR/output_orch"
     export generated_test_dir="$WORKING_DIR/test_scripts_orch"
     generate_test_files
-    $test "$orch" "$generated_test_dir"  > /dev/null
+    $test "$orch" "$generated_test_dir" "$test_output_dir" > /dev/null 2>/dev/null
     test_orch_ec=$?
     
-    diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orc/"
+    diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
     test_diff_ec=$?
 
     # Check output    
@@ -172,7 +172,7 @@ elif [ -e /etc/os-release ] ; then
 fi
 
 distro=$(printf '%s\n' "$distro" | LC_ALL=C tr '[:upper:]' '[:lower:]')
-now do different things depending on distro
+# do different things depending on distro
 case "$distro" in
     freebsd*)  
         # change sed to gsed

@@ -21,7 +21,7 @@ class PathRef:
     def __init__(self, ref, path, permissions, no_follow):
         self.ref = ref
         self.path = path
-        self.is_read, self.is_write = self.resolve_permissions(permissions)
+        self.is_read, self.is_write, self.is_exec = self.resolve_permissions(permissions)
         self.is_nofollow = no_follow
 
     def resolve_permissions(self, permissions: str):
@@ -33,17 +33,32 @@ class PathRef:
             is_write = True
         else:
             is_write = False
-        return is_read, is_write
+        if "x" in permissions:
+            is_exec = True
+        else:
+            is_exec = False
+        return is_read, is_write, is_exec
     
     def __str__(self):
-        return f"PathRef({self.ref}, {self.path}, {'r' if self.is_read else '-'}{'w' if self.is_write else '-'} {'no follow' if self.is_nofollow else ''})"
+        return f"PathRef({self.ref}, {self.path}, {'r' if self.is_read else '-'}{'w' if self.is_write else '-'}{'x' if self.is_exec else '-'} {'no follow' if self.is_nofollow else ''})"
 
     def get_resolved_path(self):
-        if not self.is_nofollow:
-            # Remove dupliate prefixes
-            commonprefix = os.path.commonprefix([self.ref, self.path])
-            ref_without_prefix = self.ref.replace(commonprefix, "")
-            return os.path.join(ref_without_prefix, self.path).replace("/./", "/")
+        # Remove dupliate prefixes
+        if not self.path.startswith("/"):
+            modified_path = "/" + self.path
+        else:
+            modified_path = self.path
+    
+        commonprefix = os.path.commonprefix([self.ref, modified_path])
+        ref_without_prefix = self.ref.replace(commonprefix, "", 1)        
+        path_without_prefix = modified_path.replace(commonprefix, "", 1)
+
+        if path_without_prefix.startswith("/"):
+            path_without_prefix = path_without_prefix.replace("/", "", 1)
+
+        # print(os.path.join(commonprefix, ref_without_prefix, path_without_prefix))
+        return os.path.join(commonprefix, ref_without_prefix, path_without_prefix).replace("/./", "/")
+
 
 
 def log_resolved_trace_items(resolved_dict):
@@ -90,8 +105,11 @@ def is_path_ref_read(trace_item: PathRef):
 def is_path_ref_write(trace_item: PathRef):
     return trace_item.is_write
 
+def is_path_ref_execute(trace_item: PathRef):
+    return trace_item.is_write
+
 def is_path_ref_empty(trace_item: PathRef):
-    return not trace_item.is_read and not trace_item.is_write
+    return not trace_item.is_read and not trace_item.is_write and not trace_item.is_exec
 
 def get_path_ref_name(trace_item):
     assert(is_new_path_ref(trace_item))
@@ -160,13 +178,14 @@ def parse_rw_sets(trace_object):
         elif is_launch(line):
             assignments = parse_launch_command(remove_command_prefix(line))
             for assignment in assignments:
-                refs_dict[int(assignment[0].strip().lstrip("r"))] = refs_dict[int(assignment[1].strip().lstrip("r"))]
+                if int(assignment[1].strip().lstrip("r")) in refs_dict:
+                    refs_dict[int(assignment[0].strip().lstrip("r"))] = refs_dict[int(assignment[1].strip().lstrip("r"))]
         # Parses pathrefs
         elif is_new_path_ref(line):
             line = remove_command_prefix(line).strip()
             lhs_ref = int(get_path_ref_id(line).strip().lstrip("r"))
             ref = int(get_path_ref_ref(line).strip().lstrip("r"))
-            name = "/" + get_path_ref_name(line).strip()
+            name = get_path_ref_name(line).strip()
             open_config = get_path_ref_open_config(line).strip()
             no_follow = get_path_ref_no_follow(line)
             path_ref = PathRef(ref, name, open_config, no_follow)
@@ -192,7 +211,12 @@ def replace_path_ref_terminal_nodes(refs_dict: dict):
             if ref.ref not in refs_dict:
                 ref.ref = refs_dict[4].value
             else:
-                ref.ref = refs_dict[ref.ref].value
+                if isinstance(refs_dict[ref.ref], Ref):
+                    ref.ref = refs_dict[ref.ref].value
+                else:
+                    logging.debug(ref)
+                    logging.debug("------------------------------")
+                    ref.ref = os.getcwd()
 
 ## Parse the trace object and gather rw sets for this command
 def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
@@ -221,12 +245,17 @@ def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
                 if i - 1 in resolved_dict:
                     previous_resolved_trace_object = resolved_dict[i-1]
                     if isinstance(previous_resolved_trace_object, PathRef) and is_path_ref_write(previous_resolved_trace_object):
+                        print(resolved_trace_object)
+                        print(resolved_trace_object.get_resolved_path())
                         dir_set.append(resolved_trace_object.get_resolved_path())
                         write_set.pop()
 
     prefix = os.path.commonprefix(dir_set)
+    print(dir_set)
     suffixes = [dir.replace(prefix, "") for dir in dir_set]
-    dir_string = ""
+    # Warning: HACK
+    print(">>>", prefix)
+    dir_string = prefix
     for dir in suffixes:
         dir_string = os.path.join(dir_string, dir)
         to_add = os.path.join(prefix, dir_string)

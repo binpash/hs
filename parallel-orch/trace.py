@@ -72,7 +72,10 @@ def get_path_ref_open_config(trace_item):
     assert(is_new_path_ref(trace_item))
     ## WARNING: HACK
     open_config_suffix = trace_item.split(", ")[2]
-    open_config = re.split('\(|\)', open_config_suffix)[0].rstrip()
+
+    open_config = re.split('\(|\)', open_config_suffix)[0]
+    # WARNING: HACK: hard-coded replacement 
+    open_config = open_config.replace("truncate create", "").rstrip()
     return open_config
 
 def get_path_ref_no_follow(trace_item):
@@ -193,7 +196,7 @@ def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
     refs_dict = parse_rw_sets(trace_object)
     resolved_dict = resolve_rw_set_refs(refs_dict)
     replace_path_ref_terminal_nodes(resolved_dict)
-    log_resolved_trace_items(resolved_dict)
+    # log_resolved_trace_items(resolved_dict)
 
     read_set = set()
     write_set = []

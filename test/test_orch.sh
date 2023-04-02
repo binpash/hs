@@ -3,18 +3,30 @@
 export ORCH_TOP=${ORCH_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
 export WORKING_DIR="$ORCH_TOP/test"
 export TEMPLATE_SCRIPT_DIR="$WORKING_DIR/template_scripts"
+export MISC_SCRIPT_DIR="$WORKING_DIR/misc"
+
+echo "==================| Scheduler Tests |==================="
+echo "Test diretory:               $WORKING_DIR"
+echo "Template script directory:   $TEMPLATE_SCRIPT_DIR"
 
 bash="bash"
 orch="$ORCH_TOP/pash-spec.sh"
 
+# Generated test scripts are saved here
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"
 test_dir_bash="$ORCH_TOP/test/test_scripts_bash"
-
+# Test script output is saved here
 output_dir_orch="$ORCH_TOP/test/output_orch"
 output_dir_bash="$ORCH_TOP/test/output_bash"
-
+# Results saved here
 output_dir="$ORCH_TOP/test/results"
 
+echo "Bash scripts saved at:       $test_dir_bash"
+echo "Orch scripts saved at:       $test_dir_orch"
+echo "Results saved at:            $output_dir"
+echo "========================================================"
+
+# Clear previous test results
 rm -rf "$output_dir"
 mkdir -p "$output_dir"
 touch "$output_dir/result_status"
@@ -41,21 +53,21 @@ run_test()
     export test_output_dir="$WORKING_DIR/output_bash"
     export generated_test_dir="$WORKING_DIR/test_scripts_bash"
     generate_test_files
-    $test "$bash" "$generated_test_dir" "$test_output_dir" > /dev/null 2>/dev/null
+    $test "$bash" "$generated_test_dir" "$test_output_dir" > /dev/null 2> /dev/null
     test_bash_ec=$?
 
      # Run test with orch
     export test_output_dir="$WORKING_DIR/output_orch"
     export generated_test_dir="$WORKING_DIR/test_scripts_orch"
     generate_test_files
-    $test "$orch" "$generated_test_dir" "$test_output_dir" > /dev/null 2>/dev/null
+    $test "$orch" "$generated_test_dir" "$test_output_dir" > /dev/null 2> /dev/null
     test_orch_ec=$?
     
     diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
     test_diff_ec=$?
 
     ## Check if the two exit codes are both success or both error
-    { [ $test_bash_ec -eq 0 ] && [ $test_pash_ec -eq 0 ]; } || { [ $test_bash_ec -ne 0 ] && [ $test_pash_ec -ne 0 ]; }
+    { [ $test_bash_ec -eq 0 ] && [ $test_orch_ec -eq 0 ]; } || { [ $test_bash_ec -ne 0 ] && [ $test_orch_ec -ne 0 ]; }
     test_ec=$?
     
     if [ $test_diff_ec -ne 0 ]; then
@@ -189,14 +201,14 @@ case "$distro" in
         ;;
 esac
 
-echo "============== Test Summary =============="
+echo -e "\n====================| Test Summary |====================\n"
 echo "> Below follow the identical outputs:"
-grep "are identical" "$output_dir"/result_status | awk '{print $1}' | tee results/passed.log
+grep "are identical" "$output_dir"/result_status | awk '{print $1}' | tee $output_dir/passed.log
 
 echo "> Below follow the non-identical outputs:"     
-grep "are not identical" "$output_dir"/result_status | awk '{print $1}' | tee results/failed.log
-echo "=========================================="
-TOTAL_TESTS=$(cat "$output_dir"/result_status | wc -l)
+grep "are not identical" "$output_dir"/result_status | awk '{print $1}' | tee $output_dir/failed.log
+echo "========================================================"
+TOTAL_TESTS=$(cat "$output_dir"/result_status | wc -l | xargs)
 PASSED_TESTS=$(grep -c "are identical" "$output_dir"/result_status)
-echo "Summary: ${PASSED_TESTS}/${TOTAL_TESTS} tests passed." | tee results/results.log
-echo "=========================================="
+echo "Summary: ${PASSED_TESTS}/${TOTAL_TESTS} tests passed." | tee $output_dir/results.log
+echo "========================================================"

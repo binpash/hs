@@ -37,8 +37,8 @@ cleanup()
     rm -rf ./.rkr
     rm -rf "$output_dir_orch"
     rm -rf "$output_dir_bash"
-    mkdir -p "$output_dir_orch"
-    mkdir -p "$output_dir_bash"
+    mkdir "$output_dir_orch"
+    mkdir "$output_dir_bash"
 }
 
 run_test()
@@ -62,7 +62,7 @@ run_test()
     export test_output_dir="$WORKING_DIR/output_orch"
     export generated_test_dir="$WORKING_DIR/test_scripts_orch"
     generate_test_files
-    $test "$orch" "$generated_test_dir" "$test_output_dir"  > /dev/null 2> /dev/null
+    $test "$orch" "$generated_test_dir" "$test_output_dir" > /dev/null 2> /dev/null
     test_orch_ec=$?
     
     diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
@@ -153,6 +153,12 @@ test6()
     $shell $2/test6.sh
 }
 
+test7()
+{
+    local shell=$1 
+    $shell $2/test7.sh
+}
+
 test8()
 {
     local shell=$1 
@@ -173,6 +179,8 @@ if [ "$#" -eq 0 ]; then
     run_test test5
     cleanup
     run_test test6
+    # cleanup
+    # run_test test7
     # Test 8 is failing for now
     # cleanup
     # run_test test8
@@ -184,7 +192,7 @@ else
     done
 fi
 
-if type lsb_release ; then
+if type lsb_release > /dev/null ; then
    distro=$(lsb_release -i -s)
 elif [ -e /etc/os-release ] ; then
    distro=$(awk -F= '$1 == "ID" {print $2}' /etc/os-release)

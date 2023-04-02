@@ -40,13 +40,16 @@ class PathRef:
 
     def get_resolved_path(self):
         if not self.is_nofollow:
-            return os.path.join(self.ref, self.path).replace("/./", "/")
+            # Remove dupliate prefixes
+            commonprefix = os.path.commonprefix([self.ref, self.path])
+            ref_without_prefix = self.ref.replace(commonprefix, "")
+            return os.path.join(ref_without_prefix, self.path).replace("/./", "/")
 
 
 def log_resolved_trace_items(resolved_dict):
     for k, v in resolved_dict.items():
         try:
-            logging.debug(f"{k}: {v.get_resolved_path()} {'r' if v.is_read else '-'}{'w' if v.is_write else '-'} {'no follow' if v.is_nofollow else ''}")
+            logging.debug(f" {k}: {v}")
         except:
             logging.debug(f'{k}: {v}')
 
@@ -163,7 +166,7 @@ def parse_rw_sets(trace_object):
             line = remove_command_prefix(line).strip()
             lhs_ref = int(get_path_ref_id(line).strip().lstrip("r"))
             ref = int(get_path_ref_ref(line).strip().lstrip("r"))
-            name = get_path_ref_name(line).strip()
+            name = "/" + get_path_ref_name(line).strip()
             open_config = get_path_ref_open_config(line).strip()
             no_follow = get_path_ref_no_follow(line)
             path_ref = PathRef(ref, name, open_config, no_follow)

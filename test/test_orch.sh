@@ -33,6 +33,8 @@ touch "$output_dir/result_status"
 
 cleanup()
 {
+    # clear Riker's cache
+    rm -rf ./.rkr
     rm -rf "$output_dir_orch"
     rm -rf "$output_dir_bash"
     mkdir -p "$output_dir_orch"
@@ -51,7 +53,7 @@ run_test()
     echo -n "Running $test..."
     # Run test with bash
     export test_output_dir="$WORKING_DIR/output_bash"
-    export generated_test_dir="$WORKING_DIR/test_scripts_bash"
+    export generated_test_dir="$WORKING_DIR/test_scripts_bash" 
     generate_test_files
     $test "$bash" "$generated_test_dir" "$test_output_dir" > /dev/null 2> /dev/null
     test_bash_ec=$?
@@ -60,7 +62,7 @@ run_test()
     export test_output_dir="$WORKING_DIR/output_orch"
     export generated_test_dir="$WORKING_DIR/test_scripts_orch"
     generate_test_files
-    $test "$orch" "$generated_test_dir" "$test_output_dir" > /dev/null 2> /dev/null
+    $test "$orch" "$generated_test_dir" "$test_output_dir"  > /dev/null 2> /dev/null
     test_orch_ec=$?
     
     diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
@@ -182,7 +184,7 @@ else
     done
 fi
 
-if type lsb_release >/dev/null 2>&1 ; then
+if type lsb_release ; then
    distro=$(lsb_release -i -s)
 elif [ -e /etc/os-release ] ; then
    distro=$(awk -F= '$1 == "ID" {print $2}' /etc/os-release)

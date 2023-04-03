@@ -56,7 +56,6 @@ class PathRef:
         if path_without_prefix.startswith("/"):
             path_without_prefix = path_without_prefix.replace("/", "", 1)
 
-        # print(os.path.join(commonprefix, ref_without_prefix, path_without_prefix))
         return os.path.join(commonprefix, ref_without_prefix, path_without_prefix).replace("/./", "/")
 
 
@@ -245,16 +244,12 @@ def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
                 if i - 1 in resolved_dict:
                     previous_resolved_trace_object = resolved_dict[i-1]
                     if isinstance(previous_resolved_trace_object, PathRef) and is_path_ref_write(previous_resolved_trace_object):
-                        print(resolved_trace_object)
-                        print(resolved_trace_object.get_resolved_path())
                         dir_set.append(resolved_trace_object.get_resolved_path())
                         write_set.pop()
 
     prefix = os.path.commonprefix(dir_set)
-    print(dir_set)
     suffixes = [dir.replace(prefix, "") for dir in dir_set]
     # Warning: HACK
-    print(">>>", prefix)
     dir_string = prefix
     for dir in suffixes:
         dir_string = os.path.join(dir_string, dir)
@@ -264,3 +259,8 @@ def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
         else:
             write_set.append(to_add + "/")
     return read_set, set(write_set)
+
+def parse_exit_code(trace_object) -> int:
+    for line in reversed(trace_object):
+        if "Exit(" in line:
+            return int(line.split("Exit(")[1].rstrip(")\n"))

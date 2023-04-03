@@ -226,7 +226,6 @@ class PartialProgramOrder:
         new_workset = set()
         for second_cmd_id in sorted(cmds_to_resolve):
             for first_cmd_id in sorted(self.to_be_resolved[second_cmd_id]):
-                print(second_cmd_id, first_cmd_id)
                 if second_cmd_id not in new_workset:
                     ## If it is None, it means that it has not executed at all,
                     ## so we need to add it in the workset
@@ -411,14 +410,21 @@ class PartialProgramOrder:
         logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file)
 
-    def command_execution_completed(self, node_id: int, exit_code:int, sandbox_dir: str):
+    def command_execution_completed(self, node_id: int, riker_exit_code:int, sandbox_dir: str):
         self.sandbox_dirs[node_id] = sandbox_dir
         proc, trace_file = self.commands_currently_executing.pop(node_id)
         # Handle stopped by riker due to network access
-        if int(exit_code) == 159:
-            logging.debug(f" Adding {node_id} to stopped")
+        if int(riker_exit_code) == 159:
+            logging.debug(f" > Adding {node_id} to stopped because it tried to access the network.")
             self.stopped.add(node_id)
         trace_object = executor.read_trace(sandbox_dir, trace_file)
+        cmd_exit_code = trace.parse_exit_code(trace_object)
+        # Handle any other cmd exit with error
+        # TODO: for now we just postpone them until we reach the frontier
+        #       afterwards we might want to reattempt to speculate them
+        if cmd_exit_code != 0 and node_id not in self.frontier:
+            logging.debug(f" > Adding {node_id} to stopped because it exited with an error.")
+            self.stopped.add(node_id)
         read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
         rw_set = RWSet(read_set, write_set)
         self.update_rw_set(node_id, rw_set)

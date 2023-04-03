@@ -1,4 +1,5 @@
 import logging
+import os
 import executor
 import trace
 import sys
@@ -223,10 +224,9 @@ class PartialProgramOrder:
     def resolve_dependencies(self, cmds_to_resolve):
         # Init stuff
         new_workset = set()
-        # for second_cmd_id in cmds_to_resolve:
-        #     transitive_closure = self.get_transitive_closure_if_can_be_resolved(cmds_to_resolve, [first_cmd_id])
         for second_cmd_id in sorted(cmds_to_resolve):
             for first_cmd_id in sorted(self.to_be_resolved[second_cmd_id]):
+                print(second_cmd_id, first_cmd_id)
                 if second_cmd_id not in new_workset:
                     ## If it is None, it means that it has not executed at all,
                     ## so we need to add it in the workset
@@ -240,6 +240,11 @@ class PartialProgramOrder:
                     elif self.has_forward_dependency(first_cmd_id, second_cmd_id):
                         logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)
+                    elif self.has_dir_write_dependency(first_cmd_id, second_cmd_id):
+                        logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a directory write dependency with {first_cmd_id}')
+                        new_workset.add(second_cmd_id)
+                    else:
+                        logging.debug(f' > No dependencies between {first_cmd_id} and {second_cmd_id}')
         return new_workset
 
     ## Resolve all the forward dependencies and update the workset
@@ -320,9 +325,7 @@ class PartialProgramOrder:
             # If node is being executed again, we cannot progress further
             else:
                 new_frontier.extend([node])
-        
         self.frontier = new_frontier
-        # self.frontier.node.extend(new_frontier)
 
     def get_next_non_speculated(self, start, old_speculated: set):
             traversal_workset = self.get_next(start)
@@ -337,26 +340,31 @@ class PartialProgramOrder:
                     self.speculated.discard(node_id)
                     self.committed.add(node_id)
                     traversal_workset.extend(self.get_next(node_id))
-                # elif node_id in self.workset:
-                #     self.speculated.discard(node_id)
                 else:
                     next_non_speculated.append(node_id)
             return list(next_non_speculated)
   
+    def has_dir_file_dependency(self, first_cmd_set, second_cmd_set):
+        # Get all directory paths without the "/" in the end
+        dirs = {dir_path[:-1] for dir_path in first_cmd_set if dir_path.endswith("/")}
+        # Get all files in a separate set
+        to_check = {os.path.dirname(filepath) for filepath in second_cmd_set if not filepath.endswith("/")}
+        return not dirs.isdisjoint(to_check)
+
     def has_forward_dependency(self, first_id, second_id):
         first_write_set = set(self.rw_sets[first_id].get_write_set())
         second_read_set = set(self.rw_sets[second_id].get_read_set())
-        return not first_write_set.isdisjoint(second_read_set)
+        return not first_write_set.isdisjoint(second_read_set) or self.has_dir_file_dependency(first_write_set, second_read_set)
 
     def has_backward_dependency(self, first_id, second_id):
-        first_write_set = set(self.rw_sets[first_id].get_read_set())
-        second_read_set = set(self.rw_sets[second_id].get_write_set())
-        return not first_write_set.isdisjoint(second_read_set)
+        first_read_set = set(self.rw_sets[first_id].get_read_set())
+        second_write_set = set(self.rw_sets[second_id].get_write_set())
+        return not first_read_set.isdisjoint(second_write_set) or self.has_dir_file_dependency(first_read_set, second_write_set)
 
-    def has_write_dependency(self, first_id, second_id):
+    def has_dir_write_dependency(self, first_id, second_id):
         first_write_set = set(self.rw_sets[first_id].get_write_set())
-        second_read_set = set(self.rw_sets[second_id].get_write_set())
-        return not first_write_set.isdisjoint(second_read_set)
+        second_write_set = set(self.rw_sets[second_id].get_write_set())
+        return self.has_dir_file_dependency(first_write_set, second_write_set)
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):

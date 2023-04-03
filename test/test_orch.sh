@@ -1,31 +1,44 @@
 #!/bin/bash
 
 export ORCH_TOP=${ORCH_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
-export WORKING_DIR="$ORCH_TOP/test/output_bash"
-export WORKING_DIR="$ORCH_TOP/test/output_orch"
-echo "${WORKING_DIR}"
+export WORKING_DIR="$ORCH_TOP/test"
+export TEMPLATE_SCRIPT_DIR="$WORKING_DIR/template_scripts"
+export MISC_SCRIPT_DIR="$WORKING_DIR/misc"
+
+echo "==================| Scheduler Tests |==================="
+echo "Test diretory:               $WORKING_DIR"
+echo "Template script directory:   $TEMPLATE_SCRIPT_DIR"
 
 bash="bash"
-orch="$ORCH_TOP/pash-spec.sh -d 100"
+orch="$ORCH_TOP/pash-spec.sh"
 
+# Generated test scripts are saved here
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"
 test_dir_bash="$ORCH_TOP/test/test_scripts_bash"
-
+# Test script output is saved here
 output_dir_orch="$ORCH_TOP/test/output_orch"
 output_dir_bash="$ORCH_TOP/test/output_bash"
-
+# Results saved here
 output_dir="$ORCH_TOP/test/results"
 
+echo "Bash scripts saved at:       $test_dir_bash"
+echo "Orch scripts saved at:       $test_dir_orch"
+echo "Results saved at:            $output_dir"
+echo "========================================================"
+
+# Clear previous test results
 rm -rf "$output_dir"
 mkdir -p "$output_dir"
 touch "$output_dir/result_status"
 
 cleanup()
 {
+    # clear Riker's cache
+    rm -rf ./.rkr
     rm -rf "$output_dir_orch"
     rm -rf "$output_dir_bash"
-    mkdir -p "$output_dir_orch"
-    mkdir -p "$output_dir_bash"
+    mkdir "$output_dir_orch"
+    mkdir "$output_dir_bash"
 }
 
 run_test()
@@ -37,37 +50,57 @@ run_test()
         return 1
     fi
 
-
     echo -n "Running $test..."
-
-    $test "$bash" "$test_dir_bash" "$output_dir_bash" > /dev/null
+    # Run test with bash
+    export test_output_dir="$WORKING_DIR/output_bash"
+    export generated_test_dir="$WORKING_DIR/test_scripts_bash" 
+    generate_test_files
+    $test "$bash" "$generated_test_dir" "$test_output_dir" > /dev/null 2> /dev/null
     test_bash_ec=$?
 
-    $test "$orch" "$test_dir_orch" "$output_dir_orch" > /dev/null
-    test_pash_ec=$?
+     # Run test with orch
+    export test_output_dir="$WORKING_DIR/output_orch"
+    export generated_test_dir="$WORKING_DIR/test_scripts_orch"
+    generate_test_files
+    $test "$orch" "$generated_test_dir" "$test_output_dir" > /dev/null 2> /dev/null
+    test_orch_ec=$?
     
-    diff -q "$output_dir_orch/" "$output_dir_bash/"
+    diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
     test_diff_ec=$?
 
-    # ## Check if the two exit codes are both success or both error
-    # { [ $test_bash_ec -eq 0 ] && [ $test_pash_ec -eq 0 ]; } || { [ $test_bash_ec -ne 0 ] && [ $test_pash_ec -ne 0 ]; }
-    # test_ec=$?
+    ## Check if the two exit codes are both success or both error
+    { [ $test_bash_ec -eq 0 ] && [ $test_orch_ec -eq 0 ]; } || { [ $test_bash_ec -ne 0 ] && [ $test_orch_ec -ne 0 ]; }
+    test_ec=$?
     
     if [ $test_diff_ec -ne 0 ]; then
-        echo -n "$test output mismatch "
+        echo -n " (!) output mismatch "
+    else
+        if [ $test_ec -ne 0 ]; then
+            echo -n " (?) exit code mismatch "
+        else
+            echo -ne '\t\t\t'
+        fi
     fi
-    if [ $test_ec -ne 0 ]; then
-        echo -n "$test exit code mismatch "
-    fi
-    if [ $test_diff_ec -ne 0 ] || [ $test_ec -ne 0 ]; then
+    # if [ $test_diff_ec -ne 0 ] || [ $test_ec -ne 0 ]; then
+    if [ $test_diff_ec -ne 0 ]; then
         echo "$test are not identical" >> $output_dir/result_status
         echo -e '\t\tFAIL'
         return 1
     else
         echo "$test are identical" >> $output_dir/result_status
-        echo -e '\t\tOK'
+        echo -e '\tOK'
         return 0
     fi
+}
+
+generate_test_files()
+{
+    rm -f $generated_test_dir/*
+    mkdir -p $generated_test_dir
+
+    for file in `ls $TEMPLATE_SCRIPT_DIR`; do
+        envsubst <$TEMPLATE_SCRIPT_DIR/$file > $generated_test_dir/$file
+    done
 }
 
 test1()
@@ -120,7 +153,11 @@ test6()
     $shell $2/test6.sh
 }
 
-
+test7()
+{
+    local shell=$1 
+    $shell $2/test7.sh
+}
 
 test8()
 {
@@ -142,6 +179,8 @@ if [ "$#" -eq 0 ]; then
     run_test test5
     cleanup
     run_test test6
+    # cleanup
+    # run_test test7
     # Test 8 is failing for now
     # cleanup
     # run_test test8
@@ -153,14 +192,14 @@ else
     done
 fi
 
-if type lsb_release >/dev/null 2>&1 ; then
+if type lsb_release > /dev/null ; then
    distro=$(lsb_release -i -s)
 elif [ -e /etc/os-release ] ; then
    distro=$(awk -F= '$1 == "ID" {print $2}' /etc/os-release)
 fi
 
 distro=$(printf '%s\n' "$distro" | LC_ALL=C tr '[:upper:]' '[:lower:]')
-# now do different things depending on distro
+# do different things depending on distro
 case "$distro" in
     freebsd*)  
         # change sed to gsed
@@ -172,13 +211,14 @@ case "$distro" in
         ;;
 esac
 
+echo -e "\n====================| Test Summary |====================\n"
+echo "> Below follow the identical outputs:"
+grep "are identical" "$output_dir"/result_status | awk '{print $1}' | tee $output_dir/passed.log
 
-echo "Below follow the identical outputs:"
-grep "are identical" "$output_dir"/result_status | awk '{print $1}'
-
-echo "Below follow the non-identical outputs:"     
-grep "are not identical" "$output_dir"/result_status | awk '{print $1}'
-
-TOTAL_TESTS=$(cat "$output_dir"/result_status | wc -l)
+echo "> Below follow the non-identical outputs:"     
+grep "are not identical" "$output_dir"/result_status | awk '{print $1}' | tee $output_dir/failed.log
+echo "========================================================"
+TOTAL_TESTS=$(cat "$output_dir"/result_status | wc -l | xargs)
 PASSED_TESTS=$(grep -c "are identical" "$output_dir"/result_status)
-echo "Summary: ${PASSED_TESTS}/${TOTAL_TESTS} tests passed."
+echo "Summary: ${PASSED_TESTS}/${TOTAL_TESTS} tests passed." | tee $output_dir/results.log
+echo "========================================================"

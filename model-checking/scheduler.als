@@ -1,9 +1,7 @@
 module scheduler 
 
 ---------- Filesystem ----------------
-    sig File {
-        var content: one Int
-    }
+    sig File {}
 
     one sig Filesystem {
         files: seq File,
@@ -17,44 +15,34 @@ abstract sig State {}
 one sig NE extends State {}
 one sig S extends State {}
 one sig C extends State {}
-one sig CN extends State {}
+one sig W extends State {}
+one sig E extends State{}
+
+// Just check that commit order respects actual partial Order
 
 
 sig Command {
-    var command_state: one State,
+   
+     var command_state: one State,
+   
+    -- This is the syntactic order predicted by the preprocessor. 
+    syntactic_order : set Command,    
 
-    -- These are the dependencies predicted by the preprocessor.
-    var preprocessor_next : set Command,    
-    -- These are the real dependencies, that will only be found by the trace executor.
-    dependency: set Command,
 
     // Details the operation_on_filesystems of each command from File to File for each possible state.
     // A read is of the form of an identity transformation for a File (ie content is unchanged)
     // while a write involves changing the content of a file!
 
-    operation_on_filesystem: File->File 
+    // Files Command reads from 
+    var read_set : set File ,
+
+    // Files Command writes from 
+    var write_set : set File  ,
+
+    var commit_order : lone Command ,
+
 }
 ----------------------------------------------------------------------------------------------------
-
-
-// Dependency in terms of Filesystem
-
-        pred independent[a : Command, b : Command] {
-                let a_then_b = (operation_on_filesystem[a]).(operation_on_filesystem[b]),
-                    b_then_a = (operation_on_filesystem[b]).(operation_on_filesystem[a])
-                    | a_then_b = b_then_a
-            
-        }
-
-        pred has_operation_on_filesystems [c : Command] {
-            some f : File | c.operation_on_filesystem[f] != f
-        }
-
-        pred dependencies_valid {
-            // Encoding dependency in terms of the filesystem.
-            all a, b : Command| (a->b in dependency) => (not independent[a,b])
-        }
-
 // Well Formedness
 
     pred partialOrder[r: set (Command -> Command)] {
@@ -66,145 +54,171 @@ sig Command {
         no (r & ~r) // anti-symmetric
     }
 
-    pred preprocWellFormed {
-        all c1,c2 : Command | {
-            
-            // Only remove edges which have been there since the beginning [preproc prediciton]
-            // and would violate the partial Order
-            (c1->c2) in (preprocessor_next - preprocessor_next') iff {
-                historically (c1->c2 in preprocessor_next) 
-                not partialOrder[preprocessor_next' + (c1->c2)]
-            }
-
-            // Adding an edge implies :
-            (c1->c2 in preprocessor_next' - preprocessor_next) implies {
-                (c1->c2) in ~dependency //should be a real dependency
-                // Below 2 statements enforce transitivity
-                (*preprocessor_next'.c1)->c2 in (preprocessor_next' - preprocessor_next)
-                c1->(c2.*preprocessor_next') in (preprocessor_next' - preprocessor_next)
-                some c3 : Command | {
-                    run_trace_executor[c3]
-                    // should be added by c2 (backward dependency) or due to transitivity
-                    (c3=c2) or 
-                    {
-                        c3 in c1.^preprocessor_next 
-                        c2 in c3.^preprocessor_next
-                    }
-                }
-            }
-
-            // if you run the trace executor with some non committed dependencies then you should add some edges
-            run_trace_executor[c1] and some (nonCommittedDependencies[c1,dependency]) implies {
-                some (preprocessor_next' - preprocessor_next)
-            }
-
-        }
-        
-    }
-
     pred wellFormed {
-        partialOrder[~dependency]
+        partialOrder[syntactic_order]
 
-        // Enforce constraints on changes in preproc
-        preprocWellFormed
+        (commit_order  in commit_order')
 
-        // Filesystem chages only if there is some c that is comitted
-        (files != files') implies { some c : Command | commit_frontier[c]    }
+        no (commit_order & iden)
+        some (command_state.C) implies {
+            one c  : Command | c.*^commit_order = command_state.C 
+        }
+      
     }
 
 ------------------------------------------------------------------------------------------------------
 
 // Helpers
 
-    fun firstNE[R: set (Command -> Command)] : set Command {
-        {x: Command | 
+    fun command_pred[c : Command] : set Command{
+        {x : Command | 
+            c in x.^syntactic_order
+        }
+    }
+    fun Frontier_set [ordr : Command -> Command] : set Command {
+
+        {x : Command | 
             {
-                x.command_state = NE
-                all y: Command | y in x.^(~R) implies {y.command_state != NE}
-                
+                all y : Command | x in y.^ordr implies {committed[y]}
             }
         }
     }
 
-    pred committed[c: Command] {
-        (c.command_state) = C or (c.command_state = CN)
 
-        {(c.command_state) = C} implies always (c.command_state = C)
-        {(c.command_state) = CN} implies always (c.command_state = CN)
+
+    pred hasDependency [c1 : Command , c2 : Command ] { 
+        // Forward Dependency C1 writes , C2 reads
+        some (c1.write_set & c2.read_set) or 
+        // Backward Dependency C1 reads,  C2 writes
+        some (c1.read_set & c2.write_set) or 
+        // Write dependency C1 writes, C2 writes
+        some (c1.write_set & c2.write_set)
     }
 
-    fun nonCommittedDependencies[c : Command, previous : set (Command -> Command)] : set Command
+    pred maintainRW[c : Command] {
+        c.read_set' = c.read_set 
+        c.write_set' = c.write_set
+    }
+
+    fun nonCommittedDependencies[c : Command] : set Command
     {
-        {x : Command | (x in c.^previous) and !committed[x] }
+        {x : Command | (c in x.^syntactic_order) and !committed[x] and hasDependency[x,c] }
     }
 
 ---------------------------------------------------------------------------------------------------------
 //State transition rules
 
-// NE -> NE
-    pred speculate_dep_exists[c : Command] {
+
+    // NE -> NE 
+    pred stayNE[c : Command] { 
         c.command_state = NE
         after (c.command_state = NE)
-
-        (some nonCommittedDependencies[c, (~preprocessor_next)])
+        
+        c not in Frontier_set[syntactic_order]
+        eventually (c.command_state != NE) //TODO : prob should remove
     }
 
-    // NE -> S
-    pred speculate_no_dep[c : Command] {
+    // NE -> E 
+    pred execute_command[c : Command] {
         c.command_state = NE
-        after (c.command_state = S)
-
-        (no nonCommittedDependencies[c, (~preprocessor_next)])
+        after (c.command_state = E)
     }
 
-    // S -> NE
+    // E -> E
+    pred stayE [c : Command] { 
+        c.command_state = E 
+        after(c.command_state = E)
+        eventually(c.command_state != E)
+    }
+    // E -> W
+    pred command_exec_finished [c : Command] { 
+        c.command_state = E
+        after(c.command_state = W)
+       
+    }
+    // W -> W 
+    pred command_waiting [c : Command] {
+        c.command_state = W
+        after(c.command_state = W)
+        
+        some c2 : Command | {
+            c in c2.^syntactic_order
+            (c2.command_state = NE or c2.command_state = E)
+        }
+
+    }
+    // W -> NE 
     pred trace_executor_found_dependency[c : Command] {
-        c.command_state = S
+        c.command_state = W
         after (c.command_state = NE)
+        all c2 : Command | {
+            c in c2.^syntactic_order
+            (c2.command_state != NE or c2.command_state != E)
+        }
+        some nonCommittedDependencies[c]
+    }
+    // W -> S
+    pred mark_speculated[c : Command] {
+        c.command_state = W
+        after (c.command_state = S)
+        
+        no nonCommittedDependencies[c]
 
-        (some nonCommittedDependencies[c, dependency])
     }
 
     // S -> C
-    pred commit_frontier[c : Command] {
+    pred commit_node[c : Command] {
         c.command_state = S
-         after (c.command_state = C )
+        after (c.command_state = C )
 
-        (no nonCommittedDependencies[c, dependency])
-
-        // Apply the command's operation_on_filesystems to the system.
-        // This operation of the filesystem could be a read or a write.
-        // By virtue of the type signatures of File and operation_on_filesystem,
-        // Alloy models 
-        files' = c.operation_on_filesystem[files]
+        c in Frontier_set[syntactic_order]
+       
     }
 
+    // S -> S
+    pred staySpec[c : Command] {
+        c.command_state = S
+        after (c.command_state = S )
+
+        c not in Frontier_set[syntactic_order]
+
+    }
     // S -> NE
-    pred speculated_not_executed[c : Command] {
+    pred speculated_dep_found[c : Command] {
         c.command_state = S
-         after (c.command_state = CN )
-        (no nonCommittedDependencies[c, dependency])
+        after (c.command_state = NE )
+        some c2 : Command | {
+            c2.command_state = W 
+            c in c2.^syntactic_order
+            hasDependency[c2,c]
+        }
+    }
+    pred NEaction[c : Command]  {
+        stayNE[c] or execute_command[c]
+    }
+    pred Eaction [c : Command] { 
+        stayE[c] or command_exec_finished[c]
+    }
+    pred Waction [c : Command] {
+        command_waiting[c] 
+        or trace_executor_found_dependency[c] 
+        or mark_speculated[c]
+    } 
+    pred Saction [c : Command] {
+        commit_node[c] 
+        or speculated_dep_found[c] 
+        or staySpec[c]
     }
 
-------------------------------------------------------------------------------------------------
-// Actions
-    pred awaiting_predecessors [c : Command] {
-        c.command_state = NE
-        after (c.command_state = NE)
-        c not in firstNE[preprocessor_next]
-    }
-
-    pred speculatively_execute[c : Command] {
-        c in firstNE[preprocessor_next]
-        speculate_dep_exists[c] or speculate_no_dep[c]
-    }
-
-    pred run_trace_executor[c : Command] {
-        trace_executor_found_dependency[c] or commit_frontier[c] or speculated_not_executed[c]
+    pred committed[c: Command] {
+        (c.command_state) = C 
+        {(c.command_state) = C} implies always (c.command_state = C)  
     }
 
     pred validAction[c : Command] {
-       awaiting_predecessors[c] or speculatively_execute[c] or run_trace_executor[c] or committed[c]
+       NEaction[c]   or Eaction[c] or Waction[c]  or Saction[c]   or committed[c]
+       not maintainRW[c] implies Eaction[c]
+       some c.commit_order implies committed[c]
     }
 ------------------------------------------------------------------------------------------------
 
@@ -218,9 +232,12 @@ sig Command {
 
     // Initial state
     pred init {
-        all c : Command | c.command_state = NE
-        partialOrder[preprocessor_next]
-
+        all c : Command | {
+            c.command_state = NE
+            no c.read_set 
+            no c.write_set
+            no c.commit_order
+        }
     }
 
     // Scheduler behavior

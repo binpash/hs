@@ -128,41 +128,42 @@ test3()
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in1
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in2
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in3
-    $shell $2/semi_dependent_greps.sh
+    $shell "$2/semi_dependent_greps.sh"
 }
 
 test4()
 {
     local shell=$1
-    echo 'hello1' > $3/in1
-    echo 'hello2' > $3/in2    
-    $shell $2/test4.sh
+    echo 'hello1' > "$3/in1"
+    echo 'hello2' > "$3/in2"
+    $shell "$2/test4.sh"
 }
 
 test5()
 {
     local shell=$1
-    echo 'hello1' > $3/in1
-    echo 'hello2' > $3/in2    
-    $shell $2/test5.sh
+    echo 'hello1' > "$3/in1"
+    echo 'hello2' > "$3/in2"
+    $shell "$2/test5.sh"
 }
 
 test6()
 {
-    local shell=$1 
-    $shell $2/test6.sh
+    local shell=$1
+    $shell "$2/test6.sh"
+    # rm -rf "$3/in1"
 }
 
 test7()
 {
     local shell=$1 
-    $shell $2/test7.sh
+    $shell "$2/test7.sh"
 }
 
 test8()
 {
     local shell=$1 
-    $shell $2/test8.sh
+    $shell "$2/test8.sh"
 }
 
 # We run all tests composed with && to exit on the first that fails
@@ -179,8 +180,8 @@ if [ "$#" -eq 0 ]; then
     run_test test5
     cleanup
     run_test test6
-    # cleanup
-    # run_test test7
+    cleanup
+    run_test test7
     # Test 8 is failing for now
     # cleanup
     # run_test test8

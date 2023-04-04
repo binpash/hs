@@ -401,6 +401,11 @@ class PartialProgramOrder:
         logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file)
 
+    def kill_running_procs(self):
+        for cmd_id in self.get_currently_executing():
+            self.commands_currently_executing[cmd_id][0].kill()
+            logging.debug(f"Killed {cmd_id} because workset emptied earlier.")
+
     ## Run a command and add it to the dictionary of executing ones
     def speculate_cmd_non_blocking(self, node_id: int):
         node = self.get_node(node_id)

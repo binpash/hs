@@ -1,5 +1,6 @@
 import argparse
 import logging
+from pprint import pprint
 import signal
 from util import *
 from partial_program_order import parse_partial_program_order_from_file
@@ -156,9 +157,9 @@ class Scheduler:
             logging.debug(f'Scheduler server received shutdown message.')
             if not self.partial_program_order.is_completed():
                 logging.warning(f'The partial program order was not completed!')
+                self.partial_program_order.kill_running_procs()
             else:
                 logging.debug(f'The partial order was successfully completed.')
-
             socket_respond(connection, success_response("All finished!"))
             self.done = True
         else:
@@ -190,7 +191,7 @@ class Scheduler:
             # TODO: ec checks fail for now
             if len(self.partial_program_order.frontier) == 0:
                 self.done = True
-        
+                self.partial_program_order.kill_running_procs()
         self.socket.close()
         shutdown()
 

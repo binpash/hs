@@ -233,15 +233,19 @@ class PartialProgramOrder:
                     if self.get_rw_set(second_cmd_id) is None:
                         logging.debug(f' > Command: {second_cmd_id} was added to the workset, because it was never executed before')
                         new_workset.add(second_cmd_id)
+                        self.speculated.discard(second_cmd_id)
                     elif self.has_backward_dependency(first_cmd_id, second_cmd_id):
                         logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a backward dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)
+                        self.speculated.discard(second_cmd_id)
                     elif self.has_forward_dependency(first_cmd_id, second_cmd_id):
                         logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)
+                        self.speculated.discard(second_cmd_id)
                     elif self.has_dir_write_dependency(first_cmd_id, second_cmd_id):
                         logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a directory write dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)
+                        self.speculated.discard(second_cmd_id)
                     else:
                         logging.debug(f' > No dependencies between {first_cmd_id} and {second_cmd_id}')
         return new_workset
@@ -269,6 +273,9 @@ class PartialProgramOrder:
         if len(cmds_to_resolve) == 0:
             logging.debug("No resolvable nodes were found in this round, nothing will change...")
             return []
+        # We want to resolve dependencies with already speculated cmds as well
+        cmds_to_resolve = sorted(list(set(cmds_to_resolve).union(set(self.speculated))))
+        
         logging.debug(f"Commands to be checked for dependencies: {sorted(cmds_to_resolve)}")
         logging.debug(" --- Starting dependency resolution --- ")
         new_workset = self.resolve_dependencies(cmds_to_resolve)
@@ -291,7 +298,7 @@ class PartialProgramOrder:
         # TODO: ideally move this to the point 
         #       we start executing a new command
         self.step_forward(old_speculated, old_committed)
-        # self.log_partial_program_order_info()
+        self.log_partial_program_order_info()
         return self.committed - old_committed
 
     def rerun_stopped(self):
@@ -307,6 +314,7 @@ class PartialProgramOrder:
         logging.debug(" > Committing frontier")
         self.commit_frontier()
         logging.debug(" > Moving frontier forward")
+        # if bool(set(self.workset) & set(self.frontier)):
         self.move_frontier_forward(old_speculated)
         self.rerun_stopped()
         self.populate_to_be_resolved_dict(old_committed)
@@ -328,11 +336,9 @@ class PartialProgramOrder:
 
     def get_next_non_speculated(self, start, old_speculated: set):
             traversal_workset = self.get_next(start)
-            # next_non_speculated = set(self.get_next(start))
             next_non_speculated = []
             while len(traversal_workset) > 0:
                 node_id = traversal_workset.pop()
-            
                 if node_id in old_speculated.union(self.speculated):
                     assert(node_id not in self.workset)
                     logging.debug(f"Committing speculated node: {node_id}")

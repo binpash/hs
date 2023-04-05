@@ -225,7 +225,8 @@ class PartialProgramOrder:
         # Init stuff
         new_workset = set()
         for second_cmd_id in sorted(cmds_to_resolve):
-            for first_cmd_id in sorted(self.to_be_resolved[second_cmd_id]):
+            first_cmd_ids = sorted([cmd_id for cmd_id in self.to_be_resolved[second_cmd_id] if cmd_id not in self.stopped])
+            for first_cmd_id in first_cmd_ids:
                 if second_cmd_id not in new_workset:
                     ## If it is None, it means that it has not executed at all,
                     ## so we need to add it in the workset
@@ -257,11 +258,11 @@ class PartialProgramOrder:
         self.log_partial_program_order_info()
         # We want to check every single command that has already finished executing but
         # not yet able to be resolved
-        logging.debug("Finding sets of commands that can be resolved after {new_node_id} finished executing")
+        logging.debug(f"Finding sets of commands that can be resolved after {new_node_id} finished executing")
         if new_node_id not in self.stopped:
             cmds_to_resolve = self.find_cmds_to_resolve(sorted(list(self.waiting_to_be_resolved.union({new_node_id}))))
         else:
-            logging.debug(f"Node {new_node_id} was stopped from executing. Not resolving dependencies")
+            logging.debug(f"Node {new_node_id} exited with an error. Not resolving dependencies")
             if new_node_id in self.workset:
                 self.workset.remove(new_node_id)
             cmds_to_resolve = []
@@ -275,7 +276,7 @@ class PartialProgramOrder:
             return []
         # We want to resolve dependencies with already speculated cmds as well
         cmds_to_resolve = sorted(list(set(cmds_to_resolve).union(set(self.speculated))))
-        
+
         logging.debug(f"Commands to be checked for dependencies: {sorted(cmds_to_resolve)}")
         logging.debug(" --- Starting dependency resolution --- ")
         new_workset = self.resolve_dependencies(cmds_to_resolve)
@@ -297,8 +298,9 @@ class PartialProgramOrder:
         assert(set(self.workset).isdisjoint(self.stopped))
         # TODO: ideally move this to the point 
         #       we start executing a new command
+        # self.log_partial_program_order_info()
         self.step_forward(old_speculated, old_committed)
-        self.log_partial_program_order_info()
+        # self.log_partial_program_order_info()
         return self.committed - old_committed
 
     def rerun_stopped(self):
@@ -322,7 +324,7 @@ class PartialProgramOrder:
     # Add frontier commands to committed set
     def commit_frontier(self):
         # Second condition below may be unecessary
-        self.committed.update({frontier_node for frontier_node in self.frontier})
+        self.committed.update({frontier_node for frontier_node in self.frontier if frontier_node not in self.workset})
 
     def move_frontier_forward(self, old_speculated: set):
         new_frontier = []
@@ -407,11 +409,6 @@ class PartialProgramOrder:
         logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file)
 
-    def kill_running_procs(self):
-        for cmd_id in self.get_currently_executing():
-            self.commands_currently_executing[cmd_id][0].kill()
-            logging.debug(f"Killed {cmd_id} because workset emptied earlier.")
-
     ## Run a command and add it to the dictionary of executing ones
     def speculate_cmd_non_blocking(self, node_id: int):
         node = self.get_node(node_id)
@@ -436,16 +433,23 @@ class PartialProgramOrder:
         if cmd_exit_code != 0 and node_id not in self.frontier:
             logging.debug(f" > Adding {node_id} to stopped because it exited with an error.")
             self.stopped.add(node_id)
-        read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
-        rw_set = RWSet(read_set, write_set)
-        self.update_rw_set(node_id, rw_set)
+        else:
+            read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
+            rw_set = RWSet(read_set, write_set)
+            self.update_rw_set(node_id, rw_set)
         logging.debug(f" --- Node {node_id}, just finished execution ---")
         to_commit = self.resolve_dependencies_continuous_and_move_frontier(node_id)
-        self.commit_cmd_workspaces(to_commit)
-        # FIXME: Not suitable for large outputs as it buffers the whole output
-        #        Make it print in real time maybe 
-        #        https://stackoverflow.com/a/803421
-        self.print_cmd_out(proc)
+        if len(to_commit) == 0:
+            logging.debug(" > No nodes to be committed this round")
+        else:
+            logging.debug(f" > Nodes to be committed this round: {to_commit}")
+            self.commit_cmd_workspaces(to_commit)
+            # FIXME: Not suitable for large outputs as it buffers the whole output
+            #        Make it print in real time maybe 
+            #        https://stackoverflow.com/a/803421
+            self.print_cmd_out(proc)
+
+        
 
     def print_cmd_out(self, proc):
         proc_stdout, proc_stderr = proc.communicate()
@@ -453,7 +457,6 @@ class PartialProgramOrder:
         print(proc_stderr.decode(), file=sys.stderr)
 
     def commit_cmd_workspaces(self, to_commit_ids):
-        logging.debug(len(to_commit_ids))
         for cmd_id in to_commit_ids:
             workspace = self.sandbox_dirs[cmd_id]
             if workspace != "":

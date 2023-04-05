@@ -127,7 +127,7 @@ class Scheduler:
         logging.debug(input_cmd)
 
         ## If there is a connection waiting for this node_id, respond to it
-        if cmd_id in self.waiting_for_response:
+        if cmd_id in self.waiting_for_response and cmd_id in self.partial_program_order.get_committed():
             self.respond_to_pending_wait(cmd_id, exit_code)
 
     def process_next_cmd(self):
@@ -150,16 +150,10 @@ class Scheduler:
         elif (input_cmd.startswith("Wait")):
             self.handle_wait(input_cmd, connection)
         elif (input_cmd.startswith("Done")):
-            ## TODO: Make sure everything is done here too (assert that the graph is fully committed)
-            ##
-            ## We send output to the top level pash process
-            ## to signify that we are done.
+            
             logging.debug(f'Scheduler server received shutdown message.')
-            if not self.partial_program_order.is_completed():
-                logging.warning(f'The partial program order was not completed!')
-                self.partial_program_order.kill_running_procs()
-            else:
-                logging.debug(f'The partial order was successfully completed.')
+            assert(self.partial_program_order.is_completed(), 'The partial program order was not completed!')
+            logging.debug(f'The partial order was successfully completed.')
             socket_respond(connection, success_response("All finished!"))
             self.done = True
         else:
@@ -173,6 +167,7 @@ class Scheduler:
     ## It is called once per loop iteration, making sure that there is always work happening
     def schedule_work(self):
         self.partial_program_order.schedule_work()
+        self.partial_program_order.log_partial_program_order_info()
 
     def run(self):
         ## The first command should be the daemon start
@@ -191,7 +186,6 @@ class Scheduler:
             # TODO: ec checks fail for now
             if len(self.partial_program_order.frontier) == 0:
                 self.done = True
-                self.partial_program_order.kill_running_procs()
         self.socket.close()
         shutdown()
 
@@ -204,7 +198,6 @@ def shutdown():
 def main():
     args = init()
 
-    # print(unix_socket_file)
     scheduler = Scheduler(config.SCHEDULER_SOCKET)
     scheduler.run()
    

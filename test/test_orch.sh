@@ -166,6 +166,12 @@ test8()
     $shell "$2/test8.sh"
 }
 
+test9()
+{
+    local shell=$1 
+    $shell "$2/test9.sh"
+}
+
 # We run all tests composed with && to exit on the first that fails
 if [ "$#" -eq 0 ]; then
     cleanup
@@ -185,6 +191,8 @@ if [ "$#" -eq 0 ]; then
     # Test 8 is failing for now
     # cleanup
     # run_test test8
+    cleanup
+    run_test test9
 else
     for testname in $@
     do

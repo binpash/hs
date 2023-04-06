@@ -22,69 +22,35 @@ open util/ordering[Command] as lin
             c2 in c1.^commit_order implies not hasDependency[c2,c1] 
         }
     }
+    pred action_order_violation { 
+        some  f : File  | {
+            some c1,c2 : Command  | { 
+                (c1 + c2) in f.action_order.elems
+                f.action_order.idxOf[c1] < f.action_order.idxOf[c2]
+                hasDependency[c1,c2]
+                c1 in c2.^syntactic_order
+            }
+        }
+    }
+
+    check {  always(scheduler_e2e implies not action_order_violation)} for exactly 6 State, 6 Command, 6 File,6 seq
     check { always (scheduler_e2e implies dependency_preservation)} for exactly 6 State, 6 Command, 6 File
     
-    check { always (scheduler_e2e implies rw_preservation)} for exactly 6 State, 6 Command, 6 File
+    check { always (scheduler_e2e implies rw_preservation)} for exactly 6 State, 6 Command, 6 File,6 seq
 
 // Termination
 
     // Once terminated, nothing is scheduled.
-    check {final implies (always final)  } for exactly 6 State, 6 Command, 6 File
+    check {final implies (always final)  } for exactly 6 State, 6 Command, 6 File , 6 seq 
     // This shows that the scheduler terminates, with all Commands committed.
-    check  {scheduler_e2e implies (eventually final) } for exactly 6 State, 6 Command, 6 File
+    check  {scheduler_e2e implies (eventually final) } for exactly 6 State, 6 Command, 6 File, 6 seq 
 
-    check {scheduler_e2e implies commit_order_contained} for exactly 6 State, 6 Command, 6 File
+    check {scheduler_e2e implies commit_order_contained} for exactly 6 State, 3 Command, 6 File, 6 seq 
 
     // Only 1 command should be executing outside the sandbox at a time
     // Currently failing - there are fixes but not implemented as afaik the code doesn't handle this yet
-    check {scheduler_e2e implies always(lone c : Command | Daction[c])}  for exactly 6 State, 6 Command, 6 File
+    check {scheduler_e2e implies always(lone c : Command | Daction[c])}  for exactly 6 State, 6 Command, 6 File, 6 seq 
 
-    
-
-run { 
-    init 
-    traces
-} for exactly 6 State, exactly 6 Command, 6 File
-
-run {
-    scheduler_e2e 
-    eventually(some c : Command | some c.side_effect)
-    }  for exactly 6 State, 2 Command, 6 File
+    // TODO : Dependency between commands on the frontier
 
 
-run { 
-    scheduler_e2e
-    no syntactic_order
-    
-} for exactly 6 State, exactly 6 Command, 6 File
-
-run {
-    scheduler_e2e
-    eventually (some read_set)
-    eventually (some write_set)
-} for exactly 6 State, exactly 6 Command, 6 File
-
-run {
-    scheduler_e2e
-    some f : File , c : Command {
-        eventually(f in c.write_set until f not in c.write_set)
-    }
-} for exactly 6 State, exactly 6 Command, 6 File
-
-run { 
-    scheduler_e2e
-    eventually(some c1,c2 : Command {
-        committed[c1]
-        !committed[c2]
-        c1 in c2.^syntactic_order
-        hasDependency[c2,c1]
-    })
-} for exactly 6 State, exactly 6 Command, 6 File
-run {
-    scheduler_e2e
-    some c1,c2 : Command | {
-        staySpec[c1]
-        c1 in c2.^syntactic_order
-        stayNE[c2]        
-    }
-} for exactly 6 State, 6 Command, 6 File

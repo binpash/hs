@@ -2,6 +2,7 @@ module scheduler
 
 ---------- Filesystem ----------------
     sig File {
+        var action_order : seq Command
     }
 
     one sig Filesystem {
@@ -68,12 +69,34 @@ sig Command {
             one c  : Command | c.*^commit_order = command_state.C 
         }
       
+        all f : File  | {
+            (not f.action_order.isEmpty) implies 
+             {f.action_order'.subseq[0,f.action_order.lastIdx] = f.action_order}
+        }
+        all f : File, c :  Command  | {
+            c in (f.action_order'.elems - f.action_order.elems) implies {
+                commit_node[c] or direct_commit[c]
+                f in c.(read_set + write_set)
+            }
+        }
     }
 
+    fact {
+        all c : Command | {
+            direct_execute[c] or execute_command[c] implies {
+            some (c.read_set').action_order.add[c]
+            some (c.write_set').action_order.add[c]
+            }
+        }
+        
+    }
+    
 ------------------------------------------------------------------------------------------------------
 
-// Helpers
+// // Helpers
+//     cmd addActionOrder(c : Command) { 
 
+//     }
     fun command_pred[c : Command] : set Command{
         {x : Command | 
             c in x.^syntactic_order
@@ -139,6 +162,7 @@ sig Command {
     pred direct_commit [c : Command] {
         c.command_state = D
         after(c.command_state = C)
+        
     }
 
     // NE -> E 
@@ -205,7 +229,7 @@ sig Command {
         after (c.command_state = C )
 
         c in Frontier_set[syntactic_order]
-       
+
     }
 
     // S -> S
@@ -255,7 +279,7 @@ sig Command {
 
     pred validAction[c : Command] {
        NEaction[c] or Daction[c]  or Eaction[c] or Waction[c]  or Saction[c]   or committed[c]
-       not maintainRW[c] implies Eaction[c]
+       not maintainRW[c] implies (execute_command[c] or direct_execute[c])
        some c.commit_order implies committed[c]
        not(c.side_effect' = c.side_effect) implies execute_command[c]
     }
@@ -278,6 +302,7 @@ sig Command {
             no c.commit_order
             no c.side_effect
         }
+        all f : File | #f.action_order = 0
     }
 
     // Scheduler behavior
@@ -291,3 +316,4 @@ sig Command {
         all c : Command | committed[c]
         
     }
+

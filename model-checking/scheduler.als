@@ -1,7 +1,9 @@
 module scheduler 
 
 ---------- Filesystem ----------------
-    sig File {}
+    sig File {
+        var action_order : seq Command
+    }
 
     one sig Filesystem {
         files: seq File,
@@ -17,6 +19,7 @@ one sig S extends State {}
 one sig C extends State {}
 one sig W extends State {}
 one sig E extends State{}
+one sig D extends State{} 
 
 // Just check that commit order respects actual partial Order
 
@@ -41,6 +44,8 @@ sig Command {
 
     var commit_order : lone Command ,
 
+    var side_effect : lone Int 
+
 }
 ----------------------------------------------------------------------------------------------------
 // Well Formedness
@@ -64,12 +69,34 @@ sig Command {
             one c  : Command | c.*^commit_order = command_state.C 
         }
       
+        all f : File  | {
+            (not f.action_order.isEmpty) implies 
+             {f.action_order'.subseq[0,f.action_order.lastIdx] = f.action_order}
+        }
+        all f : File, c :  Command  | {
+            c in (f.action_order'.elems - f.action_order.elems) implies {
+                commit_node[c] or direct_commit[c]
+                f in c.(read_set + write_set)
+            }
+        }
     }
 
+    fact {
+        all c : Command | {
+            direct_execute[c] or execute_command[c] implies {
+            some (c.read_set').action_order.add[c]
+            some (c.write_set').action_order.add[c]
+            }
+        }
+        
+    }
+    
 ------------------------------------------------------------------------------------------------------
 
-// Helpers
+// // Helpers
+//     cmd addActionOrder(c : Command) { 
 
+//     }
     fun command_pred[c : Command] : set Command{
         {x : Command | 
             c in x.^syntactic_order
@@ -115,27 +142,57 @@ sig Command {
         after (c.command_state = NE)
         
         c not in Frontier_set[syntactic_order]
-        eventually (c.command_state != NE) //TODO : prob should remove
+       
+    }
+    // NE -> D
+    pred direct_execute [c : Command] {
+        c.command_state = NE
+        after (c.command_state = D)
+        c in Frontier_set[syntactic_order]
+        some c.side_effect
+    }
+
+    // D -> D
+    pred direct_executing [c : Command] {
+        c.command_state = D
+        after (c.command_state = D)
+        eventually  (c.command_state != D)
+    }
+
+    pred direct_commit [c : Command] {
+        c.command_state = D
+        after(c.command_state = C)
+        
     }
 
     // NE -> E 
     pred execute_command[c : Command] {
         c.command_state = NE
         after (c.command_state = E)
+        no c.side_effect
     }
+
+    // E -> NE 
+    pred side_effect_found[c : Command] {
+        c.command_state = E
+        after (c.command_state = NE)
+        some c.side_effect
+     }
 
     // E -> E
     pred stayE [c : Command] { 
         c.command_state = E 
         after(c.command_state = E)
         eventually(c.command_state != E)
+        no c.side_effect
     }
     // E -> W
     pred command_exec_finished [c : Command] { 
         c.command_state = E
         after(c.command_state = W)
-       
+        no c.side_effect
     }
+
     // W -> W 
     pred command_waiting [c : Command] {
         c.command_state = W
@@ -172,7 +229,7 @@ sig Command {
         after (c.command_state = C )
 
         c in Frontier_set[syntactic_order]
-       
+
     }
 
     // S -> S
@@ -194,10 +251,15 @@ sig Command {
         }
     }
     pred NEaction[c : Command]  {
-        stayNE[c] or execute_command[c]
+        stayNE[c] or execute_command[c] or direct_execute[c]
     }
+
+    pred Daction [c : Command] {
+        direct_executing[c] or direct_commit[c]
+    }
+
     pred Eaction [c : Command] { 
-        stayE[c] or command_exec_finished[c]
+        stayE[c] or command_exec_finished[c] or side_effect_found[c]
     }
     pred Waction [c : Command] {
         command_waiting[c] 
@@ -216,9 +278,10 @@ sig Command {
     }
 
     pred validAction[c : Command] {
-       NEaction[c]   or Eaction[c] or Waction[c]  or Saction[c]   or committed[c]
-       not maintainRW[c] implies Eaction[c]
+       NEaction[c] or Daction[c]  or Eaction[c] or Waction[c]  or Saction[c]   or committed[c]
+       not maintainRW[c] implies (execute_command[c] or direct_execute[c])
        some c.commit_order implies committed[c]
+       not(c.side_effect' = c.side_effect) implies execute_command[c]
     }
 ------------------------------------------------------------------------------------------------
 
@@ -237,7 +300,9 @@ sig Command {
             no c.read_set 
             no c.write_set
             no c.commit_order
+            no c.side_effect
         }
+        all f : File | #f.action_order = 0
     }
 
     // Scheduler behavior
@@ -249,4 +314,6 @@ sig Command {
     // All commands have been committed at the end
     pred final {
         all c : Command | committed[c]
+        
     }
+

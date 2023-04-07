@@ -230,21 +230,13 @@ class PartialProgramOrder:
                 if second_cmd_id not in new_workset:
                     ## If it is None, it means that it has not executed at all,
                     ## so we need to add it in the workset
-                    ## TODO: Check for overwork
                     if self.get_rw_set(second_cmd_id) is None:
                         logging.debug(f' > Command: {second_cmd_id} was added to the workset, because it was never executed before')
                         new_workset.add(second_cmd_id)
                         self.speculated.discard(second_cmd_id)
-                    ## This is optional as the selective committing will sort out any backward dependencies present
-                    # elif self.has_backward_dependency(first_cmd_id, second_cmd_id):
-                    #     logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a backward dependency with {first_cmd_id}')
-                    #     new_workset.add(second_cmd_id)
+                    ## Only forward dependencies bother us now
                     elif self.has_forward_dependency(first_cmd_id, second_cmd_id):
                         logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
-                        new_workset.add(second_cmd_id)
-                        self.speculated.discard(second_cmd_id)
-                    elif self.has_dir_write_dependency(first_cmd_id, second_cmd_id):
-                        logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a directory write dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)
                         self.speculated.discard(second_cmd_id)
                     else:
@@ -362,16 +354,6 @@ class PartialProgramOrder:
         first_write_set = set(self.rw_sets[first_id].get_write_set())
         second_read_set = set(self.rw_sets[second_id].get_read_set())
         return not first_write_set.isdisjoint(second_read_set) or self.has_dir_file_dependency(first_write_set, second_read_set)
-
-    def has_backward_dependency(self, first_id, second_id):
-        first_read_set = set(self.rw_sets[first_id].get_read_set())
-        second_write_set = set(self.rw_sets[second_id].get_write_set())
-        return not first_read_set.isdisjoint(second_write_set) or self.has_dir_file_dependency(first_read_set, second_write_set)
-
-    def has_dir_write_dependency(self, first_id, second_id):
-        first_write_set = set(self.rw_sets[first_id].get_write_set())
-        second_write_set = set(self.rw_sets[second_id].get_write_set())
-        return self.has_dir_file_dependency(first_write_set, second_write_set)
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):

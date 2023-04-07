@@ -1,9 +1,7 @@
 module scheduler 
 
 ---------- Filesystem ----------------
-    sig File {
-        var action_order : seq Command
-    }
+    sig File {}
 
     one sig Filesystem {
         files: seq File,
@@ -16,7 +14,9 @@ module scheduler
 abstract sig State {}
 one sig NE extends State {}
 one sig S extends State {}
-one sig C extends State {}
+one sig C extends State {
+    var commit_order : seq Command
+}
 one sig W extends State {}
 one sig E extends State{}
 one sig D extends State{} 
@@ -42,9 +42,11 @@ sig Command {
     // Files Command writes from 
     var write_set : set File  ,
 
-    var commit_order : lone Command ,
+    // var commit_order : lone Command ,
 
-    var side_effect : lone Int 
+    var side_effect : lone Int , 
+
+    var execute_idx : lone Int
 
 }
 ----------------------------------------------------------------------------------------------------
@@ -62,34 +64,16 @@ sig Command {
     pred wellFormed {
         partialOrder[syntactic_order]
 
-        (commit_order  in commit_order')
-
-        no (commit_order & iden)
-        some (command_state.C) implies {
-            one c  : Command | c.*^commit_order = command_state.C 
-        }
-      
-        all f : File  | {
-            (not f.action_order.isEmpty) implies 
-             {f.action_order'.subseq[0,f.action_order.lastIdx] = f.action_order}
-        }
-        all f : File, c :  Command  | {
-            c in (f.action_order'.elems - f.action_order.elems) implies {
-                commit_node[c] or direct_commit[c]
-                f in c.(read_set + write_set)
-            }
-        }
-    }
-
-    fact {
-        all c : Command | {
-            direct_execute[c] or execute_command[c] implies {
-            some (c.read_set').action_order.add[c]
-            some (c.write_set').action_order.add[c]
-            }
-        }
+        not (C.commit_order.isEmpty) implies C.commit_order'.subseq[0,C.commit_order.lastIdx] = C.commit_order
         
+        all c : Command | {
+            c in (C.commit_order'.elems - C.commit_order.elems) iff {
+                (commit_node[c] or direct_commit[c])
+            }
+        }
+        #C.commit_order'.elems = add[#C.commit_order.elems ,#(C.commit_order'.elems - C.commit_order.elems)]                     
     }
+
     
 ------------------------------------------------------------------------------------------------------
 
@@ -132,6 +116,22 @@ sig Command {
         {x : Command | (c in x.^syntactic_order) and !committed[x] and hasDependency[x,c] }
     }
 
+    pred setExcIdx [c : Command ] {
+        C.commit_order.isEmpty implies c.execute_idx' = 0 
+        not C.commit_order.isEmpty implies c.execute_idx' = C.commit_order.lastIdx 
+    }
+    pred action_order_violated[c : Command] {
+           
+        some c2 : Command  | { 
+                c2 in C.commit_order.elems
+                c2 in command_pred[c]
+                hasDependency[c2,c]
+                c.execute_idx < C.commit_order.idxOf[c2]
+            }
+
+    }
+
+   
 ---------------------------------------------------------------------------------------------------------
 //State transition rules
 
@@ -150,6 +150,7 @@ sig Command {
         after (c.command_state = D)
         c in Frontier_set[syntactic_order]
         some c.side_effect
+        setExcIdx[c]
     }
 
     // D -> D
@@ -170,6 +171,10 @@ sig Command {
         c.command_state = NE
         after (c.command_state = E)
         no c.side_effect
+        // TODO : what if a command gets commited at the same time . This is probably correct
+        // as we are being extra cautious
+         setExcIdx[c]
+        
     }
 
     // E -> NE 
@@ -229,6 +234,7 @@ sig Command {
         after (c.command_state = C )
 
         c in Frontier_set[syntactic_order]
+        not action_order_violated[c]
 
     }
 
@@ -244,11 +250,7 @@ sig Command {
     pred speculated_dep_found[c : Command] {
         c.command_state = S
         after (c.command_state = NE )
-        some c2 : Command | {
-            c2.command_state = W 
-            c in c2.^syntactic_order
-            hasDependency[c2,c]
-        }
+        action_order_violated[c]
     }
     pred NEaction[c : Command]  {
         stayNE[c] or execute_command[c] or direct_execute[c]
@@ -280,8 +282,9 @@ sig Command {
     pred validAction[c : Command] {
        NEaction[c] or Daction[c]  or Eaction[c] or Waction[c]  or Saction[c]   or committed[c]
        not maintainRW[c] implies (execute_command[c] or direct_execute[c])
-       some c.commit_order implies committed[c]
        not(c.side_effect' = c.side_effect) implies execute_command[c]
+       not (c.execute_idx' = c.execute_idx) implies (execute_command[c] or direct_execute[c])
+       
     }
 ------------------------------------------------------------------------------------------------
 
@@ -299,10 +302,11 @@ sig Command {
             c.command_state = NE
             no c.read_set 
             no c.write_set
-            no c.commit_order
             no c.side_effect
+            no c.execute_idx
         }
-        all f : File | #f.action_order = 0
+        
+        #C.commit_order.elems = 0
     }
 
     // Scheduler behavior
@@ -316,4 +320,3 @@ sig Command {
         all c : Command | committed[c]
         
     }
-

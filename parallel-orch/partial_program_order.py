@@ -235,10 +235,10 @@ class PartialProgramOrder:
                         logging.debug(f' > Command: {second_cmd_id} was added to the workset, because it was never executed before')
                         new_workset.add(second_cmd_id)
                         self.speculated.discard(second_cmd_id)
-                    elif self.has_backward_dependency(first_cmd_id, second_cmd_id):
-                        logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a backward dependency with {first_cmd_id}')
-                        new_workset.add(second_cmd_id)
-                        self.speculated.discard(second_cmd_id)
+                    ## This is optional as the selective committing will sort out any backward dependencies present
+                    # elif self.has_backward_dependency(first_cmd_id, second_cmd_id):
+                    #     logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a backward dependency with {first_cmd_id}')
+                    #     new_workset.add(second_cmd_id)
                     elif self.has_forward_dependency(first_cmd_id, second_cmd_id):
                         logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)

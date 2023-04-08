@@ -17,17 +17,15 @@ else
     exit 1
 fi
 
-echo "Execution mode: $EXEC_MODE"
+# echo "Execution mode: $EXEC_MODE"
 
 if [ $sandbox_flag -eq 1 ]; then
     ## Generate a temporary directory to store the workfiles
-    echo "In sandbox mode"
     mkdir -p /tmp/pash_spec
     export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/sandbox_XXXXXXX)/"
     "${PASH_SPEC_TOP}/overlay-sandbox/run-sandboxed.sh" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute_in_overlay.sh" "${SANDBOX_DIR}"
     exit_code=$?
 else
-    echo "In standard mode"
     export SANDBOX_DIR=""
     "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh"
     exit_code=$?

@@ -1,6 +1,7 @@
 import config
 import subprocess
 import util
+import tempfile
 
 # This module executes a sequence of commands 
 # and traces them with Riker. 
@@ -8,14 +9,16 @@ import util
 
 def async_run_and_trace_command_return_trace(command, node_id, sandbox_mode=False):
     trace_file = util.ptempfile()
-    process = async_run_and_trace_command(command, trace_file, node_id, sandbox_mode)
-    return process, trace_file
+    stdout_file = tempfile.NamedTemporaryFile(dir=config.PASH_SPEC_TMP_PREFIX)
+    stderr_file = tempfile.NamedTemporaryFile(dir=config.PASH_SPEC_TMP_PREFIX)
+    process = async_run_and_trace_command(command, trace_file, node_id, stdout_file, stderr_file, sandbox_mode)
+    return process, trace_file, stdout_file, stderr_file
 
 def async_run_and_trace_command_return_trace_in_sandbox(command, node_id):
     process, trace_file = async_run_and_trace_command_return_trace(command, node_id, sandbox_mode=True)
     return process, trace_file
 
-def async_run_and_trace_command(command, trace_file, node_id, sandbox_mode=False):
+def async_run_and_trace_command(command, trace_file, node_id, stdout_file, stderr_file, sandbox_mode=False):
     ## Call Riker to execute the command
     run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command.sh'
     args = ["/bin/bash", run_script, command, trace_file]
@@ -26,7 +29,8 @@ def async_run_and_trace_command(command, trace_file, node_id, sandbox_mode=False
         # print(" -- Standard mode")
         args.append("standard")
     args.append(str(node_id))
-    process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Save output to temporary files to not saturate the memory
+    process = subprocess.Popen(args, stdout=stdout_file, stderr=stderr_file)
     # For debugging
     # process = subprocess.Popen(args)
     return process

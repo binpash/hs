@@ -288,9 +288,7 @@ class PartialProgramOrder:
 
         # We want stopped commands to not enter the workset again yet
         assert(set(self.workset).isdisjoint(self.stopped))
-        # TODO: ideally move this to the point 
-        #       we start executing a new command
-        # self.log_partial_program_order_info()
+
         self.step_forward(old_speculated, old_committed)
         # self.log_partial_program_order_info()
         return self.committed - old_committed
@@ -308,7 +306,6 @@ class PartialProgramOrder:
         logging.debug(" > Committing frontier")
         self.commit_frontier()
         logging.debug(" > Moving frontier forward")
-        # if bool(set(self.workset) & set(self.frontier)):
         self.move_frontier_forward(old_speculated)
         self.rerun_stopped()
         self.populate_to_be_resolved_dict(old_committed)
@@ -387,22 +384,22 @@ class PartialProgramOrder:
         node = self.get_node(node_id)
         cmd = node.get_cmd()
         logging.debug(f'Running command: {node_id} {self.get_node(node_id)}')
-        proc, trace_file = executor.async_run_and_trace_command_return_trace(cmd, node_id)
+        proc, trace_file, stdout, stderr = executor.async_run_and_trace_command_return_trace(cmd, node_id)
         logging.debug(f'Read trace from: {trace_file}')
-        self.commands_currently_executing[node_id] = (proc, trace_file)
+        self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr)
 
     ## Run a command and add it to the dictionary of executing ones
     def speculate_cmd_non_blocking(self, node_id: int):
         node = self.get_node(node_id)
         cmd = node.get_cmd()
         logging.debug(f'Speculating command: {node_id} {self.get_node(node_id)}')
-        proc, trace_file = executor.async_run_and_trace_command_return_trace_in_sandbox(cmd, node_id)
+        proc, trace_file, stdout, stderr = executor.async_run_and_trace_command_return_trace_in_sandbox(cmd, node_id)
         logging.debug(f'Read trace from: {trace_file}')
-        self.commands_currently_executing[node_id] = (proc, trace_file)
+        self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr)
 
     def command_execution_completed(self, node_id: int, riker_exit_code:int, sandbox_dir: str):
         self.sandbox_dirs[node_id] = sandbox_dir
-        proc, trace_file = self.commands_currently_executing.pop(node_id)
+        proc, trace_file, stdout, stderr = self.commands_currently_executing.pop(node_id)
         # Handle stopped by riker due to network access
         if int(riker_exit_code) == 159:
             logging.debug(f" > Adding {node_id} to stopped because it tried to access the network.")
@@ -426,17 +423,13 @@ class PartialProgramOrder:
         else:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             self.commit_cmd_workspaces(to_commit)
-            # FIXME: Not suitable for large outputs as it buffers the whole output
-            #        Make it print in real time maybe 
-            #        https://stackoverflow.com/a/803421
-            self.print_cmd_out(proc)
+            self.print_cmd_out(stdout, stderr)
 
-        
-
-    def print_cmd_out(self, proc):
-        proc_stdout, proc_stderr = proc.communicate()
-        print(proc_stdout.decode())
-        print(proc_stderr.decode(), file=sys.stderr)
+    def print_cmd_out(self, stdout, stderr):
+        stdout.seek(0)
+        stderr.seek(0)
+        print(stdout.read().decode(), end="")
+        print(stderr.read().decode(), file=sys.stderr, end="")
 
     def commit_cmd_workspaces(self, to_commit_ids):
         for cmd_id in to_commit_ids:

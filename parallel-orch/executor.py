@@ -15,8 +15,8 @@ def async_run_and_trace_command_return_trace(command, node_id, sandbox_mode=Fals
     return process, trace_file, stdout_file, stderr_file
 
 def async_run_and_trace_command_return_trace_in_sandbox(command, node_id):
-    process, trace_file = async_run_and_trace_command_return_trace(command, node_id, sandbox_mode=True)
-    return process, trace_file
+    process, trace_file, stdout_file, stderr_file = async_run_and_trace_command_return_trace(command, node_id, sandbox_mode=True)
+    return process, trace_file, stdout_file, stderr_file
 
 def async_run_and_trace_command(command, trace_file, node_id, stdout_file, stderr_file, sandbox_mode=False):
     ## Call Riker to execute the command

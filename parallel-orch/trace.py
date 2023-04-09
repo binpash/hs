@@ -48,7 +48,6 @@ class PathRef:
             modified_path = "/" + self.path
         else:
             modified_path = self.path
-    
         commonprefix = os.path.commonprefix([self.ref, modified_path])
         ref_without_prefix = self.ref.replace(commonprefix, "", 1)        
         path_without_prefix = modified_path.replace(commonprefix, "", 1)
@@ -204,33 +203,37 @@ def resolve_rw_set_refs(refs_dict):
     return refs_dict
 
 def replace_path_ref_terminal_nodes(refs_dict: dict):
-    for ref in refs_dict.values():
-        if isinstance(ref, PathRef) and not ref.is_nofollow:
+    refs_dict_new = {}
+    for i, ref in refs_dict.items():
+        if isinstance(ref, PathRef):
             # HACK: This is hard-coded stdout
-            if ref.ref not in refs_dict:
-                ref.ref = refs_dict[4].value
+            if ref.path == "" and ref.is_nofollow:
+                continue
             else:
-                if isinstance(refs_dict[ref.ref], Ref):
-                    ref.ref = refs_dict[ref.ref].value
+                if ref.ref not in refs_dict:
+                    ref.ref = refs_dict[4].value
                 else:
-                    logging.debug(ref)
-                    logging.debug("------------------------------")
-                    ref.ref = os.getcwd()
+                    if isinstance(refs_dict[ref.ref], Ref):
+                        ref.ref = refs_dict[ref.ref].value
+                    else:
+                        ref.ref = os.getcwd()
+                refs_dict_new[i] = ref
+    return refs_dict_new
 
 ## Parse the trace object and gather rw sets for this command
 def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
     refs_dict = parse_rw_sets(trace_object)
     resolved_dict = resolve_rw_set_refs(refs_dict)
-    replace_path_ref_terminal_nodes(resolved_dict)
+    resolved_dict_replaced = replace_path_ref_terminal_nodes(resolved_dict)
     # log_resolved_trace_items(resolved_dict)
 
     read_set = set()
     write_set = []
     dir_set = []
-    for i in range(len(resolved_dict)):
-        if i not in resolved_dict:
+    for i in range(len(resolved_dict_replaced)):
+        if i not in resolved_dict_replaced:
             continue
-        resolved_trace_object = resolved_dict[i]
+        resolved_trace_object = resolved_dict_replaced[i]
         # We ignore Ref objects
         if isinstance(resolved_trace_object, Ref):
             continue
@@ -241,8 +244,8 @@ def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
         # This is a sign that a directory declaration might exist
         if is_path_ref_empty(resolved_trace_object):
             if i > 0:
-                if i - 1 in resolved_dict:
-                    previous_resolved_trace_object = resolved_dict[i-1]
+                if i - 1 in resolved_dict_replaced:
+                    previous_resolved_trace_object = resolved_dict_replaced[i-1]
                     if isinstance(previous_resolved_trace_object, PathRef) and is_path_ref_write(previous_resolved_trace_object):
                         dir_set.append(resolved_trace_object.get_resolved_path())
                         write_set.pop()

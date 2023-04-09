@@ -1,6 +1,5 @@
 import argparse
 import logging
-from pprint import pprint
 import signal
 from util import *
 from partial_program_order import parse_partial_program_order_from_file
@@ -77,7 +76,6 @@ class Scheduler:
         self.partial_program_order = parse_partial_program_order_from_file(partial_order_file)
         self.partial_program_order.init_workset()
         logging.debug(f'Parsed partial program order:')
-        self.partial_program_order.log_partial_program_order_info()
         self.partial_program_order.populate_to_be_resolved_dict([])
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.partial_program_order.to_be_resolved)
@@ -152,9 +150,10 @@ class Scheduler:
         elif (input_cmd.startswith("Done")):
             
             logging.debug(f'Scheduler server received shutdown message.')
-            assert(self.partial_program_order.is_completed(), 'The partial program order was not completed!')
+            assert self.partial_program_order.is_completed(), 'The partial program order was not completed!'
             logging.debug(f'The partial order was successfully completed.')
             socket_respond(connection, success_response("All finished!"))
+            self.partial_program_order.log_committed_cmd_state()
             self.done = True
         else:
             logging.error(error_response(f'Error: Unsupported command: {input_cmd}'))
@@ -167,7 +166,6 @@ class Scheduler:
     ## It is called once per loop iteration, making sure that there is always work happening
     def schedule_work(self):
         self.partial_program_order.schedule_work()
-        self.partial_program_order.log_partial_program_order_info()
 
     def run(self):
         ## The first command should be the daemon start
@@ -186,6 +184,7 @@ class Scheduler:
             # TODO: ec checks fail for now
             if len(self.partial_program_order.frontier) == 0:
                 self.done = True
+                self.partial_program_order.log_committed_cmd_state()
         self.socket.close()
         shutdown()
 

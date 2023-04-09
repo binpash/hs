@@ -71,6 +71,8 @@ class PartialProgramOrder:
         ## we should keep those in the workset but not execute them
         ## until they reach the frontier
         self.stopped = set()
+        self.committed_order = []
+        self.commit_state = {}
     
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -313,6 +315,9 @@ class PartialProgramOrder:
     # Add frontier commands to committed set
     def commit_frontier(self):
         # Second condition below may be unecessary
+        for frontier_node in self.frontier:
+            if frontier_node not in self.workset:
+                self.save_commit_state_of_cmd(frontier_node)
         self.committed.update({frontier_node for frontier_node in self.frontier if frontier_node not in self.workset})
 
     def move_frontier_forward(self, old_speculated: set):
@@ -334,18 +339,29 @@ class PartialProgramOrder:
                     assert(node_id not in self.workset)
                     logging.debug(f"Committing speculated node: {node_id}")
                     self.speculated.discard(node_id)
+                    self.save_commit_state_of_cmd(node_id)
                     self.committed.add(node_id)
                     traversal_workset.extend(self.get_next(node_id))
                 else:
                     next_non_speculated.append(node_id)
             return list(next_non_speculated)
-  
+    
+
+    ## For a file - dir forward dependency to exist,
+    ## we need the succeding command to attempt to read anything that is in the 
+    ## 
+    ## successor anything
+
     def has_dir_file_dependency(self, first_cmd_set, second_cmd_set):
         # Get all directory paths without the "/" in the end
         dirs = {dir_path[:-1] for dir_path in first_cmd_set if dir_path.endswith("/")}
         # Get all files in a separate set
         to_check = {os.path.dirname(filepath) for filepath in second_cmd_set if not filepath.endswith("/")}
+        # print(dirname)
         return not dirs.isdisjoint(to_check)
+
+    # def get_filepath_prefixes(filepath):
+    #     for path in filepath
 
     def has_forward_dependency(self, first_id, second_id):
         first_write_set = set(self.rw_sets[first_id].get_write_set())
@@ -486,6 +502,22 @@ class PartialProgramOrder:
 
     def get_currently_executing(self) -> list:
         return sorted(list(self.commands_currently_executing.keys()))
+    
+    def save_commit_state_of_cmd(self, cmd_id):
+        self.committed_order.append(cmd_id)
+        self.commit_state[cmd_id] = set(self.committed) - set(self.to_be_resolved[cmd_id])
+
+    def log_committed_cmd_state(self):
+        logging.info("---------- Committed Order -----------")
+        logging.info(" " + " -> ".join(map(str, self.committed_order)))
+        logging.info("---------- Committed State -----------")
+        for cmd in sorted(self.committed):
+            if len(self.commit_state[cmd]) == 0:
+                logging.info(f" CMD {cmd} on\t\tSTART")
+            else:
+                logging.info(f" CMD {cmd} after:\t{', '.join(map(str, self.commit_state[cmd]))}")
+        logging.info("--------------------------------------")
+
 
 
 def parse_cmd_from_file(file_path: str) -> str:

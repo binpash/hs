@@ -348,25 +348,36 @@ class PartialProgramOrder:
     
 
     ## For a file - dir forward dependency to exist,
-    ## we need the succeding command to attempt to read anything that is in the 
-    ## 
-    ## successor anything
-
+    ## we need the succeding command to attempt to read anything that is a subpath of the
+    ## write set of the preceeding command.
+    ## e.g. in: W1: {/foo/}  | R2: {/f1, /foo/f2, /foo/bar/f3}
+    ## /foo/f2 and /foo/bar/f3 will trigger the dependency check.
     def has_dir_file_dependency(self, first_cmd_set, second_cmd_set):
         # Get all directory paths without the "/" in the end
         dirs = {dir_path[:-1] for dir_path in first_cmd_set if dir_path.endswith("/")}
         # Get all files in a separate set
-        to_check = {os.path.dirname(filepath) for filepath in second_cmd_set if not filepath.endswith("/")}
-        # print(dirname)
-        return not dirs.isdisjoint(to_check)
-
-    # def get_filepath_prefixes(filepath):
-    #     for path in filepath
+        to_check = {filepath for filepath in second_cmd_set if not filepath.endswith("/")}
+        for dir in dirs:
+            for other_path in to_check:
+                if self.is_subpath(dir, other_path):
+                    return True
+        return False
+    
+    def is_subpath(self, dir, other_path):
+        other_path.startswith(os.path.abspath(dir)+os.sep)
 
     def has_forward_dependency(self, first_id, second_id):
         first_write_set = set(self.rw_sets[first_id].get_write_set())
         second_read_set = set(self.rw_sets[second_id].get_read_set())
-        return not first_write_set.isdisjoint(second_read_set) or self.has_dir_file_dependency(first_write_set, second_read_set)
+        if not first_write_set.isdisjoint(second_read_set):
+            logging.debug("Forward dep")
+            return True
+
+        elif self.has_dir_file_dependency(first_write_set, second_read_set):
+            logging.debug("file forward dep")
+            return True
+        else:
+            return False
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):

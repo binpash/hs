@@ -10,7 +10,7 @@ echo "Test diretory:               $WORKING_DIR"
 echo "Template script directory:   $TEMPLATE_SCRIPT_DIR"
 
 bash="bash"
-orch="$ORCH_TOP/pash-spec.sh -d 100"
+orch="$ORCH_TOP/pash-spec.sh -d 1"
 
 # Generated test scripts are saved here
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"
@@ -63,7 +63,7 @@ run_test()
     export test_output_dir="$WORKING_DIR/output_orch"
     export generated_test_dir="$WORKING_DIR/test_scripts_orch"
     generate_test_files
-    $test "$orch" "$generated_test_dir" "$test_output_dir" > /dev/null 2> /dev/null
+    $test "$orch" "$generated_test_dir" "$test_output_dir" #> /dev/null 1> /dev/null
     test_orch_ec=$?
     
     diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
@@ -74,6 +74,7 @@ run_test()
     test_ec=$?
     if [ $test_diff_ec -ne 0 ]; then
         echo -n " (!) output mismatch "
+        diff "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/"
     else
         if [ $test_ec -ne 0 ]; then
             echo -n " (?) EC mismatch [$test_bash_ec-$test_orch_ec]"

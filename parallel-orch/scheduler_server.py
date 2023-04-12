@@ -2,15 +2,12 @@ import argparse
 import logging
 import signal
 from util import *
+import config
 from partial_program_order import parse_partial_program_order_from_file
 
 ##
 ## A scheduler server
 ##
-
-## TODO: Figure out how logging here plays out together with the log() in PaSh
-logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(message)s")
-
 
 def handler(signum, frame):
     logging.debug(f'Signal: {signum} caught')
@@ -28,9 +25,11 @@ def parse_args():
     args, unknown_args = parser.parse_known_args()
 
     if args.debug_level == 1:
+        logging.setLevel(logging.INFO)
+    elif args.debug_level == 2:
         logging.getLogger().setLevel(logging.INFO)
-    elif args.debug_level >= 2:
-        logging.getLogger().setLevel(logging.DEBUG)
+    elif args.debug_level >= 3:
+        logging.getLogger().setLevel(logging.TRACE)
 
 
     return args

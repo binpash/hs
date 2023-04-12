@@ -1,10 +1,34 @@
 import os
 import subprocess
+import logging
+_trace_installed = False
 
-##
-## Contains global configuration information and later arguments and other global
-## things should be moved here.
-##
+
+## TODO: Figure out how logging here plays out together with the log() in PaSh
+
+
+def install_trace_logger():
+    global _trace_installed
+    if _trace_installed:
+        return
+    level = logging.TRACE = logging.DEBUG - 5
+
+    def log_logger(self, message, *args, **kwargs):
+        if self.isEnabledFor(level):
+            self._log(level, message, args, **kwargs)
+    logging.getLoggerClass().trace = log_logger
+
+    def log_root(msg, *args, **kwargs):
+        logging.log(level, msg, *args, **kwargs)
+    logging.addLevelName(level, "TRACE")
+    logging.trace = log_root
+    _trace_installed = True
+
+
+# Setup logging
+install_trace_logger()
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s:%(message)s")
+logging.basicConfig(level=logging.TRACE, format="%(levelname)s:%(message)s")
 
 GIT_TOP_CMD = [ 'git', 'rev-parse', '--show-toplevel', '--show-superproject-working-tree']
 if 'PASH_SPEC_TOP' in os.environ:

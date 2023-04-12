@@ -10,7 +10,7 @@ echo "Test diretory:               $WORKING_DIR"
 echo "Template script directory:   $TEMPLATE_SCRIPT_DIR"
 
 bash="bash"
-orch="$ORCH_TOP/pash-spec.sh -d 1"
+orch="$ORCH_TOP/pash-spec.sh -d 100"
 
 # Generated test scripts are saved here
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"
@@ -107,24 +107,21 @@ generate_test_files()
 test1_1()
 {
     local shell=$1
-    export file_directory=$3
-    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "${file_directory}/in1"
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
     $shell $2/test1_1.sh 
 }
 
 test1_2()
 {
     local shell=$1
-    export file_directory=$3
-    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "${file_directory}/in1"
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
     $shell $2/test1_2.sh 
 }
 
 test1_3()
 {
     local shell=$1
-    export file_directory=$3
-    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "${file_directory}/in1"
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
     $shell $2/test1_3.sh
 }
 
@@ -229,43 +226,43 @@ test6()
 
 test7_1()
 {
-    local shell=$1 
+    local shell=$1
     $shell "$2/test7_1.sh"
 }
 
 test7_2()
 {
-    local shell=$1 
+    local shell=$1
     $shell "$2/test7_2.sh"
 }
 
 test7_3()
 {
-    local shell=$1 
+    local shell=$1
     $shell "$2/test7_3.sh"
 }
 
 test8()
 {
-    local shell=$1 
+    local shell=$1
     $shell "$2/test8.sh"
 }
 
 test9_1()
 {
-    local shell=$1 
+    local shell=$1
     $shell "$2/test9_1.sh"
 }
 
 test9_2()
 {
-    local shell=$1 
+    local shell=$1
     $shell "$2/test9_2.sh"
 }
 
 test9_3()
 {
-    local shell=$1 
+    local shell=$1
     $shell "$2/test9_3.sh"
 }
 

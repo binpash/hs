@@ -1,6 +1,6 @@
 # Tests speculation of completely independent cmds
 
-"$MISC_SCRIPT_DIR/sleep_and_echo.sh" 0.03 "hello0" "$test_output_dir/out0"
+"$MISC_SCRIPT_DIR/sleep_and_echo.sh" 0.00 "hello0" "$test_output_dir/out0"
 "$MISC_SCRIPT_DIR/sleep_and_echo.sh" 0.06 "hello1" "$test_output_dir/out1"
 "$MISC_SCRIPT_DIR/sleep_and_echo.sh" 0.09 "hello2" "$test_output_dir/out2"
 "$MISC_SCRIPT_DIR/sleep_and_echo.sh" 0.12 "hello3" "$test_output_dir/out3"

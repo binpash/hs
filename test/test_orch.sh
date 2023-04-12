@@ -76,7 +76,7 @@ run_test()
         echo -n " (!) output mismatch "
     else
         if [ $test_ec -ne 0 ]; then
-            echo -n " (?) exit code mismatch"
+            echo -n " (?) EC mismatch [$test_bash_ec-$test_orch_ec]"
 
         else
             echo -ne '\t\t\t'

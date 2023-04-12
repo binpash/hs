@@ -10,7 +10,7 @@ echo "Test diretory:               $WORKING_DIR"
 echo "Template script directory:   $TEMPLATE_SCRIPT_DIR"
 
 bash="bash"
-orch="$ORCH_TOP/pash-spec.sh"
+orch="$ORCH_TOP/pash-spec.sh -d 100"
 
 # Generated test scripts are saved here
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"
@@ -43,6 +43,7 @@ cleanup()
 
 run_test()
 {
+    cleanup
     local test=$1
 
     if [ "$(type -t $test)" != "function" ]; then
@@ -55,33 +56,33 @@ run_test()
     export test_output_dir="$WORKING_DIR/output_bash"
     export generated_test_dir="$WORKING_DIR/test_scripts_bash" 
     generate_test_files
-    $test "$bash" "$generated_test_dir" "$test_output_dir" > /dev/null 2> /dev/null
+    $test "$bash" "$generated_test_dir" "$test_output_dir"  > /dev/null 2> /dev/null
     test_bash_ec=$?
 
      # Run test with orch
     export test_output_dir="$WORKING_DIR/output_orch"
     export generated_test_dir="$WORKING_DIR/test_scripts_orch"
     generate_test_files
-    $test "$orch" "$generated_test_dir" "$test_output_dir" > /dev/null 2> /dev/null
+    $test "$orch" "$generated_test_dir" "$test_output_dir" #> /dev/null 1> /dev/null
     test_orch_ec=$?
     
     diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
     test_diff_ec=$?
 
     ## Check if the two exit codes are both success or both error
-    { [ $test_bash_ec -eq 0 ] && [ $test_orch_ec -eq 0 ]; } || { [ $test_bash_ec -ne 0 ] && [ $test_orch_ec -ne 0 ]; }
+    test $test_bash_ec == $test_orch_ec 
     test_ec=$?
-    
     if [ $test_diff_ec -ne 0 ]; then
         echo -n " (!) output mismatch "
+        diff "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/"
     else
         if [ $test_ec -ne 0 ]; then
-            echo -n " (?) exit code mismatch "
+            echo -n " (?) EC mismatch [$test_bash_ec-$test_orch_ec]"
+
         else
             echo -ne '\t\t\t'
         fi
     fi
-    # if [ $test_diff_ec -ne 0 ] || [ $test_ec -ne 0 ]; then
     if [ $test_diff_ec -ne 0 ]; then
         echo "$test are not identical" >> $output_dir/result_status
         echo -e '\t\tFAIL'
@@ -103,91 +104,200 @@ generate_test_files()
     done
 }
 
-test1()
+test1_1()
 {
     local shell=$1
-    export file_directory=$3
-    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "${file_directory}/in1"
-    $shell $2/forward_dependent_greps.sh
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
+    $shell $2/test1_1.sh 
 }
 
-test2()
+test1_2()
+{
+    local shell=$1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
+    $shell $2/test1_2.sh 
+}
+
+test1_3()
+{
+    local shell=$1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
+    $shell $2/test1_3.sh
+}
+
+test2_1()
+{
+    local shell=$1
+    $shell $2/test2_1.sh
+}
+
+test2_2()
+{
+    local shell=$1
+    $shell $2/test2_2.sh
+}
+
+test2_3()
+{
+    local shell=$1
+    $shell $2/test2_3.sh
+}
+
+test3_1()
 {
     local shell=$1
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in1
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in2
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in3
-    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in4
-    echo $'bar\nbaz\nqux\nquux\nfoo\nbar' > $3/in5
-    $shell $2/forward_dependent_greps.sh
+    $shell "$2/test3_1.sh"
 }
 
-test3()
+test3_2()
 {
     local shell=$1
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in1
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in2
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in3
-    $shell $2/semi_dependent_greps.sh
+    $shell "$2/test3_2.sh"
 }
 
-test4()
+test3_3()
 {
     local shell=$1
-    echo 'hello1' > $3/in1
-    echo 'hello2' > $3/in2    
-    $shell $2/test4.sh
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in2
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in3
+    $shell "$2/test3_3.sh"
 }
 
-test5()
+test4_1()
 {
     local shell=$1
-    echo 'hello1' > $3/in1
-    echo 'hello2' > $3/in2    
-    $shell $2/test5.sh
+    echo 'hello1' > "$3/in1"
+    echo 'hello2' > "$3/in2"
+    $shell "$2/test4_1.sh"
+}
+
+test4_2()
+{
+    local shell=$1
+    echo 'hello1' > "$3/in1"
+    echo 'hello2' > "$3/in2"
+    $shell "$2/test4_2.sh"
+}
+
+test4_3()
+{
+    local shell=$1
+    echo 'hello1' > "$3/in1"
+    echo 'hello2' > "$3/in2"
+    $shell "$2/test4_3.sh"
+}
+
+test5_1()
+{
+    local shell=$1
+    echo 'hello1' > "$3/in1"
+    echo 'hello2' > "$3/in2"
+    $shell "$2/test5_1.sh"
+}
+
+test5_2()
+{
+    local shell=$1
+    echo 'hello1' > "$3/in1"
+    echo 'hello2' > "$3/in2"
+    $shell "$2/test5_2.sh"
+}
+
+test5_3()
+{
+    local shell=$1
+    echo 'hello1' > "$3/in1"
+    echo 'hello2' > "$3/in2"
+    $shell "$2/test5_3.sh"
 }
 
 test6()
 {
-    local shell=$1 
-    $shell $2/test6.sh
+    local shell=$1
+    $shell "$2/test6.sh"
 }
 
-test7()
+test7_1()
 {
-    local shell=$1 
-    $shell $2/test7.sh
+    local shell=$1
+    $shell "$2/test7_1.sh"
+}
+
+test7_2()
+{
+    local shell=$1
+    $shell "$2/test7_2.sh"
+}
+
+test7_3()
+{
+    local shell=$1
+    $shell "$2/test7_3.sh"
 }
 
 test8()
 {
-    local shell=$1 
-    $shell $2/test8.sh
+    local shell=$1
+    $shell "$2/test8.sh"
 }
+
+test9_1()
+{
+    local shell=$1
+    $shell "$2/test9_1.sh"
+}
+
+test9_2()
+{
+    local shell=$1
+    $shell "$2/test9_2.sh"
+}
+
+test9_3()
+{
+    local shell=$1
+    $shell "$2/test9_3.sh"
+}
+
+
 
 # We run all tests composed with && to exit on the first that fails
 if [ "$#" -eq 0 ]; then
-    cleanup
-    run_test test1
-    cleanup
-    run_test test2
-    cleanup
-    run_test test3
-    cleanup
-    run_test test4
-    cleanup
-    run_test test5
-    cleanup
-    run_test test6
-    # cleanup
-    # run_test test7
+    run_test test1_1
+    run_test test1_2
+    run_test test1_3
+    run_test test2_1
+    run_test test2_2
+    run_test test2_3
+    run_test test3_1
+    run_test test3_2
+    run_test test3_3
+    run_test test4_1
+    run_test test4_2
+    run_test test4_3
+    run_test test5_1
+    run_test test5_2
+    run_test test5_3
+    # run_test test6
+    run_test test7_1
+    run_test test7_2
+    run_test test7_3
     # Test 8 is failing for now
     # cleanup
     # run_test test8
+    run_test test9_1
+    run_test test9_2
+    run_test test9_3
 else
     for testname in $@
     do
-        cleanup
         run_test "$testname"
     done
 fi

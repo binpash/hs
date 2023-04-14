@@ -208,6 +208,7 @@ class PartialProgramOrder:
             if not self.cmd_can_be_resolved(cmd_id):
                 if cmd_id not in self.waiting_to_be_resolved:
                     logging.debug(f" > Adding node {cmd_id} to waiting list")
+                    logging.trace(f"WaitingAdd|{cmd_id}")
                     self.waiting_to_be_resolved.add(cmd_id)
                 else:
                     logging.debug(f" > Keeping node {cmd_id} to waiting list")
@@ -217,6 +218,7 @@ class PartialProgramOrder:
                 # We remove the command from the waiting to be resolved set
                 if cmd_id in self.waiting_to_be_resolved:
                     logging.debug(f" > Removing node {cmd_id} from waiting list")
+                    logging.trace(f"WaitingRemove|{cmd_id}")
                     self.waiting_to_be_resolved.remove(cmd_id)
                 else:
                     logging.debug(f" > Node {cmd_id} is able to be resolved")
@@ -236,11 +238,13 @@ class PartialProgramOrder:
                         logging.debug(f' > Command: {second_cmd_id} was added to the workset, because it was never executed before')
                         new_workset.add(second_cmd_id)
                         self.speculated.discard(second_cmd_id)
+                        logging.trace(f"SpeculatedRemove|{second_cmd_id}")
                     ## Only forward dependencies bother us now
                     elif self.has_forward_dependency(first_cmd_id, second_cmd_id):
                         logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)
                         self.speculated.discard(second_cmd_id)
+                        logging.trace(f"SpeculatedRemove|{second_cmd_id}")
                     else:
                         logging.debug(f' > No dependencies between {first_cmd_id} and {second_cmd_id}')
         return new_workset
@@ -259,6 +263,7 @@ class PartialProgramOrder:
             logging.debug(f"Node {new_node_id} exited with an error. Not resolving dependencies")
             if new_node_id in self.workset:
                 self.workset.remove(new_node_id)
+                logging.trace(f"WorksetRemove|{new_node_id}")
             cmds_to_resolve = []
         logging.debug(f"Commands to check for dependencies this round are: {sorted(cmds_to_resolve)}")
         logging.debug(f"Commands that cannot be resolved this round are: {sorted(self.waiting_to_be_resolved)}")
@@ -279,11 +284,14 @@ class PartialProgramOrder:
         old_speculated = self.speculated.copy()
         # Speculated is a command without dependencies, not stopped or not in frontier
         self.speculated = {cmd_id for cmd_id in cmds_to_resolve if cmd_id not in new_workset and cmd_id not in self.frontier and cmd_id not in self.stopped}
-        
+        self.log_new_speculated_trace(self.speculated, old_speculated)
         logging.debug(" > Modifying workset accordingly")
         # New workset contains previous unresolved commands and resolved commands with dependencies that have not been stopped
+        workset_old = self.workset.copy()
         self.workset = [cmd_id for cmd_id in self.workset if cmd_id not in cmds_to_resolve and cmd_id not in self.stopped]
         self.workset.extend(list(new_workset))
+        workset_diff = set(self.workset) - set(workset_old)
+        logging.trace(f"WorksetAdd|{','.join(str(cmd_id) for cmd_id in workset_diff)}")
 
         # Keep the previous committed state
         old_committed = self.committed.copy()
@@ -294,6 +302,15 @@ class PartialProgramOrder:
         self.step_forward(old_speculated, old_committed)
         # self.log_partial_program_order_info()
         return self.committed - old_committed
+
+    def log_new_speculated_trace(self, new_speculated, old_speculated):
+        for new_speculated_node in new_speculated:
+            if new_speculated_node not in old_speculated: 
+                logging.trace(f"SpeculatedAdd|{new_speculated_node}")
+        for old_speculated_node in old_speculated:
+            if old_speculated_node not in new_speculated: 
+                logging.trace(f"SpeculatedRemove|{old_speculated_node}")
+
 
     def rerun_stopped(self):
         new_stopped = self.stopped.copy()
@@ -323,11 +340,14 @@ class PartialProgramOrder:
     def move_frontier_forward(self, old_speculated: set):
         new_frontier = []
         for node in self.frontier:
-            if node not in self.workset: 
-                new_frontier.extend(self.get_next_non_speculated(node, old_speculated))
+            if node not in self.workset:
+                to_add_in_frontier = self.get_next_non_speculated(node, old_speculated) 
+                new_frontier.extend(to_add_in_frontier)
+                logging.trace(f"FrontierAdd|{','.join(str(node_id) for node_id in to_add_in_frontier)}")
             # If node is being executed again, we cannot progress further
             else:
                 new_frontier.extend([node])
+                logging.trace("FrontierAdd|{node}")
         self.frontier = new_frontier
 
     def get_next_non_speculated(self, start, old_speculated: set):
@@ -338,7 +358,9 @@ class PartialProgramOrder:
                 if node_id in old_speculated.union(self.speculated):
                     assert(node_id not in self.workset)
                     logging.debug(f"Committing speculated node: {node_id}")
-                    self.speculated.discard(node_id)
+                    if node_id in self.speculated:
+                        self.speculated.remove(node_id)
+                        logging.trace(f"SpeculatedRemove|{node_id}")
                     self.save_commit_state_of_cmd(node_id)
                     self.committed.add(node_id)
                     traversal_workset.extend(self.get_next(node_id))
@@ -411,6 +433,7 @@ class PartialProgramOrder:
         node = self.get_node(node_id)
         cmd = node.get_cmd()
         logging.debug(f'Running command: {node_id} {self.get_node(node_id)}')
+        logging.trace(f"ExecutingAdd|{node_id}")
         proc, trace_file, stdout, stderr = executor.async_run_and_trace_command_return_trace(cmd, node_id)
         logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr)
@@ -421,15 +444,19 @@ class PartialProgramOrder:
         cmd = node.get_cmd()
         logging.debug(f'Speculating command: {node_id} {self.get_node(node_id)}')
         proc, trace_file, stdout, stderr = executor.async_run_and_trace_command_return_trace_in_sandbox(cmd, node_id)
+        logging.trace(f"ExecutingSandboxAdd|{node_id}")
         logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr)
 
     def command_execution_completed(self, node_id: int, riker_exit_code:int, sandbox_dir: str):
         self.sandbox_dirs[node_id] = sandbox_dir
-        proc, trace_file, stdout, stderr = self.commands_currently_executing.pop(node_id)
+        _proc, trace_file, stdout, stderr = self.commands_currently_executing.pop(node_id)
+        logging.debug(f" --- Node {node_id}, just finished execution ---")
+        logging.trace(f"ExecutingRemove|node_id")
         # Handle stopped by riker due to network access
         if int(riker_exit_code) == 159:
             logging.debug(f" > Adding {node_id} to stopped because it tried to access the network.")
+            logging.trace(f"StoppedAdd|node_id:network")
             self.stopped.add(node_id)
         trace_object = executor.read_trace(sandbox_dir, trace_file)
         cmd_exit_code = trace.parse_exit_code(trace_object)
@@ -438,13 +465,14 @@ class PartialProgramOrder:
         #       afterwards we might want to reattempt to speculate them
         if cmd_exit_code != 0 and node_id not in self.frontier:
             logging.debug(f" > Adding {node_id} to stopped because it exited with an error.")
+            logging.trace(f"StoppedAdd|node_id:error")
             self.stopped.add(node_id)
         else:
             read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
             rw_set = RWSet(read_set, write_set)
             self.update_rw_set(node_id, rw_set)
-        logging.debug(f" --- Node {node_id}, just finished execution ---")
         to_commit = self.resolve_dependencies_continuous_and_move_frontier(node_id)
+        logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
         if len(to_commit) == 0:
             logging.debug(" > No nodes to be committed this round")
         else:
@@ -482,7 +510,7 @@ class PartialProgramOrder:
         logging.debug(f"EXECUTING:      {list(self.commands_currently_executing.keys())}")
         logging.debug(f"STOPPED:        {list(self.stopped)}")
         logging.debug(f"WAITING:        {sorted(list(self.waiting_to_be_resolved))}")
-        logging.debug(f"TO RESOLVE:     {self.to_be_resolved}")
+        logging.trace(f"TO RESOLVE:     {self.to_be_resolved}")
         self.log_rw_sets()
         logging.debug(f"=" * 80)
 

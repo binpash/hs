@@ -232,15 +232,8 @@ class PartialProgramOrder:
             first_cmd_ids = sorted([cmd_id for cmd_id in self.to_be_resolved[second_cmd_id] if cmd_id not in self.stopped])
             for first_cmd_id in first_cmd_ids:
                 if second_cmd_id not in new_workset:
-                    ## If it is None, it means that it has not executed at all,
-                    ## so we need to add it in the workset
-                    if self.get_rw_set(second_cmd_id) is None:
-                        logging.debug(f' > Command: {second_cmd_id} was added to the workset, because it was never executed before')
-                        new_workset.add(second_cmd_id)
-                        self.speculated.discard(second_cmd_id)
-                        logging.trace(f"SpeculatedRemove|{second_cmd_id}")
                     ## Only forward dependencies bother us now
-                    elif self.has_forward_dependency(first_cmd_id, second_cmd_id):
+                    if self.has_forward_dependency(first_cmd_id, second_cmd_id):
                         logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)
                         self.speculated.discard(second_cmd_id)

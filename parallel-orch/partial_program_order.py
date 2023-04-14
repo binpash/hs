@@ -58,7 +58,7 @@ class PartialProgramOrder:
         self.committed = set()
         ## Nodes that are in the frontier can only move to committed
         self.frontier = self.get_source_nodes()
-        self.speculated = set()
+        # self.speculated = set()
         self.rw_sets = {node_id: None for node_id in self.nodes.keys()}
         self.workset = []
         ## A dictionary from cmd_ids that are currently executing that contains their trace_files
@@ -100,8 +100,8 @@ class PartialProgramOrder:
     def get_frontier(self) -> list:
         return sorted(list(self.frontier))
 
-    def get_speculated(self) -> set:
-        return sorted(list(self.speculated))
+    # def get_speculated(self) -> set:
+    #     return sorted(list(self.speculated))
 
     def init_inverse_adjacency(self):
         self.inverse_adjacency = {i: [] for i in self.nodes.keys()}
@@ -114,7 +114,6 @@ class PartialProgramOrder:
         ## TODO: Check that committed is prefix closed w.r.t partial order
         self.all_frontier_nodes_after_committed_nodes()
         self.frontier_and_committed_intersect()
-        self.speculated_intersects_with_frontier_or_committed()
         return True
 
     # Check if all frontier nodes are after committed nodes
@@ -236,7 +235,7 @@ class PartialProgramOrder:
                     if self.has_forward_dependency(first_cmd_id, second_cmd_id):
                         logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)
-                        self.speculated.discard(second_cmd_id)
+                        # self.speculated.discard(second_cmd_id)
                         logging.trace(f"SpeculatedRemove|{second_cmd_id}")
                     else:
                         logging.debug(f' > No dependencies between {first_cmd_id} and {second_cmd_id}')
@@ -267,17 +266,18 @@ class PartialProgramOrder:
             logging.debug("No resolvable nodes were found in this round, nothing will change...")
             return []
         # We want to resolve dependencies with already speculated cmds as well
-        cmds_to_resolve = sorted(list(set(cmds_to_resolve).union(set(self.speculated))))
+        # Speculated ref
+        # cmds_to_resolve = sorted(list(set(cmds_to_resolve).union(set(self.speculated))))
 
         logging.debug(f"Commands to be checked for dependencies: {sorted(cmds_to_resolve)}")
         logging.debug(" --- Starting dependency resolution --- ")
         new_workset = self.resolve_dependencies(cmds_to_resolve)
 
         logging.debug(" > Modifying speculated set accordingly")
-        old_speculated = self.speculated.copy()
+        # old_speculated = self.speculated.copy()
         # Speculated is a command without dependencies, not stopped or not in frontier
-        self.speculated = {cmd_id for cmd_id in cmds_to_resolve if cmd_id not in new_workset and cmd_id not in self.frontier and cmd_id not in self.stopped}
-        self.log_new_speculated_trace(self.speculated, old_speculated)
+        # self.speculated = {cmd_id for cmd_id in cmds_to_resolve if cmd_id not in new_workset and cmd_id not in self.frontier and cmd_id not in self.stopped}
+        # self.log_new_speculated_trace(self.speculated, old_speculated)
         logging.debug(" > Modifying workset accordingly")
         # New workset contains previous unresolved commands and resolved commands with dependencies that have not been stopped
         workset_old = self.workset.copy()
@@ -292,33 +292,35 @@ class PartialProgramOrder:
         # We want stopped commands to not enter the workset again yet
         assert(set(self.workset).isdisjoint(self.stopped))
 
-        self.step_forward(old_speculated, old_committed)
+        # self.step_forward(old_speculated, old_committed)
+        self.step_forward(old_committed)
         # self.log_partial_program_order_info()
         return self.committed - old_committed
 
-    def log_new_speculated_trace(self, new_speculated, old_speculated):
-        for new_speculated_node in new_speculated:
-            if new_speculated_node not in old_speculated: 
-                logging.trace(f"SpeculatedAdd|{new_speculated_node}")
-        for old_speculated_node in old_speculated:
-            if old_speculated_node not in new_speculated: 
-                logging.trace(f"SpeculatedRemove|{old_speculated_node}")
-
+    # def log_new_speculated_trace(self, new_speculated, old_speculated):
+    #     for new_speculated_node in new_speculated:
+    #         if new_speculated_node not in old_speculated: 
+    #             logging.trace(f"SpeculatedAdd|{new_speculated_node}")
+    #     for old_speculated_node in old_speculated:
+    #         if old_speculated_node not in new_speculated: 
+    #             logging.trace(f"SpeculatedRemove|{old_speculated_node}")
 
     def rerun_stopped(self):
         new_stopped = self.stopped.copy()
         for cmd_id in self.stopped:
             if cmd_id in self.frontier:
                 self.workset.append(cmd_id)
-                logging.debug(f"Removing {cmd_id}")
+                logging.debug(f"Removing {cmd_id} from stopped")
                 new_stopped.remove(cmd_id)
         self.stopped = new_stopped
 
-    def step_forward(self, old_speculated, old_committed):
+    # def step_forward(self, old_speculated, old_committed):
+    def step_forward(self, old_committed):
         logging.debug(" > Committing frontier")
         self.commit_frontier()
         logging.debug(" > Moving frontier forward")
-        self.move_frontier_forward(old_speculated)
+        # self.move_frontier_forward(old_speculated)
+        self.move_frontier_forward()
         self.rerun_stopped()
         self.populate_to_be_resolved_dict(old_committed)
 
@@ -330,11 +332,13 @@ class PartialProgramOrder:
                 self.save_commit_state_of_cmd(frontier_node)
         self.committed.update({frontier_node for frontier_node in self.frontier if frontier_node not in self.workset})
 
-    def move_frontier_forward(self, old_speculated: set):
+    # def move_frontier_forward(self, old_speculated: set):
+    def move_frontier_forward(self):
         new_frontier = []
         for node in self.frontier:
             if node not in self.workset:
-                to_add_in_frontier = self.get_next_non_speculated(node, old_speculated) 
+                # to_add_in_frontier = self.get_next_non_speculated(node, old_speculated)
+                to_add_in_frontier = self.get_next_non_speculated(node)
                 new_frontier.extend(to_add_in_frontier)
                 logging.trace(f"FrontierAdd|{','.join(str(node_id) for node_id in to_add_in_frontier)}")
             # If node is being executed again, we cannot progress further
@@ -343,17 +347,21 @@ class PartialProgramOrder:
                 logging.trace("FrontierAdd|{node}")
         self.frontier = new_frontier
 
-    def get_next_non_speculated(self, start, old_speculated: set):
+    # def get_next_non_speculated(self, start, old_speculated):
+    def get_next_non_speculated(self, start):
             traversal_workset = self.get_next(start)
             next_non_speculated = []
             while len(traversal_workset) > 0:
                 node_id = traversal_workset.pop()
-                if node_id in old_speculated.union(self.speculated):
+                # Speculated ref
+                # if node_id not in old_speculated.union(self.speculated)
+                if node_id not in self.get_currently_executing() and node_id not in self.get_committed() and node_id not in self.stopped and node_id not in self.waiting_to_be_resolved:
                     assert(node_id not in self.workset)
                     logging.debug(f"Committing speculated node: {node_id}")
-                    if node_id in self.speculated:
-                        self.speculated.remove(node_id)
-                        logging.trace(f"SpeculatedRemove|{node_id}")
+                    # Speculated ref
+                    # if node_id in self.speculated:
+                    #     self.speculated.remove(node_id)
+                    #     logging.trace(f"SpeculatedRemove|{node_id}")
                     self.save_commit_state_of_cmd(node_id)
                     self.committed.add(node_id)
                     traversal_workset.extend(self.get_next(node_id))
@@ -499,11 +507,11 @@ class PartialProgramOrder:
         logging.debug(f"WORKSET:        {self.get_workset()}")
         logging.debug(f"COMMITTED:      {self.get_committed()}")
         logging.debug(f"FRONTIER:       {self.get_frontier()}")
-        logging.debug(f"SPECULATED:     {self.get_speculated()}")
+        # logging.debug(f"SPECULATED:     {self.get_speculated()}")
         logging.debug(f"EXECUTING:      {list(self.commands_currently_executing.keys())}")
         logging.debug(f"STOPPED:        {list(self.stopped)}")
         logging.debug(f"WAITING:        {sorted(list(self.waiting_to_be_resolved))}")
-        logging.trace(f"TO RESOLVE:     {self.to_be_resolved}")
+        logging.debug(f"TO RESOLVE:     {self.to_be_resolved}")
         self.log_rw_sets()
         logging.debug(f"=" * 80)
 

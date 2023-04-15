@@ -17,6 +17,8 @@ export PASH_SPEC_TMP_PREFIX="$(mktemp -d /tmp/pash_spec/pash_XXXXXXX)/"
 ## Initialize the scheduler-server
 export PASH_SPEC_SCHEDULER_SOCKET="${PASH_SPEC_TMP_PREFIX}/scheduler_socket"
 
+export LOG_DIR="$PASH_SPEC_TOP/logs"
+mkdir -p $LOG_DIR
 ## TODO: Replace this with a call to pa.sh (which will start the scheduler on its own).
 # python3 "$PASH_SPEC_TOP/parallel-orch/orch.py" "$@"
 "$PASH_TOP/pa.sh" --speculative "$@"

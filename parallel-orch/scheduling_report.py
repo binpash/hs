@@ -4,8 +4,8 @@ from enum import Enum
 import os
 import sys
 from dateutil import parser
-import datetime
 import plotly.express as px
+from datetime import datetime, date, time
 
 
 ## TODO
@@ -23,10 +23,10 @@ class CommandState(Enum):
 
 class PashSpecTraceObject:
 
-    def __init__(self, timestamp: datetime.datetime, action: str, message):
+    def __init__(self, timestamp: datetime, action: str, message):
         self.action = action
         self.message = message
-        self.timestamp = timestamp
+        self.timestamp = timestamp.time()
 
     def __str__(self):
         return f"PashSpecTraceObject({self.timestamp}|{self.action}|{self.message})"
@@ -56,7 +56,7 @@ class SchedulingStateSet:
                           hover_data=['Command_Id', 'State'],
                           color="State",
                           category_orders={"0":1, "1":2, "2":3, "3":4, "4":5})
-        fig1.update_layout(showlegend=True, xaxis_tickformat='%M,%L', yaxis_title="Command ID", xaxis_title="Time (ms)")
+        fig1.update_layout(showlegend=True, xaxis_tickformat='%M:%S,%L', yaxis_title="Command ID", xaxis_title="Time (ms)")
         fig1.update_yaxes(categoryorder='array', categoryarray=self.nodes)
         fig1.update_traces(marker=dict(size=12,
                                       line=dict(width=2,
@@ -161,13 +161,15 @@ class SchedulingStateSet:
             self.marks.append(dict(y=node, x=object.timestamp, event="Commit"))
 
     def handle_bash(self, object):
-        # self.bash_timestamp = datetime.datetime.strptime(object.message, "%M:%S.%f")
+        self.bash_timestamp = datetime.strptime(object.message, "%M:%S.%f")
+        print(datetime.strptime(object.message, "%M:%S.%f"))
         pass
+
 
 def adjust_timestamp(state_set: SchedulingStateSet, trace_object):
     t = state_set.start_timestamp
-    delta = datetime.timedelta(seconds=t.second, microseconds=t.microsecond, minutes=t.minute, hours=t.hour, days=t.day)
-    trace_object.timestamp = trace_object.timestamp - delta
+    print(datetime(1900,1,1,0,0,0) + (datetime.combine(date.min, trace_object.timestamp) - datetime.combine(date.min, t)))
+    trace_object.timestamp = datetime(1900,1,1,0,0,0) + (datetime.combine(date.min, trace_object.timestamp) - datetime.combine(date.min, t))
 
 def parse_trace_objects(trace_file):
     with open(trace_file) as logfile:
@@ -213,6 +215,10 @@ def main():
         else:
             pass
         #     print(f"No handle for {action} action implemented yet!")
+    for o in states.cmd_states:
+        print(o)
+        # if isinstance(o.timestamp, time):
+        #     o.timestamp = datetime.combine(date.min, o.timestamp)
     states.plot()
 
 if __name__ == "__main__":

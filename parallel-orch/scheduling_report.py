@@ -5,10 +5,7 @@ import os
 import sys
 from dateutil import parser
 import datetime
-from collections import defaultdict
-import plotly.express as ff
-import plotly.graph_objects as go
-from pprint import pprint
+import plotly.express as px
 
 
 ## TODO
@@ -40,16 +37,19 @@ class SchedulingStateSet:
     def handle_node(self, object):
         self.nodes = [node_id for node_id in object.message.split(",")]
         self.nodes.reverse()
+        self.start_timestamp = object.timestamp
     
     def __init__(self):
         self.cmd_states = []
         self.unresolved_states = dict()
         self.nodes = []
         self.marks = []
+        self.bash_timestamp = None
+        self.start_timestamp = None
 
     def plot(self):
         self.cmd_states.sort(key=lambda x: x["Command_Id"])
-        fig1 = ff.timeline(self.cmd_states, 
+        fig1 = px.timeline(self.cmd_states, 
                           y='Command_Id', 
                           x_start="Start", 
                           x_end="Finish", 
@@ -69,21 +69,33 @@ class SchedulingStateSet:
         fig1.add_scatter(y=y, x=x,
             marker_symbol="diamond",
             marker=dict(color='Black', size=16),
-            mode="markers")
+            mode="markers",
+            name="Commit")
 
         y = [mark["y"] for mark in self.marks if mark["event"] == CommandState.EXECUTING]
         x = [mark["x"] for mark in self.marks if mark["event"] == CommandState.EXECUTING]
         fig1.add_scatter(y=y, x=x,
             marker_symbol="circle",
             marker=dict(color='Black', size=16),
-            mode="markers")
+            mode="markers",
+            name="Normal exec start")
         
         y = [mark["y"] for mark in self.marks if mark["event"] == CommandState.EXECUTING_SANDBOXED]
         x = [mark["x"] for mark in self.marks if mark["event"] == CommandState.EXECUTING_SANDBOXED]
         fig1.add_scatter(y=y, x=x,
             marker_symbol="circle",
             marker=dict(color='Red', size=16),
-            mode="markers")
+            mode="markers",
+            name="Sandbox exec start")
+
+        if self.bash_timestamp is not None:
+            fig1.update_layout(shapes=[
+            dict(
+                type='line',
+                yref='paper', y0=0, y1=1,
+                xref='x', x0=self.bash_timestamp, x1=self.bash_timestamp
+                )
+            ])
         fig1.show()
 
     def add_task(self, node_id, start, end, state):
@@ -116,7 +128,6 @@ class SchedulingStateSet:
         pass
 
     def handle_stopped_add(self, object):
-        print(object.message)
         node_str, reason = object.message.split(":")
         node_id = int(node_str)
         if reason == "error":
@@ -128,7 +139,7 @@ class SchedulingStateSet:
 
     def handle_stopped_remove(self, object):
         node_id = int(object.message)
-        assert node_id in self.unresolved_states # and (self.unresolved_states[node_id] == CommandState.EXECUTING or self.unresolved_states[node_id] == CommandState.EXECUTING_SANDBOXED)
+        assert node_id in self.unresolved_states
         start, state = self.unresolved_states.pop(node_id)
         end = object.timestamp
         self.add_task(node_id, start, end, state)
@@ -149,8 +160,16 @@ class SchedulingStateSet:
         for node in nodes:
             self.marks.append(dict(y=node, x=object.timestamp, event="Commit"))
 
+    def handle_bash(self, object):
+        # self.bash_timestamp = datetime.datetime.strptime(object.message, "%M:%S.%f")
+        pass
+
+def adjust_timestamp(state_set: SchedulingStateSet, trace_object):
+    t = state_set.start_timestamp
+    delta = datetime.timedelta(seconds=t.second, microseconds=t.microsecond, minutes=t.minute, hours=t.hour, days=t.day)
+    trace_object.timestamp = trace_object.timestamp - delta
+
 def parse_trace_objects(trace_file):
-    now_time = datetime.datetime.now()
     with open(trace_file) as logfile:
         lines = logfile.read().split("\n")
     lines = [tuple(line.split("|")[1:]) for line in lines if line.startswith("TRACE|")]
@@ -162,27 +181,35 @@ def main():
     trace_file = os.path.join(os.path.abspath(sys.argv[1]))
     lines = parse_trace_objects(trace_file)
     for object in lines:
-        print(object)
         action = object.action
-        # print(f"_{action}_")
         if action == "Nodes":
             states.handle_node(object)
         elif action == "ExecutingAdd":
+            adjust_timestamp(states, object)
             states.handle_executing_add(object)
         elif action == "ExecutingSandboxAdd":
+            adjust_timestamp(states, object)
             states.handle_executing_sandbox_add(object)
         if action == "ExecutingRemove":
+            adjust_timestamp(states, object)
             states.handle_executing_remove(object)
         elif action == "StoppedAdd":
+            adjust_timestamp(states, object)
             states.handle_stopped_add(object)
         elif action == "StoppedRemove":
+            adjust_timestamp(states, object)
             states.handle_stopped_remove(object)
         elif action == "WaitingAdd":
+            adjust_timestamp(states, object)
             states.handle_waiting_add(object)
         elif action == "WaitingRemove":
+            adjust_timestamp(states, object)
             states.handle_waiting_remove(object)
         elif action == "Commit":
+            adjust_timestamp(states, object)
             states.handle_commit(object)
+        elif action == "Bash":
+            states.handle_bash(object)
         else:
             pass
         #     print(f"No handle for {action} action implemented yet!")

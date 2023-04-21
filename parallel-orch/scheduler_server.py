@@ -3,6 +3,7 @@ import logging
 import signal
 from util import *
 import config
+import sys
 from partial_program_order import parse_partial_program_order_from_file
 
 ##
@@ -22,23 +23,16 @@ def parse_args():
                         type=int, 
                         default=0,
                         help="Set debugging level")
+    parser.add_argument("-f", "--debug-file", 
+                        type=str,
+                        default=None,
+                        help="Set debugging output file. Default: stdout")
     args, unknown_args = parser.parse_known_args()
-
-    if args.debug_level == 1:
-        logging.setLevel(logging.INFO)
-    elif args.debug_level == 2:
-        logging.getLogger().setLevel(logging.DEBUG)
-    elif args.debug_level >= 3:
-        logging.getLogger().setLevel(logging.TRACE)
-
-
     return args
-
 
 def init():
     args = parse_args()
     # config.set_config_globals_from_pash_args(args)
-
     return args
 
 def success_response(string):
@@ -192,6 +186,24 @@ def shutdown():
 
 def main():
     args = init()
+
+    # Format logging
+    # ref: https://docs.python.org/3/library/logging.html#formatter-objects
+    if args.debug_file is None:
+        logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s")
+    else:
+        print(os.path.abspath(args.debug_file))
+        logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s", 
+                            filename=f"{os.path.abspath(args.debug_file)}", 
+                            filemode="w")
+
+    # Set debug level
+    if args.debug_level == 1:
+        logging.getLogger().setLevel(logging.INFO)
+    elif args.debug_level == 2:
+        logging.getLogger().setLevel(logging.DEBUG)
+    elif args.debug_level >= 3:
+        logging.getLogger().setLevel(logging.TRACE)
 
     scheduler = Scheduler(config.SCHEDULER_SOCKET)
     scheduler.run()

@@ -283,7 +283,10 @@ class PartialProgramOrder:
             if cmd_id in self.frontier:
                 self.workset.append(cmd_id)
                 logging.debug(f"Removing {cmd_id} from stopped")
+                logging.trace(f"StoppedRemove|{cmd_id}")
                 new_stopped.remove(cmd_id)
+                # We remove any to-check-for-dependency nodes as the stopped node will execute in frontier
+                self.to_be_resolved[cmd_id] = []
         self.stopped = new_stopped
 
     def step_forward(self, old_committed):
@@ -312,7 +315,7 @@ class PartialProgramOrder:
             # If node is being executed again, we cannot progress further
             else:
                 new_frontier.extend([node])
-                logging.trace("FrontierAdd|{node}")
+                logging.trace(f"FrontierAdd|{node}")
         self.frontier = new_frontier
 
     def get_next_non_speculated(self, start):
@@ -383,7 +386,11 @@ class PartialProgramOrder:
                 # We also re-execute stopped frontier cmds,
                 # therefore, they are no longer stopped
                 logging.debug(f" Removing {cmd_id} from stopped")
-                self.stopped.discard(cmd_id)
+                if cmd_id in self.stopped:
+                    self.stopped.remove(cmd_id)
+                    logging.trace(f"StoppedRemove|{cmd_id}")
+                    # We remove any to-check-for-dependency nodes as the stopped node will execute in frontier
+                    self.to_be_resolved[cmd_id] = []
                 self.run_cmd_non_blocking(cmd_id)
 
     ## Run a command and add it to the dictionary of executing ones
@@ -412,11 +419,11 @@ class PartialProgramOrder:
         self.sandbox_dirs[node_id] = sandbox_dir
         _proc, trace_file, stdout, stderr = self.commands_currently_executing.pop(node_id)
         logging.debug(f" --- Node {node_id}, just finished execution ---")
-        logging.trace(f"ExecutingRemove|node_id")
+        logging.trace(f"ExecutingRemove|{node_id}")
         # Handle stopped by riker due to network access
         if int(riker_exit_code) == 159:
             logging.debug(f" > Adding {node_id} to stopped because it tried to access the network.")
-            logging.trace(f"StoppedAdd|node_id:network")
+            logging.trace(f"StoppedAdd|{node_id}:network")
             self.stopped.add(node_id)
         trace_object = executor.read_trace(sandbox_dir, trace_file)
         cmd_exit_code = trace.parse_exit_code(trace_object)
@@ -425,18 +432,18 @@ class PartialProgramOrder:
         #       afterwards we might want to reattempt to speculate them
         if cmd_exit_code != 0 and node_id not in self.frontier:
             logging.debug(f" > Adding {node_id} to stopped because it exited with an error.")
-            logging.trace(f"StoppedAdd|node_id:error")
+            logging.trace(f"StoppedAdd|{node_id}:error")
             self.stopped.add(node_id)
         else:
             read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
             rw_set = RWSet(read_set, write_set)
             self.update_rw_set(node_id, rw_set)
         to_commit = self.resolve_dependencies_continuous_and_move_frontier(node_id)
-        logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
         if len(to_commit) == 0:
             logging.debug(" > No nodes to be committed this round")
         else:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
+            logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
             self.commit_cmd_workspaces(to_commit)
             self.print_cmd_out(stdout, stderr)
 
@@ -558,4 +565,5 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
         from_id, to_id = parse_edge_line(edge_line)
         edges[from_id].append(to_id)
     
+    logging.trace(f"Nodes|{','.join([str(node) for node in nodes])}")
     return PartialProgramOrder(nodes, edges)

@@ -9,8 +9,9 @@ echo "==================| Scheduler Tests |==================="
 echo "Test directory:               $WORKING_DIR"
 echo "Test script directory:        $TEST_SCRIPT_DIR"
 
+DEBUG=${DEBUG:-0}
 bash="bash"
-orch="$ORCH_TOP/pash-spec.sh -d 100"
+orch="$ORCH_TOP/pash-spec.sh -d ${DEBUG}"
 
 # Generated test scripts are saved here
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"

@@ -9,9 +9,9 @@ echo "==================| Scheduler Tests |==================="
 echo "Test directory:               $WORKING_DIR"
 echo "Test script directory:        $TEST_SCRIPT_DIR"
 
-DEBUG=${DEBUG:-0}
+# DEBUG=${DEBUG:-0}
 bash="bash"
-orch="$ORCH_TOP/pash-spec.sh -d ${DEBUG}"
+orch="$ORCH_TOP/pash-spec.sh -d ${DEBUG:-0}"
 
 # Generated test scripts are saved here
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"
@@ -60,7 +60,7 @@ run_test()
 
      # Run test with orch
     export test_output_dir="$WORKING_DIR/output_orch"
-    $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir" > "$test_output_dir/stdout" 2> /dev/null
+    $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir" > "$test_output_dir/stdout" #2> /dev/null
     test_orch_ec=$?
     
     diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null

@@ -455,6 +455,7 @@ class PartialProgramOrder:
         self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
 
     def command_execution_completed(self, node_id: int, riker_exit_code:int, sandbox_dir: str):
+        logging.debug(f" --- Node {node_id}, just finished execution ---")
         self.sandbox_dirs[node_id] = sandbox_dir
         ## TODO: Store variable file somewhere so that we can return when wait
         proc, trace_file, stdout, stderr, variable_file = self.commands_currently_executing.pop(node_id)
@@ -481,19 +482,18 @@ class PartialProgramOrder:
             read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
             rw_set = RWSet(read_set, write_set)
             self.update_rw_set(node_id, rw_set)
-        logging.debug(f" --- Node {node_id}, just finished execution ---")
         to_commit = self.resolve_dependencies_continuous_and_move_frontier(node_id)
         if len(to_commit) == 0:
             logging.debug(" > No nodes to be committed this round")
         else:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             self.commit_cmd_workspaces(to_commit)
-            # self.print_cmd_out(stdout, stderr)
+            self.print_cmd_stderr(stderr)
 
-    def print_cmd_out(self, stdout, stderr):
-        stdout.seek(0)
+    def print_cmd_stderr(self, stderr):
+        # stdout.seek(0)
+        # print(stdout.read().decode(), end="")
         stderr.seek(0)
-        print(stdout.read().decode(), end="")
         print(stderr.read().decode(), file=sys.stderr, end="")
 
     def commit_cmd_workspaces(self, to_commit_ids):
@@ -524,30 +524,44 @@ class PartialProgramOrder:
         self.log_rw_sets()
         logging.debug(f"=" * 80)
 
+    ## TODO: Document how this finds the to be resolved dict
     def populate_to_be_resolved_dict(self, old_committed):
+        logging.debug("Populating the resolved dictionary for all nodes")
         for node_id in self.nodes:
             if node_id in self.committed:
+                logging.debug(f" > Node: {node_id} is committed, emptying its dict")
                 self.to_be_resolved[node_id] = []
                 continue
             # We don't want to modify the set of nodes to check for dependencies for this node
             # as it started running before previous cmds had started executing
-            elif node_id in self.waiting_to_be_resolved or node_id in self.get_currently_executing():
+            elif node_id in self.waiting_to_be_resolved:
+                logging.debug(f" > Node: {node_id} is waiting to be resolved, skipping...")
+                continue
+            elif node_id in self.get_currently_executing():
+                logging.debug(f" > Node: {node_id} is currently executing, skipping...")
                 continue
             else:
+                logging.debug(f" > Node: {node_id} is not executing or waiting to be resolved so we modify its set.")
                 self.to_be_resolved[node_id] = []
                 traversal = []
-                if node_id not in old_committed:
+                ## KK 2023-04-24: Previously old_committed was used here
+                ##                but this doesn't make sense because we are only modifying
+                ##                the to_be_resolved of currently executing commands.
+                # relevant_committed = old_committed
+                relevant_committed = self.committed
+                if node_id not in relevant_committed:
                     to_add = self.inverse_adjacency[node_id].copy()
                     traversal = to_add.copy()
                     to_be_resolved_nodes_ids = to_add.copy()
                 while len(traversal) > 0:
                     current_node_id = traversal.pop(0)
-                    if current_node_id not in old_committed:
+                    if current_node_id not in relevant_committed:
                         to_add = self.inverse_adjacency[current_node_id]
                         to_be_resolved_nodes_ids.extend(to_add)
                         traversal.extend(to_add)
                 self.to_be_resolved[node_id] = to_be_resolved_nodes_ids.copy()
-                self.to_be_resolved[node_id] = list(set(self.to_be_resolved[node_id]) - set(old_committed))
+                self.to_be_resolved[node_id] = list(set(self.to_be_resolved[node_id]) - set(relevant_committed))
+                logging.debug(f' |> New to be resolved set: {self.to_be_resolved[node_id]}')
 
     def get_currently_executing(self) -> list:
         return sorted(list(self.commands_currently_executing.keys()))

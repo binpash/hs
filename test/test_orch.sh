@@ -62,8 +62,6 @@ run_test()
     $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir" #> /dev/null 1> /dev/null
     test_orch_ec=$?
     
-    ls "$WORKING_DIR/output_bash/"
-    ls "$WORKING_DIR/output_orch/"
     diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
     test_diff_ec=$?
 

@@ -5,9 +5,10 @@ import trace
 import sys
 
 class CompletedNodeInfo:
-    def __init__(self, exit_code, variable_file):
+    def __init__(self, exit_code, variable_file, stdout_file):
         self.exit_code = exit_code
         self.variable_file = variable_file
+        self.stdout_file = stdout_file
 
     def get_exit_code(self):
         return self.exit_code
@@ -15,8 +16,11 @@ class CompletedNodeInfo:
     def get_variable_file(self):
         return self.variable_file
 
+    def get_stdout_file(self):
+        return self.stdout_file
+
     def __str__(self):
-        return f'CompletedNodeInfo(ec:{self.get_exit_code()}, vf:{self.get_variable_file()})'
+        return f'CompletedNodeInfo(ec:{self.get_exit_code()}, vf:{self.get_variable_file()}, stdout:{self.get_stdout_file()})'
 
 class Node:
     def __init__(self, id, cmd):
@@ -464,9 +468,9 @@ class PartialProgramOrder:
         ## Save the completed node info. Note that if the node doesn't commit
         ##  this information will be invalid and rewritten the next time execution
         ##  is completed for this node.
-        completed_node_info = CompletedNodeInfo(cmd_exit_code, variable_file)
+        completed_node_info = CompletedNodeInfo(cmd_exit_code, variable_file, stdout)
         self.nodes[node_id].set_completed_info(completed_node_info)
-        
+
         # Handle any other cmd exit with error
         # TODO: for now we just postpone them until we reach the frontier
         #       afterwards we might want to reattempt to speculate them
@@ -484,7 +488,7 @@ class PartialProgramOrder:
         else:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             self.commit_cmd_workspaces(to_commit)
-            self.print_cmd_out(stdout, stderr)
+            # self.print_cmd_out(stdout, stderr)
 
     def print_cmd_out(self, stdout, stderr):
         stdout.seek(0)

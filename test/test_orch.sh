@@ -55,12 +55,12 @@ run_test()
     echo -n "Running $test..."
     # Run test with bash
     export test_output_dir="$WORKING_DIR/output_bash"
-    $test "$bash" "$TEST_SCRIPT_DIR" "$test_output_dir"  > /dev/null 2> /dev/null
+    $test "$bash" "$TEST_SCRIPT_DIR" "$test_output_dir"  > "$test_output_dir/stdout" 2> /dev/null
     test_bash_ec=$?
 
      # Run test with orch
     export test_output_dir="$WORKING_DIR/output_orch"
-    $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir" #> /dev/null 1> /dev/null
+    $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir" > "$test_output_dir/stdout" 2> /dev/null
     test_orch_ec=$?
     
     diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
@@ -253,7 +253,12 @@ test9_3()
     $shell "$2/test9_3.sh"
 }
 
-
+test_stdout()
+{
+    local shell=$1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
+    $shell $2/test_stdout.sh
+}
 
 # We run all tests composed with && to exit on the first that fails
 if [ "$#" -eq 0 ]; then
@@ -282,6 +287,7 @@ if [ "$#" -eq 0 ]; then
     run_test test9_1
     run_test test9_2
     run_test test9_3
+    run_test test_stdout
 else
     for testname in $@
     do

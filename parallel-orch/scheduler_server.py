@@ -117,7 +117,7 @@ class Scheduler:
         ## Get the completed node info
         node = self.partial_program_order.get_node(node_id)
         completed_node_info = node.get_completed_node_info()
-        response = f'{completed_node_info.get_exit_code()} {completed_node_info.get_variable_file()}'
+        response = f'{completed_node_info.get_exit_code()} {completed_node_info.get_variable_file()} {completed_node_info.get_stdout_file()}'
         socket_respond(connection, success_response(response))
         connection.close()
 

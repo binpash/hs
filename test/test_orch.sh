@@ -2,15 +2,16 @@
 
 export ORCH_TOP=${ORCH_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
 export WORKING_DIR="$ORCH_TOP/test"
-export TEMPLATE_SCRIPT_DIR="$WORKING_DIR/template_scripts"
+export TEST_SCRIPT_DIR="$WORKING_DIR/test_scripts"
 export MISC_SCRIPT_DIR="$WORKING_DIR/misc"
 
 echo "==================| Scheduler Tests |==================="
-echo "Test diretory:               $WORKING_DIR"
-echo "Template script directory:   $TEMPLATE_SCRIPT_DIR"
+echo "Test directory:               $WORKING_DIR"
+echo "Test script directory:        $TEST_SCRIPT_DIR"
 
+# DEBUG=${DEBUG:-0}
 bash="bash"
-orch="$ORCH_TOP/pash-spec.sh -d 100"
+orch="$ORCH_TOP/pash-spec.sh -d ${DEBUG:-0}"
 
 # Generated test scripts are saved here
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"
@@ -54,16 +55,12 @@ run_test()
     echo -n "Running $test..."
     # Run test with bash
     export test_output_dir="$WORKING_DIR/output_bash"
-    export generated_test_dir="$WORKING_DIR/test_scripts_bash" 
-    generate_test_files
-    $test "$bash" "$generated_test_dir" "$test_output_dir"  > /dev/null 2> /dev/null
+    $test "$bash" "$TEST_SCRIPT_DIR" "$test_output_dir"  > "$test_output_dir/stdout" 2> /dev/null
     test_bash_ec=$?
 
      # Run test with orch
     export test_output_dir="$WORKING_DIR/output_orch"
-    export generated_test_dir="$WORKING_DIR/test_scripts_orch"
-    generate_test_files
-    $test "$orch" "$generated_test_dir" "$test_output_dir" #> /dev/null 1> /dev/null
+    $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir" > "$test_output_dir/stdout" #2> /dev/null
     test_orch_ec=$?
     
     diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
@@ -92,16 +89,6 @@ run_test()
         echo -e '\tOK'
         return 0
     fi
-}
-
-generate_test_files()
-{
-    rm -f $generated_test_dir/*
-    mkdir -p $generated_test_dir
-
-    for file in `ls $TEMPLATE_SCRIPT_DIR`; do
-        envsubst <$TEMPLATE_SCRIPT_DIR/$file > $generated_test_dir/$file
-    done
 }
 
 test1_1()
@@ -266,7 +253,12 @@ test9_3()
     $shell "$2/test9_3.sh"
 }
 
-
+test_stdout()
+{
+    local shell=$1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
+    $shell $2/test_stdout.sh
+}
 
 # We run all tests composed with && to exit on the first that fails
 if [ "$#" -eq 0 ]; then
@@ -295,6 +287,7 @@ if [ "$#" -eq 0 ]; then
     run_test test9_1
     run_test test9_2
     run_test test9_3
+    run_test test_stdout
 else
     for testname in $@
     do

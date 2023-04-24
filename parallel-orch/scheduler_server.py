@@ -91,7 +91,7 @@ class Scheduler:
         if node_id in self.partial_program_order.get_committed():
             logging.debug(f'Node: {node_id} found in committed, responding immediately!')
             self.waiting_for_response[node_id] = connection
-            self.respond_to_pending_wait(node_id, 0)
+            self.respond_to_pending_wait(node_id)
             
         else:
             ## Command has not executed yet, so we need to wait for it
@@ -109,10 +109,15 @@ class Scheduler:
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')
 
-    def respond_to_pending_wait(self, node_id: int, exit_code: int):
+    def respond_to_pending_wait(self, node_id: int):
         assert(node_id in self.waiting_for_response)
+        ## Get the connection that we need to respond to
         connection = self.waiting_for_response.pop(node_id)
-        socket_respond(connection, success_response(exit_code))
+
+        ## Get the completed node info
+        node = self.partial_program_order.get_node(node_id)
+        completed_node_info = node.get_completed_node_info()
+        socket_respond(connection, success_response(completed_node_info.get_exit_code()))
         connection.close()
 
     def handle_command_exec_complete(self, input_cmd: str):
@@ -126,7 +131,7 @@ class Scheduler:
 
         ## If there is a connection waiting for this node_id, respond to it
         if cmd_id in self.waiting_for_response and cmd_id in self.partial_program_order.get_committed():
-            self.respond_to_pending_wait(cmd_id, exit_code)
+            self.respond_to_pending_wait(cmd_id)
 
     def process_next_cmd(self):
         connection, input_cmd = socket_get_next_cmd(self.socket)

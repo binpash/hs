@@ -3,9 +3,11 @@
 ## TODO: Not sure if it is OK and ideal to give this a string
 export CMD_STRING=${1?No command was given to execute}
 export TRACE_FILE=${2?No trace file path given}
-export EXEC_MODE=${3?No execution mode given}
-export CMD_ID=${4?No command id given}
+export OUTPUT_VARIABLE_FILE=${3?No output variable file given}
+export EXEC_MODE=${4?No execution mode given}
+export CMD_ID=${5?No command id given}
 
+## KK 2023-04-24: Not sure this should be run every time we run a command
 source "$PASH_TOP/compiler/orchestrator_runtime/speculative/pash_spec_init_setup.sh"
 
 if [ "sandbox" == "$EXEC_MODE" ]; then
@@ -34,6 +36,6 @@ fi
 ## Send a message to the scheduler socket
 ## Assumes "${PASH_SPEC_SCHEDULER_SOCKET}" is set and exported
 
-## TODO: Pass the proper exit code
+## Pass the proper exit code
 msg="CommandExecComplete:${CMD_ID}|Exit code:${exit_code}|Sandbox dir:${SANDBOX_DIR}"
 daemon_response=$(pash_spec_communicate_scheduler_just_send "$msg") # Blocking step, daemon will not send response until it's safe to continue

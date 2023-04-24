@@ -1,4 +1,5 @@
 import config
+import logging
 import subprocess
 import util
 import tempfile
@@ -9,19 +10,25 @@ import tempfile
 
 def async_run_and_trace_command_return_trace(command, node_id, sandbox_mode=False):
     trace_file = util.ptempfile()
+    ## KK 2023-04-24: @giorgo Is there a reason you used tempfile.NamedTemporaryFile and not util.ptempfile()?
     stdout_file = tempfile.NamedTemporaryFile(dir=config.PASH_SPEC_TMP_PREFIX)
+    stdout_file = util.ptempfile()
     stderr_file = tempfile.NamedTemporaryFile(dir=config.PASH_SPEC_TMP_PREFIX)
-    process = async_run_and_trace_command(command, trace_file, node_id, stdout_file, stderr_file, sandbox_mode)
-    return process, trace_file, stdout_file, stderr_file
+    variable_file = util.ptempfile()
+    logging.debug(f'Scheduler: Stdout file for: {node_id} is: {stdout_file}')
+    logging.debug(f'Scheduler: Stderr file for: {node_id} is: {stderr_file}')
+    logging.debug(f'Scheduler: Output variable file for: {node_id} is: {variable_file}')
+    process = async_run_and_trace_command(command, trace_file, node_id, stdout_file, stderr_file, variable_file, sandbox_mode)
+    return process, trace_file, stdout_file, stderr_file, variable_file
 
 def async_run_and_trace_command_return_trace_in_sandbox(command, node_id):
-    process, trace_file, stdout_file, stderr_file = async_run_and_trace_command_return_trace(command, node_id, sandbox_mode=True)
-    return process, trace_file, stdout_file, stderr_file
+    process, trace_file, stdout_file, stderr_file, variable_file = async_run_and_trace_command_return_trace(command, node_id, sandbox_mode=True)
+    return process, trace_file, stdout_file, stderr_file, variable_file
 
-def async_run_and_trace_command(command, trace_file, node_id, stdout_file, stderr_file, sandbox_mode=False):
+def async_run_and_trace_command(command, trace_file, node_id, stdout_file, stderr_file, variable_file, sandbox_mode=False):
     ## Call Riker to execute the command
     run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command.sh'
-    args = ["/bin/bash", run_script, command, trace_file]
+    args = ["/bin/bash", run_script, command, trace_file, stdout_file, variable_file]
     if sandbox_mode:
         # print(" -- Sandbox mode")
         args.append("sandbox")
@@ -30,13 +37,9 @@ def async_run_and_trace_command(command, trace_file, node_id, stdout_file, stder
         args.append("standard")
     args.append(str(node_id))
     # Save output to temporary files to not saturate the memory
-    process = subprocess.Popen(args, stdout=stdout_file, stderr=stderr_file)
+    process = subprocess.Popen(args, stdout=None, stderr=stderr_file)
     # For debugging
     # process = subprocess.Popen(args)
-    return process
-
-def async_run_and_trace_command_in_sandbox(command, trace_file):
-    process = async_run_and_trace_command(command, trace_file, sandbox_mode=True)
     return process
 
 def commit_workspace(workspace_path):

@@ -4,6 +4,24 @@ import executor
 import trace
 import sys
 
+class CompletedNodeInfo:
+    def __init__(self, exit_code, variable_file, stdout_file):
+        self.exit_code = exit_code
+        self.variable_file = variable_file
+        self.stdout_file = stdout_file
+
+    def get_exit_code(self):
+        return self.exit_code
+
+    def get_variable_file(self):
+        return self.variable_file
+
+    def get_stdout_file(self):
+        return self.stdout_file
+
+    def __str__(self):
+        return f'CompletedNodeInfo(ec:{self.get_exit_code()}, vf:{self.get_variable_file()}, stdout:{self.get_stdout_file()})'
+
 class Node:
     def __init__(self, id, cmd):
         self.cmd = cmd
@@ -23,6 +41,15 @@ class Node:
 
     def get_cmd_no_redir(self) -> str:
         return self.cmd_no_redir
+    
+    ## Note: This information is valid only after a node is committed.
+    ##       It might be set even before that, but it should only be retrieved when
+    ##         a node is committed.
+    def set_completed_info(self, completed_node_info: CompletedNodeInfo):
+        self.completed_node_info = completed_node_info
+    
+    def get_completed_node_info(self) -> CompletedNodeInfo:
+        return self.completed_node_info
 
 
 class RWSet:
@@ -46,7 +73,6 @@ class RWSet:
     def __str__(self):
         return f"RW(R:{self.get_read_set()}, W:{self.get_write_set()})"
 
-
 class PartialProgramOrder:
 
     def __init__(self, nodes, edges):
@@ -63,6 +89,10 @@ class PartialProgramOrder:
         self.workset = []
         ## A dictionary from cmd_ids that are currently executing that contains their trace_files
         self.commands_currently_executing = {}
+        ## A dictionary that contains information about completed nodes
+        ## from cmd_id -> CompletedNodeInfo 
+        ## Note: this dictionary does not contain information
+        self.completed_node_info = {}
         self.to_be_resolved = {}
         self.waiting_to_be_resolved = set()
         ## Contains the most recent sandbox directory paths
@@ -411,28 +441,37 @@ class PartialProgramOrder:
         node = self.get_node(node_id)
         cmd = node.get_cmd()
         logging.debug(f'Running command: {node_id} {self.get_node(node_id)}')
-        proc, trace_file, stdout, stderr = executor.async_run_and_trace_command_return_trace(cmd, node_id)
+        proc, trace_file, stdout, stderr, variable_file = executor.async_run_and_trace_command_return_trace(cmd, node_id)
         logging.debug(f'Read trace from: {trace_file}')
-        self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr)
+        self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
 
     ## Run a command and add it to the dictionary of executing ones
     def speculate_cmd_non_blocking(self, node_id: int):
         node = self.get_node(node_id)
         cmd = node.get_cmd()
         logging.debug(f'Speculating command: {node_id} {self.get_node(node_id)}')
-        proc, trace_file, stdout, stderr = executor.async_run_and_trace_command_return_trace_in_sandbox(cmd, node_id)
+        proc, trace_file, stdout, stderr, variable_file = executor.async_run_and_trace_command_return_trace_in_sandbox(cmd, node_id)
         logging.debug(f'Read trace from: {trace_file}')
-        self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr)
+        self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
 
     def command_execution_completed(self, node_id: int, riker_exit_code:int, sandbox_dir: str):
+        logging.debug(f" --- Node {node_id}, just finished execution ---")
         self.sandbox_dirs[node_id] = sandbox_dir
-        proc, trace_file, stdout, stderr = self.commands_currently_executing.pop(node_id)
+        ## TODO: Store variable file somewhere so that we can return when wait
+        proc, trace_file, stdout, stderr, variable_file = self.commands_currently_executing.pop(node_id)
         # Handle stopped by riker due to network access
         if int(riker_exit_code) == 159:
             logging.debug(f" > Adding {node_id} to stopped because it tried to access the network.")
             self.stopped.add(node_id)
         trace_object = executor.read_trace(sandbox_dir, trace_file)
         cmd_exit_code = trace.parse_exit_code(trace_object)
+
+        ## Save the completed node info. Note that if the node doesn't commit
+        ##  this information will be invalid and rewritten the next time execution
+        ##  is completed for this node.
+        completed_node_info = CompletedNodeInfo(cmd_exit_code, variable_file, stdout)
+        self.nodes[node_id].set_completed_info(completed_node_info)
+
         # Handle any other cmd exit with error
         # TODO: for now we just postpone them until we reach the frontier
         #       afterwards we might want to reattempt to speculate them
@@ -443,19 +482,18 @@ class PartialProgramOrder:
             read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
             rw_set = RWSet(read_set, write_set)
             self.update_rw_set(node_id, rw_set)
-        logging.debug(f" --- Node {node_id}, just finished execution ---")
         to_commit = self.resolve_dependencies_continuous_and_move_frontier(node_id)
         if len(to_commit) == 0:
             logging.debug(" > No nodes to be committed this round")
         else:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             self.commit_cmd_workspaces(to_commit)
-            self.print_cmd_out(stdout, stderr)
+            self.print_cmd_stderr(stderr)
 
-    def print_cmd_out(self, stdout, stderr):
-        stdout.seek(0)
+    def print_cmd_stderr(self, stderr):
+        # stdout.seek(0)
+        # print(stdout.read().decode(), end="")
         stderr.seek(0)
-        print(stdout.read().decode(), end="")
         print(stderr.read().decode(), file=sys.stderr, end="")
 
     def commit_cmd_workspaces(self, to_commit_ids):
@@ -471,7 +509,7 @@ class PartialProgramOrder:
     def log_rw_sets(self):
         logging.debug("====== RW Sets " + "=" * 65)
         for node_id, rw_set in self.rw_sets.items():
-            logging.debug(f"ID:{node_id} | R:{len(rw_set.get_read_set()) if rw_set is not None else None} | W:{rw_set.get_write_set() if rw_set is not None else None}")
+            logging.debug(f"ID:{node_id} | R.size:{len(rw_set.get_read_set()) if rw_set is not None else None} | W:{rw_set.get_write_set() if rw_set is not None else None}")
 
     def log_partial_program_order_info(self):
         logging.debug(f"=" * 80)
@@ -486,30 +524,44 @@ class PartialProgramOrder:
         self.log_rw_sets()
         logging.debug(f"=" * 80)
 
+    ## TODO: Document how this finds the to be resolved dict
     def populate_to_be_resolved_dict(self, old_committed):
+        logging.debug("Populating the resolved dictionary for all nodes")
         for node_id in self.nodes:
             if node_id in self.committed:
+                logging.debug(f" > Node: {node_id} is committed, emptying its dict")
                 self.to_be_resolved[node_id] = []
                 continue
             # We don't want to modify the set of nodes to check for dependencies for this node
             # as it started running before previous cmds had started executing
-            elif node_id in self.waiting_to_be_resolved or node_id in self.get_currently_executing():
+            elif node_id in self.waiting_to_be_resolved:
+                logging.debug(f" > Node: {node_id} is waiting to be resolved, skipping...")
+                continue
+            elif node_id in self.get_currently_executing():
+                logging.debug(f" > Node: {node_id} is currently executing, skipping...")
                 continue
             else:
+                logging.debug(f" > Node: {node_id} is not executing or waiting to be resolved so we modify its set.")
                 self.to_be_resolved[node_id] = []
                 traversal = []
-                if node_id not in old_committed:
+                ## KK 2023-04-24: Previously old_committed was used here
+                ##                but this doesn't make sense because we are only modifying
+                ##                the to_be_resolved of currently executing commands.
+                # relevant_committed = old_committed
+                relevant_committed = self.committed
+                if node_id not in relevant_committed:
                     to_add = self.inverse_adjacency[node_id].copy()
                     traversal = to_add.copy()
                     to_be_resolved_nodes_ids = to_add.copy()
                 while len(traversal) > 0:
                     current_node_id = traversal.pop(0)
-                    if current_node_id not in old_committed:
+                    if current_node_id not in relevant_committed:
                         to_add = self.inverse_adjacency[current_node_id]
                         to_be_resolved_nodes_ids.extend(to_add)
                         traversal.extend(to_add)
                 self.to_be_resolved[node_id] = to_be_resolved_nodes_ids.copy()
-                self.to_be_resolved[node_id] = list(set(self.to_be_resolved[node_id]) - set(old_committed))
+                self.to_be_resolved[node_id] = list(set(self.to_be_resolved[node_id]) - set(relevant_committed))
+                logging.debug(f' |> New to be resolved set: {self.to_be_resolved[node_id]}')
 
     def get_currently_executing(self) -> list:
         return sorted(list(self.commands_currently_executing.keys()))

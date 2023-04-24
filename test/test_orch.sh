@@ -54,18 +54,20 @@ run_test()
     echo -n "Running $test..."
     # Run test with bash
     export test_output_dir="$WORKING_DIR/output_bash"
-    export generated_test_dir="$WORKING_DIR/test_scripts_bash" 
-    generate_test_files
-    $test "$bash" "$generated_test_dir" "$test_output_dir"  > /dev/null 2> /dev/null
+    # export generated_test_dir="$WORKING_DIR/test_scripts_bash" 
+    # generate_test_files
+    $test "$bash" "$TEMPLATE_SCRIPT_DIR" "$test_output_dir"  > /dev/null 2> /dev/null
     test_bash_ec=$?
 
      # Run test with orch
     export test_output_dir="$WORKING_DIR/output_orch"
-    export generated_test_dir="$WORKING_DIR/test_scripts_orch"
-    generate_test_files
-    $test "$orch" "$generated_test_dir" "$test_output_dir" #> /dev/null 1> /dev/null
+    # export generated_test_dir="$WORKING_DIR/test_scripts_orch"
+    # generate_test_files
+    $test "$orch" "$TEMPLATE_SCRIPT_DIR" "$test_output_dir" #> /dev/null 1> /dev/null
     test_orch_ec=$?
     
+    ls "$WORKING_DIR/output_bash/"
+    ls "$WORKING_DIR/output_orch/"
     diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
     test_diff_ec=$?
 
@@ -94,15 +96,15 @@ run_test()
     fi
 }
 
-generate_test_files()
-{
-    rm -f $generated_test_dir/*
-    mkdir -p $generated_test_dir
+# generate_test_files()
+# {
+#     rm -f $generated_test_dir/*
+#     mkdir -p $generated_test_dir
 
-    for file in `ls $TEMPLATE_SCRIPT_DIR`; do
-        envsubst <$TEMPLATE_SCRIPT_DIR/$file > $generated_test_dir/$file
-    done
-}
+#     for file in `ls $TEMPLATE_SCRIPT_DIR`; do
+#         envsubst <$TEMPLATE_SCRIPT_DIR/$file > $generated_test_dir/$file
+#     done
+# }
 
 test1_1()
 {

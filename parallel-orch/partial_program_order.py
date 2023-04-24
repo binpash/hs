@@ -353,7 +353,7 @@ class PartialProgramOrder:
             next_non_speculated = []
             while len(traversal_workset) > 0:
                 node_id = traversal_workset.pop()
-                if node_id not in self.get_currently_executing() and node_id not in self.get_committed() and node_id not in self.stopped and node_id not in self.waiting_to_be_resolved:
+                if node_id not in self.get_currently_executing() and node_id not in self.get_committed() and node_id not in self.stopped and node_id not in self.waiting_to_be_resolved and node_id not in self.workset:
                     self.save_commit_state_of_cmd(node_id)
                     self.committed.add(node_id)
                     traversal_workset.extend(self.get_next(node_id))

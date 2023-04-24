@@ -1,0 +1,37 @@
+def populate_to_be_resolved_dict(self):
+        logging.debug("Populating the resolved dictionary for all nodes")
+        for node_id in self.nodes:
+            if node_id in self.committed:
+                logging.debug(f" > Node: {node_id} is committed, emptying its dict")
+                self.to_be_resolved[node_id] = []
+                continue
+            # We don't want to modify the set of nodes to check for dependencies for this node
+            # as it started running before previous cmds had started executing
+            elif node_id in self.waiting_to_be_resolved:
+                logging.debug(f" > Node: {node_id} is waiting to be resolved, skipping...")
+                continue
+            elif node_id in self.get_currently_executing():
+                logging.debug(f" > Node: {node_id} is currently executing, skipping...")
+                continue
+            else:
+                logging.debug(f" > Node: {node_id} is not executing or waiting to be resolved so we modify its set.")
+                self.to_be_resolved[node_id] = []
+                traversal = []
+                ## KK 2023-04-24: Previously old_committed was used here
+                ##                but this doesn't make sense because we are only modifying
+                ##                the to_be_resolved of currently executing commands.
+                # relevant_committed = old_committed
+                relevant_committed = self.committed
+                if node_id not in relevant_committed:
+                    to_add = self.inverse_adjacency[node_id].copy()
+                    traversal = to_add.copy()
+                    to_be_resolved_nodes_ids = to_add.copy()
+                while len(traversal) > 0:
+                    current_node_id = traversal.pop(0)
+                    if current_node_id not in relevant_committed:
+                        to_add = self.inverse_adjacency[current_node_id]
+                        to_be_resolved_nodes_ids.extend(to_add)
+                        traversal.extend(to_add)
+                self.to_be_resolved[node_id] = to_be_resolved_nodes_ids.copy()
+                self.to_be_resolved[node_id] = list(set(self.to_be_resolved[node_id]) - set(relevant_committed))
+                logging.debug(f' |> New to be resolved set: {self.to_be_resolved[node_id]}')

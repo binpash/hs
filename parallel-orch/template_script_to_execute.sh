@@ -6,6 +6,8 @@ echo $CMD_STRING > ./Rikerfile
 ## TODO: Currently pash_declare_vars doesn't work because riker invokes /bin/sh
 ##       which is bash in POSIX mode.
 # echo 'bash "$RUNTIME_DIR/pash_declare_vars.sh" "$OUTPUT_VARIABLE_FILE"' >> ./Rikerfile
+# TODO: There is a bug here and parsing of RW dependencies doesn't really work
+#       when we add the following line.
 # echo 'env > "$OUTPUT_VARIABLE_FILE"' >> ./Rikerfile
 # echo 'cat "$OUTPUT_VARIABLE_FILE"' >> ./Rikerfile
 # cat Rikerfile

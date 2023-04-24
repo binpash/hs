@@ -509,7 +509,7 @@ class PartialProgramOrder:
     def log_rw_sets(self):
         logging.debug("====== RW Sets " + "=" * 65)
         for node_id, rw_set in self.rw_sets.items():
-            logging.debug(f"ID:{node_id} | R:{len(rw_set.get_read_set()) if rw_set is not None else None} | W:{rw_set.get_write_set() if rw_set is not None else None}")
+            logging.debug(f"ID:{node_id} | R.size:{len(rw_set.get_read_set()) if rw_set is not None else None} | W:{rw_set.get_write_set() if rw_set is not None else None}")
 
     def log_partial_program_order_info(self):
         logging.debug(f"=" * 80)

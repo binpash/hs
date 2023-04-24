@@ -11,6 +11,9 @@ export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
 ## Generate a temporary directory to store the workfiles
 mkdir -p /tmp/pash_spec
 
+## Delete any Riker cache
+rm -rf ./.rkr
+
 ## Create a temporary directory where PaSh-Spec can use for temporary files and logs
 export PASH_SPEC_TMP_PREFIX="$(mktemp -d /tmp/pash_spec/pash_XXXXXXX)/"
 

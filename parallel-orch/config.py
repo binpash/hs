@@ -19,16 +19,6 @@ def log_root(msg, *args, **kwargs):
 logging.addLevelName(level, "TRACE")
 logging.trace = log_root
 
-if 'LOG_DIR' in os.environ:
-    LOG_DIR = os.environ['PASH_SPEC_TOP']
-else:
-    PASH_SPEC_TOP = sys.stdout
-
-# Format logging
-# ref: https://docs.python.org/3/library/logging.html#formatter-objects
-logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s", 
-                    filename=f"{os.path.join(LOG_DIR, 'log.txt')}", 
-                    filemode="w")
 
 GIT_TOP_CMD = [ 'git', 'rev-parse', '--show-toplevel', '--show-superproject-working-tree']
 if 'PASH_SPEC_TOP' in os.environ:

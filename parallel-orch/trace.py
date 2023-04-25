@@ -4,6 +4,7 @@ import os
 from typing import Tuple
 from enum import Enum
 import logging
+from pprint import pprint
 
 class Ref(Enum):
 
@@ -14,12 +15,13 @@ class Ref(Enum):
     # Not sure this is always correct
     # but it doesn't affect the results
     CWD = os.getcwd()
+    LAUNCH_EXE = ""
 
 
 class PathRef:
 
-    def __init__(self, ref, path, permissions, no_follow):
-        self.ref = ref
+    def __init__(self, ref, path, permissions, no_follow, env):
+        self.ref = PathRefKey(env, ref)
         self.path = path
         self.is_read, self.is_write, self.is_exec = self.resolve_permissions(permissions)
         self.is_nofollow = no_follow
@@ -56,6 +58,24 @@ class PathRef:
             path_without_prefix = path_without_prefix.replace("/", "", 1)
 
         return os.path.join(commonprefix, ref_without_prefix, path_without_prefix).replace("/./", "/")
+
+class PathRefKey:
+
+    def __init__(self, env, lhs_ref) -> None:
+        self.env = env
+        self.lhs_ref = lhs_ref
+
+    def __eq__(self, other):
+        return (self.env, self.lhs_ref) == (other.env, other.lhs_ref)
+    
+    def __ne__(self, other) -> bool:
+        return not(self == other)
+    
+    def __hash__(self):
+        return hash((self.env, self.lhs_ref))
+    
+    def __str__(self):
+        return f"Key({self.lhs_ref}@{self.env})"
 
 class ExpectResult():
 
@@ -131,14 +151,11 @@ def is_launch(line):
     return "Launch(" in line
 
 def parse_launch_command(trace_item):
-    assert(is_launch(trace_item))
-    assignment_suffix = ", ".join(trace_item.split(", ")[1:])
+    assignment_prefix = trace_item.split(", ")[0].split("([Command ")[1].rstrip("]").strip()
+    assignment_suffix = ", ".join(trace_item.split(", ")[1:]).strip()
     assignment_string = assignment_suffix[1:-2].split(",")
     assignments = [(x.split("=")) for x in assignment_string]
-    return assignments
-
-def parse_launch(trace_item):
-    assert(is_launch(trace_item))
+    return assignment_prefix, assignments
 
 def get_lauch_name(trace_item):
     assert(is_launch(trace_item))
@@ -163,49 +180,72 @@ def is_expect_result(trace_item):
 def parse_expect_result(trace_item):
     return trace_item.lstrip("ExpectResult(").split(")")[0].split(", ")
 
-def parse_rw_sets(trace_object):
+def parse_path_ref_lhs_from_assignemt(line):
+    pass
+
+def parse_path_ref_lhs(line):
+    pass
+
+def parse_launch(refs_dict, env, line) -> None:
+    assignment_prefix, assignments = parse_launch_command(remove_command_prefix(line))
+    for assignment in assignments:
+        lhs_ref = PathRefKey(assignment_prefix, assignment[0].strip())
+        rhs_ref = PathRefKey(env, assignment[1].strip())
+        refs_dict[lhs_ref] = refs_dict[rhs_ref]
+
+def parse_final_refs(refs_dict, env, line) -> None:
+    line = remove_command_prefix(line)
+    path_ref_id = get_no_command_ref_id(line).strip()
+    lhs_ref = PathRefKey(env, path_ref_id)
+    rhs_ref = get_no_command_ref_ref(line)
+    if rhs_ref == "CWD":
+        refs_dict[lhs_ref] = Ref.CWD
+    elif rhs_ref == "ROOT":
+        refs_dict[lhs_ref] = Ref.ROOT
+    elif rhs_ref == "STDERR":
+        refs_dict[lhs_ref] = Ref.STDERR
+    elif rhs_ref == "STDIN":
+        refs_dict[lhs_ref] = Ref.STDIN
+    elif rhs_ref == "STDOUT":
+        refs_dict[lhs_ref] = Ref.STDOUT
+    elif rhs_ref == "LAUNCH_EXE":
+        refs_dict[lhs_ref] = Ref.LAUNCH_EXE
+
+def parse_new_path_ref(refs_dict, env, line):
+    line = remove_command_prefix(line).strip()
+    lhs_ref = PathRefKey(env, get_path_ref_id(line).strip())
+    ref = get_path_ref_ref(line)
+    name = get_path_ref_name(line)
+    open_config = get_path_ref_open_config(line)
+    no_follow = get_path_ref_no_follow(line)
+    path_ref = PathRef(ref, name, open_config, no_follow, env)
+    refs_dict[lhs_ref] = path_ref
+
+def parse_rw_sets(trace_object) -> None:
+    logging.trace("".join(trace_object))
     refs_dict = {}
     expect_result_dict = {}
     # In the first iteration, we get the refs
     for line in trace_object:
         # This branch will always execute first
+        env = get_command_prefix(line).lstrip("Command ").strip()
         if is_no_command_prefix(line):
-            line = remove_command_prefix(line)
-            if " = " in line:
-                lhs_ref = int(get_no_command_ref_id(line).strip().lstrip("r"))
-                rhs_ref = get_no_command_ref_ref(line).strip().lstrip("r")
-                if rhs_ref == "CWD":
-                    refs_dict[lhs_ref] = Ref.CWD
-                elif rhs_ref == "ROOT":
-                    refs_dict[lhs_ref] = Ref.ROOT
-                elif rhs_ref == "STDERR":
-                    refs_dict[lhs_ref] = Ref.STDERR
-                elif rhs_ref == "STDIN":
-                    refs_dict[lhs_ref] = Ref.STDIN
-                elif rhs_ref == "STDOUT":
-                    refs_dict[lhs_ref] = Ref.STDOUT
+            if is_launch(line):
+                parse_launch(refs_dict, env, line)
+            elif " = " in line:
+                parse_final_refs(refs_dict, env, line)
         # Parses Launch(...)
         elif is_launch(line):
-            assignments = parse_launch_command(remove_command_prefix(line))
-            for assignment in assignments:
-                if int(assignment[1].strip().lstrip("r")) in refs_dict:
-                    refs_dict[int(assignment[0].strip().lstrip("r"))] = refs_dict[int(assignment[1].strip().lstrip("r"))]
+            parse_launch(refs_dict, env, line)
         # Parses PathRef(...)
         elif is_new_path_ref(line):
-            line = remove_command_prefix(line).strip()
-            lhs_ref = int(get_path_ref_id(line).strip().lstrip("r"))
-            ref = int(get_path_ref_ref(line).strip().lstrip("r"))
-            name = get_path_ref_name(line).strip()
-            open_config = get_path_ref_open_config(line).strip()
-            no_follow = get_path_ref_no_follow(line)
-            path_ref = PathRef(ref, name, open_config, no_follow)
-            refs_dict[lhs_ref] = path_ref
+            parse_new_path_ref(refs_dict, env, line)
         # Parses ExpectResult(...)
         elif is_expect_result(line):
             line = remove_command_prefix(line).strip()
-            ref, result = parse_expect_result(line)
-            ref = int(ref.lstrip("r"))
-            expect_result_dict[ref] = ExpectResult(ref, result)
+            path_ref_id, result = parse_expect_result(line)
+            key = PathRefKey(env, path_ref_id)
+            expect_result_dict[key] = ExpectResult(key, result)
     return refs_dict, expect_result_dict
     
 def traverse_path_ref(refs_dict: dict, ref: PathRef):
@@ -215,9 +255,9 @@ def traverse_path_ref(refs_dict: dict, ref: PathRef):
         return ref.ref
 
 def resolve_rw_set_refs(refs_dict):
-    for ref_id, ref in refs_dict.items():
+    for ref_item, ref in refs_dict.items():
         if isinstance(ref, PathRef):
-            refs_dict[ref_id].ref = traverse_path_ref(refs_dict, ref)
+            refs_dict[ref_item].ref = traverse_path_ref(refs_dict, ref)
     return refs_dict
 
 def replace_path_ref_terminal_nodes(refs_dict: dict):
@@ -239,8 +279,16 @@ def replace_path_ref_terminal_nodes(refs_dict: dict):
     return refs_dict_new
 
 ## Parse the trace object and gather rw sets for this command
+
+# TODO: PathRefs now also contain environments. 
+#       Figure out a way to resolve ref_id+env key combinations.
 def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
+    # logging.debug(f">>>\n{''.join(trace_object)}")
     refs_dict, expect_result_dict = parse_rw_sets(trace_object)
+    for k, v in refs_dict.items():
+        print(f"{k}: {v}")
+    for k, v in expect_result_dict.items():
+        print(f"{k}: {v}")
     resolved_dict = resolve_rw_set_refs(refs_dict)
     resolved_dict_replaced = replace_path_ref_terminal_nodes(resolved_dict)
     # log_resolved_trace_items(resolved_dict)

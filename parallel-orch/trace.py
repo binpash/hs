@@ -186,32 +186,39 @@ def parse_path_ref_lhs_from_assignemt(line):
 def parse_path_ref_lhs(line):
     pass
 
-def parse_launch(refs_dict, env, line) -> None:
+def parse_launch(refs_dict, keys_order, env, line) -> None:
     assignment_prefix, assignments = parse_launch_command(remove_command_prefix(line))
     for assignment in assignments:
         lhs_ref = PathRefKey(assignment_prefix, assignment[0].strip())
         rhs_ref = PathRefKey(env, assignment[1].strip())
         refs_dict[lhs_ref] = refs_dict[rhs_ref]
+        keys_order.append(lhs_ref)
 
-def parse_final_refs(refs_dict, env, line) -> None:
+def parse_final_refs(refs_dict, keys_order, env, line) -> None:
     line = remove_command_prefix(line)
     path_ref_id = get_no_command_ref_id(line).strip()
     lhs_ref = PathRefKey(env, path_ref_id)
     rhs_ref = get_no_command_ref_ref(line)
     if rhs_ref == "CWD":
         refs_dict[lhs_ref] = Ref.CWD
+        keys_order.append(lhs_ref)
     elif rhs_ref == "ROOT":
         refs_dict[lhs_ref] = Ref.ROOT
+        keys_order.append(lhs_ref)
     elif rhs_ref == "STDERR":
         refs_dict[lhs_ref] = Ref.STDERR
+        keys_order.append(lhs_ref)
     elif rhs_ref == "STDIN":
         refs_dict[lhs_ref] = Ref.STDIN
+        keys_order.append(lhs_ref)
     elif rhs_ref == "STDOUT":
         refs_dict[lhs_ref] = Ref.STDOUT
+        keys_order.append(lhs_ref)
     elif rhs_ref == "LAUNCH_EXE":
         refs_dict[lhs_ref] = Ref.LAUNCH_EXE
+        keys_order.append(lhs_ref)
 
-def parse_new_path_ref(refs_dict, env, line):
+def parse_new_path_ref(refs_dict, keys_order, env, line):
     line = remove_command_prefix(line).strip()
     lhs_ref = PathRefKey(env, get_path_ref_id(line).strip())
     ref = get_path_ref_ref(line)
@@ -220,33 +227,38 @@ def parse_new_path_ref(refs_dict, env, line):
     no_follow = get_path_ref_no_follow(line)
     path_ref = PathRef(ref, name, open_config, no_follow, env)
     refs_dict[lhs_ref] = path_ref
+    keys_order.append(lhs_ref)
+
+def parse_expect_result_item(expect_result_dict, env, line):
+    line = remove_command_prefix(line).strip()
+    path_ref_id, result = parse_expect_result(line)
+    lhs_ref = PathRefKey(env, path_ref_id)
+    expect_result_dict[lhs_ref] = ExpectResult(lhs_ref, result)
 
 def parse_rw_sets(trace_object) -> None:
     logging.trace("".join(trace_object))
     refs_dict = {}
     expect_result_dict = {}
+    keys_order = []
     # In the first iteration, we get the refs
     for line in trace_object:
         # This branch will always execute first
         env = get_command_prefix(line).lstrip("Command ").strip()
         if is_no_command_prefix(line):
             if is_launch(line):
-                parse_launch(refs_dict, env, line)
+                parse_launch(refs_dict, keys_order, env, line)
             elif " = " in line:
-                parse_final_refs(refs_dict, env, line)
+                parse_final_refs(refs_dict, keys_order, env, line)
         # Parses Launch(...)
         elif is_launch(line):
-            parse_launch(refs_dict, env, line)
+            parse_launch(refs_dict, keys_order, env, line)
         # Parses PathRef(...)
         elif is_new_path_ref(line):
-            parse_new_path_ref(refs_dict, env, line)
+            parse_new_path_ref(refs_dict, keys_order, env, line)
         # Parses ExpectResult(...)
         elif is_expect_result(line):
-            line = remove_command_prefix(line).strip()
-            path_ref_id, result = parse_expect_result(line)
-            key = PathRefKey(env, path_ref_id)
-            expect_result_dict[key] = ExpectResult(key, result)
-    return refs_dict, expect_result_dict
+            parse_expect_result_item(expect_result_dict, env, line)
+    return refs_dict, expect_result_dict, keys_order
     
 def traverse_path_ref(refs_dict: dict, ref: PathRef):
     if isinstance(ref, PathRef) and not ref.is_nofollow and isinstance(refs_dict[ref.ref], PathRef):
@@ -269,7 +281,8 @@ def replace_path_ref_terminal_nodes(refs_dict: dict):
                 continue
             else:
                 if ref.ref not in refs_dict:
-                    ref.ref = refs_dict[4].value
+                    key = PathRefKey("No Command", "r1")
+                    ref.ref = refs_dict[key].value
                 else:
                     if isinstance(refs_dict[ref.ref], Ref):
                         ref.ref = refs_dict[ref.ref].value
@@ -283,29 +296,34 @@ def replace_path_ref_terminal_nodes(refs_dict: dict):
 # TODO: PathRefs now also contain environments. 
 #       Figure out a way to resolve ref_id+env key combinations.
 def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
-    # logging.debug(f">>>\n{''.join(trace_object)}")
-    refs_dict, expect_result_dict = parse_rw_sets(trace_object)
-    for k, v in refs_dict.items():
-        print(f"{k}: {v}")
-    for k, v in expect_result_dict.items():
-        print(f"{k}: {v}")
+    refs_dict, expect_result_dict, keys_order = parse_rw_sets(trace_object)
+    # for k, v in refs_dict.items():
+    #     print(f"{k}: {v}")
+    # for k, v in expect_result_dict.items():
+    #     print(f"{k}: {v}")
     resolved_dict = resolve_rw_set_refs(refs_dict)
+    # for k, v in resolved_dict.items():
+    #     print(f"{k}: {v}")
     resolved_dict_replaced = replace_path_ref_terminal_nodes(resolved_dict)
+    for k, v in resolved_dict.items():
+        print(f"{k}: {v}")
     # log_resolved_trace_items(resolved_dict)
 
     read_set = set()
     write_set = []
     dir_set = []
-    for i in range(len(resolved_dict_replaced)):
-        if i not in resolved_dict_replaced:
+    i = 0
+    for key in keys_order:
+        if key not in resolved_dict_replaced:
             continue
-        resolved_trace_object = resolved_dict_replaced[i]
+        resolved_trace_object = resolved_dict_replaced[key]
         # We ignore Ref objects
         if isinstance(resolved_trace_object, Ref):
             continue
         if is_path_ref_read(resolved_trace_object):
             read_set.add(resolved_trace_object.get_resolved_path())
         if is_path_ref_write(resolved_trace_object):
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>", resolved_trace_object)
             write_set.append(resolved_trace_object.get_resolved_path())
         # This is a sign that a directory declaration might exist
         if is_path_ref_empty(resolved_trace_object):

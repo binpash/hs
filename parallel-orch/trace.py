@@ -4,7 +4,6 @@ import os
 from typing import Tuple
 from enum import Enum
 import logging
-from pprint import pprint
 
 class Ref(Enum):
 
@@ -50,7 +49,6 @@ class PathRef:
             modified_path = "/" + self.path
         else:
             modified_path = self.path
-        # print(">>>>>", self)
         commonprefix = os.path.commonprefix([self.ref, modified_path])
         ref_without_prefix = self.ref.replace(commonprefix, "", 1)        
         path_without_prefix = modified_path.replace(commonprefix, "", 1)
@@ -102,7 +100,7 @@ def remove_command_prefix(line) -> str:
     return line.split(f"]: ")[1].rstrip()
 
 def get_command_prefix(line):
-    return line.split(f"]: ")[0].rstrip()[1:]
+    return line.split(f"]: ")[0].lstrip("[")
 
 def is_no_command_prefix(line):
     return "No Command" in get_command_prefix(line)
@@ -239,7 +237,7 @@ def parse_rw_sets(trace_object) -> None:
     # In the first iteration, we get the refs
     for line in trace_object:
         # This branch will always execute first
-        env = get_command_prefix(line).lstrip("Command ").strip()
+        env = get_command_prefix(line).lstrip("Command").strip()
         if is_no_command_prefix(line):
             if is_launch(line):
                 parse_launch(refs_dict, keys_order, env, line)
@@ -336,16 +334,13 @@ def resolve_rw_sets_from_parsed_items(resolved_dict_replaced, expect_result_dict
     return read_set, write_set
 
 ## Parse the trace object and gather rw sets for this command
-
 # TODO: PathRefs now also contain environments. 
 #       Figure out a way to resolve ref_id+env key combinations.
 def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
     refs_dict, expect_result_dict, keys_order = parse_rw_sets(trace_object)
+
     resolved_dict = resolve_rw_set_refs(refs_dict)
     resolved_dict_replaced = replace_path_ref_terminal_nodes(resolved_dict)
-    # for k, v in resolved_dict.items():
-    #     print(f"{k}: {v}")
-    # log_resolved_trace_items(resolved_dict)
     read_set, write_set = resolve_rw_sets_from_parsed_items(resolved_dict_replaced, expect_result_dict, keys_order)
     return read_set, set(write_set)
 

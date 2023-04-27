@@ -87,6 +87,9 @@ class Scheduler:
         node_id = int(input_cmd.split(":")[1].rstrip())
         logging.debug(f'Scheduler: Received wait for node_id: {node_id}')
         
+        ## TODO: If node is in a loop, then start executing it now even though
+        ##       it is done executing.
+
         ## If the node_id is already committed, just return its exit code
         if node_id in self.partial_program_order.get_committed():
             logging.debug(f'Node: {node_id} found in committed, responding immediately!')

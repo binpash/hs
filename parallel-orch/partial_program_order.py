@@ -23,10 +23,11 @@ class CompletedNodeInfo:
         return f'CompletedNodeInfo(ec:{self.get_exit_code()}, vf:{self.get_variable_file()}, stdout:{self.get_stdout_file()})'
 
 class Node:
-    def __init__(self, id, cmd):
+    def __init__(self, id, cmd, loop_context):
         self.cmd = cmd
         self.id = id
         self.cmd_no_redir = trace.remove_command_redir(self.cmd)
+        self.loop_context = loop_context
 
     def __str__(self):
         # return f"ID: {self.id}\nCMD: {self.cmd}\nR: {self.read_set}\nW: {self.write_set}"
@@ -42,6 +43,9 @@ class Node:
     def get_cmd_no_redir(self) -> str:
         return self.cmd_no_redir
     
+    def in_loop(self) -> bool:
+        return len(self.loop_context) > 0
+
     ## Note: This information is valid only after a node is committed.
     ##       It might be set even before that, but it should only be retrieved when
     ##         a node is committed.
@@ -419,7 +423,8 @@ class PartialProgramOrder:
                             if not self.is_frontier(node_id)]
         for cmd_id in non_frontier_ids:
             # We also need for a cmd to not be waiting to be resolved.
-            if not cmd_id in self.commands_currently_executing and not cmd_id in self.waiting_to_be_resolved:
+            if not cmd_id in self.commands_currently_executing and \
+               not cmd_id in self.waiting_to_be_resolved:
                 self.speculate_cmd_non_blocking(cmd_id)
 
     def run_all_frontier_cmds(self):
@@ -592,6 +597,23 @@ def parse_edge_line(line: str) -> "tuple[int, int]":
     from_str, to_str = line.split(" -> ")
     return (int(from_str), int(to_str))
 
+def parse_loop_context_line(line: str) -> "tuple[int, list[int]]":
+    node_id, loop_contexts_raw = line.split("-loop_ctx-")
+    if loop_contexts_raw != "":
+        loop_contexts_str = loop_contexts_raw.split(",")
+        loop_contexts = [int(loop_ctx) for loop_ctx in loop_contexts_str]
+    else:
+        loop_contexts = []
+    return int(node_id), loop_contexts
+
+def parse_loop_contexts(lines):
+    loop_contexts = {}
+    for line in lines:
+        node_id, loop_ctx = parse_loop_context_line(line)
+        loop_contexts[node_id] = loop_ctx
+
+    return loop_contexts
+
 def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder:
     with open(file_path) as f:
         raw_lines = f.readlines()
@@ -600,23 +622,31 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
     lines = [line.rstrip() for line in raw_lines
              if not line.startswith("#")]
 
-    ## The first line is the directory in which cmd_files are
+    ## The directory in which cmd_files are
     cmds_directory = str(lines[0])
     logging.debug(f'Cmds are stored in: {cmds_directory}')
 
-    ## The last line is the number of nodes
-    number_of_nodes = int(lines[-1])
+    ## The number of nodes
+    number_of_nodes = int(lines[1])
     logging.debug(f'Number of po cmds: {number_of_nodes}')
 
+    ## The loop context for each node
+    loop_context_start=2
+    loop_context_end=number_of_nodes+2
+    loop_context_lines = lines[loop_context_start:loop_context_end]
+    loop_contexts = parse_loop_contexts(loop_context_lines)
+    logging.debug(f'Loop contexts: {loop_contexts}')
+
     ## The rest of the lines are edge_lines
-    edge_lines = lines[1:-1]
+    edge_lines = lines[loop_context_end:]
     logging.debug(f'Edges: {edge_lines}')
 
     nodes = {}
     for i in range(number_of_nodes):
         file_path = f'{cmds_directory}/{i}'
         cmd = parse_cmd_from_file(file_path)
-        nodes[i] = Node(i, cmd)
+        loop_ctx = loop_contexts[i]
+        nodes[i] = Node(i, cmd, loop_ctx)
 
     edges = {i : [] for i in range(number_of_nodes)}
     for edge_line in edge_lines:

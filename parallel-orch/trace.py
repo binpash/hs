@@ -9,7 +9,7 @@ from pprint import pprint
 class Ref(Enum):
 
     STDIN = sys.stdin
-    STDOUT = sys.stdout
+    STDOUT = os.path.abspath(os.sep)
     STDERR = sys.stderr
     ROOT = os.path.abspath(os.sep)
     # Not sure this is always correct
@@ -50,6 +50,7 @@ class PathRef:
             modified_path = "/" + self.path
         else:
             modified_path = self.path
+        # print(">>>>>", self)
         commonprefix = os.path.commonprefix([self.ref, modified_path])
         ref_without_prefix = self.ref.replace(commonprefix, "", 1)        
         path_without_prefix = modified_path.replace(commonprefix, "", 1)
@@ -82,6 +83,9 @@ class ExpectResult():
     def __init__(self, ref, result):
         self.ref = ref
         self.result = result
+
+    def __str__(self, ref, result):
+        return f"ExpectResult({self.ref}, {self.result})"
 
 
 def log_resolved_trace_items(resolved_dict):
@@ -180,12 +184,6 @@ def is_expect_result(trace_item):
 def parse_expect_result(trace_item):
     return trace_item.lstrip("ExpectResult(").split(")")[0].split(", ")
 
-def parse_path_ref_lhs_from_assignemt(line):
-    pass
-
-def parse_path_ref_lhs(line):
-    pass
-
 def parse_launch(refs_dict, keys_order, env, line) -> None:
     assignment_prefix, assignments = parse_launch_command(remove_command_prefix(line))
     for assignment in assignments:
@@ -194,29 +192,27 @@ def parse_launch(refs_dict, keys_order, env, line) -> None:
         refs_dict[lhs_ref] = refs_dict[rhs_ref]
         keys_order.append(lhs_ref)
 
+def add_ref_to_refs_dict(refs_dict, keys_order, lhs_ref, ref):
+    refs_dict[lhs_ref] = ref
+    keys_order.append(lhs_ref)
+
 def parse_final_refs(refs_dict, keys_order, env, line) -> None:
     line = remove_command_prefix(line)
     path_ref_id = get_no_command_ref_id(line).strip()
     lhs_ref = PathRefKey(env, path_ref_id)
     rhs_ref = get_no_command_ref_ref(line)
     if rhs_ref == "CWD":
-        refs_dict[lhs_ref] = Ref.CWD
-        keys_order.append(lhs_ref)
+        add_ref_to_refs_dict(refs_dict, keys_order, lhs_ref, Ref.CWD)
     elif rhs_ref == "ROOT":
-        refs_dict[lhs_ref] = Ref.ROOT
-        keys_order.append(lhs_ref)
+        add_ref_to_refs_dict(refs_dict, keys_order, lhs_ref, Ref.ROOT)
     elif rhs_ref == "STDERR":
-        refs_dict[lhs_ref] = Ref.STDERR
-        keys_order.append(lhs_ref)
+        add_ref_to_refs_dict(refs_dict, keys_order, lhs_ref, Ref.STDERR)
     elif rhs_ref == "STDIN":
-        refs_dict[lhs_ref] = Ref.STDIN
-        keys_order.append(lhs_ref)
+        add_ref_to_refs_dict(refs_dict, keys_order, lhs_ref, Ref.STDIN)
     elif rhs_ref == "STDOUT":
-        refs_dict[lhs_ref] = Ref.STDOUT
-        keys_order.append(lhs_ref)
+        add_ref_to_refs_dict(refs_dict, keys_order, lhs_ref, Ref.STDOUT)
     elif rhs_ref == "LAUNCH_EXE":
-        refs_dict[lhs_ref] = Ref.LAUNCH_EXE
-        keys_order.append(lhs_ref)
+        add_ref_to_refs_dict(refs_dict, keys_order, lhs_ref, Ref.LAUNCH_EXE)
 
 def parse_new_path_ref(refs_dict, keys_order, env, line):
     line = remove_command_prefix(line).strip()
@@ -236,7 +232,7 @@ def parse_expect_result_item(expect_result_dict, env, line):
     expect_result_dict[lhs_ref] = ExpectResult(lhs_ref, result)
 
 def parse_rw_sets(trace_object) -> None:
-    logging.trace("".join(trace_object))
+    # logging.trace("".join(trace_object))
     refs_dict = {}
     expect_result_dict = {}
     keys_order = []
@@ -291,55 +287,7 @@ def replace_path_ref_terminal_nodes(refs_dict: dict):
                 refs_dict_new[i] = ref
     return refs_dict_new
 
-## Parse the trace object and gather rw sets for this command
-
-# TODO: PathRefs now also contain environments. 
-#       Figure out a way to resolve ref_id+env key combinations.
-def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
-    refs_dict, expect_result_dict, keys_order = parse_rw_sets(trace_object)
-    # for k, v in refs_dict.items():
-    #     print(f"{k}: {v}")
-    # for k, v in expect_result_dict.items():
-    #     print(f"{k}: {v}")
-    resolved_dict = resolve_rw_set_refs(refs_dict)
-    # for k, v in resolved_dict.items():
-    #     print(f"{k}: {v}")
-    resolved_dict_replaced = replace_path_ref_terminal_nodes(resolved_dict)
-    for k, v in resolved_dict.items():
-        print(f"{k}: {v}")
-    # log_resolved_trace_items(resolved_dict)
-
-    read_set = set()
-    write_set = []
-    dir_set = []
-    i = 0
-    for key in keys_order:
-        if key not in resolved_dict_replaced:
-            continue
-        resolved_trace_object = resolved_dict_replaced[key]
-        # We ignore Ref objects
-        if isinstance(resolved_trace_object, Ref):
-            continue
-        if is_path_ref_read(resolved_trace_object):
-            read_set.add(resolved_trace_object.get_resolved_path())
-        if is_path_ref_write(resolved_trace_object):
-            print(">>>>>>>>>>>>>>>>>>>>>>>>>", resolved_trace_object)
-            write_set.append(resolved_trace_object.get_resolved_path())
-        # This is a sign that a directory declaration might exist
-        if is_path_ref_empty(resolved_trace_object):
-            if i > 0:
-                if i - 1 in resolved_dict_replaced:
-                    previous_resolved_trace_object = resolved_dict_replaced[i-1]
-                    relevant_current_expect_result = expect_result_dict.get(i-1)
-                    relevant_previous_expect_result = expect_result_dict.get(i)
-                    if relevant_current_expect_result is not None and relevant_previous_expect_result is not None:
-                        if isinstance(previous_resolved_trace_object, PathRef) and \
-                        is_path_ref_write(previous_resolved_trace_object) and \
-                        relevant_current_expect_result.result ==  "SUCCESS" and \
-                        relevant_previous_expect_result.result == "SUCCESS":
-                            dir_set.append(resolved_trace_object.get_resolved_path())
-                            write_set.pop()
-
+def resolve_dir_rw_paths(read_set, write_set, dir_set):
     prefix = os.path.commonprefix(dir_set)
     suffixes = [dir.replace(prefix, "") for dir in dir_set]
     # Warning: HACK
@@ -351,6 +299,54 @@ def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
             write_set.append(to_add)
         else:
             write_set.append(to_add + "/")
+
+def resolve_dir_accesses_from_parsed_items(resolved_dict_replaced, expect_result_dict, 
+                                           key, previous_key, resolved_trace_object, 
+                                           write_set, dir_set):
+    if previous_key in resolved_dict_replaced:
+        previous_resolved_trace_object = resolved_dict_replaced[previous_key]
+        relevant_current_expect_result = expect_result_dict.get(previous_key)
+        relevant_previous_expect_result = expect_result_dict.get(key)
+        if relevant_current_expect_result is not None and relevant_previous_expect_result is not None:
+            if isinstance(previous_resolved_trace_object, PathRef) and \
+            is_path_ref_write(previous_resolved_trace_object) and \
+            relevant_current_expect_result.result ==  "SUCCESS" and \
+            relevant_previous_expect_result.result == "SUCCESS":
+                dir_set.append(resolved_trace_object.get_resolved_path())
+                write_set.pop()
+
+def resolve_rw_sets_from_parsed_items(resolved_dict_replaced, expect_result_dict, keys_order):
+    read_set = set()
+    write_set = []
+    dir_set = []
+    for i, key in enumerate(keys_order):
+        if key not in resolved_dict_replaced:
+            continue
+        resolved_trace_object = resolved_dict_replaced[key]
+        if isinstance(resolved_trace_object, Ref):
+            continue
+        if is_path_ref_read(resolved_trace_object):
+            read_set.add(resolved_trace_object.get_resolved_path())
+        if is_path_ref_write(resolved_trace_object):
+            write_set.append(resolved_trace_object.get_resolved_path())
+        # This is a sign that a directory declaration might exist
+        if is_path_ref_empty(resolved_trace_object) and i > 0:
+            pass
+    resolve_dir_rw_paths(read_set, write_set, dir_set)
+    return read_set, write_set
+
+## Parse the trace object and gather rw sets for this command
+
+# TODO: PathRefs now also contain environments. 
+#       Figure out a way to resolve ref_id+env key combinations.
+def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
+    refs_dict, expect_result_dict, keys_order = parse_rw_sets(trace_object)
+    resolved_dict = resolve_rw_set_refs(refs_dict)
+    resolved_dict_replaced = replace_path_ref_terminal_nodes(resolved_dict)
+    # for k, v in resolved_dict.items():
+    #     print(f"{k}: {v}")
+    # log_resolved_trace_items(resolved_dict)
+    read_set, write_set = resolve_rw_sets_from_parsed_items(resolved_dict_replaced, expect_result_dict, keys_order)
     return read_set, set(write_set)
 
 def parse_exit_code(trace_object) -> int:

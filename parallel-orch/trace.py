@@ -323,6 +323,9 @@ def resolve_rw_sets_from_parsed_items(resolved_dict_replaced, expect_result_dict
         resolved_trace_object = resolved_dict_replaced[key]
         if isinstance(resolved_trace_object, Ref):
             continue
+        ## WARNING: HACK: We need to make sure this condition does not lead to missed dependencies
+        if resolved_trace_object.get_resolved_path().startswith(os.path.abspath('/tmp/pash_spec')) or resolved_trace_object.get_resolved_path().startswith(os.path.abspath('/dev/tty')):
+            continue
         if is_path_ref_read(resolved_trace_object):
             read_set.add(resolved_trace_object.get_resolved_path())
         if is_path_ref_write(resolved_trace_object):
@@ -338,7 +341,6 @@ def resolve_rw_sets_from_parsed_items(resolved_dict_replaced, expect_result_dict
 #       Figure out a way to resolve ref_id+env key combinations.
 def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
     refs_dict, expect_result_dict, keys_order = parse_rw_sets(trace_object)
-
     resolved_dict = resolve_rw_set_refs(refs_dict)
     resolved_dict_replaced = replace_path_ref_terminal_nodes(resolved_dict)
     read_set, write_set = resolve_rw_sets_from_parsed_items(resolved_dict_replaced, expect_result_dict, keys_order)

@@ -344,6 +344,24 @@ class PartialProgramOrder:
     ##                by creating iterations before them in the partial order.
     ##                The loop nodes then act as barriers that cannot be committed, executed (or put in the frontier)
     ##                and separate the already committed with the future partial order.
+    ##
+    ## Note: We have to be careful when unrolling loops to unroll a complete iteration to start with 
+    ##       (to not have to deal with partial order relations between commands of different iterations).
+    ##
+    ## Concrete pseudocode:
+    ## def unroll(self, loop_id):
+    ##     ## Finds all of the nodes in the same loop in the partial order
+    ##     sub_po = self.find_loop_sub_partial_order(loop_id)
+    ##     ## Find the previous node               
+    ##     previous_ids = self.find_prev_nodes(sub_po.first)
+    ##     ## Create an iteration version (no loop nodes) of the sub_po
+    ##     ## (be careful to not eliminate nested loop nodes)
+    ##     sub_po_iter = create_iter(sub_po)
+    ##     ## add the iteration between the loop and its previous node
+    ##     self.add_po_between(sub_po_iter, previous_ids, sub_po.first)
+    ##
+    ## We need to determine when to call unroll. For now we can just do it if the frontier is empty 
+    ## (which means that the next node of the frontier is a loop node).
     def step_forward(self, old_speculated, old_committed):
         logging.debug(" > Committing frontier")
         self.commit_frontier()

@@ -84,6 +84,7 @@ class PartialProgramOrder:
         # TODO: consider changing values to sets instead of lists
         self.adjacency = edges
         self.init_inverse_adjacency()
+        ## TODO: KK: Is it OK if we modify adjacency lists on the fly while processing the partial-order?
         ## self.committed is an add-only set, we never remove
         self.committed = set()
         ## Nodes that are in the frontier can only move to committed
@@ -338,6 +339,11 @@ class PartialProgramOrder:
                 new_stopped.remove(cmd_id)
         self.stopped = new_stopped
 
+    ## KK 2023-05-02: We should not be able to step/execute/speculate loop nodes, instead
+    ##                the only action we should be able to do to them is to unroll them,
+    ##                by creating iterations before them in the partial order.
+    ##                The loop nodes then act as barriers that cannot be committed, executed (or put in the frontier)
+    ##                and separate the already committed with the future partial order.
     def step_forward(self, old_speculated, old_committed):
         logging.debug(" > Committing frontier")
         self.commit_frontier()
@@ -347,6 +353,8 @@ class PartialProgramOrder:
         self.populate_to_be_resolved_dict(old_committed)
 
     # Add frontier commands to committed set
+    ## TODO: Loop nodes should not be committed until we receive a wait for the node after them.
+    ##       We don't know if they are done executing until then.
     def commit_frontier(self):
         # Second condition below may be unecessary
         for frontier_node in self.frontier:
@@ -571,6 +579,7 @@ class PartialProgramOrder:
     def get_currently_executing(self) -> list:
         return sorted(list(self.commands_currently_executing.keys()))
     
+    ## KK 2023-05-02 What does this function do?
     def save_commit_state_of_cmd(self, cmd_id):
         self.committed_order.append(cmd_id)
         self.commit_state[cmd_id] = set(self.committed) - set(self.to_be_resolved[cmd_id])

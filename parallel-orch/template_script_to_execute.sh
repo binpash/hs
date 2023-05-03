@@ -16,7 +16,8 @@ echo $CMD_STRING > ./Rikerfile
 # cat Rikerfile
 ## The (frontier) cmd is run outside a sandbox
 ## so we want to run and trace everything normally
-rkr --no-inject # --frontier
+# rkr --no-inject # --frontier
+rkr # --frontier
 ## TODO: Save the exit code here
 rkr --debug trace -o "$TRACE_FILE" > /dev/null
 

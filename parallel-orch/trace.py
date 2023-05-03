@@ -365,8 +365,16 @@ def resolve_rw_sets_from_parsed_items(resolved_dict_replaced, expect_result_dict
         if isinstance(resolved_trace_object, Ref):
             continue
         # WARNING: HACK: We need to make sure this condition does not lead to missed dependencies
-        # if resolved_trace_object.get_resolved_path().startswith(os.path.abspath('/tmp/pash_spec')) or resolved_trace_object.get_resolved_path().startswith(os.path.abspath('/dev/tty')):
+        # KK 2023-05-03: I don't see where this is useful
+        # if resolved_trace_object.get_resolved_path().startswith(os.path.abspath('/tmp/pash_spec')) or 
         #     continue
+
+        ## Each separate node has a different /dev/tty (even though they all seem to write to it)
+        ##  so we never want to keep /dev/tty in the read-write sets of any node.
+        ## We take care of writes to stdout and stderr elsewhere in the code.
+        ## TODO: Generalize this to other special files too (make a global list of such files)
+        if resolved_trace_object.get_resolved_path().startswith(os.path.abspath('/dev/tty')):
+            continue
         if is_path_ref_read(resolved_trace_object):
             read_set.add(resolved_trace_object.get_resolved_path())
         if is_path_ref_write(resolved_trace_object):

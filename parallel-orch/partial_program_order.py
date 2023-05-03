@@ -256,8 +256,6 @@ class PartialProgramOrder:
                     if self.has_forward_dependency(first_cmd_id, second_cmd_id):
                         logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)
-                    else:
-                        logging.debug(f' > No dependencies between {first_cmd_id} and {second_cmd_id}')
         return new_workset
 
     ## Resolve all the forward dependencies and update the workset
@@ -375,6 +373,7 @@ class PartialProgramOrder:
         for dir in dirs:
             for other_path in to_check:
                 if self.is_subpath(dir, other_path):
+                    logging.debug(f' > File forward dependency found C1:({dir}) C2:({other_path})')
                     return True
         return False
     
@@ -384,14 +383,14 @@ class PartialProgramOrder:
     def has_forward_dependency(self, first_id, second_id):
         first_write_set = set(self.rw_sets[first_id].get_write_set())
         second_read_set = set(self.rw_sets[second_id].get_read_set())
+        logging.debug(f'Checking dependencies between {first_id} and {second_id}')
         if not first_write_set.isdisjoint(second_read_set):
-            logging.debug("Forward dep")
+            logging.debug(f' > Forward dependency found {first_write_set.intersection(second_read_set)}')
             return True
-
         elif self.has_dir_file_dependency(first_write_set, second_read_set):
-            logging.debug("file forward dep")
             return True
         else:
+            logging.debug(f' > No dependencies')
             return False
 
     ## TODO: Eventually, in the future, let's add here some form of limit

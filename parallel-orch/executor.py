@@ -37,7 +37,7 @@ def async_run_and_trace_command(command, trace_file, node_id, stdout_file, stder
         args.append("standard")
     args.append(str(node_id))
     # Save output to temporary files to not saturate the memory
-    process = subprocess.Popen(args, stdout=None, stderr=stderr_file)
+    process = subprocess.Popen(args, stdout=None, stderr=None)
     # For debugging
     # process = subprocess.Popen(args)
     return process
@@ -56,5 +56,6 @@ def read_trace(sandbox_dir, trace_file):
     else:
         path = f"{sandbox_dir}upperdir/{trace_file}"
     
+    logging.debug(f'Reading trace from: {path}')
     with open(path) as f:
         return f.readlines()

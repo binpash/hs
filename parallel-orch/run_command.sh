@@ -34,6 +34,8 @@ else
     exit_code=$?
 fi
 
+ls -R "${SANDBOX_DIR}"
+
 ## Send a message to the scheduler socket
 ## Assumes "${PASH_SPEC_SCHEDULER_SOCKET}" is set and exported
 

@@ -21,4 +21,5 @@ rkr # --frontier
 ## TODO: Save the exit code here
 rkr --debug trace -o "$TRACE_FILE" > /dev/null
 
+## KK 2023-05-03 This probably causes the /dev/tty output (TODO: Check)
 pash_redir_output echo "Sandbox ${CMD_ID} Output variables saved in: $OUTPUT_VARIABLE_FILE"

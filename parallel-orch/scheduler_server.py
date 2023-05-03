@@ -80,11 +80,22 @@ class Scheduler:
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.partial_program_order.to_be_resolved)
 
+    def __parse_wait(self, input_cmd: str) -> int:
+        try:
+            node_id = int(input_cmd.split(":")[1].rstrip())
+            # components = input_cmd.rstrip().split("|")
+            # command_id = int(components[0].split(":")[1])
+            # exit_code = int(components[1].split(":")[1])
+            # sandbox_dir = components[2].split(":")[1]
+            return node_id
+        except:
+            raise Exception(f'Parsing failure for line: {input_cmd}')
+
     def handle_wait(self, input_cmd: str, connection):
         assert(input_cmd.startswith("Wait"))
         ## We have received this message by the JIT, which waits for a node_id to
         ## finish execution.
-        node_id = int(input_cmd.split(":")[1].rstrip())
+        node_id = self.__parse_wait(input_cmd)        
         logging.debug(f'Scheduler: Received wait for node_id: {node_id}')
         
         ## TODO: If node is in a loop, then start executing it now even though

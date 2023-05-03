@@ -373,6 +373,9 @@ def resolve_rw_sets_from_parsed_items(resolved_dict_replaced, expect_result_dict
         ##  so we never want to keep /dev/tty in the read-write sets of any node.
         ## We take care of writes to stdout and stderr elsewhere in the code.
         ## TODO: Generalize this to other special files too (make a global list of such files)
+        ## TODO: We actually want to add these to the read-write sets, but then don't take them
+        ##       into account when doing the resolution. Trace should not have any scheduling
+        ##       logic, it should just parse the trace.
         if resolved_trace_object.get_resolved_path().startswith(os.path.abspath('/dev/tty')):
             continue
         if is_path_ref_read(resolved_trace_object):

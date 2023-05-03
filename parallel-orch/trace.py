@@ -365,8 +365,8 @@ def resolve_rw_sets_from_parsed_items(resolved_dict_replaced, expect_result_dict
         if isinstance(resolved_trace_object, Ref):
             continue
         # WARNING: HACK: We need to make sure this condition does not lead to missed dependencies
-        if resolved_trace_object.get_resolved_path().startswith(os.path.abspath('/tmp/pash_spec')) or resolved_trace_object.get_resolved_path().startswith(os.path.abspath('/dev/tty')):
-            continue
+        # if resolved_trace_object.get_resolved_path().startswith(os.path.abspath('/tmp/pash_spec')) or resolved_trace_object.get_resolved_path().startswith(os.path.abspath('/dev/tty')):
+        #     continue
         if is_path_ref_read(resolved_trace_object):
             read_set.add(resolved_trace_object.get_resolved_path())
         if is_path_ref_write(resolved_trace_object):

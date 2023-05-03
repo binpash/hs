@@ -82,12 +82,11 @@ class Scheduler:
 
     def __parse_wait(self, input_cmd: str) -> int:
         try:
-            node_id = int(input_cmd.split(":")[1].rstrip())
-            # components = input_cmd.rstrip().split("|")
-            # command_id = int(components[0].split(":")[1])
-            # exit_code = int(components[1].split(":")[1])
-            # sandbox_dir = components[2].split(":")[1]
-            return node_id
+            node_id_component, loop_iter_counter_component = input_cmd.rstrip().split("|")
+            node_id = int(node_id_component.split(":")[1].rstrip())
+            loop_counters_str = loop_iter_counter_component.split(":")[1].rstrip()
+            loop_counters = loop_counters_str.split("-")
+            return node_id, loop_counters
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')
 
@@ -95,8 +94,8 @@ class Scheduler:
         assert(input_cmd.startswith("Wait"))
         ## We have received this message by the JIT, which waits for a node_id to
         ## finish execution.
-        node_id = self.__parse_wait(input_cmd)        
-        logging.debug(f'Scheduler: Received wait for node_id: {node_id}')
+        node_id, loop_counters = self.__parse_wait(input_cmd)        
+        logging.debug(f'Scheduler: Received wait for node_id: {node_id} with loop counters: {loop_counters}')
         
         ## TODO: If node is in a loop, then start executing it now even though
         ##       it is done executing.

@@ -7,7 +7,7 @@ import logging
 ## TODO: Figure out how logging here plays out together with the log() in PaSh
 
 ## Setup TRACE level for logging
-level = logging.TRACE = logging.DEBUG - 5
+level = logging.TRACE = logging.DEBUG - 5 
 
 def log_logger(self, message, *args, **kwargs):
     if self.isEnabledFor(level):

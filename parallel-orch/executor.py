@@ -56,5 +56,6 @@ def read_trace(sandbox_dir, trace_file):
     else:
         path = f"{sandbox_dir}upperdir/{trace_file}"
     
+    logging.debug(f'Reading trace from: {trace_file}')
     with open(path) as f:
         return f.readlines()

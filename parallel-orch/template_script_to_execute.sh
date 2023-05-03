@@ -5,6 +5,9 @@
 
 ## Save the script to execute in the sandboxdir
 echo $CMD_STRING > ./Rikerfile
+echo "$$: Rikerfile contents" 1>&2
+wc ./Rikerfile 1>&2
+cat ./Rikerfile 1>&2
 ## Save the output shell variables to a file (to pass to the outside context)
 ## TODO: Currently pash_declare_vars doesn't work because riker invokes /bin/sh
 ##       which is bash in POSIX mode.

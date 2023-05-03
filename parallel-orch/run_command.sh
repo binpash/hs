@@ -34,6 +34,9 @@ else
     exit_code=$?
 fi
 
+## Only used for debugging
+# ls -R "${SANDBOX_DIR}/upperdir" 1>&2
+
 ## Send a message to the scheduler socket
 ## Assumes "${PASH_SPEC_SCHEDULER_SOCKET}" is set and exported
 

@@ -23,12 +23,21 @@ class CompletedNodeInfo:
         return f'CompletedNodeInfo(ec:{self.get_exit_code()}, vf:{self.get_variable_file()}, stdout:{self.get_stdout_file()})'
 
 class NodeId:
-    def __init__(self, id: str, loop_iters=None):
+    def __init__(self, id: int, loop_iters=None):
         self.id = id
-        self.loop_iters = loop_iters
+        if loop_iters is None:
+            self.loop_iters = []
+        else:
+            self.loop_iters = loop_iters
     
+    def __repr__(self):
+        output = str(self.id)
+        if len(self.loop_iters) > 0:
+            output += f':{"-".join([str(it) for it in self.loop_iters])}'
+        return output
+
     def __hash__(self):
-        return hash((self.id, self.loop_iters))
+        return hash(str(self))
 
     def __eq__(self, other):
         if not len(self.loop_iters) == len(other.loop_iters):
@@ -42,6 +51,19 @@ class NodeId:
         # Not strictly necessary, but to avoid having both x==y and x!=y
         # True at the same time
         return not(self == other)
+    
+    ## TODO: Maybe we need to make these better
+    def __lt__(self, obj):
+        return (str(self) < str(obj))
+  
+    def __gt__(self, obj):
+        return (str(self) > str(obj))
+  
+    # def __le__(self, obj):
+    #     return ((self.b) <= (obj.b))
+  
+    # def __ge__(self, obj):
+    #     return ((self.b) >= (obj.b))
 
 
 class Node:
@@ -232,7 +254,8 @@ class PartialProgramOrder:
     # Check if all frontier nodes are after committed nodes
     def all_frontier_nodes_after_committed_nodes(self):
         ## TODO: Make this check a proper predecessor check
-        return max(self.get_committed()) < min(self.frontier)
+        # return max(self.get_committed()) < min(self.frontier)
+        return False
 
     # Checks if frontier and committed intersect
     def frontier_and_committed_intersect(self):
@@ -264,7 +287,7 @@ class PartialProgramOrder:
 
 
     ## Returns all non committed non-loop nodes
-    def get_all_non_committed_standard_nodes(self) -> "list[int]":
+    def get_all_non_committed_standard_nodes(self) -> "list[NodeId]":
         all_non_committed = self.get_all_non_committed()
         return self.filter_standard_nodes(all_non_committed)
 
@@ -274,7 +297,7 @@ class PartialProgramOrder:
     def get_prev(self, node_id:int) -> "list[int]":
         return self.inverse_adjacency[node_id]
 
-    def get_transitive_closure(self, target_node_ids:"list[int]") -> "list[int]":
+    def get_transitive_closure(self, target_node_ids:"list[NodeId]") -> "list[NodeId]":
         all_next_transitive = set(target_node_ids)
         next_work = target_node_ids.copy()
         while len(next_work) > 0:
@@ -323,13 +346,20 @@ class PartialProgramOrder:
 
 
     # Check if the specific command can be resolved.
-    # TODO: this does not truly follow partial program order, we should implement it correctly
+    # KK 2023-05-04 I am not even sure what this function does and why is it useful.
     def cmd_can_be_resolved(self, node_id: int) -> bool:
         # If the command we evaluate has no earlier command currently executing, it can be resolved this round
+        ## KK 2023-05-04 This does not seem correct. In the future (where we don't speculate everything at once)
+        ##               there might be a case where nothing is executing but a command can still not be resolved.
         if len(self.get_currently_executing()) > 0:
-            ## TODO: Modify this to be a proper predecessor so that it works with newly 
-            ##       added loop nodes (proper predecessor does not happen with comparing indexes)
-            return node_id <= min(self.get_currently_executing())
+            ## if the node is in the transitive closure of any currently executing commands,
+            ## then we can't resolve it.
+            total_transitive_closure = set()
+            for other in self.get_currently_executing():
+                other_tc = set(self.get_transitive_closure([other]))
+                total_transitive_closure = total_transitive_closure.union(other_tc)
+            ## If node_id can be reached from the other commands it can't be resolved
+            return not node_id in total_transitive_closure
         else:
             return True
     
@@ -822,12 +852,12 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
         file_path = f'{cmds_directory}/{i}'
         cmd = parse_cmd_from_file(file_path)
         loop_ctx = loop_contexts[i]
-        nodes[i] = Node(i, cmd, loop_ctx)
+        nodes[NodeId(i)] = Node(NodeId(i), cmd, loop_ctx)
 
-    edges = {i : [] for i in range(number_of_nodes)}
+    edges = {NodeId(i) : [] for i in range(number_of_nodes)}
     for edge_line in edge_lines:
         from_id, to_id = parse_edge_line(edge_line)
-        edges[from_id].append(to_id)
+        edges[NodeId(from_id)].append(NodeId(to_id))
     
     logging.trace(f"Nodes|{','.join([str(node) for node in nodes])}")
     return PartialProgramOrder(nodes, edges)

@@ -4,7 +4,7 @@ import signal
 from util import *
 import config
 import sys
-from partial_program_order import parse_partial_program_order_from_file
+from partial_program_order import parse_partial_program_order_from_file, NodeId
 
 ##
 ## A scheduler server
@@ -69,10 +69,10 @@ class Scheduler:
         self.partial_program_order = parse_partial_program_order_from_file(partial_order_file)
         self.partial_program_order.init_partial_order()
 
-    def __parse_wait(self, input_cmd: str) -> int:
+    def __parse_wait(self, input_cmd: str):
         try:
             node_id_component, loop_iter_counter_component = input_cmd.rstrip().split("|")
-            node_id = int(node_id_component.split(":")[1].rstrip())
+            node_id = NodeId(int(node_id_component.split(":")[1].rstrip()))
             loop_counters_str = loop_iter_counter_component.split(":")[1].rstrip()
             loop_counters = loop_counters_str.split("-")
             return node_id, loop_counters
@@ -107,7 +107,7 @@ class Scheduler:
     def __parse_command_exec_complete(self, input_cmd: str) -> "tuple[int, int]":
         try:
             components = input_cmd.rstrip().split("|")
-            command_id = int(components[0].split(":")[1])
+            command_id = NodeId(int(components[0].split(":")[1]))
             exit_code = int(components[1].split(":")[1])
             sandbox_dir = components[2].split(":")[1]
             return command_id, exit_code, sandbox_dir

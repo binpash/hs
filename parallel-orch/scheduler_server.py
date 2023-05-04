@@ -86,8 +86,11 @@ class Scheduler:
         node_id, loop_counters = self.__parse_wait(input_cmd)        
         logging.debug(f'Scheduler: Received wait for node_id: {node_id} with loop counters: {loop_counters}')
         
-        ## TODO: If node is in a loop, then start executing it now even though
-        ##       it is done executing.
+        ## If node is in a loop, then start executing it now.
+        if self.partial_program_order.is_loop_node(node_id):
+            ## TODO: This unrolling can also happen and be moved to speculation.
+            ##       For now we are being conservative and that is why it only happens here
+            self.partial_program_order.unroll_loop_node(node_id)
 
         ## If the node_id is already committed, just return its exit code
         if node_id in self.partial_program_order.get_committed():

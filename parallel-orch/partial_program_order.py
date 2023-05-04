@@ -22,6 +22,28 @@ class CompletedNodeInfo:
     def __str__(self):
         return f'CompletedNodeInfo(ec:{self.get_exit_code()}, vf:{self.get_variable_file()}, stdout:{self.get_stdout_file()})'
 
+class NodeId:
+    def __init__(self, id: str, loop_iters=None):
+        self.id = id
+        self.loop_iters = loop_iters
+    
+    def __hash__(self):
+        return hash((self.id, self.loop_iters))
+
+    def __eq__(self, other):
+        if not len(self.loop_iters) == len(other.loop_iters):
+            return False
+        for i in range(len(self.loop_iters)):
+            if not self.loop_iters[i] == other.loop_iters[i]:
+                return False
+        return self.id == other.id
+
+    def __ne__(self, other):
+        # Not strictly necessary, but to avoid having both x==y and x!=y
+        # True at the same time
+        return not(self == other)
+
+
 class Node:
     def __init__(self, id, cmd, loop_context):
         self.cmd = cmd
@@ -42,6 +64,9 @@ class Node:
 
     def get_cmd_no_redir(self) -> str:
         return self.cmd_no_redir
+    
+    def get_loop_context(self) -> "list[int]":
+        return self.loop_context
     
     def in_loop(self) -> bool:
         return len(self.loop_context) > 0
@@ -121,6 +146,36 @@ class PartialProgramOrder:
                 sources.add(to_id)
         return list(sources)
 
+    ## This returns all previous nodes of a sub partial order
+    def get_sub_po_prev_nodes(self, node_ids: "list[int]") -> "list[int]":
+        # assert(self.is_closed_sub_partial_order(node_ids))
+        prev_nodes = set()
+        node_set = set(node_ids)
+        for node_id in node_ids:
+            prev_ids_set = set(self.get_prev(node_id))
+            ## KK 2023-05-04 is it ever the case that some (but not all) prev nodes might be outside. I don't think so
+            prev_nodes = prev_nodes.union(prev_ids_set - node_set)
+        
+        ## KK 2024-05-03: I don't see how we can get multiple sources with the current structure
+        assert(len(prev_nodes) == 1)
+        return list(prev_nodes)
+
+    ## TODO: Implement this correctly. I have thought of a naive algorithm that
+    ##       does a BFS forward and backward for each node and if we first see a
+    ##       node outside of the set and then one inside it means that the subset is not closed.
+    def is_closed_sub_partial_order(self, node_ids: "list[int]") -> bool:
+        # node_set = set(node_ids)
+        # visited_set = set()
+        # for node_id in node_ids:
+        #     prev_ids_set = set(self.get_prev(node_id))
+        #     next_id_set = set(self.get_next(node_id))
+        #     ## If one of the previous or next nodes is not in the node set
+        #     ## it means that the sub partial order is not closed.
+        #     if not node_set.issuperset(prev_ids_set.union(next_id_set)):
+        #         return False
+
+        return True
+
     def init_partial_order(self):
         self.init_workset()
         logging.debug(f'Initialized workset')
@@ -189,6 +244,9 @@ class PartialProgramOrder:
     def get_node(self, node_id:int) -> Node:
         return self.nodes[node_id]
 
+    def get_node_loop_context(self, node_id: int) -> "list[int]":
+        return self.get_node(node_id).get_loop_context()
+
     def get_all_non_committed(self) -> "list[int]":
         return self.get_transitive_closure(self.frontier)
     
@@ -200,6 +258,11 @@ class PartialProgramOrder:
         return [node_id for node_id in node_ids
                 if not self.is_loop_node(node_id)]
 
+    ## This creates a new node_id and then creates a mapping from the node and iteration id to this node id
+    def create_standard_id_from_loop_node(self, node_id: int, loop_id: int) -> int:
+        pass
+
+
     ## Returns all non committed non-loop nodes
     def get_all_non_committed_standard_nodes(self) -> "list[int]":
         all_non_committed = self.get_all_non_committed()
@@ -207,7 +270,10 @@ class PartialProgramOrder:
 
     def get_next(self, node_id:int) -> "list[int]":
         return self.adjacency[node_id]
-    
+
+    def get_prev(self, node_id:int) -> "list[int]":
+        return self.inverse_adjacency[node_id]
+
     def get_transitive_closure(self, target_node_ids:"list[int]") -> "list[int]":
         all_next_transitive = set(target_node_ids)
         next_work = target_node_ids.copy()
@@ -365,6 +431,15 @@ class PartialProgramOrder:
                 self.to_be_resolved[cmd_id] = []
         self.stopped = new_stopped
 
+    def find_loop_sub_partial_order(self, loop_id: int) -> "list[int]":
+        loop_node_ids = []
+        for node_id in self.nodes:
+            loop_context = self.get_node_loop_context(node_id)
+            if loop_id in loop_context:
+                loop_node_ids.append(node_id)
+        ## TODO: Assert that this is closed w.r.t. partial order
+        return loop_node_ids
+
     ## KK 2023-05-02: We should not be able to step/execute/speculate loop nodes, instead
     ##                the only action we should be able to do to them is to unroll them,
     ##                by creating iterations before them in the partial order.
@@ -373,6 +448,7 @@ class PartialProgramOrder:
     ##
     ## Note: We have to be careful when unrolling loops to unroll a complete iteration to start with 
     ##       (to not have to deal with partial order relations between commands of different iterations).
+    ##
     ##
     ## Concrete pseudocode:
     ## def unroll(self, loop_id):
@@ -388,6 +464,28 @@ class PartialProgramOrder:
     ##
     ## We need to determine when to call unroll. For now we can just do it if the frontier is empty 
     ## (which means that the next node of the frontier is a loop node).
+    def unroll_loop(self, loop_id: int):
+        loop_node_ids = self.find_loop_sub_partial_order(loop_id)
+        logging.debug(f'Node ids for loop: {loop_id} are: {loop_node_ids}')
+        ## Get the previous nodes of sub_po
+        previous_ids = self.get_sub_po_prev_nodes(loop_node_ids)
+        assert(len(previous_ids) == 1)
+        previous_id = previous_ids[0]
+        logging.debug(f'Previous node id for loop: {loop_id} is {previous_id}')
+        new_loop_node_ids = [self.create_standard_id_from_loop_node(node_id, loop_id)
+                             for node_id in loop_node_ids]
+
+
+    def unroll_loop_node(self, node_id: int):
+        assert(self.is_loop_node(node_id))
+        loop_context = self.get_node_loop_context(node_id)
+        ## TODO: First determine which exactly loop do we need to unroll
+        ##       I am not sure if it is correct to just do the last one
+        ##       I think it might be the difference between this and the previous node
+        ##
+        ## TODO: I actually think we have to unroll all loops
+        self.unroll_loop(loop_context[0])
+
     def step_forward(self, old_committed):
         logging.debug(" > Committing frontier")
         self.commit_frontier()

@@ -67,11 +67,7 @@ class Scheduler:
         partial_order_file = input_cmd.split(":")[1].rstrip()
         logging.debug(f'Scheduler: Received partial_order_file: {partial_order_file}')
         self.partial_program_order = parse_partial_program_order_from_file(partial_order_file)
-        self.partial_program_order.init_workset()
-        logging.debug(f'Parsed partial program order:')
-        self.partial_program_order.populate_to_be_resolved_dict([])
-        logging.debug(f'To be resolved sets per node:')
-        logging.debug(self.partial_program_order.to_be_resolved)
+        self.partial_program_order.init_partial_order()
 
     def __parse_wait(self, input_cmd: str) -> int:
         try:

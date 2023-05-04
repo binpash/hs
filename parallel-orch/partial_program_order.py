@@ -85,7 +85,10 @@ class PartialProgramOrder:
         self.adjacency = edges
         self.init_inverse_adjacency()
         ## TODO: KK: Is it OK if we modify adjacency lists on the fly while processing the partial-order?
+        ## TODO: Remember to modify inverse_adjacency
         ## self.committed is an add-only set, we never remove
+        ## TODO: For loop modify committed, workset, frontier, stopped
+        ## TODO: Add assertions that committed etc do not contain loop nodes
         self.committed = set()
         ## Nodes that are in the frontier can only move to committed
         self.frontier = self.get_source_nodes()
@@ -118,8 +121,16 @@ class PartialProgramOrder:
                 sources.add(to_id)
         return list(sources)
 
+    def init_partial_order(self):
+        self.init_workset()
+        logging.debug(f'Initialized workset')
+        self.populate_to_be_resolved_dict([])
+        logging.debug(f'To be resolved sets per node:')
+        logging.debug(self.to_be_resolved)
+        assert(self.valid())
+
     def init_workset(self):
-        self.workset = self.get_all_non_committed()
+        self.workset = self.get_all_non_committed_standard_nodes()
 
     ## Check if the partial order is done
     def is_completed(self) -> bool:
@@ -141,15 +152,32 @@ class PartialProgramOrder:
                 self.inverse_adjacency[to_id].append(from_id)
 
     # ## TODO: (When there is time) Define a function that checks that the graph is valid
+    ## TODO: Call valid and add assertiosn for loops here.
     def valid(self):
+        self.log_partial_program_order_info()
+        valid1 = self.loop_nodes_valid()
+        ## TODO: Fix the checks below because they do not work currently
         ## TODO: Check that committed is prefix closed w.r.t partial order
-        self.all_frontier_nodes_after_committed_nodes()
-        self.frontier_and_committed_intersect()
-        return True
+        # self.all_frontier_nodes_after_committed_nodes()
+        # self.frontier_and_committed_intersect()
+        return valid1
+
+    ## Checks if loop nodes are all valid, i.e., that there are no loop nodes handled like normal ones,
+    ##   e.g., in workset, committed, etc
+    def loop_nodes_valid(self):
+        forbidden_sets = self.get_committed() + \
+                         self.get_frontier() + \
+                         self.get_workset() + \
+                         list(self.stopped) + \
+                         list(self.commands_currently_executing.keys())
+        loop_nodes_in_forbidden_sets = [node_id for node_id in forbidden_sets 
+                                if self.is_loop_node(node_id)]
+        return len(loop_nodes_in_forbidden_sets) == 0
 
     # Check if all frontier nodes are after committed nodes
     def all_frontier_nodes_after_committed_nodes(self):
-        return max(self.committed) < min(self.frontier)
+        ## TODO: Make this check a proper predecessor check
+        return max(self.get_committed()) < min(self.frontier)
 
     # Checks if frontier and committed intersect
     def frontier_and_committed_intersect(self):
@@ -161,13 +189,26 @@ class PartialProgramOrder:
     def get_node(self, node_id:int) -> Node:
         return self.nodes[node_id]
 
-    def get_all_non_committed(self) -> list:
+    def get_all_non_committed(self) -> "list[int]":
         return self.get_transitive_closure(self.frontier)
+    
+    def is_loop_node(self, node_id:int) -> bool:
+        return self.get_node(node_id).in_loop()
 
-    def get_next(self, node_id:int) -> list:
+    ## Only keeps standard (non-loop) nodes
+    def filter_standard_nodes(self, node_ids: "list[int]") -> "list[int]":
+        return [node_id for node_id in node_ids
+                if not self.is_loop_node(node_id)]
+
+    ## Returns all non committed non-loop nodes
+    def get_all_non_committed_standard_nodes(self) -> "list[int]":
+        all_non_committed = self.get_all_non_committed()
+        return self.filter_standard_nodes(all_non_committed)
+
+    def get_next(self, node_id:int) -> "list[int]":
         return self.adjacency[node_id]
     
-    def get_transitive_closure(self, target_node_ids:list) -> list:
+    def get_transitive_closure(self, target_node_ids:"list[int]") -> "list[int]":
         all_next_transitive = set(target_node_ids)
         next_work = target_node_ids.copy()
         while len(next_work) > 0:
@@ -220,6 +261,8 @@ class PartialProgramOrder:
     def cmd_can_be_resolved(self, node_id: int) -> bool:
         # If the command we evaluate has no earlier command currently executing, it can be resolved this round
         if len(self.get_currently_executing()) > 0:
+            ## TODO: Modify this to be a proper predecessor so that it works with newly 
+            ##       added loop nodes (proper predecessor does not happen with comparing indexes)
             return node_id <= min(self.get_currently_executing())
         else:
             return True
@@ -308,7 +351,7 @@ class PartialProgramOrder:
 
         self.step_forward(old_committed)
         # self.log_partial_program_order_info()
-        return self.committed - old_committed
+        return set(self.get_committed()) - old_committed
 
     def rerun_stopped(self):
         new_stopped = self.stopped.copy()
@@ -358,6 +401,7 @@ class PartialProgramOrder:
     ##       We don't know if they are done executing until then.
     def commit_frontier(self):
         # Second condition below may be unecessary
+        logging.debug(f'Frontier: {self.frontier}')
         for frontier_node in self.frontier:
             if frontier_node not in self.workset:
                 self.save_commit_state_of_cmd(frontier_node)
@@ -367,7 +411,7 @@ class PartialProgramOrder:
         new_frontier = []
         for node in self.frontier:
             if node not in self.workset:
-                to_add_in_frontier = self.get_next_non_speculated(node)
+                to_add_in_frontier = self.get_next_standard_non_speculated(node)
                 new_frontier.extend(to_add_in_frontier)
                 logging.trace(f"FrontierAdd|{','.join(str(node_id) for node_id in to_add_in_frontier)}")
             # If node is being executed again, we cannot progress further
@@ -376,12 +420,23 @@ class PartialProgramOrder:
                 logging.trace(f"FrontierAdd|{node}")
         self.frontier = new_frontier
 
+    def get_next_standard_non_speculated(self, start: int) -> "list[int]":
+        next_non_speculated = self.get_next_non_speculated(start)
+        return self.filter_standard_nodes(next_non_speculated)
+
     def get_next_non_speculated(self, start):
             traversal_workset = self.get_next(start)
             next_non_speculated = []
             while len(traversal_workset) > 0:
                 node_id = traversal_workset.pop()
-                if node_id not in self.get_currently_executing() and node_id not in self.get_committed() and node_id not in self.stopped and node_id not in self.waiting_to_be_resolved and node_id not in self.workset:
+                ## KK 2023-05-04: Why is this happening in a get_next_non_speculated_traversal?
+                ## TODO: Move this outside in some effectful method
+                if node_id not in self.get_currently_executing() \
+                    and node_id not in self.get_committed() \
+                    and node_id not in self.stopped \
+                    and node_id not in self.waiting_to_be_resolved \
+                    and node_id not in self.workset\
+                    and not self.is_loop_node(node_id):
                     self.save_commit_state_of_cmd(node_id)
                     self.committed.add(node_id)
                     traversal_workset.extend(self.get_next(node_id))
@@ -425,8 +480,10 @@ class PartialProgramOrder:
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
+        # self.log_partial_program_order_info()
         self.run_all_frontier_cmds()
         self.schedule_all_workset_non_frontier_cmds()
+        assert(self.valid())
 
     def schedule_all_workset_non_frontier_cmds(self):
         non_frontier_ids = [node_id for node_id in self.get_workset() 
@@ -514,6 +571,7 @@ class PartialProgramOrder:
             logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
             self.commit_cmd_workspaces(to_commit)
             # self.print_cmd_stderr(stderr)
+        assert(self.valid())
 
     def print_cmd_stderr(self, stderr):
         # stdout.seek(0)

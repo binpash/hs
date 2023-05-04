@@ -594,10 +594,6 @@ class PartialProgramOrder:
             for new_prev_id in new_prev_ids:
                 self.adjacency[new_prev_id].append(new_node_id)
 
-        print(self.nodes)
-        print(self.adjacency)
-        print(self.inverse_adjacency)
-
         ## TODO: The rest of the code here makes assumptions about the shape of the partial order
 
         ## Modify the previous node of the loop nodes
@@ -616,10 +612,6 @@ class PartialProgramOrder:
                                new_from=new_nodes_sink,
                                to=old_nodes_source)
 
-        print(self.nodes)
-        print(self.adjacency)
-        print(self.inverse_adjacency)
-
         ## Modify the next node of the new po
         if len(old_next_node_ids) > 0:
             assert(len(old_next_node_ids) == 1)
@@ -627,11 +619,6 @@ class PartialProgramOrder:
             self.reroute_edge_to(old_to=old_next_node_id,
                                 new_to=new_nodes_sink,
                                 from_id=new_nodes_sink)
-            
-        
-        print(self.nodes)
-        print(self.adjacency)
-        print(self.inverse_adjacency)
 
         ## Return the new first node
         return node_mappings[old_nodes_source]

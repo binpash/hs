@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 import executor
@@ -30,6 +31,9 @@ class NodeId:
         else:
             self.loop_iters = loop_iters
     
+    def has_iters(self):
+        return len(self.loop_iters) > 0
+
     def __repr__(self):
         output = str(self.id)
         if len(self.loop_iters) > 0:
@@ -72,6 +76,9 @@ class Node:
         self.id = id
         self.cmd_no_redir = trace.remove_command_redir(self.cmd)
         self.loop_context = loop_context
+        ## Keep track of how many iterations of this loop node we have unrolled
+        if len(loop_context) > 0:
+            self.current_iter = 0
 
     def __str__(self):
         # return f"ID: {self.id}\nCMD: {self.cmd}\nR: {self.read_set}\nW: {self.write_set}"
@@ -92,6 +99,11 @@ class Node:
     
     def in_loop(self) -> bool:
         return len(self.loop_context) > 0
+
+    def get_next_iter(self) -> int:
+        assert(self.in_loop())
+        self.current_iter += 1
+        return self.current_iter
 
     ## Note: This information is valid only after a node is committed.
     ##       It might be set even before that, but it should only be retrieved when
@@ -169,13 +181,43 @@ class PartialProgramOrder:
         return list(sources)
 
     ## This returns all previous nodes of a sub partial order
-    def get_sub_po_prev_nodes(self, node_ids: "list[int]") -> "list[int]":
+    def get_sub_po_source_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
+        # assert(self.is_closed_sub_partial_order(node_ids))
+        source_nodes = list()
+        node_set = set(node_ids)
+        for node_id in node_ids:
+            prev_ids_set = set(self.get_prev(node_id))
+            ## KK 2023-05-04 is it ever the case that some (but not all) prev nodes might be outside. I don't think so
+            if len(prev_ids_set) == 0 or \
+                not prev_ids_set.issubset(node_set):
+                source_nodes.append(node_id)
+        
+        ## KK 2024-05-03: I don't see how we can get multiple sources with the current structure
+        assert(len(source_nodes) == 1)
+        return source_nodes
+    
+    def get_sub_po_sink_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
+        # assert(self.is_closed_sub_partial_order(node_ids))
+        sink_nodes = list()
+        node_set = set(node_ids)
+        for node_id in node_ids:
+            next_ids_set = set(self.get_next(node_id))
+            ## KK 2023-05-04 is it ever the case that some (but not all) prev nodes might be outside. I don't think so
+            if len(next_ids_set) == 0 or \
+                not next_ids_set.issubset(node_set):
+                sink_nodes.append(node_id)
+        
+        ## KK 2024-05-03: I don't see how we can get multiple sink with the current structure
+        assert(len(sink_nodes) == 1)
+        return sink_nodes
+
+    ## This returns all previous nodes of a sub partial order
+    def get_sub_po_prev_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
         # assert(self.is_closed_sub_partial_order(node_ids))
         prev_nodes = set()
         node_set = set(node_ids)
         for node_id in node_ids:
             prev_ids_set = set(self.get_prev(node_id))
-            ## KK 2023-05-04 is it ever the case that some (but not all) prev nodes might be outside. I don't think so
             prev_nodes = prev_nodes.union(prev_ids_set - node_set)
         
         ## KK 2024-05-03: I don't see how we can get multiple sources with the current structure
@@ -185,7 +227,7 @@ class PartialProgramOrder:
     ## TODO: Implement this correctly. I have thought of a naive algorithm that
     ##       does a BFS forward and backward for each node and if we first see a
     ##       node outside of the set and then one inside it means that the subset is not closed.
-    def is_closed_sub_partial_order(self, node_ids: "list[int]") -> bool:
+    def is_closed_sub_partial_order(self, node_ids: "list[NodeId]") -> bool:
         # node_set = set(node_ids)
         # visited_set = set()
         # for node_id in node_ids:
@@ -264,26 +306,30 @@ class PartialProgramOrder:
     def __len__(self):
         return len(self.nodes)
 
-    def get_node(self, node_id:int) -> Node:
+    def get_node(self, node_id:NodeId) -> Node:
         return self.nodes[node_id]
 
-    def get_node_loop_context(self, node_id: int) -> "list[int]":
+    def get_node_loop_context(self, node_id: NodeId) -> "list[int]":
         return self.get_node(node_id).get_loop_context()
 
-    def get_all_non_committed(self) -> "list[int]":
+    def get_all_non_committed(self) -> "list[NodeId]":
         return self.get_transitive_closure(self.frontier)
     
-    def is_loop_node(self, node_id:int) -> bool:
+    def is_loop_node(self, node_id:NodeId) -> bool:
         return self.get_node(node_id).in_loop()
 
     ## Only keeps standard (non-loop) nodes
-    def filter_standard_nodes(self, node_ids: "list[int]") -> "list[int]":
+    def filter_standard_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
         return [node_id for node_id in node_ids
                 if not self.is_loop_node(node_id)]
 
     ## This creates a new node_id and then creates a mapping from the node and iteration id to this node id
-    def create_standard_id_from_loop_node(self, node_id: int, loop_id: int) -> int:
-        pass
+    ## TODO: Currently doesn't work with nested loops
+    def create_standard_id_from_loop_node(self, node_id: NodeId, loop_id: int) -> NodeId:
+        node = self.get_node(node_id)
+        new_iter = node.get_next_iter()
+        assert(not node_id.has_iters())
+        return NodeId(node_id.id, [new_iter])
 
 
     ## Returns all non committed non-loop nodes
@@ -291,11 +337,26 @@ class PartialProgramOrder:
         all_non_committed = self.get_all_non_committed()
         return self.filter_standard_nodes(all_non_committed)
 
-    def get_next(self, node_id:int) -> "list[int]":
-        return self.adjacency[node_id]
+    def get_next(self, node_id:NodeId) -> "list[NodeId]":
+        return self.adjacency[node_id][:]
 
-    def get_prev(self, node_id:int) -> "list[int]":
-        return self.inverse_adjacency[node_id]
+    def get_prev(self, node_id:NodeId) -> "list[NodeId]":
+        return self.inverse_adjacency[node_id][:]
+
+    def reroute_edge_from(self, old_from: NodeId, new_from: NodeId, to: NodeId):
+        self.adjacency[old_from].remove(to)
+        ## KK 2023-05-04 Is it a problem that we append? Maybe we should make that a set
+        self.adjacency[new_from].append(to)
+        self.inverse_adjacency[to] = PartialProgramOrder.map_using_mapping(self.inverse_adjacency[to], 
+                                                                           {old_from: new_from})
+        
+    def reroute_edge_to(self, from_id: NodeId, old_to: NodeId, new_to: NodeId):
+        self.inverse_adjacency[old_to].remove(from_id)
+        ## KK 2023-05-04 Is it a problem that we append? Maybe we should make that a set
+        self.inverse_adjacency[new_to].append(from_id)
+        self.adjacency[from_id] = PartialProgramOrder.map_using_mapping(self.adjacency[from_id], 
+                                                                        {old_to: new_to})
+        
 
     def get_transitive_closure(self, target_node_ids:"list[NodeId]") -> "list[NodeId]":
         all_next_transitive = set(target_node_ids)
@@ -319,7 +380,7 @@ class PartialProgramOrder:
             next_work.extend(new_next)
         return list(all_next_transitive)
 
-    def is_frontier(self, node_id: int) -> bool:
+    def is_frontier(self, node_id: NodeId) -> bool:
         return node_id in self.frontier
     
     def update_rw_set(self, node_id, rw_set):
@@ -331,18 +392,18 @@ class PartialProgramOrder:
     def get_rw_sets(self) -> dict:
         return self.rw_sets
 
-    def add_to_read_set(self, node_id: int, item: str):
+    def add_to_read_set(self, node_id: NodeId, item: str):
         self.rw_sets[node_id].add_to_read_set(item)
 
-    def add_to_write_set(self, node_id: int, item: str):
+    def add_to_write_set(self, node_id: NodeId, item: str):
         self.rw_sets[node_id].add_to_write_set(item)
 
     # TODO: HACK delete this method ASAP
-    def get_node_id_from_cmd_no_redir(self, cmd_no_redir: str) -> int:
-        for node_id, node in self.nodes.items():
-            if node.get_cmd_no_redir() == cmd_no_redir:
-                return node_id
-        assert(False)
+    # def get_node_id_from_cmd_no_redir(self, cmd_no_redir: str) -> NodeId:
+    #     for node_id, node in self.nodes.items():
+    #         if node.get_cmd_no_redir() == cmd_no_redir:
+    #             return node_id
+    #     assert(False)
 
 
     # Check if the specific command can be resolved.
@@ -461,7 +522,7 @@ class PartialProgramOrder:
                 self.to_be_resolved[cmd_id] = []
         self.stopped = new_stopped
 
-    def find_loop_sub_partial_order(self, loop_id: int) -> "list[int]":
+    def find_loop_sub_partial_order(self, loop_id: int) -> "list[NodeId]":
         loop_node_ids = []
         for node_id in self.nodes:
             loop_context = self.get_node_loop_context(node_id)
@@ -502,11 +563,83 @@ class PartialProgramOrder:
         assert(len(previous_ids) == 1)
         previous_id = previous_ids[0]
         logging.debug(f'Previous node id for loop: {loop_id} is {previous_id}')
-        new_loop_node_ids = [self.create_standard_id_from_loop_node(node_id, loop_id)
-                             for node_id in loop_node_ids]
+        
+        ## Create the new nodes and remap adjacencies accordingly
+        node_mappings = {}
+        for node_id in loop_node_ids:
+            node = self.get_node(node_id)
+            new_loop_node_id = self.create_standard_id_from_loop_node(node_id, loop_id)
+            node_mappings[node_id] = new_loop_node_id
+            ## Create the new node
+            self.nodes[new_loop_node_id] = Node(new_loop_node_id, node.cmd, [])
+        logging.debug(f'New loop ids: {node_mappings}')
+
+        ## Create the new adjacencies, by mapping adjacencies in the node set to the new node ids
+        ## and leaving outside adjacencies as they are
+        for _, new_node_id in node_mappings.items():
+            self.adjacency[new_node_id] = []
+
+        for node_id, new_node_id in node_mappings.items():
+            old_prev_ids = self.get_prev(node_id)
+            ## Modify all id to be in the new set except for the 
+            new_prev_ids = PartialProgramOrder.map_using_mapping(old_prev_ids, node_mappings)
+            self.inverse_adjacency[new_node_id] = new_prev_ids
+            for new_prev_id in new_prev_ids:
+                self.adjacency[new_prev_id].append(new_node_id)
+
+        print(self.nodes)
+        print(self.adjacency)
+        print(self.inverse_adjacency)
+
+        ## TODO: The rest of the code here makes assumptions about the shape of the partial order
+
+        ## Modify the previous node of the loop nodes
+        new_nodes_sinks = self.get_sub_po_sink_nodes(list(node_mappings.values()))
+        assert(len(new_nodes_sinks) == 1)
+        new_nodes_sink = new_nodes_sinks[0]
+
+        old_nodes_sources = self.get_sub_po_source_nodes(list(node_mappings.keys()))
+        assert(len(old_nodes_sources) == 1)
+        old_nodes_source = old_nodes_sources[0]
+
+        old_next_node_ids = self.get_next(new_nodes_sink)
+        assert(len(old_next_node_ids) <= 1)
+
+        self.reroute_edge_from(old_from=previous_id,
+                               new_from=new_nodes_sink,
+                               to=old_nodes_source)
+
+        print(self.nodes)
+        print(self.adjacency)
+        print(self.inverse_adjacency)
+
+        ## Modify the next node of the new po
+        if len(old_next_node_ids) > 0:
+            assert(len(old_next_node_ids) == 1)
+            old_next_node_id = old_next_node_ids[0]
+            self.reroute_edge_to(old_to=old_next_node_id,
+                                new_to=new_nodes_sink,
+                                from_id=new_nodes_sink)
+            
+        
+        print(self.nodes)
+        print(self.adjacency)
+        print(self.inverse_adjacency)
+
+    ## Static method that just maps using a node mapping dictionary or leaves them as
+    ## they are if not
+    def map_using_mapping(node_ids: "list[NodeId]", mapping) -> "list[NodeId]":
+        new_node_ids = []
+        for node_id in node_ids:
+            if node_id in mapping:
+                new_id = copy.deepcopy(mapping[node_id])
+            else:
+                new_id = copy.deepcopy(node_id)
+            new_node_ids.append(new_id)
+        return new_node_ids
 
 
-    def unroll_loop_node(self, node_id: int):
+    def unroll_loop_node(self, node_id: NodeId):
         assert(self.is_loop_node(node_id))
         loop_context = self.get_node_loop_context(node_id)
         ## TODO: First determine which exactly loop do we need to unroll
@@ -548,7 +681,7 @@ class PartialProgramOrder:
                 logging.trace(f"FrontierAdd|{node}")
         self.frontier = new_frontier
 
-    def get_next_standard_non_speculated(self, start: int) -> "list[int]":
+    def get_next_standard_non_speculated(self, start: NodeId) -> "list[NodeId]":
         next_non_speculated = self.get_next_non_speculated(start)
         return self.filter_standard_nodes(next_non_speculated)
 
@@ -639,7 +772,7 @@ class PartialProgramOrder:
                 self.run_cmd_non_blocking(cmd_id)
 
     ## Run a command and add it to the dictionary of executing ones
-    def run_cmd_non_blocking(self, node_id: int):
+    def run_cmd_non_blocking(self, node_id: NodeId):
         ## A command should only be run if it's in the frontier, otherwise it should be spec run
         assert(self.is_frontier(node_id))
         node = self.get_node(node_id)
@@ -651,7 +784,7 @@ class PartialProgramOrder:
         self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
 
     ## Run a command and add it to the dictionary of executing ones
-    def speculate_cmd_non_blocking(self, node_id: int):
+    def speculate_cmd_non_blocking(self, node_id: NodeId):
         node = self.get_node(node_id)
         cmd = node.get_cmd()
         logging.debug(f'Speculating command: {node_id} {self.get_node(node_id)}')
@@ -660,7 +793,7 @@ class PartialProgramOrder:
         logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
 
-    def command_execution_completed(self, node_id: int, riker_exit_code:int, sandbox_dir: str):
+    def command_execution_completed(self, node_id: NodeId, riker_exit_code:int, sandbox_dir: str):
         logging.debug(f" --- Node {node_id}, just finished execution ---")
         self.sandbox_dirs[node_id] = sandbox_dir
         ## TODO: Store variable file somewhere so that we can return when wait
@@ -760,13 +893,13 @@ class PartialProgramOrder:
                 # relevant_committed = old_committed
                 relevant_committed = self.committed
                 if node_id not in relevant_committed:
-                    to_add = self.inverse_adjacency[node_id].copy()
+                    to_add = self.get_prev(node_id).copy()
                     traversal = to_add.copy()
                     to_be_resolved_nodes_ids = to_add.copy()
                 while len(traversal) > 0:
                     current_node_id = traversal.pop(0)
                     if current_node_id not in relevant_committed:
-                        to_add = self.inverse_adjacency[current_node_id]
+                        to_add = self.get_prev(current_node_id)
                         to_be_resolved_nodes_ids.extend(to_add)
                         traversal.extend(to_add)
                 self.to_be_resolved[node_id] = to_be_resolved_nodes_ids.copy()
@@ -860,4 +993,5 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
         edges[NodeId(from_id)].append(NodeId(to_id))
     
     logging.trace(f"Nodes|{','.join([str(node) for node in nodes])}")
+    logging.trace(f"Edges: {edges}")
     return PartialProgramOrder(nodes, edges)

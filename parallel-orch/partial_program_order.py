@@ -37,7 +37,7 @@ class NodeId:
     def __repr__(self):
         output = str(self.id)
         if len(self.loop_iters) > 0:
-            output += f':{"-".join([str(it) for it in self.loop_iters])}'
+            output += f'+{"-".join([str(it) for it in self.loop_iters])}'
         return output
 
     def __hash__(self):
@@ -69,6 +69,13 @@ class NodeId:
     # def __ge__(self, obj):
     #     return ((self.b) >= (obj.b))
 
+def parse_node_id(node_id_str: str) -> NodeId:
+    if "+" in node_id_str:
+        node_id_int, iters_str = node_id_str.split("+")
+        iters = [int(it) for it in iters_str.split("-")]
+        return NodeId(int(node_id_int), iters)
+    else:
+        return NodeId(int(node_id_str))
 
 class Node:
     def __init__(self, id, cmd, loop_context):
@@ -626,6 +633,9 @@ class PartialProgramOrder:
         print(self.adjacency)
         print(self.inverse_adjacency)
 
+        ## Return the new first node
+        return node_mappings[old_nodes_source]
+
     ## Static method that just maps using a node mapping dictionary or leaves them as
     ## they are if not
     def map_using_mapping(node_ids: "list[NodeId]", mapping) -> "list[NodeId]":
@@ -647,7 +657,13 @@ class PartialProgramOrder:
         ##       I think it might be the difference between this and the previous node
         ##
         ## TODO: I actually think we have to unroll all loops
-        self.unroll_loop(loop_context[0])
+        new_first_node_id = self.unroll_loop(loop_context[0])
+
+        ## TODO: This needs to change when we modify unrolling to happen speculatively too
+        ## TODO: This needs to properly add the node to frontier and to resolve dictionary
+        self.step_forward(copy.deepcopy(self.committed))
+        self.frontier.append(new_first_node_id)
+
 
     def step_forward(self, old_committed):
         logging.debug(" > Committing frontier")
@@ -742,6 +758,9 @@ class PartialProgramOrder:
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
         # self.log_partial_program_order_info()
+        logging.debug("Scheduling work...")
+        ## KK 2023-05-04 Is it a problem if we do that here?
+        # self.step_forward(copy.deepcopy(self.committed))
         self.run_all_frontier_cmds()
         self.schedule_all_workset_non_frontier_cmds()
         assert(self.valid())

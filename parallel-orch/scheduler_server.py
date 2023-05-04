@@ -1,10 +1,11 @@
 import argparse
+import copy
 import logging
 import signal
 from util import *
 import config
 import sys
-from partial_program_order import parse_partial_program_order_from_file, NodeId
+from partial_program_order import parse_partial_program_order_from_file, NodeId, parse_node_id
 
 ##
 ## A scheduler server
@@ -74,7 +75,10 @@ class Scheduler:
             node_id_component, loop_iter_counter_component = input_cmd.rstrip().split("|")
             node_id = NodeId(int(node_id_component.split(":")[1].rstrip()))
             loop_counters_str = loop_iter_counter_component.split(":")[1].rstrip()
-            loop_counters = loop_counters_str.split("-")
+            if loop_counters_str == "None":
+                loop_counters = []
+            else:
+                loop_counters = [int(cnt) for cnt in loop_counters_str.split("-")]
             return node_id, loop_counters
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')
@@ -83,14 +87,19 @@ class Scheduler:
         assert(input_cmd.startswith("Wait"))
         ## We have received this message by the JIT, which waits for a node_id to
         ## finish execution.
-        node_id, loop_counters = self.__parse_wait(input_cmd)        
-        logging.debug(f'Scheduler: Received wait for node_id: {node_id} with loop counters: {loop_counters}')
+        raw_node_id, loop_counters = self.__parse_wait(input_cmd)        
+        logging.debug(f'Scheduler: Received wait for node_id: {raw_node_id} with loop counters: {loop_counters}')
         
         ## If node is in a loop, then start executing it now.
-        if self.partial_program_order.is_loop_node(node_id):
+        if self.partial_program_order.is_loop_node(raw_node_id):
             ## TODO: This unrolling can also happen and be moved to speculation.
             ##       For now we are being conservative and that is why it only happens here
-            self.partial_program_order.unroll_loop_node(node_id)
+            self.partial_program_order.unroll_loop_node(raw_node_id)
+
+        if self.partial_program_order.is_loop_node(raw_node_id):
+            node_id = NodeId(raw_node_id.id, loop_counters)
+        else:
+            node_id = raw_node_id
 
         ## If the node_id is already committed, just return its exit code
         if node_id in self.partial_program_order.get_committed():
@@ -107,7 +116,7 @@ class Scheduler:
     def __parse_command_exec_complete(self, input_cmd: str) -> "tuple[int, int]":
         try:
             components = input_cmd.rstrip().split("|")
-            command_id = NodeId(int(components[0].split(":")[1]))
+            command_id = parse_node_id(components[0].split(":")[1])
             exit_code = int(components[1].split(":")[1])
             sandbox_dir = components[2].split(":")[1]
             return command_id, exit_code, sandbox_dir

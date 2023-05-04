@@ -153,6 +153,7 @@ class Scheduler:
             logging.debug(f'The partial order was successfully completed.')
             socket_respond(connection, success_response("All finished!"))
             self.partial_program_order.log_committed_cmd_state()
+            self.partial_program_order.log_executions()
             self.done = True
         else:
             logging.error(error_response(f'Error: Unsupported command: {input_cmd}'))

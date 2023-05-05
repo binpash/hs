@@ -10,9 +10,14 @@ echo "Test directory:               $WORKING_DIR"
 echo "Test script directory:        $TEST_SCRIPT_DIR"
 
 # DEBUG=${DEBUG:-0}
-bash="bash"
-orch="$ORCH_TOP/pash-spec.sh -d ${DEBUG:-0}"
+if [ -z ${LOG_FILE+:x} ]; then
+    LOG_FILE=""
+else
+    LOG_FILE="--log_file ${LOG_FILE}"
+fi
 
+bash="bash"
+orch="$ORCH_TOP/pash-spec.sh -d ${DEBUG:-0} ${LOG_FILE}"
 # Generated test scripts are saved here
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"
 test_dir_bash="$ORCH_TOP/test/test_scripts_bash"

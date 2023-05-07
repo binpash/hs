@@ -198,7 +198,6 @@ def main():
     if args.log_file == "":
         logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s")
     else:
-        print(os.path.abspath(args.log_file))
         logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s", 
                             filename=f"{os.path.abspath(args.log_file)}", 
                             filemode="w")

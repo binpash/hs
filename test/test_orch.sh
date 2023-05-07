@@ -9,6 +9,7 @@ echo "==================| Scheduler Tests |==================="
 echo "Test directory:               $WORKING_DIR"
 echo "Test script directory:        $TEST_SCRIPT_DIR"
 
+LOG_FILENAME=$LOG_FILE
 # DEBUG=${DEBUG:-0}
 if [ -z ${LOG_FILE+:x} ]; then
     LOG_FILE=""
@@ -47,6 +48,19 @@ cleanup()
     mkdir "$output_dir_bash"
 }
 
+test_repetitions()
+{
+    if [ -z "$LOG_FILENAME" ]; then
+        echo -n " (?) Reps check skipped" 1>&2
+        return 0
+    fi
+    result=`python3 $WORKING_DIR/parse_cmd_repetitions.py $LOG_FILENAME`
+    if [ "$1" != "$result" ]; then
+        echo " (?) Reps not optimal" 1>&2
+        return 1
+    fi
+}
+
 run_test()
 {
     cleanup
@@ -73,6 +87,7 @@ run_test()
 
     ## Check if the two exit codes are both success or both error
     test $test_bash_ec == $test_orch_ec 
+    
     test_ec=$?
     if [ $test_diff_ec -ne 0 ]; then
         echo -n " (!) output mismatch "
@@ -100,7 +115,11 @@ test1_1()
 {
     local shell=$1
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
-    $shell $2/test1_1.sh 
+    if [ "$shell" == "bash" ]; then
+        $shell $2/test1_1.sh
+    else
+        $shell $2/test1_1.sh && test_repetitions "1 2 2 1"
+    fi
 }
 
 test1_2()

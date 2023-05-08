@@ -50,13 +50,14 @@ cleanup()
 
 test_repetitions()
 {
+    echo foo
     if [ -z "$LOG_FILENAME" ]; then
-        echo -n " (?) Reps check skipped" 1>&2
+        echo -n " (?) Reps check skipped. Run with DEBUG=100 LOG_FILE=<log_file> to check repetitions." 1>&2
         return 0
     fi
     result=`python3 $WORKING_DIR/parse_cmd_repetitions.py $LOG_FILENAME`
     if [ "$1" != "$result" ]; then
-        echo " (?) Reps not optimal" 1>&2
+        echo " (!) Reps not optimal: Expected: $1 | Got: $result" 1>&2
         return 1
     fi
 }
@@ -73,6 +74,7 @@ run_test()
 
     echo -n "Running $test..."
     # Run test with bash
+    output_diff=0
     export test_output_dir="$WORKING_DIR/output_bash"
     $test "$bash" "$TEST_SCRIPT_DIR" "$test_output_dir"  > "$test_output_dir/stdout" 2> /dev/null
     test_bash_ec=$?
@@ -81,26 +83,25 @@ run_test()
     export test_output_dir="$WORKING_DIR/output_orch"
     $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir" > "$test_output_dir/stdout" #2> /dev/null
     test_orch_ec=$?
-    
     diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
     test_diff_ec=$?
 
     ## Check if the two exit codes are both success or both error
     test $test_bash_ec == $test_orch_ec 
-    
     test_ec=$?
     if [ $test_diff_ec -ne 0 ]; then
         echo -n " (!) output mismatch "
         diff "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/"
     else
         if [ $test_ec -ne 0 ]; then
-            echo -n " (?) EC mismatch [$test_bash_ec-$test_orch_ec]"
+            echo -n " (!) EC mismatch [$test_bash_ec-$test_orch_ec]"
+            output_diff=1
 
         else
             echo -ne '\t\t\t'
         fi
     fi
-    if [ $test_diff_ec -ne 0 ]; then
+    if [ $test_diff_ec -ne 0 ] || [ $output_diff -ne 0 ]; then
         echo "$test are not identical" >> $output_dir/result_status
         echo -e '\t\tFAIL'
         return 1
@@ -118,7 +119,7 @@ test1_1()
     if [ "$shell" == "bash" ]; then
         $shell $2/test1_1.sh
     else
-        $shell $2/test1_1.sh && test_repetitions "1 2 2 1"
+        $shell $2/test1_1.sh && test_repetitions "1 2 2 2" "test1_1"
     fi
 }
 
@@ -126,7 +127,11 @@ test1_2()
 {
     local shell=$1
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
-    $shell $2/test1_2.sh 
+    if [ "$shell" == "bash" ]; then
+        $shell $2/test1_2.sh
+    else
+        $shell $2/test1_2.sh && test_repetitions "1 2 2 2" "test1_2"
+    fi
 }
 
 test1_3()

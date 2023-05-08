@@ -316,6 +316,9 @@ class PartialProgramOrder:
     def get_node(self, node_id:NodeId) -> Node:
         return self.nodes[node_id]
 
+    def is_node_id(self, node_id:NodeId) -> bool:
+        return node_id in self.nodes
+
     def get_node_loop_context(self, node_id: NodeId) -> "list[int]":
         return self.get_node(node_id).get_loop_context()
 
@@ -602,6 +605,10 @@ class PartialProgramOrder:
                                 new_to=new_nodes_sink,
                                 from_id=new_nodes_sink)
 
+        ## Add all new nodes to the workset (since they have to be tracked)
+        for _, new_node_id in node_mappings.items():
+            self.workset.append(new_node_id) 
+
         ## Return the new first node
         return node_mappings[old_nodes_source]
 
@@ -676,7 +683,7 @@ class PartialProgramOrder:
             while len(traversal_workset) > 0:
                 node_id = traversal_workset.pop()
                 ## KK 2023-05-04: Why is this happening in a get_next_non_speculated_traversal?
-                ## TODO: Move this outside in some effectful method
+                ## TODO: Move this outside in some effectful method. @Giorgo could you help?
                 if node_id not in self.get_currently_executing() \
                     and node_id not in self.get_committed() \
                     and node_id not in self.stopped \

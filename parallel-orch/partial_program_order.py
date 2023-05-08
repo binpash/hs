@@ -473,27 +473,8 @@ class PartialProgramOrder:
     ## Resolve all the forward dependencies and update the workset
     ## Forward dependency is when a command's output is the same
     ## as the input of a following command
-    def resolve_dependencies_continuous_and_move_frontier(self, new_node_id):
+    def resolve_dependencies_continuous_and_move_frontier(self, cmds_to_resolve):
         self.log_partial_program_order_info()
-        # We want to check every single command that has already finished executing but
-        # not yet able to be resolved
-        logging.debug(f"Finding sets of commands that can be resolved after {new_node_id} finished executing")
-        if new_node_id not in self.stopped:
-            cmds_to_resolve = self.find_cmds_to_resolve(sorted(list(self.waiting_to_be_resolved.union({new_node_id}))))
-        else:
-            logging.debug(f"Node {new_node_id} exited with an error. Not resolving dependencies")
-            if new_node_id in self.workset:
-                self.workset.remove(new_node_id)
-                logging.trace(f"WorksetRemove|{new_node_id}")
-            cmds_to_resolve = []
-        logging.debug(f"Commands to check for dependencies this round are: {sorted(cmds_to_resolve)}")
-        logging.debug(f"Commands that cannot be resolved this round are: {sorted(self.waiting_to_be_resolved)}")
-        
-        # If no commands can be resolved this round, 
-        # do nothing and wait until a new command finishes executing
-        if len(cmds_to_resolve) == 0:
-            logging.debug("No resolvable nodes were found in this round, nothing will change...")
-            return []
 
         logging.debug(f"Commands to be checked for dependencies: {sorted(cmds_to_resolve)}")
         logging.debug(" --- Starting dependency resolution --- ")
@@ -563,6 +544,7 @@ class PartialProgramOrder:
     ## We need to determine when to call unroll. For now we can just do it if the frontier is empty 
     ## (which means that the next node of the frontier is a loop node).
     def unroll_loop(self, loop_id: int):
+        logging.info(f'Unrolling loop with id: {loop_id}')
         loop_node_ids = self.find_loop_sub_partial_order(loop_id)
         logging.debug(f'Node ids for loop: {loop_id} are: {loop_node_ids}')
         ## Get the previous nodes of sub_po
@@ -827,10 +809,31 @@ class PartialProgramOrder:
             logging.trace(f"StoppedAdd|{node_id}:error")
             self.stopped.add(node_id)
         else:
+
             read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
             rw_set = RWSet(read_set, write_set)
             self.update_rw_set(node_id, rw_set)
-        to_commit = self.resolve_dependencies_continuous_and_move_frontier(node_id)
+
+        ## Now that command `node_id` is done executing, we can check which other commands
+        ## can be resolved (that might have finished execution before but where waiting on `node_id`)
+        logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing")
+        if node_id in self.stopped:
+            logging.debug(f"Nothing new to be resolved since {node_id} exited with an error.")
+            if node_id in self.workset:
+                self.workset.remove(node_id)
+                logging.trace(f"WorksetRemove|{node_id}")
+            # If no commands can be resolved this round, 
+            # do nothing and wait until a new command finishes executing
+            logging.debug("No resolvable nodes were found in this round, nothing will change...")
+            return
+
+        assert(node_id not in self.stopped)
+        cmds_to_resolve = self.find_cmds_to_resolve(sorted(list(self.waiting_to_be_resolved.union({node_id}))))
+        logging.debug(f"Commands to check for dependencies this round are: {sorted(cmds_to_resolve)}")
+        logging.debug(f"Commands that cannot be resolved this round are: {sorted(self.waiting_to_be_resolved)}")
+        
+        ## Resolve dependencies for the commands that can actually be resolved
+        to_commit = self.resolve_dependencies_continuous_and_move_frontier(cmds_to_resolve)
         if len(to_commit) == 0:
             logging.debug(" > No nodes to be committed this round")
         else:
@@ -890,6 +893,7 @@ class PartialProgramOrder:
                 logging.debug(f" > Node: {node_id} is currently executing, skipping...")
                 continue
             else:
+                ## TODO: KK Need to figure out what to do here (by adding commands after the loop)
                 logging.debug(f" > Node: {node_id} is not executing or waiting to be resolved so we modify its set.")
                 self.to_be_resolved[node_id] = []
                 traversal = []

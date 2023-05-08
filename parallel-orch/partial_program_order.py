@@ -303,10 +303,11 @@ class PartialProgramOrder:
         return valid1
 
     ## Checks if loop nodes are all valid, i.e., that there are no loop nodes handled like normal ones,
-    ##   e.g., in workset, committed, etc
+    ##   e.g., in workset, frontier etc
+    ##
+    ## Note that loop nodes can be in the committed set (after we are done executing all iterations of a loop)
     def loop_nodes_valid(self):
-        forbidden_sets = self.get_committed() + \
-                         self.get_frontier() + \
+        forbidden_sets = self.get_frontier() + \
                          self.get_workset() + \
                          list(self.stopped) + \
                          list(self.commands_currently_executing.keys())
@@ -435,30 +436,6 @@ class PartialProgramOrder:
     # KK 2023-05-04 I am not even sure what this function does and why is it useful.
     def cmd_can_be_resolved(self, node_id: int) -> bool:
         logging.debug(f'Checking if node {node_id} can be resolved...')
-        # If the command we evaluate has no earlier command currently executing, it can be resolved this round
-        ## KK 2023-05-04 This does not seem correct. In the future (where we don't speculate everything at once)
-        ##               there might be a case where nothing is executing but a command can still not be resolved.
-        ##
-        ## TODO: Think what this check needs to be exactly
-        # currently_executing_ids = self.get_currently_executing()
-        ## The current problem is that after a loop iteration is done executing, there is nothing else
-        ## being executed, but the actual loop node (the abstract one) has not yet been closed.
-        # if len(currently_executing_ids) > 0:
-        #     ## if the node is in the transitive closure of any currently executing commands,
-        #     ## then we can't resolve it.
-        #     total_transitive_closure = set()
-        #     for other in currently_executing_ids:
-        #         other_tc = set(self.get_transitive_closure([other]))
-        #         logging.debug(f' > Transitive closure of {other} is {currently_executing_ids}')
-        #         logging.debug(f' > Edges: {self.adjacency}')
-        #         total_transitive_closure = total_transitive_closure.union(other_tc)
-        #     ## If node_id can be reached from the other commands it can't be resolved
-        #     return not node_id in total_transitive_closure
-        # else:
-        #     return True
-
-        ## Alternative check below!
-
         ## Get inverse_transitive_closure to find all nodes that are before this one
         inverse_tc_node_ids = self.get_inverse_transitive_closure([node_id])
 
@@ -474,12 +451,19 @@ class PartialProgramOrder:
         for other_node_id in inverse_tc_node_ids:
             ## If one of the non-committed nodes in the inverse_tc is currently executing then
             ## we can't resolve this command
+            ## KK 2023-05-04 This is not sufficient. In the future (where we don't speculate everything at once)
+            ##               there might be a case where nothing is executing but a command can still not be resolved.
             if other_node_id in currently_executing_ids:
+                logging.debug(f' >> Cannot resolve {node_id}: Node {other_node_id} in non committed inverse tc is currently executing')
                 return False
 
-            ## TODO: Add a check for loop nodes here and do not resolve if a non-committed loop exists
+            ## If there exists a loop node that is not committed before the command then we cannot resolve.
+            if self.is_loop_node(other_node_id):
+                logging.debug(f' >> Cannot resolve {node_id}: Node {other_node_id} in non committed inverse tc is a loop node')
+                return False
 
         ## Otherwise we can return
+        logging.debug(f' >> Able to resolve {node_id}')
         return True
 
     
@@ -567,24 +551,26 @@ class PartialProgramOrder:
     ## since we can't always statically predict how many iterations they will do, so the only
     ## definitive way to know that they are done is to receive a wait for a node after them.
     def wait_received(self, node_id: NodeId):
-        ## TODO: Whenever we receive a wait for a node, we always need to check and "commit" all prior loop nodes
-        ##       since we know that they won't have any more iterations (the JIT frontend has already passed them).
-        ## Note: This doesn't straightforwardly work for nested_loops, we need to figure out something else there
+        ## Whenever we receive a wait for a node, we always need to check and "commit" all prior loop nodes
+        ##   since we know that they won't have any more iterations (the JIT frontend has already passed them).
+        ##
+        ## TODO: This doesn't straightforwardly work for nested_loops, we need to figure out something else there
         
         ## Get inverse_transitive_closure to find all nodes that are before this one
         inverse_tc_node_ids = self.get_inverse_transitive_closure([node_id])
 
-        ## TODO: Out of those nodes, filter out the non-committed loop ones
+        ## Out of those nodes, filter out the non-committed loop ones
         non_committed_loop_nodes_in_inverse_tc = [node_id for node_id in inverse_tc_node_ids
                                                   if not node_id in self.committed and
                                                   self.is_loop_node(node_id)]
         logging.debug(f'Non committed loop nodes that are predecessors to {node_id} are: {non_committed_loop_nodes_in_inverse_tc}')
         
-        ## TODO: And "close them"
-
-        ## TODO: Untested (not yet covered by test)
-
-        pass
+        ## And "close them"
+        new_committed_nodes = non_committed_loop_nodes_in_inverse_tc
+        logging.debug(f'Adding following loop nodes to committed: {new_committed_nodes}')
+        self.committed = self.committed.union(set(new_committed_nodes))
+        ## TODO: Add some form of validity assertion after we are done with this.
+        ##       Just to make sure that we haven't violated the continuity of the committed set.
         
 
     def find_loop_sub_partial_order(self, loop_id: int) -> "list[NodeId]":

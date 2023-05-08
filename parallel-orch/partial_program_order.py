@@ -263,16 +263,17 @@ class PartialProgramOrder:
         self.populate_to_be_resolved_dict([])
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.to_be_resolved)
-        assert(self.valid())
         logging.info(f'Initialized the partial order!')
         self.log_partial_program_order_info()
+        
+        assert(self.valid())
 
     def init_workset(self):
         self.workset = self.get_all_non_committed_standard_nodes()
 
     ## Check if the partial order is done
     def is_completed(self) -> bool:
-        return len(self.get_all_non_committed()) == 0
+        return len(self.get_all_non_committed_standard_nodes()) == 0
 
     def get_workset(self) -> list:
         return self.workset
@@ -292,6 +293,7 @@ class PartialProgramOrder:
     # ## TODO: (When there is time) Define a function that checks that the graph is valid
     ## TODO: Call valid and add assertiosn for loops here.
     def valid(self):
+        logging.debug("Checking partial order validity...")
         self.log_partial_program_order_info()
         valid1 = self.loop_nodes_valid()
         ## TODO: Fix the checks below because they do not work currently
@@ -368,21 +370,15 @@ class PartialProgramOrder:
 
     def get_prev(self, node_id:NodeId) -> "list[NodeId]":
         return self.inverse_adjacency[node_id][:]
-
-    def reroute_edge_from(self, old_from: NodeId, new_from: NodeId, to: NodeId):
-        self.adjacency[old_from].remove(to)
-        ## KK 2023-05-04 Is it a problem that we append? Maybe we should make that a set
-        self.adjacency[new_from].append(to)
-        self.inverse_adjacency[to] = PartialProgramOrder.map_using_mapping(self.inverse_adjacency[to], 
-                                                                           {old_from: new_from})
         
-    def reroute_edge_to(self, from_id: NodeId, old_to: NodeId, new_to: NodeId):
-        self.inverse_adjacency[old_to].remove(from_id)
+    def add_edge(self, from_id: NodeId, to_id: NodeId):
         ## KK 2023-05-04 Is it a problem that we append? Maybe we should make that a set
-        self.inverse_adjacency[new_to].append(from_id)
-        self.adjacency[from_id] = PartialProgramOrder.map_using_mapping(self.adjacency[from_id], 
-                                                                        {old_to: new_to})
+        self.adjacency[from_id].append(to_id)
+        self.inverse_adjacency[to_id].append(from_id)
         
+    def remove_edge(self, from_id: NodeId, to_id: NodeId):
+        self.adjacency[from_id].remove(to_id)
+        self.inverse_adjacency[to_id].remove(from_id)        
 
     def get_transitive_closure(self, target_node_ids:"list[NodeId]") -> "list[NodeId]":
         all_next_transitive = set(target_node_ids)
@@ -435,15 +431,22 @@ class PartialProgramOrder:
     # Check if the specific command can be resolved.
     # KK 2023-05-04 I am not even sure what this function does and why is it useful.
     def cmd_can_be_resolved(self, node_id: int) -> bool:
+        logging.debug(f'Checking if node {node_id} can be resolved...')
         # If the command we evaluate has no earlier command currently executing, it can be resolved this round
         ## KK 2023-05-04 This does not seem correct. In the future (where we don't speculate everything at once)
         ##               there might be a case where nothing is executing but a command can still not be resolved.
-        if len(self.get_currently_executing()) > 0:
+        ##
+        ## TODO: Think what this check needs to be exactly
+        currently_executing_ids = self.get_currently_executing()
+        if len(currently_executing_ids) > 0:
+            logging.debug(f' > Currently executing: {currently_executing_ids}')
             ## if the node is in the transitive closure of any currently executing commands,
             ## then we can't resolve it.
             total_transitive_closure = set()
-            for other in self.get_currently_executing():
+            for other in currently_executing_ids:
                 other_tc = set(self.get_transitive_closure([other]))
+                logging.debug(f' > Transitive closure of {other} is {currently_executing_ids}')
+                logging.debug(f' > Edges: {self.adjacency}')
                 total_transitive_closure = total_transitive_closure.union(other_tc)
             ## If node_id can be reached from the other commands it can't be resolved
             return not node_id in total_transitive_closure
@@ -596,6 +599,7 @@ class PartialProgramOrder:
         new_nodes_sinks = self.get_sub_po_sink_nodes(list(node_mappings.values()))
         assert(len(new_nodes_sinks) == 1)
         new_nodes_sink = new_nodes_sinks[0]
+        logging.debug(f'The sink of the new iteration for loop: {loop_id} is {new_nodes_sink}')
 
         old_nodes_sources = self.get_sub_po_source_nodes(list(node_mappings.keys()))
         assert(len(old_nodes_sources) == 1)
@@ -604,23 +608,18 @@ class PartialProgramOrder:
         old_next_node_ids = self.get_next(new_nodes_sink)
         assert(len(old_next_node_ids) <= 1)
 
-
-        ## Get the previous nodes of sub_po and only if one exists, reroute the edge
         previous_ids = self.get_sub_po_prev_nodes(loop_node_ids)
+        assert(len(previous_ids) <= 1)
+
+        ## Add a new edge between the new_sink (concrete iter) and the old_source (loop po)
+        self.add_edge(new_nodes_sink, old_nodes_source)
+
+        ## Remove the old previous edge of the old_source if it exists
         if len(previous_ids) == 1:
             previous_id = previous_ids[0]
             logging.debug(f'Previous node id for loop: {loop_id} is {previous_id}')
-            self.reroute_edge_from(old_from=previous_id,
-                                   new_from=new_nodes_sink,
-                                   to=old_nodes_source)
-
-        ## Modify the next node of the new po
-        if len(old_next_node_ids) > 0:
-            assert(len(old_next_node_ids) == 1)
-            old_next_node_id = old_next_node_ids[0]
-            self.reroute_edge_to(old_to=old_next_node_id,
-                                new_to=new_nodes_sink,
-                                from_id=new_nodes_sink)
+            self.remove_edge(from_id=previous_id,
+                             to_id=old_nodes_source)
 
         ## Add all new nodes to the workset (since they have to be tracked)
         for _, new_node_id in node_mappings.items():

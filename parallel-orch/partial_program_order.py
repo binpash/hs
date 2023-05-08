@@ -440,21 +440,48 @@ class PartialProgramOrder:
         ##               there might be a case where nothing is executing but a command can still not be resolved.
         ##
         ## TODO: Think what this check needs to be exactly
+        # currently_executing_ids = self.get_currently_executing()
+        ## The current problem is that after a loop iteration is done executing, there is nothing else
+        ## being executed, but the actual loop node (the abstract one) has not yet been closed.
+        # if len(currently_executing_ids) > 0:
+        #     ## if the node is in the transitive closure of any currently executing commands,
+        #     ## then we can't resolve it.
+        #     total_transitive_closure = set()
+        #     for other in currently_executing_ids:
+        #         other_tc = set(self.get_transitive_closure([other]))
+        #         logging.debug(f' > Transitive closure of {other} is {currently_executing_ids}')
+        #         logging.debug(f' > Edges: {self.adjacency}')
+        #         total_transitive_closure = total_transitive_closure.union(other_tc)
+        #     ## If node_id can be reached from the other commands it can't be resolved
+        #     return not node_id in total_transitive_closure
+        # else:
+        #     return True
+
+        ## Alternative check below!
+
+        ## Get inverse_transitive_closure to find all nodes that are before this one
+        inverse_tc_node_ids = self.get_inverse_transitive_closure([node_id])
+
+        ## Out of those nodes, filter out the non-committed ones
+        non_committed_nodes_in_inverse_tc = [node_id for node_id in inverse_tc_node_ids
+                                                  if not node_id in self.committed]
+        logging.debug(f' > Non committed nodes that are predecessors to {node_id} are: {non_committed_nodes_in_inverse_tc}')
+
         currently_executing_ids = self.get_currently_executing()
-        if len(currently_executing_ids) > 0:
-            logging.debug(f' > Currently executing: {currently_executing_ids}')
-            ## if the node is in the transitive closure of any currently executing commands,
-            ## then we can't resolve it.
-            total_transitive_closure = set()
-            for other in currently_executing_ids:
-                other_tc = set(self.get_transitive_closure([other]))
-                logging.debug(f' > Transitive closure of {other} is {currently_executing_ids}')
-                logging.debug(f' > Edges: {self.adjacency}')
-                total_transitive_closure = total_transitive_closure.union(other_tc)
-            ## If node_id can be reached from the other commands it can't be resolved
-            return not node_id in total_transitive_closure
-        else:
-            return True
+        logging.debug(f' > Currently executing: {currently_executing_ids}')
+
+        ## TODO: Make this check more efficient
+        for other_node_id in inverse_tc_node_ids:
+            ## If one of the non-committed nodes in the inverse_tc is currently executing then
+            ## we can't resolve this command
+            if other_node_id in currently_executing_ids:
+                return False
+
+            ## TODO: Add a check for loop nodes here and do not resolve if a non-committed loop exists
+
+        ## Otherwise we can return
+        return True
+
     
     def find_cmds_to_resolve(self, cmd_ids_to_check: list):
         logging.debug(f" > Uncommitted commands done executing to be checked: {cmd_ids_to_check}")

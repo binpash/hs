@@ -34,6 +34,9 @@ class NodeId:
     def has_iters(self):
         return len(self.loop_iters) > 0
 
+    def get_non_iter_id(self):
+        return self.id
+
     def __repr__(self):
         output = str(self.id)
         if len(self.loop_iters) > 0:
@@ -157,7 +160,7 @@ class PartialProgramOrder:
         ## TODO: Add assertions that committed etc do not contain loop nodes
         self.committed = set()
         ## Nodes that are in the frontier can only move to committed
-        self.frontier = self.get_source_nodes()
+        self.frontier = []
         self.rw_sets = {node_id: None for node_id in self.nodes.keys()}
         self.workset = []
         ## A dictionary from cmd_ids that are currently executing that contains their trace_files
@@ -186,6 +189,10 @@ class PartialProgramOrder:
             if len(from_ids) == 0:
                 sources.add(to_id)
         return list(sources)
+
+    def get_standard_source_nodes(self) -> list:
+        source_nodes = self.get_source_nodes()
+        return self.filter_standard_nodes(source_nodes)
 
     ## This returns all previous nodes of a sub partial order
     def get_sub_po_source_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
@@ -228,7 +235,7 @@ class PartialProgramOrder:
             prev_nodes = prev_nodes.union(prev_ids_set - node_set)
         
         ## KK 2024-05-03: I don't see how we can get multiple sources with the current structure
-        assert(len(prev_nodes) == 1)
+        assert(len(prev_nodes) <= 1)
         return list(prev_nodes)
 
     ## TODO: Implement this correctly. I have thought of a naive algorithm that
@@ -248,12 +255,17 @@ class PartialProgramOrder:
         return True
 
     def init_partial_order(self):
+        ## Initialize the frontier with all non-loop source nodes
+        self.frontier = self.get_standard_source_nodes()
+        ## Initialize the workset
         self.init_workset()
         logging.debug(f'Initialized workset')
         self.populate_to_be_resolved_dict([])
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.to_be_resolved)
         assert(self.valid())
+        logging.info(f'Initialized the partial order!')
+        self.log_partial_program_order_info()
 
     def init_workset(self):
         self.workset = self.get_all_non_committed_standard_nodes()
@@ -323,7 +335,10 @@ class PartialProgramOrder:
         return self.get_node(node_id).get_loop_context()
 
     def get_all_non_committed(self) -> "list[NodeId]":
-        return self.get_transitive_closure(self.frontier)
+        all_node_ids = self.nodes.keys()
+        non_committed_node_ids = [node_id for node_id in all_node_ids
+                                  if not node_id in self.committed]  
+        return non_committed_node_ids
     
     def is_loop_node(self, node_id:NodeId) -> bool:
         return self.get_node(node_id).in_loop()
@@ -345,6 +360,7 @@ class PartialProgramOrder:
     ## Returns all non committed non-loop nodes
     def get_all_non_committed_standard_nodes(self) -> "list[NodeId]":
         all_non_committed = self.get_all_non_committed()
+        logging.debug(f"All non committed nodes: {all_non_committed}")
         return self.filter_standard_nodes(all_non_committed)
 
     def get_next(self, node_id:NodeId) -> "list[NodeId]":
@@ -550,11 +566,6 @@ class PartialProgramOrder:
         logging.info(f'Unrolling loop with id: {loop_id}')
         loop_node_ids = self.find_loop_sub_partial_order(loop_id)
         logging.debug(f'Node ids for loop: {loop_id} are: {loop_node_ids}')
-        ## Get the previous nodes of sub_po
-        previous_ids = self.get_sub_po_prev_nodes(loop_node_ids)
-        assert(len(previous_ids) == 1)
-        previous_id = previous_ids[0]
-        logging.debug(f'Previous node id for loop: {loop_id} is {previous_id}')
         
         ## Create the new nodes and remap adjacencies accordingly
         node_mappings = {}
@@ -593,9 +604,15 @@ class PartialProgramOrder:
         old_next_node_ids = self.get_next(new_nodes_sink)
         assert(len(old_next_node_ids) <= 1)
 
-        self.reroute_edge_from(old_from=previous_id,
-                               new_from=new_nodes_sink,
-                               to=old_nodes_source)
+
+        ## Get the previous nodes of sub_po and only if one exists, reroute the edge
+        previous_ids = self.get_sub_po_prev_nodes(loop_node_ids)
+        if len(previous_ids) == 1:
+            previous_id = previous_ids[0]
+            logging.debug(f'Previous node id for loop: {loop_id} is {previous_id}')
+            self.reroute_edge_from(old_from=previous_id,
+                                   new_from=new_nodes_sink,
+                                   to=old_nodes_source)
 
         ## Modify the next node of the new po
         if len(old_next_node_ids) > 0:
@@ -737,6 +754,9 @@ class PartialProgramOrder:
         logging.debug("Scheduling work...")
         ## KK 2023-05-04 Is it a problem if we do that here?
         # self.step_forward(copy.deepcopy(self.committed))
+
+        ## TODO: Move loop unrolling here for speculation too
+
         self.run_all_frontier_cmds()
         self.schedule_all_workset_non_frontier_cmds()
         assert(self.valid())

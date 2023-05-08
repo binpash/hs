@@ -90,13 +90,12 @@ class Scheduler:
         raw_node_id, loop_counters = self.__parse_wait(input_cmd)        
         logging.debug(f'Scheduler: Received wait for node_id: {raw_node_id} with loop counters: {loop_counters}')
                     
-        if self.partial_program_order.is_loop_node(raw_node_id):
-            ## If node is in a loop and the exact node is not in the graph (meaning that the loop has not been unrolled), 
-            ##   then start executing it now.
+        if self.partial_program_order.is_loop_node(raw_node_id):  
             node_id = NodeId(raw_node_id.id, loop_counters)
             if not self.partial_program_order.is_node_id(node_id):
                 ## TODO: This unrolling can also happen and be moved to speculation.
                 ##       For now we are being conservative and that is why it only happens here
+                ## TODO: Move this to the scheduler.schedule_work() (if we have a loop node waiting for response and we are not unrolled, unroll to create work)
                 self.partial_program_order.unroll_loop_node(raw_node_id)
         else:
             ## If we are not in a loop, then the node id corresponds to the concrete node

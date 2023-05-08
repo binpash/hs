@@ -101,6 +101,10 @@ class Scheduler:
             ## If we are not in a loop, then the node id corresponds to the concrete node
             node_id = raw_node_id
 
+        ## Inform the partial order that we received a wait for a node so that it can push loops
+        ## forward and so on.
+        self.partial_program_order.wait_received(node_id)
+
         ## If the node_id is already committed, just return its exit code
         if node_id in self.partial_program_order.get_committed():
             logging.debug(f'Node: {node_id} found in committed, responding immediately!')

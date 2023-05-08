@@ -390,6 +390,17 @@ class PartialProgramOrder:
             all_next_transitive = all_next_transitive.union(successors)
             next_work.extend(new_next)
         return list(all_next_transitive)
+    
+    def get_inverse_transitive_closure(self, target_node_ids:"list[NodeId]") -> "list[NodeId]":
+        all_prev_transitive = set(target_node_ids)
+        next_work = target_node_ids.copy()
+        while len(next_work) > 0:
+            node_id = next_work.pop()
+            predecessors = set(self.get_prev(node_id))
+            new_prev = predecessors - all_prev_transitive
+            all_prev_transitive = all_prev_transitive.union(predecessors)
+            next_work.extend(new_prev)
+        return list(all_prev_transitive)
 
     def get_transitive_closure_if_can_be_resolved(self, can_be_resolved: list, target_node_ids: list) -> list:
         all_next_transitive = set(target_node_ids)
@@ -420,14 +431,6 @@ class PartialProgramOrder:
     def add_to_write_set(self, node_id: NodeId, item: str):
         self.rw_sets[node_id].add_to_write_set(item)
 
-    # TODO: HACK delete this method ASAP
-    # def get_node_id_from_cmd_no_redir(self, cmd_no_redir: str) -> NodeId:
-    #     for node_id, node in self.nodes.items():
-    #         if node.get_cmd_no_redir() == cmd_no_redir:
-    #             return node_id
-    #     assert(False)
-
-
     # Check if the specific command can be resolved.
     # KK 2023-05-04 I am not even sure what this function does and why is it useful.
     def cmd_can_be_resolved(self, node_id: int) -> bool:
@@ -454,8 +457,8 @@ class PartialProgramOrder:
             return True
     
     def find_cmds_to_resolve(self, cmd_ids_to_check: list):
-        cmds_to_resolve = []
         logging.debug(f" > Uncommitted commands done executing to be checked: {cmd_ids_to_check}")
+        cmds_to_resolve = []
         for cmd_id in cmd_ids_to_check:
             # We check if we can resolve any possible dependencies
             # If we can't, we have to wait for another cycle
@@ -531,6 +534,31 @@ class PartialProgramOrder:
                 # We remove any to-check-for-dependency nodes as the stopped node will execute in frontier
                 self.to_be_resolved[cmd_id] = []
         self.stopped = new_stopped
+
+    ## When the frontend sends a wait for a node, it means that execution in the frontend has
+    ## already surpassed all nodes prior to it. This is particularly important for loops, 
+    ## since we can't always statically predict how many iterations they will do, so the only
+    ## definitive way to know that they are done is to receive a wait for a node after them.
+    def wait_received(self, node_id: NodeId):
+        ## TODO: Whenever we receive a wait for a node, we always need to check and "commit" all prior loop nodes
+        ##       since we know that they won't have any more iterations (the JIT frontend has already passed them).
+        ## Note: This doesn't straightforwardly work for nested_loops, we need to figure out something else there
+        
+        ## Get inverse_transitive_closure to find all nodes that are before this one
+        inverse_tc_node_ids = self.get_inverse_transitive_closure([node_id])
+
+        ## TODO: Out of those nodes, filter out the non-committed loop ones
+        non_committed_loop_nodes_in_inverse_tc = [node_id for node_id in inverse_tc_node_ids
+                                                  if not node_id in self.committed and
+                                                  self.is_loop_node(node_id)]
+        logging.debug(f'Non committed loop nodes that are predecessors to {node_id} are: {non_committed_loop_nodes_in_inverse_tc}')
+        
+        ## TODO: And "close them"
+
+        ## TODO: Untested (not yet covered by test)
+
+        pass
+        
 
     def find_loop_sub_partial_order(self, loop_id: int) -> "list[NodeId]":
         loop_node_ids = []

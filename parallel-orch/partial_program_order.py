@@ -169,6 +169,7 @@ class PartialProgramOrder:
         ## from cmd_id -> CompletedNodeInfo 
         ## Note: this dictionary does not contain information
         self.completed_node_info = {}
+        ## KK 2023-05-09 @Giorgo What is the difference of the following two?
         self.to_be_resolved = {}
         self.waiting_to_be_resolved = set()
         ## Contains the most recent sandbox directory paths
@@ -432,6 +433,9 @@ class PartialProgramOrder:
     def add_to_write_set(self, node_id: NodeId, item: str):
         self.rw_sets[node_id].add_to_write_set(item)
 
+    def add_to_waiting_to_be_resolved(self, node_id: NodeId):
+        self.waiting_to_be_resolved = self.waiting_to_be_resolved.union([node_id])
+
     # Check if the specific command can be resolved.
     # KK 2023-05-04 I am not even sure what this function does and why is it useful.
     def cmd_can_be_resolved(self, node_id: int) -> bool:
@@ -466,8 +470,23 @@ class PartialProgramOrder:
         logging.debug(f' >> Able to resolve {node_id}')
         return True
 
-    
-    def find_cmds_to_resolve(self, cmd_ids_to_check: list):
+    def resolve_commands_that_can_be_resolved_and_step_forward(self):
+        cmds_to_resolve = self.__pop_cmds_to_resolve_from_waiting_to_be_resolved()
+        logging.debug(f"Commands to check for dependencies this round are: {sorted(cmds_to_resolve)}")
+        logging.debug(f"Commands that cannot be resolved this round are: {sorted(self.waiting_to_be_resolved)}")
+        
+        ## Resolve dependencies for the commands that can actually be resolved
+        to_commit = self.__resolve_dependencies_continuous_and_move_frontier(cmds_to_resolve)
+        if len(to_commit) == 0:
+            logging.debug(" > No nodes to be committed this round")
+        else:
+            logging.debug(f" > Nodes to be committed this round: {to_commit}")
+            logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
+            self.commit_cmd_workspaces(to_commit)
+            # self.print_cmd_stderr(stderr)
+
+    def __pop_cmds_to_resolve_from_waiting_to_be_resolved(self):
+        cmd_ids_to_check = sorted(list(self.waiting_to_be_resolved))
         logging.debug(f" > Uncommitted commands done executing to be checked: {cmd_ids_to_check}")
         cmds_to_resolve = []
         for cmd_id in cmd_ids_to_check:
@@ -509,7 +528,7 @@ class PartialProgramOrder:
     ## Resolve all the forward dependencies and update the workset
     ## Forward dependency is when a command's output is the same
     ## as the input of a following command
-    def resolve_dependencies_continuous_and_move_frontier(self, cmds_to_resolve):
+    def __resolve_dependencies_continuous_and_move_frontier(self, cmds_to_resolve):
         self.log_partial_program_order_info()
 
         logging.debug(f"Commands to be checked for dependencies: {sorted(cmds_to_resolve)}")
@@ -572,6 +591,8 @@ class PartialProgramOrder:
         ## TODO: Add some form of validity assertion after we are done with this.
         ##       Just to make sure that we haven't violated the continuity of the committed set.
         
+        ## TODO: If we added new nodes, we need to check whether there is something to be resolved here.
+        ##       Do that first thing tomorrow
 
     def find_loop_sub_partial_order(self, loop_id: int) -> "list[NodeId]":
         loop_node_ids = []
@@ -698,6 +719,18 @@ class PartialProgramOrder:
         self.frontier.append(new_first_node_id)
 
 
+    ## KK 2023-09-05 @Giorgo Do all of these steps need to be done at once, or are these methods
+    ##               meaningful even if called one by one? In general, I would like there to
+    ##               be a clear set of 1-3 methods that are supposed to be used whenever we
+    ##               add some new nodes (or progress the PO in some way) that will step it properly,
+    ##               while being idempotent (if they are called multiple times nothing goes wrong).
+    ##
+    ##               Internal functions on the other hand (ones that cannot be called on their own
+    ##                since they might leave the PO in a partial state) should be prefixed with an
+    ##               underscore.
+    ##
+    ##               All top-level functions should get minimal arguments (none if possible)
+    ##               and should just get their relevant state from the fields of the PO.
     def step_forward(self, old_committed):
         logging.debug(" > Committing frontier")
         self.commit_frontier()
@@ -895,19 +928,11 @@ class PartialProgramOrder:
             return
 
         assert(node_id not in self.stopped)
-        cmds_to_resolve = self.find_cmds_to_resolve(sorted(list(self.waiting_to_be_resolved.union({node_id}))))
-        logging.debug(f"Commands to check for dependencies this round are: {sorted(cmds_to_resolve)}")
-        logging.debug(f"Commands that cannot be resolved this round are: {sorted(self.waiting_to_be_resolved)}")
-        
-        ## Resolve dependencies for the commands that can actually be resolved
-        to_commit = self.resolve_dependencies_continuous_and_move_frontier(cmds_to_resolve)
-        if len(to_commit) == 0:
-            logging.debug(" > No nodes to be committed this round")
-        else:
-            logging.debug(f" > Nodes to be committed this round: {to_commit}")
-            logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
-            self.commit_cmd_workspaces(to_commit)
-            # self.print_cmd_stderr(stderr)
+        ## Since the command properly finished executing, it now waits to be resolved
+        self.add_to_waiting_to_be_resolved(node_id)
+        ## We can now call the general resolution method that determines which commands
+        ## can be resolved (all their dependencies are done executing), and resolves them.
+        self.resolve_commands_that_can_be_resolved_and_step_forward()
         assert(self.valid())
 
     def print_cmd_stderr(self, stderr):
@@ -960,7 +985,6 @@ class PartialProgramOrder:
                 logging.debug(f" > Node: {node_id} is currently executing, skipping...")
                 continue
             else:
-                ## TODO: KK Need to figure out what to do here (by adding commands after the loop)
                 logging.debug(f" > Node: {node_id} is not executing or waiting to be resolved so we modify its set.")
                 self.to_be_resolved[node_id] = []
                 traversal = []

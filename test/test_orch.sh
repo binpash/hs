@@ -9,16 +9,12 @@ echo "==================| Scheduler Tests |==================="
 echo "Test directory:               $WORKING_DIR"
 echo "Test script directory:        $TEST_SCRIPT_DIR"
 
-LOG_FILENAME=$LOG_FILE
-# DEBUG=${DEBUG:-0}
-if [ -z ${LOG_FILE+:x} ]; then
-    LOG_FILE=""
-else
-    LOG_FILE="--log_file ${LOG_FILE}"
-fi
+## Set the DEBUG env variable to see detailed output
+DEBUG=${DEBUG:-0}
 
 bash="bash"
-orch="$ORCH_TOP/pash-spec.sh -d ${DEBUG:-0} ${LOG_FILE}"
+## Debug needs to be set to 100 because otherwise repetitions cannot be checked
+orch="$ORCH_TOP/pash-spec.sh -d 100"
 # Generated test scripts are saved here
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"
 test_dir_bash="$ORCH_TOP/test/test_scripts_bash"
@@ -50,14 +46,13 @@ cleanup()
 
 test_repetitions()
 {
-    echo foo
-    if [ -z "$LOG_FILENAME" ]; then
-        echo -n " (?) Reps check skipped. Run with DEBUG=100 LOG_FILE=<log_file> to check repetitions." 1>&2
-        return 0
-    fi
-    result=`python3 $WORKING_DIR/parse_cmd_repetitions.py $LOG_FILENAME`
-    if [ "$1" != "$result" ]; then
-        echo " (!) Reps not optimal: Expected: $1 | Got: $result" 1>&2
+    local repetitions="$1"
+    local exec_log_file="$2"
+
+    ## TODO: Replace check with total repetitions
+    result=`python3 $WORKING_DIR/parse_cmd_repetitions.py $exec_log_file`
+    if [ "$repetitions" != "$result" ]; then
+        echo " (!) Reps not optimal: Expected: $repetitions | Got: $result" 1>&2
         return 1
     fi
 }
@@ -66,6 +61,7 @@ run_test()
 {
     cleanup
     local test=$1
+    local repetitions="$2"
 
     if [ "$(type -t $test)" != "function" ]; then
         echo "$test is not a function!   FAIL"
@@ -81,10 +77,24 @@ run_test()
 
      # Run test with orch
     export test_output_dir="$WORKING_DIR/output_orch"
-    $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir" > "$test_output_dir/stdout" #2> /dev/null
+    stderr_file="$(mktemp)"
+    $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir" > "$test_output_dir/stdout" 2> "$stderr_file"
     test_orch_ec=$?
+    
+    ## Print stderr
+    if [ $DEBUG -ge 1 ]; then 
+        cat "$stderr_file" 1>&2
+    fi
+
     diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
     test_diff_ec=$?
+    # Test repetitions
+    if [ ! -z "$repetitions" ]; then
+        test_repetitions "$repetitions" "$stderr_file"
+        test_repetitions_ec=$?
+    else
+        test_repetitions_ec=0
+    fi
 
     ## Check if the two exit codes are both success or both error
     test $test_bash_ec == $test_orch_ec 
@@ -93,6 +103,7 @@ run_test()
         echo -n " (!) output mismatch "
         diff "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/"
     else
+        ## TODO: Don't have an else branch here (to show all errors at once)
         if [ $test_ec -ne 0 ]; then
             echo -n " (!) EC mismatch [$test_bash_ec-$test_orch_ec]"
             output_diff=1
@@ -101,7 +112,10 @@ run_test()
             echo -ne '\t\t\t'
         fi
     fi
-    if [ $test_diff_ec -ne 0 ] || [ $output_diff -ne 0 ]; then
+    if [ $test_repetitions_ec -ne 0 ]; then
+        echo -n " (!) Repetitions mismatch"
+    fi
+    if [ $test_diff_ec -ne 0 ] || [ $output_diff -ne 0 ] || [ $test_repetitions_ec -ne 0 ]; then
         echo "$test are not identical" >> $output_dir/result_status
         echo -e '\t\tFAIL'
         return 1
@@ -116,33 +130,21 @@ test1_1()
 {
     local shell=$1
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
-    if [ "$shell" == "bash" ]; then
-        $shell $2/test1_1.sh
-    else
-        $shell $2/test1_1.sh && test_repetitions "1 2 2 1" "test1_1"
-    fi
+    $shell $2/test1_1.sh
 }
 
 test1_2()
 {
     local shell=$1
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
-    if [ "$shell" == "bash" ]; then
-        $shell $2/test1_2.sh
-    else
-        $shell $2/test1_2.sh && test_repetitions "1 2 2 1" "test1_2"
-    fi
+    $shell $2/test1_2.sh
 }
 
 test1_3()
 {
     local shell=$1
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
-    if [ "$shell" == "bash" ]; then
-        $shell $2/test1_3.sh
-    else
-        $shell $2/test1_3.sh && test_repetitions "1 2 2 1" "test1_3"
-    fi
+    $shell $2/test1_3.sh
 }
 
 test2_1()
@@ -295,9 +297,9 @@ test_stdout()
 
 # We run all tests composed with && to exit on the first that fails
 if [ "$#" -eq 0 ]; then
-    run_test test1_1
-    run_test test1_2
-    run_test test1_3
+    run_test test1_1 # "1 2 2 1"
+    run_test test1_2 # "1 2 2 1"
+    run_test test1_3 # "1 2 2 1"
     run_test test2_1
     run_test test2_2
     run_test test2_3

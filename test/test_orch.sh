@@ -119,7 +119,7 @@ test1_1()
     if [ "$shell" == "bash" ]; then
         $shell $2/test1_1.sh
     else
-        $shell $2/test1_1.sh && test_repetitions "1 2 2 2" "test1_1"
+        $shell $2/test1_1.sh && test_repetitions "1 2 2 1" "test1_1"
     fi
 }
 
@@ -130,7 +130,7 @@ test1_2()
     if [ "$shell" == "bash" ]; then
         $shell $2/test1_2.sh
     else
-        $shell $2/test1_2.sh && test_repetitions "1 2 2 2" "test1_2"
+        $shell $2/test1_2.sh && test_repetitions "1 2 2 1" "test1_2"
     fi
 }
 
@@ -138,7 +138,11 @@ test1_3()
 {
     local shell=$1
     echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
-    $shell $2/test1_3.sh
+    if [ "$shell" == "bash" ]; then
+        $shell $2/test1_3.sh
+    else
+        $shell $2/test1_3.sh && test_repetitions "1 2 2 1" "test1_3"
+    fi
 }
 
 test2_1()

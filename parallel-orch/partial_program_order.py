@@ -102,6 +102,8 @@ class PartialProgramOrder:
         self.stopped = set()
         self.committed_order = []
         self.commit_state = {}
+        ## Counts the times a node was (re)executed
+        self.executions = {node_id: 0 for node_id in self.nodes.keys()}
     
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -387,6 +389,7 @@ class PartialProgramOrder:
         if not first_write_set.isdisjoint(second_read_set):
             logging.debug(f' > Forward dependency found {first_write_set.intersection(second_read_set)}')
             return True
+
         elif self.has_dir_file_dependency(first_write_set, second_read_set):
             return True
         else:
@@ -430,6 +433,7 @@ class PartialProgramOrder:
         cmd = node.get_cmd()
         logging.debug(f'Running command: {node_id} {self.get_node(node_id)}')
         logging.trace(f"ExecutingAdd|{node_id}")
+        self.executions[node_id] += 1
         proc, trace_file, stdout, stderr, variable_file = executor.async_run_and_trace_command_return_trace(cmd, node_id)
         logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
@@ -439,6 +443,7 @@ class PartialProgramOrder:
         node = self.get_node(node_id)
         cmd = node.get_cmd()
         logging.debug(f'Speculating command: {node_id} {self.get_node(node_id)}')
+        self.executions[node_id] += 1
         proc, trace_file, stdout, stderr, variable_file = executor.async_run_and_trace_command_return_trace_in_sandbox(cmd, node_id)
         logging.trace(f"ExecutingSandboxAdd|{node_id}")
         logging.debug(f'Read trace from: {trace_file}')
@@ -572,7 +577,14 @@ class PartialProgramOrder:
                 logging.info(f" CMD {cmd} on\t\tSTART")
             else:
                 logging.info(f" CMD {cmd} after:\t{', '.join(map(str, self.commit_state[cmd]))}")
-        logging.info("--------------------------------------")
+
+    def log_executions(self):
+        logging.debug("---------- (Re)executions ------------")
+        for cmd in sorted(self.committed):
+            logging.debug(f" CMD {cmd} executed {self.executions[cmd]} times")
+            logging.trace(f"Executions|{cmd}|{self.executions[cmd]}")
+        logging.debug(f" Total (re)executions: {sum(list(self.executions.values()))}")
+        logging.debug("--------------------------------------")
 
 
 

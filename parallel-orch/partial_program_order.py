@@ -385,6 +385,7 @@ class PartialProgramOrder:
     def has_forward_dependency(self, first_id, second_id):
         first_write_set = set(self.rw_sets[first_id].get_write_set())
         second_read_set = set(self.rw_sets[second_id].get_read_set())
+        logging.debug(f'Checking dependencies between {first_id} and {second_id}')
         if not first_write_set.isdisjoint(second_read_set):
             logging.debug(f' > Forward dependency found {first_write_set.intersection(second_read_set)}')
             return True

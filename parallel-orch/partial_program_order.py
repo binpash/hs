@@ -487,7 +487,7 @@ class PartialProgramOrder:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
             self.commit_cmd_workspaces(to_commit)
-            self.print_cmd_stderr(stderr)
+            # self.print_cmd_stderr(stderr)
 
     def print_cmd_stderr(self, stderr):
         # stdout.seek(0)

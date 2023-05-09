@@ -24,7 +24,7 @@ def parse_args():
                         help="Set debugging level")
     parser.add_argument("-f", "--log_file", 
                         type=str,
-                        default="",
+                        default=None,
                         help="Set logging output file. Default: stdout")
     args, unknown_args = parser.parse_known_args()
     return args
@@ -195,7 +195,7 @@ def main():
 
     # Format logging
     # ref: https://docs.python.org/3/library/logging.html#formatter-objects
-    if args.log_file == "":
+    if args.log_file is None:
         logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s")
     else:
         logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s", 

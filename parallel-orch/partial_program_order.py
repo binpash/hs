@@ -755,66 +755,44 @@ class PartialProgramOrder:
         self.rerun_stopped()
         self.populate_to_be_resolved_dict(old_committed)
 
-    ## Pushes the frontier forward a single step for all commands in it that can be committed
-    ## KK 2023-05-10 Should this actually push the frontier as far as possible (and not just a single step?)
-    ## TODO: Actually this pushes the frontier multiple steps using the update in get_next_non_speculated.
-    ##       @Giorgo: We need to move this outside of this function. One way to do it would be with an
-    ##       outer loop that pushes the frontier one step until there are no more changes (pseudocode below for inspiration):
-    ##       while changes:
-    ##         push_frontier_one_step
-    ##         if frontier was moved:
-    ##           changes = True
-    ##         else:
-    ##           changes = False
+    ## Pushes the frontier forward as much as possible for all commands in it that can be committed
     def frontier_commit_and_push(self):
         logging.debug(" > Commiting and pushing frontier")
         logging.debug(f' > Frontier: {self.frontier}')
-        new_frontier = []
-        # Second condition below may be unecessary
-        for frontier_node in self.frontier:
-            ## If a node is not in the workset it means that it is actually done executing
-            if frontier_node not in self.workset:
-                ## Commit the node
-                logging.trace(f" > Commiting node {frontier_node}")
-                self.save_commit_state_of_cmd(frontier_node)
-                self.committed.add(frontier_node)
+        changes_in_frontier = True
+        while changes_in_frontier:
+            new_frontier = []
+            changes_in_frontier = False
+            # Second condition below may be unecessary
+            for frontier_node in self.frontier:
+                ## If a node is not in the workset it means that it is actually done executing
+                ## KK 2023-05-10 Do we need all these conditions in here? Some might be redundant?
+                if frontier_node not in self.get_currently_executing() \
+                    and frontier_node not in self.get_committed() \
+                    and frontier_node not in self.stopped \
+                    and frontier_node not in self.waiting_to_be_resolved \
+                    and frontier_node not in self.workset\
+                    and not self.is_loop_node(frontier_node):
+                    ## Commit the node
+                    logging.trace(f" > Commiting node {frontier_node}")
+                    self.save_commit_state_of_cmd(frontier_node)
+                    self.committed.add(frontier_node)
 
-                ## Add its successors to the frontier
-                ## TODO: Fix the side-effectful hack in get_next_standard_non_speculated
-                to_add_in_frontier = self.get_next_standard_non_speculated(frontier_node)
-                new_frontier.extend(to_add_in_frontier)
-                logging.trace(f"FrontierAdd|{','.join(str(node_id) for node_id in to_add_in_frontier)}")
-            # If node is still being executed, we cannot progress further
-            else:
-                new_frontier.extend([frontier_node])
-                logging.trace(f" > Not commiting node {frontier_node}, readding to frontier")
+                    ## Add its non-loop successors to the frontier
+                    next_nodes = self.get_next(frontier_node)
+                    next_standard_nodes = self.filter_standard_nodes(next_nodes)
+                    logging.trace(f"FrontierAdd|{','.join(str(node_id) for node_id in next_standard_nodes)}")
+                    new_frontier.extend(next_standard_nodes)
 
-        ## Update the frontier to the new frontier
-        self.frontier = new_frontier
-
-    def get_next_standard_non_speculated(self, start: NodeId) -> "list[NodeId]":
-        next_non_speculated = self.get_next_non_speculated(start)
-        return self.filter_standard_nodes(next_non_speculated)
-
-    def get_next_non_speculated(self, start):
-            traversal_workset = self.get_next(start)
-            next_non_speculated = []
-            while len(traversal_workset) > 0:
-                node_id = traversal_workset.pop()
-                ## KK 2023-05-04: Why is this happening in a get_next_non_speculated_traversal?
-                ## TODO: Move this outside in some effectful method. @Giorgo could you help?
-                if node_id not in self.get_currently_executing() \
-                    and node_id not in self.get_committed() \
-                    and node_id not in self.stopped \
-                    and node_id not in self.waiting_to_be_resolved \
-                    and node_id not in self.workset\
-                    and not self.is_loop_node(node_id):
-                    self.save_commit_state_of_cmd(node_id)
-                    self.committed.add(node_id)
-                    traversal_workset.extend(self.get_next(node_id))
+                    ## There are some changes in the frontier so we need to reenter the loop
+                    changes_in_frontier = True
+                # If node is still being executed, we cannot progress further
                 else:
-                    next_non_speculated.append(node_id)
-            return list(next_non_speculated)
+                    new_frontier.extend([frontier_node])
+                    logging.trace(f" > Not commiting node {frontier_node}, readding to frontier")
+
+            ## Update the frontier to the new frontier
+            self.frontier = new_frontier
     
 
     ## For a file - dir forward dependency to exist,

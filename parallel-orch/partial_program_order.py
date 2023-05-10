@@ -454,7 +454,7 @@ class PartialProgramOrder:
         logging.debug(f' > Currently executing: {currently_executing_ids}')
 
         ## TODO: Make this check more efficient
-        for other_node_id in inverse_tc_node_ids:
+        for other_node_id in non_committed_nodes_in_inverse_tc:
             ## If one of the non-committed nodes in the inverse_tc is currently executing then
             ## we can't resolve this command
             ## KK 2023-05-04 This is not sufficient. In the future (where we don't speculate everything at once)
@@ -521,7 +521,10 @@ class PartialProgramOrder:
             first_cmd_ids = sorted([cmd_id for cmd_id in self.to_be_resolved[second_cmd_id] if cmd_id not in self.stopped])
             for first_cmd_id in first_cmd_ids:
                 if second_cmd_id not in new_workset:
-                    ## Only forward dependencies bother us now
+                    ## We only check for forward dependencies if the first node is not a loop (abstract) node
+                    if self.is_loop_node(first_cmd_id):
+                        logging.debug(f' > Skipping dependency check with node {first_cmd_id} because it is a loop node')
+                        continue
                     if self.has_forward_dependency(first_cmd_id, second_cmd_id):
                         logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
                         new_workset.add(second_cmd_id)
@@ -587,14 +590,23 @@ class PartialProgramOrder:
         logging.debug(f'Non committed loop nodes that are predecessors to {node_id} are: {non_committed_loop_nodes_in_inverse_tc}')
         
         ## And "close them"
+        ## TODO: This is a hack here, we need to have a proper method that commits
+        ##       nodes and does whatever else is needed to do (e.g., add new nodes to frontier)
         new_committed_nodes = non_committed_loop_nodes_in_inverse_tc
         logging.debug(f'Adding following loop nodes to committed: {new_committed_nodes}')
         self.committed = self.committed.union(set(new_committed_nodes))
+
+        ## Since we committed some nodes, let's make sure that we also push the frontier
+        ## TODO: Can we do this using a method?
+
         ## TODO: Add some form of validity assertion after we are done with this.
         ##       Just to make sure that we haven't violated the continuity of the committed set.
         
-        ## TODO: If we added new nodes, we need to check whether there is something to be resolved here.
-        ##       Do that first thing tomorrow
+        ## We check if something can be resolved and stepped forward here
+        ## KK 2023-05-10 This seems to work for all tests (so it might be idempotent
+        ##                since in many tests there is nothing new to resolve after a wait)
+        self.resolve_commands_that_can_be_resolved_and_step_forward()
+
 
     def find_loop_sub_partial_order(self, loop_id: int) -> "list[NodeId]":
         loop_node_ids = []
@@ -642,6 +654,7 @@ class PartialProgramOrder:
             node_mappings[node_id] = new_loop_node_id
             ## Create the new node
             self.nodes[new_loop_node_id] = Node(new_loop_node_id, node.cmd, [])
+            self.executions[new_loop_node_id] = 0
         logging.debug(f'New loop ids: {node_mappings}')
 
         ## Create the new adjacencies, by mapping adjacencies in the node set to the new node ids
@@ -689,6 +702,9 @@ class PartialProgramOrder:
         for _, new_node_id in node_mappings.items():
             self.workset.append(new_node_id) 
 
+        ## TODO: We need to correctly populate the resolved set of next commands
+        ##       after unrolling the loop.
+
         ## Return the new first node
         return node_mappings[old_nodes_source]
 
@@ -733,36 +749,47 @@ class PartialProgramOrder:
     ##
     ##               All top-level functions should get minimal arguments (none if possible)
     ##               and should just get their relevant state from the fields of the PO.
+    ## TODO: step_forward seems to be an internal function
     def step_forward(self, old_committed):
-        logging.debug(" > Committing frontier")
-        self.commit_frontier()
-        logging.debug(" > Moving frontier forward")
-        self.move_frontier_forward()
+        self.frontier_commit_and_push()
         self.rerun_stopped()
         self.populate_to_be_resolved_dict(old_committed)
 
-    # Add frontier commands to committed set
-    ## TODO: Loop nodes should not be committed until we receive a wait for the node after them.
-    ##       We don't know if they are done executing until then.
-    def commit_frontier(self):
-        # Second condition below may be unecessary
-        logging.debug(f'Frontier: {self.frontier}')
-        for frontier_node in self.frontier:
-            if frontier_node not in self.workset:
-                self.save_commit_state_of_cmd(frontier_node)
-        self.committed.update({frontier_node for frontier_node in self.frontier if frontier_node not in self.workset})
-
-    def move_frontier_forward(self):
+    ## Pushes the frontier forward a single step for all commands in it that can be committed
+    ## KK 2023-05-10 Should this actually push the frontier as far as possible (and not just a single step?)
+    ## TODO: Actually this pushes the frontier multiple steps using the update in get_next_non_speculated.
+    ##       @Giorgo: We need to move this outside of this function. One way to do it would be with an
+    ##       outer loop that pushes the frontier one step until there are no more changes (pseudocode below for inspiration):
+    ##       while changes:
+    ##         push_frontier_one_step
+    ##         if frontier was moved:
+    ##           changes = True
+    ##         else:
+    ##           changes = False
+    def frontier_commit_and_push(self):
+        logging.debug(" > Commiting and pushing frontier")
+        logging.debug(f' > Frontier: {self.frontier}')
         new_frontier = []
-        for node in self.frontier:
-            if node not in self.workset:
-                to_add_in_frontier = self.get_next_standard_non_speculated(node)
+        # Second condition below may be unecessary
+        for frontier_node in self.frontier:
+            ## If a node is not in the workset it means that it is actually done executing
+            if frontier_node not in self.workset:
+                ## Commit the node
+                logging.trace(f" > Commiting node {frontier_node}")
+                self.save_commit_state_of_cmd(frontier_node)
+                self.committed.add(frontier_node)
+
+                ## Add its successors to the frontier
+                ## TODO: Fix the side-effectful hack in get_next_standard_non_speculated
+                to_add_in_frontier = self.get_next_standard_non_speculated(frontier_node)
                 new_frontier.extend(to_add_in_frontier)
                 logging.trace(f"FrontierAdd|{','.join(str(node_id) for node_id in to_add_in_frontier)}")
-            # If node is being executed again, we cannot progress further
+            # If node is still being executed, we cannot progress further
             else:
-                new_frontier.extend([node])
-                logging.trace(f"FrontierAdd|{node}")
+                new_frontier.extend([frontier_node])
+                logging.trace(f" > Not commiting node {frontier_node}, readding to frontier")
+
+        ## Update the frontier to the new frontier
         self.frontier = new_frontier
 
     def get_next_standard_non_speculated(self, start: NodeId) -> "list[NodeId]":

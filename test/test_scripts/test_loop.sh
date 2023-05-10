@@ -4,6 +4,7 @@ for i in 1 2 3; do
     sleep 1
     echo hi2
 done
+echo hi3
 
 ## Future loop tests must include:
 ## 1. A single loop with a single command without anything else 

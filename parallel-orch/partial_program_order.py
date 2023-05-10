@@ -281,8 +281,14 @@ class PartialProgramOrder:
     def get_workset(self) -> list:
         return self.workset
     
-    def get_committed(self) -> list:
+    def get_committed(self) -> set:
+        return copy.deepcopy(self.committed)
+
+    def get_committed_list(self) -> list:
         return sorted(list(self.committed))
+
+    def is_committed(self, node_id: NodeId) -> bool:
+        return node_id in self.committed
 
     def get_frontier(self) -> list:
         return sorted(list(self.frontier))
@@ -343,9 +349,16 @@ class PartialProgramOrder:
     def get_all_non_committed(self) -> "list[NodeId]":
         all_node_ids = self.nodes.keys()
         non_committed_node_ids = [node_id for node_id in all_node_ids
-                                  if not node_id in self.committed]  
+                                  if not self.is_committed(node_id)]  
         return non_committed_node_ids
     
+    ## This adds a node to the committed set and saves important information
+    def commit_node(self, node_id: NodeId):
+        logging.trace(f" > Commiting node {node_id}")
+        self.save_commit_state_of_cmd(node_id)
+        self.committed.add(node_id)
+
+
     def is_loop_node(self, node_id:NodeId) -> bool:
         return self.get_node(node_id).in_loop()
 
@@ -447,7 +460,7 @@ class PartialProgramOrder:
 
         ## Out of those nodes, filter out the non-committed ones
         non_committed_nodes_in_inverse_tc = [node_id for node_id in inverse_tc_node_ids
-                                                  if not node_id in self.committed]
+                                                  if not self.is_committed(node_id)]
         logging.debug(f' > Non committed nodes that are predecessors to {node_id} are: {non_committed_nodes_in_inverse_tc}')
 
         currently_executing_ids = self.get_currently_executing()
@@ -549,7 +562,7 @@ class PartialProgramOrder:
         logging.trace(f"WorksetAdd|{','.join(str(cmd_id) for cmd_id in workset_diff)}")
 
         # Keep the previous committed state
-        old_committed = self.committed.copy()
+        old_committed = self.get_committed()
 
         # We want stopped commands to not enter the workset again yet
         assert(set(self.workset).isdisjoint(self.stopped))
@@ -585,7 +598,7 @@ class PartialProgramOrder:
 
         ## Out of those nodes, filter out the non-committed loop ones
         non_committed_loop_nodes_in_inverse_tc = [node_id for node_id in inverse_tc_node_ids
-                                                  if not node_id in self.committed and
+                                                  if not self.is_committed(node_id) and
                                                   self.is_loop_node(node_id)]
         logging.debug(f'Non committed loop nodes that are predecessors to {node_id} are: {non_committed_loop_nodes_in_inverse_tc}')
         
@@ -594,10 +607,23 @@ class PartialProgramOrder:
         ##       nodes and does whatever else is needed to do (e.g., add new nodes to frontier)
         new_committed_nodes = non_committed_loop_nodes_in_inverse_tc
         logging.debug(f'Adding following loop nodes to committed: {new_committed_nodes}')
-        self.committed = self.committed.union(set(new_committed_nodes))
-
+        for node_id in new_committed_nodes:
+            self.commit_node(node_id)
+        
         ## Since we committed some nodes, let's make sure that we also push the frontier
-        ## TODO: Can we do this using a method?
+        ## TODO: Can we do this in a less hacky method? By using a well-defined commit_node_and_push_frontier method?
+        if len(new_committed_nodes) > 0:
+            new_nodes_sinks = self.get_sub_po_sink_nodes(new_committed_nodes)
+            assert(len(new_nodes_sinks) == 1)
+            new_nodes_sink = new_nodes_sinks[0]
+            logging.debug(f'The sink of the newly committed loop nodes is {new_nodes_sink}')
+
+            next_nodes = self.get_next(new_nodes_sink)
+            next_standard_nodes = self.filter_standard_nodes(next_nodes)
+            logging.trace(f"Adding its next nodes to the frontier|{','.join(str(node_id) for node_id in next_standard_nodes)}")
+            self.frontier.extend(next_standard_nodes)
+
+
 
         ## TODO: Add some form of validity assertion after we are done with this.
         ##       Just to make sure that we haven't violated the continuity of the committed set.
@@ -733,7 +759,7 @@ class PartialProgramOrder:
 
         ## TODO: This needs to change when we modify unrolling to happen speculatively too
         ## TODO: This needs to properly add the node to frontier and to resolve dictionary
-        self.step_forward(copy.deepcopy(self.committed))
+        self.step_forward(self.get_committed())
         self.frontier.append(new_first_node_id)
 
 
@@ -774,9 +800,7 @@ class PartialProgramOrder:
                     and frontier_node not in self.workset\
                     and not self.is_loop_node(frontier_node):
                     ## Commit the node
-                    logging.trace(f" > Commiting node {frontier_node}")
-                    self.save_commit_state_of_cmd(frontier_node)
-                    self.committed.add(frontier_node)
+                    self.commit_node(frontier_node)
 
                     ## Add its non-loop successors to the frontier
                     next_nodes = self.get_next(frontier_node)
@@ -969,7 +993,7 @@ class PartialProgramOrder:
     def log_partial_program_order_info(self):
         logging.debug(f"=" * 80)
         logging.debug(f"WORKSET:        {self.get_workset()}")
-        logging.debug(f"COMMITTED:      {self.get_committed()}")
+        logging.debug(f"COMMITTED:      {self.get_committed_list()}")
         logging.debug(f"FRONTIER:       {self.get_frontier()}")
         logging.debug(f"EXECUTING:      {list(self.commands_currently_executing.keys())}")
         logging.debug(f"STOPPED:        {list(self.stopped)}")
@@ -982,7 +1006,7 @@ class PartialProgramOrder:
     def populate_to_be_resolved_dict(self, old_committed):
         logging.debug("Populating the resolved dictionary for all nodes")
         for node_id in self.nodes:
-            if node_id in self.committed:
+            if self.is_committed(node_id):
                 logging.debug(f" > Node: {node_id} is committed, emptying its dict")
                 self.to_be_resolved[node_id] = []
                 continue
@@ -1002,7 +1026,7 @@ class PartialProgramOrder:
                 ##                but this doesn't make sense because we are only modifying
                 ##                the to_be_resolved of currently executing commands.
                 # relevant_committed = old_committed
-                relevant_committed = self.committed
+                relevant_committed = self.get_committed()
                 if node_id not in relevant_committed:
                     to_add = self.get_prev(node_id).copy()
                     traversal = to_add.copy()
@@ -1023,13 +1047,13 @@ class PartialProgramOrder:
     ## KK 2023-05-02 What does this function do?
     def save_commit_state_of_cmd(self, cmd_id):
         self.committed_order.append(cmd_id)
-        self.commit_state[cmd_id] = set(self.committed) - set(self.to_be_resolved[cmd_id])
+        self.commit_state[cmd_id] = set(self.get_committed()) - set(self.to_be_resolved[cmd_id])
 
     def log_committed_cmd_state(self):
         logging.info("---------- Committed Order -----------")
         logging.info(" " + " -> ".join(map(str, self.committed_order)))
         logging.info("---------- Committed State -----------")
-        for cmd in sorted(self.committed):
+        for cmd in sorted(self.get_committed_list()):
             if len(self.commit_state[cmd]) == 0:
                 logging.info(f" CMD {cmd} on\t\tSTART")
             else:
@@ -1037,7 +1061,7 @@ class PartialProgramOrder:
 
     def log_executions(self):
         logging.debug("---------- (Re)executions ------------")
-        for cmd in sorted(self.committed):
+        for cmd in sorted(self.get_committed_list()):
             logging.debug(f" CMD {cmd} executed {self.executions[cmd]} times")
             logging.trace(f"Executions|{cmd}|{self.executions[cmd]}")
         logging.debug(f" Total (re)executions: {sum(list(self.executions.values()))}")

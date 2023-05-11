@@ -2,6 +2,11 @@
 
 ## TODO: Pass frontier flag here instead of separate scripts
 
+## Clean up the riker directory
+## KK 2023-05-04 should this be done somewhere else? Could this interfere with overlay fs?
+## TODO: Can we just ask riker to use a different cache (or put the cache to /dev/null)
+##       since we never really want it to take the cache into account
+rm -rf ./.rkr
 
 ## Save the script to execute in the sandboxdir
 echo $CMD_STRING > ./Rikerfile

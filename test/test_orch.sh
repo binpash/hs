@@ -82,6 +82,7 @@ run_test()
     test_orch_ec=$?
     
     ## Print stderr
+    ## TODO: Fix this to print the stderr continuously by doing the execution checking inside pash-spec
     if [ $DEBUG -ge 1 ]; then 
         cat "$stderr_file" 1>&2
     fi
@@ -295,6 +296,14 @@ test_stdout()
     $shell $2/test_stdout.sh
 }
 
+test_loop()
+{
+    local shell=$1
+    $shell $2/test_loop.sh
+}
+
+## TODO: make more loop tests with nested loops and commands after the loop
+
 # We run all tests composed with && to exit on the first that fails
 if [ "$#" -eq 0 ]; then
     run_test test1_1 # "1 2 2 1"
@@ -323,6 +332,7 @@ if [ "$#" -eq 0 ]; then
     run_test test9_2
     run_test test9_3
     run_test test_stdout
+    run_test test_loop
 else
     for testname in $@
     do

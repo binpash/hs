@@ -1,5 +1,7 @@
 #!/bin/bash
 
+## TODO: Delete this file
+
 ## Save the script to execute in the sandboxdir
 echo $CMD_STRING > ./Rikerfile
 

@@ -168,6 +168,7 @@ class PartialProgramOrder:
         ## A dictionary that contains information about completed nodes
         ## from cmd_id -> CompletedNodeInfo 
         ## Note: this dictionary does not contain information
+        ## TODO: Delete this
         self.completed_node_info = {}
         ## KK 2023-05-09 @Giorgo What is the difference of the following two?
         self.to_be_resolved = {}

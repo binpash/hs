@@ -146,6 +146,7 @@ class RWSet:
     def __str__(self):
         return f"RW(R:{self.get_read_set()}, W:{self.get_write_set()})"
 
+
 class PartialProgramOrder:
 
     def __init__(self, nodes, edges):

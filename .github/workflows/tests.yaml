@@ -41,6 +41,8 @@ jobs:
           sudo -E bash scripts/install_deps_ubuntu20.sh
           export PASH_TOP="$PWD/deps/pash"
           export PATH=$PATH:$PASH_TOP
+          file ./deps/riker/debug/bin/rkr
+          uname -a
           # run all the tests
           export DEBUG=100
           bash ./test/test_orch.sh  

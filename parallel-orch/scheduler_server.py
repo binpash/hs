@@ -5,7 +5,7 @@ import signal
 from util import *
 import config
 import sys
-from partial_program_order import parse_partial_program_order_from_file, NodeId, parse_node_id
+from partial_program_order import parse_partial_program_order_from_file, LoopStack, NodeId, parse_node_id
 
 ##
 ## A scheduler server
@@ -91,7 +91,7 @@ class Scheduler:
         logging.debug(f'Scheduler: Received wait for node_id: {raw_node_id} with loop counters: {loop_counters}')
                     
         if self.partial_program_order.is_loop_node(raw_node_id):  
-            node_id = NodeId(raw_node_id.id, loop_counters)
+            node_id = NodeId(raw_node_id.id, LoopStack(loop_counters))
             if not self.partial_program_order.is_node_id(node_id):
                 ## TODO: This unrolling can also happen and be moved to speculation.
                 ##       For now we are being conservative and that is why it only happens here

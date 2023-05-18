@@ -23,36 +23,87 @@ class CompletedNodeInfo:
     def __str__(self):
         return f'CompletedNodeInfo(ec:{self.get_exit_code()}, vf:{self.get_variable_file()}, stdout:{self.get_stdout_file()})'
 
+## This class is used for both loop contexts and loop iters
+## The indices go from inner to outer
+class LoopStack:
+    def __init__(self, loop_contexts_or_iters=None):
+        if loop_contexts_or_iters is None:
+            self.loops = []
+        else:
+            self.loops = loop_contexts_or_iters
+
+    def is_empty(self):
+        return len(self.loops) == 0
+
+    ## Generates a new loop stack with the same length but 0s as values
+    def new_zeroed_loop_stack(self):
+        return [0 for i in self.loops]
+
+    def get_outer(self):
+        return self.loops[-1]
+
+    def pop_outer(self):
+        return self.loops.pop()
+    
+    def add_inner(self, loop_iter_id: int):
+        self.loops.insert(0, loop_iter_id)
+
+    def outer_to_inner(self):
+        return self.loops[::-1]
+
+    def index(self, loop_iter_id: int) -> int:
+        return self.loops.index(loop_iter_id)
+
+    def __repr__(self):
+        output = "-".join([str(it) for it in self.loops])
+        return output
+
+    def __eq__(self, other):
+        if not len(self.loops) == len(other.loops):
+            return False
+        for i in range(len(self.loops)):
+            if not self.loops[i] == other.loops[i]:
+                return False
+        return True
+
+
 class NodeId:
     def __init__(self, id: int, loop_iters=None):
         self.id = id
+        
         if loop_iters is None:
-            self.loop_iters = []
+            self.loop_iters = LoopStack()
         else:
+            assert(isinstance(loop_iters, LoopStack))
             self.loop_iters = loop_iters
     
     def has_iters(self):
-        return len(self.loop_iters) > 0
+        return not self.loop_iters.is_empty()
 
     def get_non_iter_id(self):
         return self.id
 
+    ## Returns a new NodeId
+    def generate_new_node_id_with_another_iter(self, new_iter: int):
+        ## This node already contains iterations for the outer loops potentially
+        ##  so we just need to add another inner iteration
+        new_iters = copy.deepcopy(self.loop_iters)
+        new_iters.add_inner(new_iter)
+
+        new_node_id = NodeId(self.get_non_iter_id(), new_iters)
+        return new_node_id
+
     def __repr__(self):
         output = str(self.id)
-        if len(self.loop_iters) > 0:
-            output += f'+{"-".join([str(it) for it in self.loop_iters])}'
+        if not self.loop_iters.is_empty():
+            output += f'+{self.loop_iters}'
         return output
 
     def __hash__(self):
         return hash(str(self))
 
     def __eq__(self, other):
-        if not len(self.loop_iters) == len(other.loop_iters):
-            return False
-        for i in range(len(self.loop_iters)):
-            if not self.loop_iters[i] == other.loop_iters[i]:
-                return False
-        return self.id == other.id
+        return self.loop_iters == other.loop_iters and self.id == other.id
 
     def __ne__(self, other):
         # Not strictly necessary, but to avoid having both x==y and x!=y
@@ -76,19 +127,19 @@ def parse_node_id(node_id_str: str) -> NodeId:
     if "+" in node_id_str:
         node_id_int, iters_str = node_id_str.split("+")
         iters = [int(it) for it in iters_str.split("-")]
-        return NodeId(int(node_id_int), iters)
+        return NodeId(int(node_id_int), LoopStack(iters))
     else:
-        return NodeId(int(node_id_str))
+        return NodeId(int(node_id_str), LoopStack())
 
 class Node:
-    def __init__(self, id, cmd, loop_context):
+    def __init__(self, id, cmd, loop_context: LoopStack):
         self.cmd = cmd
         self.id = id
         self.cmd_no_redir = trace.remove_command_redir(self.cmd)
         self.loop_context = loop_context
         ## Keep track of how many iterations of this loop node we have unrolled
-        if len(loop_context) > 0:
-            self.current_iter = 0
+        if not loop_context.is_empty():
+            self.current_iters = loop_context.new_zeroed_loop_stack()
 
     def __str__(self):
         # return f"ID: {self.id}\nCMD: {self.cmd}\nR: {self.read_set}\nW: {self.write_set}"
@@ -104,16 +155,21 @@ class Node:
     def get_cmd_no_redir(self) -> str:
         return self.cmd_no_redir
     
-    def get_loop_context(self) -> "list[int]":
+    def get_loop_context(self) -> LoopStack:
         return self.loop_context
     
     def in_loop(self) -> bool:
-        return len(self.loop_context) > 0
+        return not self.loop_context.is_empty()
 
-    def get_next_iter(self) -> int:
+    ## KK 2023-05-17 Does this generate the correct iteration even in nested loops?
+    def get_next_iter(self, loop_id: int) -> int:
         assert(self.in_loop())
-        self.current_iter += 1
-        return self.current_iter
+        assert(self.loop_context.get_outer() == loop_id)
+        print(f' >>>> node: {self} loop context: {self.loop_context}')
+        print(f' >>>> searching for id: {loop_id}')
+        loop_id_index_in_loop_context_stack = self.loop_context.index(loop_id)
+        self.current_iters[loop_id_index_in_loop_context_stack] += 1
+        return self.current_iters[loop_id_index_in_loop_context_stack]
 
     ## Note: This information is valid only after a node is committed.
     ##       It might be set even before that, but it should only be retrieved when
@@ -345,7 +401,7 @@ class PartialProgramOrder:
     def is_node_id(self, node_id:NodeId) -> bool:
         return node_id in self.nodes
 
-    def get_node_loop_context(self, node_id: NodeId) -> "list[int]":
+    def get_node_loop_context(self, node_id: NodeId) -> LoopStack:
         return self.get_node(node_id).get_loop_context()
 
     def get_all_non_committed(self) -> "list[NodeId]":
@@ -371,11 +427,17 @@ class PartialProgramOrder:
 
     ## This creates a new node_id and then creates a mapping from the node and iteration id to this node id
     ## TODO: Currently doesn't work with nested loops
-    def create_standard_id_from_loop_node(self, node_id: NodeId, loop_id: int) -> NodeId:
+    def create_node_id_with_one_less_loop_from_loop_node(self, node_id: NodeId, loop_id: int) -> NodeId:
         node = self.get_node(node_id)
-        new_iter = node.get_next_iter()
-        assert(not node_id.has_iters())
-        return NodeId(node_id.id, [new_iter])
+        logging.debug(f' >>> Node: {node}')
+        logging.debug(f' >>> its loops: {node.loop_context} --- {node.current_iters}')
+
+        ## TODO: This is wrong! We don't always want to progress the iter when we unroll.
+        new_iter = node.get_next_iter(loop_id)
+        ## Creates a new node id where we have appended the new iter
+        new_node_id = node_id.generate_new_node_id_with_another_iter(new_iter)
+        logging.debug(f' >>> new node_id with another iter: {new_node_id}')
+        return new_node_id
 
 
     ## Returns all non committed non-loop nodes
@@ -636,52 +698,45 @@ class PartialProgramOrder:
         self.resolve_commands_that_can_be_resolved_and_step_forward()
 
 
-    def find_loop_sub_partial_order(self, loop_id: int) -> "list[NodeId]":
+    def find_outer_loop_sub_partial_order(self, loop_id: int, nodes_subset: "list[NodeId]") -> "list[NodeId]":
         loop_node_ids = []
-        for node_id in self.nodes:
+        for node_id in nodes_subset:
             loop_context = self.get_node_loop_context(node_id)
-            if loop_id in loop_context:
+            ## Note: this only checks for the nodes that have this loop id as their outer loop
+            if not loop_context.is_empty() and loop_id == loop_context.get_outer():
                 loop_node_ids.append(node_id)
         ## TODO: Assert that this is closed w.r.t. partial order
         return loop_node_ids
 
-    ## KK 2023-05-02: We should not be able to step/execute/speculate loop nodes, instead
-    ##                the only action we should be able to do to them is to unroll them,
-    ##                by creating iterations before them in the partial order.
-    ##                The loop nodes then act as barriers that cannot be committed, executed (or put in the frontier)
-    ##                and separate the already committed with the future partial order.
+
+    ## This function unrolls a single loop, by first finding all its nodes (they must be contiguous) and then creating new versions of them
+    ## that are concretized. Its second argument describes which subset of all partial order nodes we want to look at.
+    ## That is necessary because when unrolling nested loops, we might end up in a situation where we have unrolled the
+    ## outer loop, but some of the newly created nodes might still be loop nodes (so we might have loop nodes for the same loop in multiple locations).
     ##
-    ## Note: We have to be careful when unrolling loops to unroll a complete iteration to start with 
-    ##       (to not have to deal with partial order relations between commands of different iterations).
-    ##
-    ##
-    ## Concrete pseudocode:
-    ## def unroll(self, loop_id):
-    ##     ## Finds all of the nodes in the same loop in the partial order
-    ##     sub_po = self.find_loop_sub_partial_order(loop_id)
-    ##     ## Find the previous node               
-    ##     previous_ids = self.find_prev_nodes(sub_po.first)
-    ##     ## Create an iteration version (no loop nodes) of the sub_po
-    ##     ## (be careful to not eliminate nested loop nodes)
-    ##     sub_po_iter = create_iter(sub_po)
-    ##     ## add the iteration between the loop and its previous node
-    ##     self.add_po_between(sub_po_iter, previous_ids, sub_po.first)
-    ##
-    ## We need to determine when to call unroll. For now we can just do it if the frontier is empty 
-    ## (which means that the next node of the frontier is a loop node).
-    def unroll_loop(self, loop_id: int):
+    ## TODO: The second time we are entering this (due to the inner loop unrolling), we must not unroll all loops, but only the new iteration.
+    ##    Q: How can we determine whether we need to unroll the outer or inner loop? It must have to do with committing I think. We just need to commit loop nodes correctly 
+    ##       and then only look for the find the first loop-node and
+    def unroll_single_loop(self, loop_id: int, nodes_subset: "list[NodeId]"):
         logging.info(f'Unrolling loop with id: {loop_id}')
-        loop_node_ids = self.find_loop_sub_partial_order(loop_id)
+        loop_node_ids = self.find_outer_loop_sub_partial_order(loop_id, nodes_subset)
         logging.debug(f'Node ids for loop: {loop_id} are: {loop_node_ids}')
         
         ## Create the new nodes and remap adjacencies accordingly
         node_mappings = {}
         for node_id in loop_node_ids:
             node = self.get_node(node_id)
-            new_loop_node_id = self.create_standard_id_from_loop_node(node_id, loop_id)
+            new_loop_node_id = self.create_node_id_with_one_less_loop_from_loop_node(node_id, loop_id)
             node_mappings[node_id] = new_loop_node_id
+            ## The new node has one less loop context than the previous one
+            node_loop_contexts = node.get_loop_context()
+            logging.debug(f'Node: {node_id} loop_contexts: {node_loop_contexts}')
+            assert(node_loop_contexts.get_outer() == loop_id)
+            new_node_loop_contexts = copy.deepcopy(node_loop_contexts)
+            new_node_loop_contexts.pop_outer()
+
             ## Create the new node
-            self.nodes[new_loop_node_id] = Node(new_loop_node_id, node.cmd, [])
+            self.nodes[new_loop_node_id] = Node(new_loop_node_id, node.cmd, new_node_loop_contexts)
             self.executions[new_loop_node_id] = 0
         logging.debug(f'New loop ids: {node_mappings}')
 
@@ -726,15 +781,9 @@ class PartialProgramOrder:
             self.remove_edge(from_id=previous_id,
                              to_id=old_nodes_source)
 
-        ## Add all new nodes to the workset (since they have to be tracked)
-        for _, new_node_id in node_mappings.items():
-            self.workset.append(new_node_id) 
 
-        ## TODO: We need to correctly populate the resolved set of next commands
-        ##       after unrolling the loop.
-
-        ## Return the new first node
-        return node_mappings[old_nodes_source]
+        ## Return the new first node and all node mappings
+        return node_mappings[old_nodes_source], node_mappings.values()
 
     ## Static method that just maps using a node mapping dictionary or leaves them as
     ## they are if not
@@ -748,16 +797,43 @@ class PartialProgramOrder:
             new_node_ids.append(new_id)
         return new_node_ids
 
+    ## This unrolls a sequence of loops by unrolling each loop outside-in
+    def unroll_loops(self, loop_contexts: LoopStack) -> NodeId:
+        ## TODO: Iterate here on all loop contexts
+        logging.debug(f'Unrolling the following loops: {loop_contexts}')
+
+        ## All new node_ids
+        all_new_node_ids = set()
+        relevant_node_ids = list(self.nodes.keys())
+        for loop_ctx in loop_contexts.outer_to_inner():
+            new_first_node_id, new_node_ids = self.unroll_single_loop(loop_ctx, relevant_node_ids)
+            logging.debug(f'New node ids after unrolling: {new_node_ids}')
+            ## Update all new nodes that we have added
+            all_new_node_ids.update(new_node_ids)
+
+            ## Re-set the relevant node ids to only the new nodes (if we unrolled a big loop once, 
+            ##  we just want to look at those new unrolled nodes for the next unrolling).
+            relevant_node_ids = new_node_ids
+
+            logging.debug(f' >>> Edges after unrolling    : {self.adjacency}')
+            logging.debug(f' >>> Inv Edges after unrolling: {self.inverse_adjacency}')
+
+        ## Add all new standard nodes to the workset (since they have to be tracked)
+        for new_node_id in all_new_node_ids:
+            if not self.is_loop_node(new_node_id):
+                self.workset.append(new_node_id) 
+
+        ## TODO: We need to correctly populate the resolved set of next commands
+        ##       after unrolling the loop.
+
+        return new_first_node_id
 
     def unroll_loop_node(self, node_id: NodeId):
         assert(self.is_loop_node(node_id))
-        loop_context = self.get_node_loop_context(node_id)
-        ## TODO: First determine which exactly loop do we need to unroll
-        ##       I am not sure if it is correct to just do the last one
-        ##       I think it might be the difference between this and the previous node
-        ##
-        ## TODO: I actually think we have to unroll all loops
-        new_first_node_id = self.unroll_loop(loop_context[0])
+        loop_contexts = self.get_node_loop_context(node_id)
+
+        ## Unroll all loops that this node is in
+        new_first_node_id = self.unroll_loops(loop_contexts)
 
         ## TODO: This needs to change when we modify unrolling to happen speculatively too
         ## TODO: This needs to properly add the node to frontier and to resolve dictionary
@@ -1129,7 +1205,7 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
         file_path = f'{cmds_directory}/{i}'
         cmd = parse_cmd_from_file(file_path)
         loop_ctx = loop_contexts[i]
-        nodes[NodeId(i)] = Node(NodeId(i), cmd, loop_ctx)
+        nodes[NodeId(i)] = Node(NodeId(i), cmd, LoopStack(loop_ctx))
 
     edges = {NodeId(i) : [] for i in range(number_of_nodes)}
     for edge_line in edge_lines:

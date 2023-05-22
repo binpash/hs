@@ -35,6 +35,9 @@ class LoopStack:
     def is_empty(self):
         return len(self.loops) == 0
 
+    def __len__(self):
+        return len(self.loops)
+
     ## Generates a new loop stack with the same length but 0s as values
     def new_zeroed_loop_stack(self):
         return [0 for i in self.loops]
@@ -54,8 +57,12 @@ class LoopStack:
     def index(self, loop_iter_id: int) -> int:
         return self.loops.index(loop_iter_id)
 
+    def get(self, index: int):
+        return self.loops[index]
+
     def __repr__(self):
-        ## TODO: Represent it using it
+        ## TODO: Represent it using 'it', 'it0', 'it1', etc
+        ##       or -(iters)- in front of it.
         output = "-".join([str(it) for it in self.loops])
         return output
 
@@ -80,9 +87,12 @@ class NodeId:
     
     def has_iters(self):
         return not self.loop_iters.is_empty()
+    
+    def get_iters(self):
+        return copy.deepcopy(self.loop_iters)
 
     def get_non_iter_id(self):
-        return self.id
+        return NodeId(self.id)
 
     ## Returns a new NodeId
     def generate_new_node_id_with_another_iter(self, new_iter: int):
@@ -91,12 +101,12 @@ class NodeId:
         new_iters = copy.deepcopy(self.loop_iters)
         new_iters.add_inner(new_iter)
 
-        new_node_id = NodeId(self.get_non_iter_id(), new_iters)
+        new_node_id = NodeId(self.id, new_iters)
         return new_node_id
 
     def __repr__(self):
         ## TODO: Represent it using n.
-        output = str(self.id)
+        output = f'{self.id}'
         if not self.loop_iters.is_empty():
             output += f'+{self.loop_iters}'
         return output
@@ -112,7 +122,7 @@ class NodeId:
         # True at the same time
         return not(self == other)
     
-    ## TODO: Maybe we need to make these better
+    ## TODO: Define this correctly
     def __lt__(self, obj):
         return (str(self) < str(obj))
   
@@ -257,6 +267,26 @@ class PartialProgramOrder:
         source_nodes = self.get_source_nodes()
         return self.filter_standard_nodes(source_nodes)
 
+    ## This returns the minimum w.r.t. to the PO of a bunch of node_ids.
+    ## In a real partial order, this could be many,
+    def get_min(self, node_ids: "list[NodeId]") -> "list[NodeId]":
+        potential_minima = set(copy.deepcopy(node_ids))
+        logging.debug(f"Start potential minima: {potential_minima}")
+        for node_id in node_ids:
+            tc = self.get_transitive_closure([node_id])
+            ## Remove the node itself from its transitive closure
+            tc.remove(node_id)
+            logging.debug(f"Transitive closure of {node_id} is {tc}")
+            ## If a node is found in the tc of another node, then
+            ##  it is not a minimum
+            for nid in tc:
+                potential_minima.discard(nid)
+        ## KK 2023-05-22 This will be removed at some point but I keep it here
+        ##    for now for easier bug finding.
+        logging.debug(f"Potential minima: {potential_minima}")
+        assert(len(potential_minima) == 1)
+        return list(potential_minima)
+
     ## This returns all previous nodes of a sub partial order
     def get_sub_po_source_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
         # assert(self.is_closed_sub_partial_order(node_ids))
@@ -365,6 +395,8 @@ class PartialProgramOrder:
         logging.debug("Checking partial order validity...")
         self.log_partial_program_order_info()
         valid1 = self.loop_nodes_valid()
+        ## TODO: Add a check that for x, y : NodeIds, x < y iff x is a predecessor to x
+
         ## TODO: Fix the checks below because they do not work currently
         ## TODO: Check that committed is prefix closed w.r.t partial order
         # self.all_frontier_nodes_after_committed_nodes()
@@ -653,29 +685,102 @@ class PartialProgramOrder:
                 self.to_be_resolved[cmd_id] = []
         self.stopped = new_stopped
 
-    ## When the frontend sends a wait for a node, it means that execution in the frontend has
-    ## already surpassed all nodes prior to it. This is particularly important for loops, 
-    ## since we can't always statically predict how many iterations they will do, so the only
-    ## definitive way to know that they are done is to receive a wait for a node after them.
-    def wait_received(self, node_id: NodeId):
-        ## Whenever we receive a wait for a node, we always need to check and "commit" all prior loop nodes
-        ##   since we know that they won't have any more iterations (the JIT frontend has already passed them).
-        ##
-        ## TODO: This doesn't straightforwardly work for nested_loops, we need to figure out something else there
-        
-        ## Get inverse_transitive_closure to find all nodes that are before this one
-        inverse_tc_node_ids = self.get_inverse_transitive_closure([node_id])
+    ## This method checks if nid1 would be before nid2 if nid2 was part of the PO.
+    ##
+    ## Therefore it does not just check edges, but rather computes if it would be before
+    ##  based on ids and loop iterations.
+    ##
+    ## This is a complex procedure, I wonder if we can simplify it in some way:
+    ## 1. Check if the loop ids of the two abstract parents of both nodes differ 
+    ##     thus showing that one is before the other 
+    ## 2. If all loop ids are the same, now we can actually compare iterations.
+    ##     If a node is in the same loop ids but in a later iteration then it is later.
+    ## 3. If all iterations are the same too, then we just compare node ids
+    def hypothetical_before(self, nid1: NodeId, nid2: NodeId):
+        raw_id1 = nid1.get_non_iter_id()
+        ## Get all loop ids that nid1 could be in
+        loop_ids1 = self.get_node_loop_context(raw_id1)
 
-        ## Out of those nodes, filter out the non-committed loop ones
-        non_committed_loop_nodes_in_inverse_tc = [node_id for node_id in inverse_tc_node_ids
-                                                  if not self.is_committed(node_id) and
-                                                  self.is_loop_node(node_id)]
-        logging.debug(f'Non committed loop nodes that are predecessors to {node_id} are: {non_committed_loop_nodes_in_inverse_tc}')
+        raw_id2 = nid1.get_non_iter_id()
+        ## Get all loop ids that nid2 could be in
+        loop_ids2 = self.get_node_loop_context(raw_id2)
+
+        i = 0
+        while i < len(loop_ids1) and i < len(loop_ids2):
+            loop_id_1 = loop_ids1.get(len(loop_ids1) - 1 - i)
+            loop_id_2 = loop_ids2.get(len(loop_ids2) - 1 - i)
+            ## If the first node is in a previous loop than the second,
+            ##  then we are done.
+            if loop_id_1 < loop_id_2:
+                return True
+            elif loop_id_1 > loop_id_2:
+                return False
+
+            ## We need to keep going
+            i += 1
+
+        ## If we reach this, we know that both nodes are in the same loops up to i 
+        ##  so we now compare iterations and node identifiers.
+
+        iters1 = nid1.get_iters()
+        iters2 = nid2.get_iters()
+
+        i = 0
+        while i < len(iters1) and i < len(iters2):
+            iter1 = iters1.get(len(iters1) - 1 - i)
+            iter2 = iters2.get(len(iters2) - 1 - i)
+            ## If the first node is in a previous iteration than the second,
+            ##  then we are done.
+            if iter1 < iter2:
+                return True
+            elif iter1 > iter2:
+                return False
+            ## We need to keep going
+            i += 1
+
+        ## We now know that their common prefix of iterations is the same
         
+        # ## If the nodes are in the exact same loops, then we simply compare their identifiers
+        # if len(loop_ids1) == len(loop_ids2):
+        #     ## KK 2023-05-22 It is annoying that this is not implemented using < of NodeIds
+        #     return nid1.id < nid2.id
+        # else:
+
+        return nid1.id < nid2.id
+
+
+    def progress_po_due_to_wait(self, node_id: NodeId):
+        logging.debug(f"Checking if we can progress the partial order after having received a wait for {node_id}")
+        ## The node might not be part of the partial order if it corresponds to
+        ##  a loop node iteration. In this case, we just need to make sure that
+        ##  we commit the right previous loop nodes that are relevant to it.
+        if not self.is_node_id(node_id):
+            logging.debug(f" > Node {node_id} is not part of the PO so we compute the nodes that would be before it...")
+            all_non_committed = self.get_all_non_committed()
+            all_non_committed_loop_nodes = self.filter_loop_nodes(all_non_committed)
+            non_committed_loop_nodes_that_would_be_predecessors = [n_id for n_id in all_non_committed_loop_nodes
+                                                                   if self.hypothetical_before(n_id, node_id)]
+            
+            new_committed_nodes = non_committed_loop_nodes_that_would_be_predecessors
+
+        else:
+            logging.debug(f" > Node {node_id} is part of the PO so we just check its predecessors following the inverse edges...")
+            ## If the node is in the PO, then we can proceed normally and find its predecessors and commit them
+
+            ## Get inverse_transitive_closure to find all nodes that are before this one
+            inverse_tc_node_ids = self.get_inverse_transitive_closure([node_id])
+
+            ## Out of those nodes, filter out the non-committed loop ones
+            non_committed_loop_nodes_in_inverse_tc = [node_id for node_id in inverse_tc_node_ids
+                                                    if not self.is_committed(node_id) and
+                                                    self.is_loop_node(node_id)]
+            logging.debug(f'Non committed loop nodes that are predecessors to {node_id} are: {non_committed_loop_nodes_in_inverse_tc}')
+            
+            new_committed_nodes = non_committed_loop_nodes_in_inverse_tc
+
         ## And "close them"
         ## TODO: This is a hack here, we need to have a proper method that commits
         ##       nodes and does whatever else is needed to do (e.g., add new nodes to frontier)
-        new_committed_nodes = non_committed_loop_nodes_in_inverse_tc
         logging.debug(f'Adding following loop nodes to committed: {new_committed_nodes}')
         for node_id in new_committed_nodes:
             self.commit_node(node_id)
@@ -703,6 +808,24 @@ class PartialProgramOrder:
         ##                since in many tests there is nothing new to resolve after a wait)
         self.resolve_commands_that_can_be_resolved_and_step_forward()
 
+    ## When the frontend sends a wait for a node, it means that execution in the frontend has
+    ## already surpassed all nodes prior to it. This is particularly important for loops, 
+    ## since we can't always statically predict how many iterations they will do, so the only
+    ## definitive way to know that they are done is to receive a wait for a node after them.
+    def wait_received(self, node_id: NodeId):
+        ## Whenever we receive a wait for a node, we always need to check and "commit" all prior loop nodes
+        ##   since we know that they won't have any more iterations (the JIT frontend has already passed them).
+        
+        ## We first have to push and progress the PO due to the wait and then unroll
+        self.progress_po_due_to_wait(node_id)
+
+        ## Unroll some nodes if needed.
+        if node_id.has_iters():
+            ## TODO: This unrolling can also happen and be moved to speculation.
+            ##       For now we are being conservative and that is why it only happens here
+            ## TODO: Move this to the scheduler.schedule_work() (if we have a loop node waiting for response and we are not unrolled, unroll to create work)
+            self.maybe_unroll(node_id)
+
 
     def find_outer_loop_sub_partial_order(self, loop_id: int, nodes_subset: "list[NodeId]") -> "list[NodeId]":
         loop_node_ids = []
@@ -719,13 +842,14 @@ class PartialProgramOrder:
     ## that are concretized. Its second argument describes which subset of all partial order nodes we want to look at.
     ## That is necessary because when unrolling nested loops, we might end up in a situation where we have unrolled the
     ## outer loop, but some of the newly created nodes might still be loop nodes (so we might have loop nodes for the same loop in multiple locations).
-    ##
-    ## TODO: The second time we are entering this (due to the inner loop unrolling), we must not unroll all loops, but only the new iteration.
-    ##    Q: How can we determine whether we need to unroll the outer or inner loop? It must have to do with committing I think. We just need to commit loop nodes correctly 
-    ##       and then only look for the find the first loop-node and
     def unroll_single_loop(self, loop_id: int, nodes_subset: "list[NodeId]"):
         logging.info(f'Unrolling loop with id: {loop_id}')
-        loop_node_ids = self.find_outer_loop_sub_partial_order(loop_id, nodes_subset)
+        all_loop_node_ids = self.find_outer_loop_sub_partial_order(loop_id, nodes_subset)
+        
+        ## We don't want to unroll already committed nodes
+        loop_node_ids = [nid for nid in all_loop_node_ids
+                         if not self.is_committed(nid)]
+
         logging.debug(f'Node ids for loop: {loop_id} are: {loop_node_ids}')
         
         ## Create the new nodes and remap adjacencies accordingly
@@ -834,67 +958,46 @@ class PartialProgramOrder:
 
         return new_first_node_id
 
-    def unroll_loop_node(self, raw_node_id: NodeId):
+    ## This unrolls a loop given a target concrete node id
+    def unroll_loop_node(self, target_concrete_node_id: NodeId):
+        raw_node_id = target_concrete_node_id.get_non_iter_id()
         assert(self.is_loop_node(raw_node_id))
+
+        logging.debug(f'Edges: {self.adjacency}')
 
         ## Find the closest non-committed successor with this node id
         ## Note: This is necessary because we might need to unroll only a subset of the loops that a node is part of.
         ##       This is relevant when we have nested loops.
         all_non_committed = self.get_all_non_committed()
         all_non_committed_loop_nodes = self.filter_loop_nodes(all_non_committed)
-        source_node_ids = self.get_sub_po_source_nodes(all_non_committed_loop_nodes)
+        logging.debug(f'All non committed loop nodes: {all_non_committed_loop_nodes}')
+        source_node_ids = self.get_min(all_non_committed_loop_nodes)
         ## Note: This assertion might not hold once we have actual partial orders
         assert(len(source_node_ids) == 1)
         node_id = source_node_ids[0]
         logging.debug(f'Closest non-committed loop node successor with raw_id {raw_node_id} is: {node_id}')
         loop_contexts = self.get_node_loop_context(node_id)
 
-        ## Bug with nested loops:
-        ## We need to have some sort of analysis that determines when to commit internal loop nodes.
-        ##
-        ## Issue:
-        ## for i
-        ##   for j
-        ##     cmd
-        ##   done
-        ## done
-        ## 
-        ## Execution:
-        ## cmd is unrolled to cmd+1 (the external loop)
-        ## cmd+1 is unrolled to cmd+1-1 (the internal loop)
-        ## cmd+1-1 is executed, ..., and committed
-        ##
-        ## The correct thing here would be for cmd+1 to be unrolled again to cmd+2-1
-        ## !! What happens instead is that cmd is unrolled again to cmd+2 and then to cmd+1-2
-        ## 
-        ## Questions:
-        ## 1. When is an internal semi-loop node committed (e.g., cmd+1)
-        ##    A. Whenever we get a wait that has surpassed it (either successor in actual partial order or bigger iterations).
-        ## 2. How do we determine which node to unroll?
-        ##    A. I think that we need to always unroll the closest successor that corresponds to the same node_id
-        ##       and is not fully unrolled.
-
 
         ## Unroll all loops that this node is in
         new_first_node_id = self.unroll_loops(loop_contexts)
-
 
         ## TODO: This needs to change when we modify unrolling to happen speculatively too
         ## TODO: This needs to properly add the node to frontier and to resolve dictionary
         self.step_forward(self.get_committed())
         self.frontier.append(new_first_node_id)
 
+        ## At the end of unrolling the target node must be part of the PO
+        assert(self.is_node_id(target_concrete_node_id))
 
-    def maybe_unroll(self, raw_node_id: NodeId, loop_counters: "list[int]") -> NodeId:
-        node_id = NodeId(raw_node_id.id, LoopStack(loop_counters))
 
+    def maybe_unroll(self, node_id: NodeId) -> NodeId:
         ## Only unrolls this node if it doesn't already exist in the PO
         if not self.is_node_id(node_id):
-            self.unroll_loop_node(raw_node_id)
+            self.unroll_loop_node(node_id)
 
         ## The node_id must be part of the PO after unrolling, otherwise we did something wrong
         assert(self.is_node_id(node_id))
-        return node_id
 
     ## KK 2023-09-05 @Giorgo Do all of these steps need to be done at once, or are these methods
     ##               meaningful even if called one by one? In general, I would like there to

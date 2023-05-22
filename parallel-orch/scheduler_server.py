@@ -70,16 +70,17 @@ class Scheduler:
         self.partial_program_order = parse_partial_program_order_from_file(partial_order_file)
         self.partial_program_order.init_partial_order()
 
-    def __parse_wait(self, input_cmd: str):
+    def __parse_wait(self, input_cmd: str) -> NodeId:
         try:
             node_id_component, loop_iter_counter_component = input_cmd.rstrip().split("|")
-            node_id = NodeId(int(node_id_component.split(":")[1].rstrip()))
+            raw_node_id_int = int(node_id_component.split(":")[1].rstrip())
             loop_counters_str = loop_iter_counter_component.split(":")[1].rstrip()
             if loop_counters_str == "None":
-                loop_counters = []
+                node_id = NodeId(raw_node_id_int)
             else:
                 loop_counters = [int(cnt) for cnt in loop_counters_str.split("-")]
-            return node_id, loop_counters
+                node_id = NodeId(raw_node_id_int, LoopStack(loop_counters))            
+            return node_id
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')
 
@@ -87,19 +88,9 @@ class Scheduler:
         assert(input_cmd.startswith("Wait"))
         ## We have received this message by the JIT, which waits for a node_id to
         ## finish execution.
-        raw_node_id, loop_counters = self.__parse_wait(input_cmd)        
-        logging.debug(f'Scheduler: Received wait for node_id: {raw_node_id} with loop counters: {loop_counters}')
+        node_id = self.__parse_wait(input_cmd)        
+        logging.debug(f'Scheduler: Received wait for node_id: {node_id}')
 
-        ## Unroll some nodes if needed. maybe_unroll_node returns the relevant node_id
-        ##  after unrolling.
-        if self.partial_program_order.is_loop_node(raw_node_id):
-            ## TODO: This unrolling can also happen and be moved to speculation.
-            ##       For now we are being conservative and that is why it only happens here
-            ## TODO: Move this to the scheduler.schedule_work() (if we have a loop node waiting for response and we are not unrolled, unroll to create work)
-            node_id = self.partial_program_order.maybe_unroll(raw_node_id, loop_counters)
-        else:
-            ## If we are not in a loop, then the node id corresponds to the concrete node
-            node_id = raw_node_id
 
         ## Inform the partial order that we received a wait for a node so that it can push loops
         ## forward and so on.

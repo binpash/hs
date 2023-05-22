@@ -1,10 +1,15 @@
 echo hi
-for i in 1 2 3; do
-    echo hi1
-    sleep 1
-    echo hi2
+for i in 1 2; do
+    # echo hi1
+    for j in 1 2 3; do
+        echo hi2
+        sleep 1
+        echo hi3
+    done
+    echo hi4
 done
-echo hi3
+echo hi5
+
 
 ## Future loop tests must include:
 ## 1. A single loop with a single command without anything else 

@@ -739,12 +739,16 @@ class PartialProgramOrder:
             i += 1
 
         ## We now know that their common prefix of iterations is the same
-        
-        # ## If the nodes are in the exact same loops, then we simply compare their identifiers
-        # if len(loop_ids1) == len(loop_ids2):
-        #     ## KK 2023-05-22 It is annoying that this is not implemented using < of NodeIds
-        #     return nid1.id < nid2.id
-        # else:
+
+        ## Check if the node could potentially generate other nodes that are bigger
+        ##  i.e., if it is more abstract. If so, then it is not smaller.
+        common_loop_depth = min(len(loop_ids1), len(loop_ids2))
+        abstract_depth1 = max(common_loop_depth - len(iters1), 0)
+        abstract_depth2 = max(common_loop_depth - len(iters2), 0)
+        if abstract_depth1 < abstract_depth2:
+            return True
+        elif abstract_depth1 > abstract_depth2:
+            return False
 
         return nid1.id < nid2.id
 
@@ -755,6 +759,8 @@ class PartialProgramOrder:
         ##  a loop node iteration. In this case, we just need to make sure that
         ##  we commit the right previous loop nodes that are relevant to it.
         if not self.is_node_id(node_id):
+            ## TODO: This check is not correct currently, it works for now, but when we move to full partial orders it wont anymore,
+            ##        due to the check happening with < in hypothetical before
             logging.debug(f" > Node {node_id} is not part of the PO so we compute the nodes that would be before it...")
             all_non_committed = self.get_all_non_committed()
             all_non_committed_loop_nodes = self.filter_loop_nodes(all_non_committed)

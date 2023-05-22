@@ -55,6 +55,7 @@ class LoopStack:
         return self.loops.index(loop_iter_id)
 
     def __repr__(self):
+        ## TODO: Represent it using it
         output = "-".join([str(it) for it in self.loops])
         return output
 
@@ -94,6 +95,7 @@ class NodeId:
         return new_node_id
 
     def __repr__(self):
+        ## TODO: Represent it using n.
         output = str(self.id)
         if not self.loop_iters.is_empty():
             output += f'+{self.loop_iters}'
@@ -165,8 +167,8 @@ class Node:
     def get_next_iter(self, loop_id: int) -> int:
         assert(self.in_loop())
         assert(self.loop_context.get_outer() == loop_id)
-        print(f' >>>> node: {self} loop context: {self.loop_context}')
-        print(f' >>>> searching for id: {loop_id}')
+        logging.debug(f' >>>> node: {self} loop context: {self.loop_context}')
+        logging.debug(f' >>>> searching for id: {loop_id}')
         loop_id_index_in_loop_context_stack = self.loop_context.index(loop_id)
         self.current_iters[loop_id_index_in_loop_context_stack] += 1
         return self.current_iters[loop_id_index_in_loop_context_stack]
@@ -424,6 +426,10 @@ class PartialProgramOrder:
     def filter_standard_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
         return [node_id for node_id in node_ids
                 if not self.is_loop_node(node_id)]
+    
+    def filter_loop_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
+        return [node_id for node_id in node_ids
+                if self.is_loop_node(node_id)]
 
     ## This creates a new node_id and then creates a mapping from the node and iteration id to this node id
     ## TODO: Currently doesn't work with nested loops
@@ -828,18 +834,67 @@ class PartialProgramOrder:
 
         return new_first_node_id
 
-    def unroll_loop_node(self, node_id: NodeId):
-        assert(self.is_loop_node(node_id))
+    def unroll_loop_node(self, raw_node_id: NodeId):
+        assert(self.is_loop_node(raw_node_id))
+
+        ## Find the closest non-committed successor with this node id
+        ## Note: This is necessary because we might need to unroll only a subset of the loops that a node is part of.
+        ##       This is relevant when we have nested loops.
+        all_non_committed = self.get_all_non_committed()
+        all_non_committed_loop_nodes = self.filter_loop_nodes(all_non_committed)
+        source_node_ids = self.get_sub_po_source_nodes(all_non_committed_loop_nodes)
+        ## Note: This assertion might not hold once we have actual partial orders
+        assert(len(source_node_ids) == 1)
+        node_id = source_node_ids[0]
+        logging.debug(f'Closest non-committed loop node successor with raw_id {raw_node_id} is: {node_id}')
         loop_contexts = self.get_node_loop_context(node_id)
+
+        ## Bug with nested loops:
+        ## We need to have some sort of analysis that determines when to commit internal loop nodes.
+        ##
+        ## Issue:
+        ## for i
+        ##   for j
+        ##     cmd
+        ##   done
+        ## done
+        ## 
+        ## Execution:
+        ## cmd is unrolled to cmd+1 (the external loop)
+        ## cmd+1 is unrolled to cmd+1-1 (the internal loop)
+        ## cmd+1-1 is executed, ..., and committed
+        ##
+        ## The correct thing here would be for cmd+1 to be unrolled again to cmd+2-1
+        ## !! What happens instead is that cmd is unrolled again to cmd+2 and then to cmd+1-2
+        ## 
+        ## Questions:
+        ## 1. When is an internal semi-loop node committed (e.g., cmd+1)
+        ##    A. Whenever we get a wait that has surpassed it (either successor in actual partial order or bigger iterations).
+        ## 2. How do we determine which node to unroll?
+        ##    A. I think that we need to always unroll the closest successor that corresponds to the same node_id
+        ##       and is not fully unrolled.
+
 
         ## Unroll all loops that this node is in
         new_first_node_id = self.unroll_loops(loop_contexts)
+
 
         ## TODO: This needs to change when we modify unrolling to happen speculatively too
         ## TODO: This needs to properly add the node to frontier and to resolve dictionary
         self.step_forward(self.get_committed())
         self.frontier.append(new_first_node_id)
 
+
+    def maybe_unroll(self, raw_node_id: NodeId, loop_counters: "list[int]") -> NodeId:
+        node_id = NodeId(raw_node_id.id, LoopStack(loop_counters))
+
+        ## Only unrolls this node if it doesn't already exist in the PO
+        if not self.is_node_id(node_id):
+            self.unroll_loop_node(raw_node_id)
+
+        ## The node_id must be part of the PO after unrolling, otherwise we did something wrong
+        assert(self.is_node_id(node_id))
+        return node_id
 
     ## KK 2023-09-05 @Giorgo Do all of these steps need to be done at once, or are these methods
     ##               meaningful even if called one by one? In general, I would like there to

@@ -122,7 +122,7 @@ class NodeId:
         # True at the same time
         return not(self == other)
     
-    ## TODO: Define this correctly
+    ## TODO: Define this correctly if it is to be used for something other than dictionary indexing
     def __lt__(self, obj):
         return (str(self) < str(obj))
   
@@ -177,8 +177,6 @@ class Node:
     def get_next_iter(self, loop_id: int) -> int:
         assert(self.in_loop())
         assert(self.loop_context.get_outer() == loop_id)
-        logging.debug(f' >>>> node: {self} loop context: {self.loop_context}')
-        logging.debug(f' >>>> searching for id: {loop_id}')
         loop_id_index_in_loop_context_stack = self.loop_context.index(loop_id)
         self.current_iters[loop_id_index_in_loop_context_stack] += 1
         return self.current_iters[loop_id_index_in_loop_context_stack]
@@ -271,19 +269,17 @@ class PartialProgramOrder:
     ## In a real partial order, this could be many,
     def get_min(self, node_ids: "list[NodeId]") -> "list[NodeId]":
         potential_minima = set(copy.deepcopy(node_ids))
-        logging.debug(f"Start potential minima: {potential_minima}")
         for node_id in node_ids:
             tc = self.get_transitive_closure([node_id])
             ## Remove the node itself from its transitive closure
             tc.remove(node_id)
-            logging.debug(f"Transitive closure of {node_id} is {tc}")
             ## If a node is found in the tc of another node, then
             ##  it is not a minimum
             for nid in tc:
                 potential_minima.discard(nid)
         ## KK 2023-05-22 This will be removed at some point but I keep it here
         ##    for now for easier bug finding.
-        logging.debug(f"Potential minima: {potential_minima}")
+        # logging.debug(f"Potential minima: {potential_minima}")
         assert(len(potential_minima) == 1)
         return list(potential_minima)
 
@@ -396,6 +392,7 @@ class PartialProgramOrder:
         self.log_partial_program_order_info()
         valid1 = self.loop_nodes_valid()
         ## TODO: Add a check that for x, y : NodeIds, x < y iff x is a predecessor to x
+        ##       This is necessary due to the `hypothetical_before` method.
 
         ## TODO: Fix the checks below because they do not work currently
         ## TODO: Check that committed is prefix closed w.r.t partial order
@@ -470,7 +467,6 @@ class PartialProgramOrder:
         logging.debug(f' >>> Node: {node}')
         logging.debug(f' >>> its loops: {node.loop_context} --- {node.current_iters}')
 
-        ## TODO: This is wrong! We don't always want to progress the iter when we unroll.
         new_iter = node.get_next_iter(loop_id)
         ## Creates a new node id where we have appended the new iter
         new_node_id = node_id.generate_new_node_id_with_another_iter(new_iter)
@@ -690,12 +686,13 @@ class PartialProgramOrder:
     ## Therefore it does not just check edges, but rather computes if it would be before
     ##  based on ids and loop iterations.
     ##
-    ## This is a complex procedure, I wonder if we can simplify it in some way:
     ## 1. Check if the loop ids of the two abstract parents of both nodes differ 
     ##     thus showing that one is before the other 
     ## 2. If all loop ids are the same, now we can actually compare iterations.
     ##     If a node is in the same loop ids but in a later iteration then it is later.
     ## 3. If all iterations are the same too, then we just compare node ids
+    ##
+    ## KK 2023-05-22 This is a complex procedure, I wonder if we can simplify it in some way
     def hypothetical_before(self, nid1: NodeId, nid2: NodeId):
         raw_id1 = nid1.get_non_iter_id()
         ## Get all loop ids that nid1 could be in
@@ -823,6 +820,12 @@ class PartialProgramOrder:
         ##   since we know that they won't have any more iterations (the JIT frontend has already passed them).
         
         ## We first have to push and progress the PO due to the wait and then unroll
+        ## KK 2023-05-22 Currently this checks whether a still nonexistent node is
+        ##               would be a successor of existing nodes to commit some of 
+        ##               them if needed. Unfortunately, to make this check for a non-existent
+        ##               node is very complex and not elegant. 
+        ## TODO: Could we swap unrolling and progressing so that we always 
+        ##        check if a node can be progressed by checking edges?
         self.progress_po_due_to_wait(node_id)
 
         ## Unroll some nodes if needed.
@@ -935,7 +938,6 @@ class PartialProgramOrder:
 
     ## This unrolls a sequence of loops by unrolling each loop outside-in
     def unroll_loops(self, loop_contexts: LoopStack) -> NodeId:
-        ## TODO: Iterate here on all loop contexts
         logging.debug(f'Unrolling the following loops: {loop_contexts}')
 
         ## All new node_ids
@@ -959,8 +961,8 @@ class PartialProgramOrder:
             if not self.is_loop_node(new_node_id):
                 self.workset.append(new_node_id) 
 
-        ## TODO: We need to correctly populate the resolved set of next commands
-        ##       after unrolling the loop.
+        ## KK 2023-05-22 Do we need to correctly populate the resolved set of next commands
+        ##               after unrolling the loop.
 
         return new_first_node_id
 

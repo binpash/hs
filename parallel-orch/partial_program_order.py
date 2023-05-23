@@ -356,7 +356,7 @@ class PartialProgramOrder:
     
     ## This adds a node to the committed set and saves important information
     def commit_node(self, node_id: NodeId):
-        logging.trace(f" > Commiting node {node_id}")
+        logging.debug(f" > Commiting node {node_id}")
         self.save_commit_state_of_cmd(node_id)
         self.committed.add(node_id)
 
@@ -815,7 +815,7 @@ class PartialProgramOrder:
                 # If node is still being executed, we cannot progress further
                 else:
                     new_frontier.extend([frontier_node])
-                    logging.trace(f" > Not commiting node {frontier_node}, readding to frontier")
+                    logging.debug(f" > Not commiting node {frontier_node}, readding to frontier")
 
             ## Update the frontier to the new frontier
             self.frontier = new_frontier
@@ -1065,7 +1065,7 @@ class PartialProgramOrder:
         logging.debug("---------- (Re)executions ------------")
         for cmd in sorted(self.get_committed_list()):
             logging.debug(f" CMD {cmd} executed {self.executions[cmd]} times")
-            logging.trace(f"Executions|{cmd}|{self.executions[cmd]}")
+            logging.trace(f"Executions|{cmd},{self.executions[cmd]}")
         logging.debug(f" Total (re)executions: {sum(list(self.executions.values()))}")
         logging.debug("--------------------------------------")
 
@@ -1137,5 +1137,5 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
         edges[NodeId(from_id)].append(NodeId(to_id))
     
     logging.trace(f"Nodes|{','.join([str(node) for node in nodes])}")
-    logging.trace(f"Edges: {edges}")
+    logging.trace(f"Edges|{edges}")
     return PartialProgramOrder(nodes, edges)

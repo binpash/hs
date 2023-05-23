@@ -1067,6 +1067,7 @@ class PartialProgramOrder:
             logging.debug(f" CMD {cmd} executed {self.executions[cmd]} times")
             logging.trace(f"Executions|{cmd},{self.executions[cmd]}")
         logging.debug(f" Total (re)executions: {sum(list(self.executions.values()))}")
+        logging.trace(f"TotalExec|{sum(list(self.executions.values()))}")
         logging.debug("--------------------------------------")
 
 

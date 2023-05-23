@@ -2,11 +2,28 @@
 import sys
 import re
 
-#1: Log file produced by orch. 
+# 1: Repetitions to check --single:   total repetitions
+#                         --detailed: repetitions dfor each command
+# 2: Log file produced by orch. 
 
-with open(sys.argv[1], "r", encoding="UTF8") as f:
+def check_detailed_repetitions(lines):
+    REGEX = re.compile(r"TRACE\|.*Executions\|")
+    lines = list(filter(REGEX.match, lines))
+    lines = [line.split("|")[3].split(",")[1] for line in lines]
+    print(" ".join(lines))
+    
+def check_total_repetitions(lines):
+    REGEX = re.compile(r"TRACE\|.*TotalExec\|")
+    lines = list(filter(REGEX.match, lines))
+    lines = lines[0].split("|")[3]
+    print(lines)
+
+with open(sys.argv[2], "r", encoding="UTF8") as f:
     lines = f.read().split("\n")
-REGEX = re.compile(r"TRACE\|.*Executions\|")
-lines = list(filter(REGEX.match, lines))
-lines = [line.split("|")[3].split(",")[1] for line in lines]
-print(" ".join(lines))
+    
+if sys.argv[1] == "--total":
+    check_total_repetitions(lines)
+elif sys.argv[1] == "--detailed":
+    check_detailed_repetitions(lines)
+else:
+    assert False

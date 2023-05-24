@@ -8,8 +8,11 @@ sudo apt-get update
 sudo apt install -y make clang llvm git gcc python3-cram file graphviz
 sudo update-alternatives --install /usr/bin/cram cram /usr/bin/cram3 100
 
+## Download submodule dependencies
+git submodule update --init --recursive
+
 ## Install Riker
-(git submodule update --init --recursive; cd deps/riker; make; sudo make install)
+(cd deps/riker; make; sudo make install)
 
 ## Install PaSh
-(git submodule update --init --recursive; cd deps/pash; ./scripts/distro-deps.sh; ./scripts/setup-pash.sh)
+(cd deps/pash; ./scripts/distro-deps.sh; ./scripts/setup-pash.sh)

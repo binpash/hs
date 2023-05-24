@@ -26,7 +26,7 @@ if [ $sandbox_flag -eq 1 ]; then
     ## Generate a temporary directory to store the workfiles
     mkdir -p /tmp/pash_spec
     export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/sandbox_XXXXXXX)/"
-    "${PASH_SPEC_TOP}/overlay-sandbox/run-sandboxed.sh" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh" > "${STDOUT_FILE}"
+    "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh" > "${STDOUT_FILE}"
     exit_code=$?
 else
     export SANDBOX_DIR=""

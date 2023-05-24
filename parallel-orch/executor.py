@@ -44,8 +44,8 @@ def async_run_and_trace_command(command, trace_file, node_id, stdout_file, stder
 
 def commit_workspace(workspace_path):
     ## Call commit-sandbox.sh to commit the uncommitted sandbox to the main workspace 
-    run_script = f'{config.PASH_SPEC_TOP}/overlay-sandbox/commit-sandbox.sh'
-    args = ["/bin/bash", run_script, workspace_path]
+    run_script = f'{config.PASH_SPEC_TOP}/deps/try/try'
+    args = ["/bin/bash", run_script, "commit", workspace_path]
     process = subprocess.check_output(args)
     return process
 

@@ -1,5 +1,5 @@
 "$MISC_SCRIPT_DIR/sleep_and_grep.sh" 1.7 "foo" "$test_output_dir/in1" "$test_output_dir/out1"
-"$MISC_SCRIPT_DIR/sleep_and_grep.sh" 0.7 "bar" "$test_output_dir/in2" "$test_output_dir/out2"
+"$MISC_SCRIPT_DIR/sleep_and_grep.sh" 0.3 "bar" "$test_output_dir/in2" "$test_output_dir/out2"
 "$MISC_SCRIPT_DIR/sleep_and_grep.sh" 0.0 "bar" "$test_output_dir/out2" "$test_output_dir/out3"
 "$MISC_SCRIPT_DIR/sleep_and_grep.sh" 0.3 "baz" "$test_output_dir/in3" "$test_output_dir/out4"
 "$MISC_SCRIPT_DIR/sleep_and_grep.sh" 1.3 "bar" "$test_output_dir/out3" "$test_output_dir/out5"

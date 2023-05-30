@@ -222,10 +222,10 @@ def main():
     # Set debug level
     if args.debug_level == 1:
         logging.getLogger().setLevel(logging.INFO)
-    elif args.debug_level == 2:
+    elif args.debug_level >= 2:
         logging.getLogger().setLevel(logging.DEBUG)
-    elif args.debug_level >= 3:
-        logging.getLogger().setLevel(logging.TRACE)
+    # elif args.debug_level >= 3:
+    #     logging.getLogger().setLevel(logging.TRACE)
 
     scheduler = Scheduler(config.SCHEDULER_SOCKET)
     scheduler.run()

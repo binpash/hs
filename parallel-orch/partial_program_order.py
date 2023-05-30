@@ -1,9 +1,13 @@
 import copy
 import logging
 import os
+import sys
+
+import analysis
 import executor
 import trace
-import sys
+
+from shasta.ast_node import AstNode
 
 class CompletedNodeInfo:
     def __init__(self, exit_code, variable_file, stdout_file):
@@ -144,9 +148,15 @@ def parse_node_id(node_id_str: str) -> NodeId:
         return NodeId(int(node_id_str), LoopStack())
 
 class Node:
-    def __init__(self, id, cmd, loop_context: LoopStack):
-        self.cmd = cmd
+    id: NodeId
+    cmd: str
+    asts: "list[AstNode]"
+    loop_context: LoopStack
+
+    def __init__(self, id, cmd, asts, loop_context: LoopStack):
         self.id = id
+        self.cmd = cmd
+        self.asts = asts
         self.cmd_no_redir = trace.remove_command_redir(self.cmd)
         self.loop_context = loop_context
         ## Keep track of how many iterations of this loop node we have unrolled
@@ -875,7 +885,7 @@ class PartialProgramOrder:
             new_node_loop_contexts.pop_outer()
 
             ## Create the new node
-            self.nodes[new_loop_node_id] = Node(new_loop_node_id, node.cmd, new_node_loop_contexts)
+            self.nodes[new_loop_node_id] = Node(new_loop_node_id, node.cmd, node.asts, new_node_loop_contexts)
             self.executions[new_loop_node_id] = 0
         logging.debug(f'New loop ids: {node_mappings}')
 
@@ -1139,23 +1149,31 @@ class PartialProgramOrder:
     def run_cmd_non_blocking(self, node_id: NodeId):
         ## A command should only be run if it's in the frontier, otherwise it should be spec run
         assert(self.is_frontier(node_id))
-        node = self.get_node(node_id)
-        cmd = node.get_cmd()
-        logging.debug(f'Running command: {node_id} {self.get_node(node_id)}')
+        logging.trace(f'Running command: {node_id} {self.get_node(node_id)}')
         logging.trace(f"ExecutingAdd|{node_id}")
-        self.executions[node_id] += 1
-        proc, trace_file, stdout, stderr, variable_file = executor.async_run_and_trace_command_return_trace(cmd, node_id)
-        logging.debug(f'Read trace from: {trace_file}')
-        self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
+        self.execute_cmd_core(node_id, speculate=False)
 
     ## Run a command and add it to the dictionary of executing ones
     def speculate_cmd_non_blocking(self, node_id: NodeId):
-        node = self.get_node(node_id)
-        cmd = node.get_cmd()
         logging.debug(f'Speculating command: {node_id} {self.get_node(node_id)}')
-        self.executions[node_id] += 1
-        proc, trace_file, stdout, stderr, variable_file = executor.async_run_and_trace_command_return_trace_in_sandbox(cmd, node_id)
+        ## TODO: Since these (this and the function above)
+        ##       are relevant for the report maker,
+        ##       add them in some library (e.g., trace_for_report) 
+        ##       so that we don't accidentally delete them.
         logging.trace(f"ExecutingSandboxAdd|{node_id}")
+        self.execute_cmd_core(node_id, speculate=True)
+
+    def execute_cmd_core(self, node_id: NodeId, speculate=False):
+        node = self.get_node(node_id)
+        ## TODO: Do something with the result of this analysis
+        is_safe = analysis.safe_to_execute(node.asts)
+        cmd = node.get_cmd()
+        self.executions[node_id] += 1
+        if speculate:
+            execute_func = executor.async_run_and_trace_command_return_trace_in_sandbox
+        else:
+            execute_func = executor.async_run_and_trace_command_return_trace
+        proc, trace_file, stdout, stderr, variable_file = execute_func(cmd, node_id)
         logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
 
@@ -1313,10 +1331,12 @@ class PartialProgramOrder:
 
 
 ## TODO: Try to move those to PaSh and import them here
-def parse_cmd_from_file(file_path: str) -> str:
+def parse_cmd_from_file(file_path: str) -> "tuple[str,list[AstNode]]":
+    logging.debug(f'Parsing: {file_path}')
     with open(file_path) as f:
         cmd = f.read()
-    return cmd
+    asts = analysis.parse_shell_to_asts(file_path)
+    return cmd, asts
 
 def parse_edge_line(line: str) -> "tuple[int, int]":
     from_str, to_str = line.split(" -> ")
@@ -1369,9 +1389,11 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
     nodes = {}
     for i in range(number_of_nodes):
         file_path = f'{cmds_directory}/{i}'
-        cmd = parse_cmd_from_file(file_path)
+        cmd, asts = parse_cmd_from_file(file_path)
         loop_ctx = loop_contexts[i]
-        nodes[NodeId(i)] = Node(NodeId(i), cmd, LoopStack(loop_ctx))
+        nodes[NodeId(i)] = Node(NodeId(i), cmd, 
+                                asts=asts, 
+                                loop_context=LoopStack(loop_ctx))
 
     edges = {NodeId(i) : [] for i in range(number_of_nodes)}
     for edge_line in edge_lines:

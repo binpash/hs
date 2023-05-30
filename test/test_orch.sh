@@ -13,8 +13,8 @@ echo "Test script directory:        $TEST_SCRIPT_DIR"
 DEBUG=${DEBUG:-0}
 
 bash="bash"
-## Debug needs to be set to 100 because otherwise repetitions cannot be checked
-orch="$ORCH_TOP/pash-spec.sh -d 100"
+## Debug needs to be set to 2 because otherwise repetitions cannot be checked
+orch="$ORCH_TOP/pash-spec.sh -d 2"
 # Generated test scripts are saved here
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"
 test_dir_bash="$ORCH_TOP/test/test_scripts_bash"
@@ -78,13 +78,13 @@ run_test()
      # Run test with orch
     export test_output_dir="$WORKING_DIR/output_orch"
     stderr_file="$(mktemp)"
-    $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir" > "$test_output_dir/stdout" 2> "$stderr_file"
-    test_orch_ec=$?
-    
     ## Print stderr
-    ## TODO: Fix this to print the stderr continuously by doing the execution checking inside pash-spec
     if [ $DEBUG -ge 1 ]; then 
-        cat "$stderr_file" 1>&2
+        $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir"  2>&1 > "$test_output_dir/stdout" | tee "$stderr_file" 1>&2
+        test_orch_ec=$?
+    else
+        $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir"  2>"$stderr_file" > "$test_output_dir/stdout"
+        test_orch_ec=$?
     fi
 
     diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
@@ -302,6 +302,12 @@ test_loop()
     $shell $2/test_loop.sh
 }
 
+test_break()
+{
+    local shell=$1
+    $shell $2/test_break.sh
+}
+
 ## TODO: make more loop tests with nested loops and commands after the loop
 
 # We run all tests composed with && to exit on the first that fails
@@ -333,6 +339,7 @@ if [ "$#" -eq 0 ]; then
     run_test test9_3
     run_test test_stdout
     run_test test_loop
+    # run_test test_break
 else
     for testname in $@
     do

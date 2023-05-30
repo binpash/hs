@@ -315,9 +315,9 @@ if [ "$#" -eq 0 ]; then
     run_test test1_1 "1 2 3 1" # 7
     run_test test1_2 "1 2 2 1" # 6
     run_test test1_3 "1 2 2 1" # 6
-    run_test test2_1 "1 1 1 1 1 1 1 1 1 1" # 10
-    run_test test2_2 "1 1 1 1 1 1 1 1 1 1" # 10
-    run_test test2_3 "1 1 1 1 1 1 1 1 1 1" # 10
+    run_test test2_1 "1 1 1 1 1 1 1 1 1 1 1" # 10
+    run_test test2_2 "1 1 1 1 1 1 1 1 1 1 1" # 10
+    run_test test2_3 "1 1 1 1 1 1 1 1 1 1 1" # 10
     run_test test3_1 "1 1 2 1 2" # 7
     run_test test3_2 "1 1 2 1 2" # 7
     run_test test3_3 "1 1 2 1 3" # 8

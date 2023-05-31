@@ -1,16 +1,16 @@
 import logging
 
+import libdash.parser
 from shasta.ast_node import *
 from shasta.json_to_ast import to_ast_node
-
-import libdash.parser
+from sh_expand import expand
 
 ## Keeps track of the first time we call the parser
 first_time_calling_parser = True
 
 ## Parses straight a shell script to an AST
 ## through python without calling it as an executable
-def parse_shell_to_asts(input_script_path):
+def parse_shell_to_asts(input_script_path) -> "list[AstNode]":
     global first_time_calling_parser
 
     try:
@@ -21,9 +21,9 @@ def parse_shell_to_asts(input_script_path):
 
         ## Transform the untyped ast objects to typed ones
         typed_ast_objects = []
-        for untyped_ast, original_text, linno_before, linno_after, in new_ast_objects:
+        for untyped_ast, _original_text, _linno_before, _linno_after, in new_ast_objects:
              typed_ast = to_ast_node(untyped_ast)
-             typed_ast_objects.append((typed_ast, original_text, linno_before, linno_after))
+             typed_ast_objects.append(typed_ast)
 
         return typed_ast_objects
     except libdash.parser.ParsingException as e:
@@ -33,22 +33,98 @@ def parse_shell_to_asts(input_script_path):
 
 ## Returns true if the script is safe to speculate and execute outside
 ##  of the original shell context.
-def safe_to_execute(asts) -> bool:
-    logging.debug(f'Asts in question: {asts}')
+##
+## The script is not safe if it might contain a shell primitive. Therefore
+##  the analysis checks if the command in question is one of the underlying
+##  shell's primitives (in our case bash) and if so returns False
+def safe_to_execute(asts: "list[AstNode]", variables: dict) -> bool:
+    ## There should always be a single AST per node and it must be a command
+    assert(len(asts) == 1)
+    ast = asts[0]
+    assert(isinstance(ast, CommandNode))
+    logging.debug(f'Ast in question: {ast}')
     ## TODO: Expand and check whether the asts contain
     ##  a command substitution or a primitive.
     ## If so, then we need to tell the original script to execute the command.
-    ##
-    ## TODO: Write my analysis here, then move it to expand, 
-    ##       and then move expand to its own library
-    ##
-    ## TODO: Also, add a test with a break and see it fail
-    
-    ## TODO: Push the changes that modify the tests to show stderr incrementally
+
+    ## Expand the command argument
+    cmd_arg = ast.arguments[0]
+    exp_state = expand.ExpansionState(variables)
+    ## TODO: Catch exceptions around here
+    expanded_cmd_arg = expand.expand_arg(cmd_arg, exp_state)
+    cmd_str = string_of_arg(expanded_cmd_arg)
+    logging.debug(f'Expanded command argument: {expanded_cmd_arg} (str: "{cmd_str}")')
+
+    ## TODO: Determine if the ast contains a command substitution and if so
+    ##        run it in the original script.
+    ##       In the future, we should be able to perform stateful expansion too,
+    ##        and properly execute and trace command substitutions.
 
     ## KK 2023-05-26 We need to keep in mind that whenever we execute something
     ##               in the original shell, then we cannot speculate anything
     ##               after it, because we cannot track read-write dependencies
     ##               in the original shell.
+
+    if cmd_str in BASH_PRIMITIVES:
+        return False
+    
     return True
+
+BASH_PRIMITIVES = ["break", 
+                   "continue", 
+                   "return"]
+
+
+safe_cases = {
+        "Pipe": (lambda:
+                 lambda ast_node: safe_default(ast_node)),
+        "Command": (lambda:
+                    lambda ast_node: safe_simple(ast_node)),
+        "And": (lambda:
+                lambda ast_node: safe_default(ast_node)),
+        "Or": (lambda:
+               lambda ast_node: safe_default(ast_node)),
+        "Semi": (lambda:
+                 lambda ast_node: safe_default(ast_node)),
+        "Redir": (lambda:
+                  lambda ast_node: safe_default(ast_node)),
+        "Subshell": (lambda:
+                     lambda ast_node: safe_default(ast_node)),
+        "Background": (lambda:
+                       lambda ast_node: safe_default(ast_node)),
+        "Defun": (lambda:
+                  lambda ast_node: safe_default(ast_node)),
+        "For": (lambda:
+                  lambda ast_node: safe_default(ast_node)),
+        "While": (lambda:
+                  lambda ast_node: safe_default(ast_node)),
+        "Case": (lambda:
+                  lambda ast_node: safe_default(ast_node)),
+        "If": (lambda:
+                  lambda ast_node: safe_default(ast_node))
+        }
+
+def safe_command(command):
+    global safe_cases
+    return ast_match(command, safe_cases)
+
+def safe_simple(node: CommandNode):
+    global BASH_PRIMITIVES
+
+    if (len(node.arguments) <= 0):
+        ## KK 2023-05-30 It is unclear if this is ever reachable
+        return True
+
+    ## We only care about the command itself
+    cmd = expand_arg(node.arguments[0])
+    if (cmd in BASH_PRIMITIVES):
+        return False
+    
+    return True 
+
+## By construction we only expect commands in here,
+##  and we cannot recursively see the other constructs because of the way we handle
+##  backquotes.
+def safe_default(node: Command) -> bool:
+    return False
 

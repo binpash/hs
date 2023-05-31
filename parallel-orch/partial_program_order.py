@@ -7,7 +7,7 @@ import analysis
 import executor
 import trace
 
-from shasta.ast_node import AstNode
+from shasta.ast_node import AstNode, CommandNode
 
 class CompletedNodeInfo:
     def __init__(self, exit_code, variable_file, stdout_file):
@@ -157,6 +157,10 @@ class Node:
         self.id = id
         self.cmd = cmd
         self.asts = asts
+        ## There can only be a single AST per node, and this
+        ##  must be a command.
+        assert(len(asts) == 1)
+        assert(isinstance(asts[0], CommandNode))
         self.cmd_no_redir = trace.remove_command_redir(self.cmd)
         self.loop_context = loop_context
         ## Keep track of how many iterations of this loop node we have unrolled
@@ -1165,8 +1169,12 @@ class PartialProgramOrder:
 
     def execute_cmd_core(self, node_id: NodeId, speculate=False):
         node = self.get_node(node_id)
-        ## TODO: Do something with the result of this analysis
-        is_safe = analysis.safe_to_execute(node.asts)
+        ## TODO: Read and pass the actual variables in this
+        variables = {}
+        is_safe = analysis.safe_to_execute(node.asts, variables)
+        if not is_safe:
+            logging.debug(f'Command: "{node}" is not safe to execute, sending to the original shell to execute...')
+            ## TODO: Implement the mechanism that runs the command in the original shell
         cmd = node.get_cmd()
         self.executions[node_id] += 1
         if speculate:

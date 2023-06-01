@@ -339,7 +339,7 @@ if [ "$#" -eq 0 ]; then
     run_test test9_3
     run_test test_stdout
     run_test test_loop
-    # run_test test_break
+    run_test test_break
 else
     for testname in $@
     do

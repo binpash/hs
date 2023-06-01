@@ -39,6 +39,8 @@ def init():
 def success_response(string):
     return f'OK: {string}\n'
 
+def unsafe_response(string):
+    return f'UNSAFE: {string}\n'
 
 def error_response(string):
     return f'ERROR: {string}\n'
@@ -101,7 +103,11 @@ class Scheduler:
             logging.debug(f'Node: {node_id} found in committed, responding immediately!')
             self.waiting_for_response[node_id] = connection
             self.respond_to_pending_wait(node_id)
-            
+        elif node_id in self.partial_program_order.get_unsafe():
+            logging.debug(f'Node: {node_id} found in unsafe, it must be executed in the original shell!')
+            ## TODO: Make a different response
+            self.waiting_for_response[node_id] = connection
+            self.respond_unsafe_to_pending_wait(node_id)
         else:
             ## Command has not executed yet, so we need to wait for it
             logging.debug(f'Node: {node_id} has not finished execution, waiting for response...')
@@ -118,16 +124,35 @@ class Scheduler:
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')
 
-    def respond_to_pending_wait(self, node_id: int):
-        assert(node_id in self.waiting_for_response)
-        ## Get the connection that we need to respond to
-        connection = self.waiting_for_response.pop(node_id)
+    def respond_unsafe_to_pending_wait(self, node_id: int):
+        assert(node_id in self.partial_program_order.get_unsafe())
 
+        ## First remove node_id from unsafe and stopped and add to committed
+        ##  since it will be executed immediately in the original shell
+        self.partial_program_order.remove_from_unsafe(node_id)
+        self.partial_program_order.commit_node(node_id)
+
+        response = unsafe_response("")
+
+        ## Send the response
+        self.respond_to_frontend_core(node_id, response)
+
+
+    def respond_to_pending_wait(self, node_id: int):
         ## Get the completed node info
         node = self.partial_program_order.get_node(node_id)
         completed_node_info = node.get_completed_node_info()
-        response = f'{completed_node_info.get_exit_code()} {completed_node_info.get_variable_file()} {completed_node_info.get_stdout_file()}'
-        socket_respond(connection, success_response(response))
+        msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_variable_file()} {completed_node_info.get_stdout_file()}'
+        response = success_response(msg)
+        ## Send the response
+        self.respond_to_frontend_core(node_id, response)
+
+
+    def respond_to_frontend_core(self, node_id: NodeId, response: str):
+        assert(node_id in self.waiting_for_response)
+        ## Get the connection that we need to respond to
+        connection = self.waiting_for_response.pop(node_id)
+        socket_respond(connection, response)
         connection.close()
 
     def handle_command_exec_complete(self, input_cmd: str):
@@ -175,6 +200,17 @@ class Scheduler:
             logging.error(error_response(f'Error: Unsupported command: {input_cmd}'))
             raise Exception(f'Error: Unsupported command: {input_cmd}')
 
+    def check_unsafe_and_waiting(self):
+        ## If a command is waiting and also deemed to be unsafe, we need to respond
+        waiting_for_response = set(self.waiting_for_response.keys())
+        unsafe = set(self.partial_program_order.get_unsafe())
+        unsafe_and_waiting = unsafe.intersection(waiting_for_response)
+        if len(unsafe_and_waiting) > 0:
+            assert(len(unsafe_and_waiting) == 1)
+            logging.debug(f'Unsafe and waiting for response nodes: {unsafe_and_waiting}')
+            logging.debug(f'Sending responses to them: {unsafe_and_waiting}')
+            unsafe_and_waiting_id = list(unsafe_and_waiting)[0]
+            self.respond_unsafe_to_pending_wait(unsafe_and_waiting_id)
 
     ## This function schedules commands for execution until our capacity is reached
     ##
@@ -182,6 +218,9 @@ class Scheduler:
     ## It is called once per loop iteration, making sure that there is always work happening
     def schedule_work(self):
         self.partial_program_order.schedule_work()
+
+        ## Respond to any waiting nodes that have been deemed to be unsafe
+        self.check_unsafe_and_waiting()
 
     def run(self):
         ## The first command should be the daemon start

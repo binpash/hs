@@ -43,7 +43,7 @@ def safe_to_execute(asts: "list[AstNode]", variables: dict) -> bool:
     ast = asts[0]
     assert(isinstance(ast, CommandNode))
     logging.debug(f'Ast in question: {ast}')
-    ## TODO: Expand and check whether the asts contain
+    ## Expand and check whether the asts contain
     ##  a command substitution or a primitive.
     ## If so, then we need to tell the original script to execute the command.
 

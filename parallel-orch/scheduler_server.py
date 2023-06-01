@@ -105,7 +105,6 @@ class Scheduler:
             self.respond_to_pending_wait(node_id)
         elif node_id in self.partial_program_order.get_unsafe():
             logging.debug(f'Node: {node_id} found in unsafe, it must be executed in the original shell!')
-            ## TODO: Make a different response
             self.waiting_for_response[node_id] = connection
             self.respond_unsafe_to_pending_wait(node_id)
         else:

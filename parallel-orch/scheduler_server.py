@@ -190,8 +190,9 @@ class Scheduler:
         elif (input_cmd.startswith("Done")):
             
             logging.debug(f'Scheduler server received shutdown message.')
-            assert self.partial_program_order.is_completed(), 'The partial program order was not completed!'
             logging.debug(f'The partial order was successfully completed.')
+            if not self.partial_program_order.is_completed():
+                logging.debug(" |- some nodes were skipped completed.")
             socket_respond(connection, success_response("All finished!"))
             self.partial_program_order.log_committed_cmd_state()
             self.partial_program_order.log_executions()
@@ -238,13 +239,19 @@ class Scheduler:
             # If workset is empty we should end.
             # TODO: ec checks fail for now
         self.socket.close()
-        shutdown()
+        self.shutdown()
 
+    def shutdown(self):
+        ## There may be races since this is called through the signal handling
+        logging.debug("PaSh-Spec scheduler is shutting down...")
+        logging.debug("PaSh-Spec scheduler shut down successfully...")
+        self.terminate_pending_commands()
+        
+    def terminate_pending_commands(self):
+        for _node_id, cmd_info in self.partial_program_order.commands_currently_executing.items():
+            proc, _trace_file, _stdout, _stderr, _variable_file = cmd_info
+            proc.terminate()
 
-def shutdown():
-    ## There may be races since this is called through the signal handling
-    logging.debug("PaSh-Spec scheduler is shutting down...")
-    logging.debug("PaSh-Spec scheduler shut down successfully...")
 
 def main():
     args = init()

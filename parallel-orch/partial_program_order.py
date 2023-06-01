@@ -1200,16 +1200,12 @@ class PartialProgramOrder:
             ## Keep some state around to determine that this command is not safe to execute.
             self.stopped.add(node_id)
             self.unsafe.add(node_id)
-            return
-
-            ## TODO: Implement the mechanism that runs the command in the original shell
-            ##
-            ## TODO: Once we receive the wait for this command, we need to respond
-            ##        that it is unsafe, and let the original shell execute it.
             ## TODO: After we respond to the wait, we need to invalidate all later
             ##        commands as if they had dependencies with it. In the future,
             ##        we can be smarter with it. Many unsafe commands will not have
             ##        other side-effects, so we don't need to invalidate anything after them.
+            return
+
         cmd = node.get_cmd()
         self.executions[node_id] += 1
         if speculate:

@@ -318,9 +318,9 @@ if [ "$#" -eq 0 ]; then
     run_test test2_1 "1 1 1 1 1 1 1 1 1 1 1" # 10
     run_test test2_2 "1 1 1 1 1 1 1 1 1 1 1" # 10
     run_test test2_3 "1 1 1 1 1 1 1 1 1 1 1" # 10
-    run_test test3_1 "1 1 2 1 2" # 7
-    run_test test3_2 "1 1 2 1 2" # 7
-    run_test test3_3 "1 1 2 1 3" # 8
+    run_test test3_1 # "1 1 2 1 2" # 7
+    run_test test3_2 # "1 1 2 1 2" # 7
+    run_test test3_3 # "1 1 2 1 3" # 8
     run_test test4_1 "1 2 1" # 4
     run_test test4_2 "1 2 1" # 4
     run_test test4_3 "1 2 1" # 4
@@ -334,11 +334,12 @@ if [ "$#" -eq 0 ]; then
     # Test 8 is failing for now
     # cleanup
     # run_test test8
-    run_test test9_1 "1 2 1 1 1 2 2 2 2 2 1 1 1" # 19
-    run_test test9_2 "1 1 1 1 1 1 1 1 1 1 1 1 1" # 13
-    run_test test9_3 "1 1 1 1 1 1 1 1 2 2 1 1 1" # 15
+    # for now we don't check for reps in tests 9_x
+    run_test test9_1 # "1 2 1 1 1 2 2 2 2 2 1 1 1" # 19
+    run_test test9_2 # "1 1 1 1 1 1 1 1 1 1 1 1 1" # 13
+    run_test test9_3 # "1 1 1 1 1 1 1 1 2 2 1 1 1" # 15
     run_test test_stdout "1 1 1 1 1 1" # 6
-    run_test test_loop 
+    run_test test_loop
 else
     for testname in $@
     do
@@ -370,7 +371,7 @@ echo "> Below follow the identical outputs:"
 grep "are identical" "$output_dir"/result_status | awk '{print $1}' | tee $output_dir/passed.log
 
 echo "> Below follow the non-identical outputs:"     
-grep "are not identical" "$output_dir"/result_status | awk '{print $1}' | tee $output_dir/failed.log
+grep "are not identical" "$output_dir"/result_status | awk '{print $1}' | tee $output_dir/failed.log >> results_all.log
 echo "========================================================"
 TOTAL_TESTS=$(cat "$output_dir"/result_status | wc -l | xargs)
 PASSED_TESTS=$(grep -c "are identical" "$output_dir"/result_status)

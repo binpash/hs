@@ -48,12 +48,18 @@ test_repetitions()
 {
     local repetitions="$1"
     local exec_log_file="$2"
-
-    ## TODO: Replace check with total repetitions
-    result=`python3 $WORKING_DIR/parse_cmd_repetitions.py $exec_log_file`
-    if [ "$repetitions" != "$result" ]; then
-        echo " (!) Reps not optimal: Expected: $repetitions | Got: $result" 1>&2
-        return 1
+    if [ "${#repetitions}" -eq 1 ]; then
+        result=`python3 $WORKING_DIR/parse_cmd_repetitions.py "--total" $exec_log_file`
+        if [ "$repetitions" != "$result" ]; then
+            echo " (!) Reps (total) not optimal: Expected: $repetitions | Got: $result" 1>&2
+            return 1
+        fi
+    else
+        result=`python3 $WORKING_DIR/parse_cmd_repetitions.py "--detailed" $exec_log_file`
+        if [ "$repetitions" != "$result" ]; then
+            echo " (!) Reps (detailed) not optimal: Expected: $repetitions | Got: $result" 1>&2
+            return 1
+        fi
     fi
 }
 
@@ -311,39 +317,40 @@ test_break()
 ## TODO: make more loop tests with nested loops and commands after the loop
 
 # We run all tests composed with && to exit on the first that fails
-if [ "$#" -eq 0 ]; then
-    run_test test1_1 # "1 2 2 1"
-    run_test test1_2 # "1 2 2 1"
-    run_test test1_3 # "1 2 2 1"
-    run_test test2_1
-    run_test test2_2
-    run_test test2_3
-    run_test test3_1
-    run_test test3_2
-    run_test test3_3
-    run_test test4_1
-    run_test test4_2
-    run_test test4_3
-    run_test test5_1
-    run_test test5_2
-    run_test test5_3
+if [ "$#" -eq 0 ]; then 
+    run_test test1_1 "1 2 3 1" # 7
+    run_test test1_2 "1 2 2 1" # 6
+    run_test test1_3 "1 2 2 1" # 6
+    run_test test2_1 "1 1 1 1 1 1 1 1 1 1 1" # 10
+    run_test test2_2 "1 1 1 1 1 1 1 1 1 1 1" # 10
+    run_test test2_3 "1 1 1 1 1 1 1 1 1 1 1" # 10
+    run_test test3_1 # "1 1 2 1 2" # 7
+    run_test test3_2 # "1 1 2 1 2" # 7
+    run_test test3_3 # "1 1 2 1 3" # 8
+    run_test test4_1 "1 2 1" # 4
+    run_test test4_2 "1 2 1" # 4
+    run_test test4_3 "1 2 1" # 4
+    run_test test5_1 "1 1 1" # 3
+    run_test test5_2 "1 1 1" # 3
+    run_test test5_3 "1 1 1" # 3
     # run_test test6
-    run_test test7_1
-    run_test test7_2
-    run_test test7_3
+    run_test test7_1 "1 1 1 1 1 1 1 1 1 1 1 1" # 12
+    run_test test7_2 "1 1 1 1 1 1 1 1 1 1 1 1" # 12
+    run_test test7_3 "1 1 1 1 1 1 1 1 1 1 1 1" # 12
     # Test 8 is failing for now
     # cleanup
     # run_test test8
-    run_test test9_1
-    run_test test9_2
-    run_test test9_3
-    run_test test_stdout
+    # for now we don't check for reps in tests 9_x
+    run_test test9_1 # "1 2 1 1 1 2 2 2 2 2 1 1 1" # 19
+    run_test test9_2 # "1 1 1 1 1 1 1 1 1 1 1 1 1" # 13
+    run_test test9_3 # "1 1 1 1 1 1 1 1 2 2 1 1 1" # 15
+    run_test test_stdout "1 1 1 1 1 1" # 6
     run_test test_loop
     run_test test_break
 else
     for testname in $@
     do
-        run_test "$testname"
+        run_test "$testname" "$2"
     done
 fi
 
@@ -371,7 +378,7 @@ echo "> Below follow the identical outputs:"
 grep "are identical" "$output_dir"/result_status | awk '{print $1}' | tee $output_dir/passed.log
 
 echo "> Below follow the non-identical outputs:"     
-grep "are not identical" "$output_dir"/result_status | awk '{print $1}' | tee $output_dir/failed.log
+grep "are not identical" "$output_dir"/result_status | awk '{print $1}' | tee $output_dir/failed.log >> results_all.log
 echo "========================================================"
 TOTAL_TESTS=$(cat "$output_dir"/result_status | wc -l | xargs)
 PASSED_TESTS=$(grep -c "are identical" "$output_dir"/result_status)

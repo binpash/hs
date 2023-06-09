@@ -7,13 +7,13 @@ import re
 # 2: Log file produced by orch. 
 
 def check_detailed_repetitions(lines):
-    REGEX = re.compile(r"TRACE\|.*Executions\|")
+    REGEX = re.compile(r"DEBUG\|.*Executions\|")
     lines = list(filter(REGEX.match, lines))
     lines = [line.split("|")[3].split(",")[1] for line in lines]
     print(" ".join(lines))
     
 def check_total_repetitions(lines):
-    REGEX = re.compile(r"TRACE\|.*TotalExec\|")
+    REGEX = re.compile(r"DEBUG\|.*TotalExec\|")
     lines = list(filter(REGEX.match, lines))
     lines = lines[0].split("|")[3]
     print(lines)

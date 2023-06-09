@@ -1,9 +1,13 @@
 import copy
 import logging
 import os
+import sys
+
+import analysis
 import executor
 import trace
-import sys
+
+from shasta.ast_node import AstNode, CommandNode
 
 class CompletedNodeInfo:
     def __init__(self, exit_code, variable_file, stdout_file):
@@ -144,9 +148,19 @@ def parse_node_id(node_id_str: str) -> NodeId:
         return NodeId(int(node_id_str), LoopStack())
 
 class Node:
-    def __init__(self, id, cmd, loop_context: LoopStack):
-        self.cmd = cmd
+    id: NodeId
+    cmd: str
+    asts: "list[AstNode]"
+    loop_context: LoopStack
+
+    def __init__(self, id, cmd, asts, loop_context: LoopStack):
         self.id = id
+        self.cmd = cmd
+        self.asts = asts
+        ## There can only be a single AST per node, and this
+        ##  must be a command.
+        assert(len(asts) == 1)
+        assert(isinstance(asts[0], CommandNode))
         self.cmd_no_redir = trace.remove_command_redir(self.cmd)
         self.loop_context = loop_context
         ## Keep track of how many iterations of this loop node we have unrolled
@@ -246,6 +260,10 @@ class PartialProgramOrder:
         ## we should keep those in the workset but not execute them
         ## until they reach the frontier
         self.stopped = set()
+        ## Commands deemed unsafe from our analysis, that have to be executed
+        ##  in the original shell (e.g., shell primitives)
+        ## Invariant: self.unsafe \subseteq self.stopped
+        self.unsafe = set()
         self.committed_order = []
         self.commit_state = {}
         ## Counts the times a node was (re)executed
@@ -366,7 +384,19 @@ class PartialProgramOrder:
 
     def get_workset(self) -> list:
         return self.workset
+
+    def get_unsafe(self) -> set:
+        return copy.deepcopy(self.unsafe)
     
+    ## Only return the stopped that are not unsafe
+    def get_stopped_safe(self) -> set:
+        return copy.deepcopy(self.stopped.difference(self.unsafe))
+
+    ## When we remove a command from unsafe we always remove from stopped too
+    def remove_from_unsafe(self, node_id: NodeId):
+        self.unsafe.remove(node_id)
+        self.stopped.remove(node_id)
+
     def get_committed(self) -> set:
         return copy.deepcopy(self.committed)
 
@@ -394,11 +424,14 @@ class PartialProgramOrder:
         ## TODO: Add a check that for x, y : NodeIds, x < y iff x is a predecessor to x
         ##       This is necessary due to the `hypothetical_before` method.
 
+        ## Any command in unsafe must also be in stopped
+        valid2 = self.unsafe.issubset(self.stopped)
+
         ## TODO: Fix the checks below because they do not work currently
         ## TODO: Check that committed is prefix closed w.r.t partial order
         # self.all_frontier_nodes_after_committed_nodes()
         # self.frontier_and_committed_intersect()
-        return valid1
+        return valid1 and valid2
 
     ## Checks if loop nodes are all valid, i.e., that there are no loop nodes handled like normal ones,
     ##   e.g., in workset, frontier etc
@@ -671,7 +704,9 @@ class PartialProgramOrder:
 
     def rerun_stopped(self):
         new_stopped = self.stopped.copy()
-        for cmd_id in self.stopped:
+        ## We never remove stopped commands that are unsafe
+        ##  from the stopped set to be reexecuted.
+        for cmd_id in self.get_stopped_safe():
             if cmd_id in self.frontier:
                 self.workset.append(cmd_id)
                 logging.debug(f"Removing {cmd_id} from stopped")
@@ -835,6 +870,7 @@ class PartialProgramOrder:
             ## TODO: Move this to the scheduler.schedule_work() (if we have a loop node waiting for response and we are not unrolled, unroll to create work)
             self.maybe_unroll(node_id)
 
+        assert(self.valid())
 
     def find_outer_loop_sub_partial_order(self, loop_id: int, nodes_subset: "list[NodeId]") -> "list[NodeId]":
         loop_node_ids = []
@@ -875,7 +911,7 @@ class PartialProgramOrder:
             new_node_loop_contexts.pop_outer()
 
             ## Create the new node
-            self.nodes[new_loop_node_id] = Node(new_loop_node_id, node.cmd, new_node_loop_contexts)
+            self.nodes[new_loop_node_id] = Node(new_loop_node_id, node.cmd, node.asts, new_node_loop_contexts)
             self.executions[new_loop_node_id] = 0
         logging.debug(f'New loop ids: {node_mappings}')
 
@@ -1139,23 +1175,44 @@ class PartialProgramOrder:
     def run_cmd_non_blocking(self, node_id: NodeId):
         ## A command should only be run if it's in the frontier, otherwise it should be spec run
         assert(self.is_frontier(node_id))
-        node = self.get_node(node_id)
-        cmd = node.get_cmd()
-        logging.debug(f'Running command: {node_id} {self.get_node(node_id)}')
+        logging.trace(f'Running command: {node_id} {self.get_node(node_id)}')
         logging.trace(f"ExecutingAdd|{node_id}")
-        self.executions[node_id] += 1
-        proc, trace_file, stdout, stderr, variable_file = executor.async_run_and_trace_command_return_trace(cmd, node_id)
-        logging.debug(f'Read trace from: {trace_file}')
-        self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
+        self.execute_cmd_core(node_id, speculate=False)
 
     ## Run a command and add it to the dictionary of executing ones
     def speculate_cmd_non_blocking(self, node_id: NodeId):
-        node = self.get_node(node_id)
-        cmd = node.get_cmd()
         logging.debug(f'Speculating command: {node_id} {self.get_node(node_id)}')
-        self.executions[node_id] += 1
-        proc, trace_file, stdout, stderr, variable_file = executor.async_run_and_trace_command_return_trace_in_sandbox(cmd, node_id)
+        ## TODO: Since these (this and the function above)
+        ##       are relevant for the report maker,
+        ##       add them in some library (e.g., trace_for_report) 
+        ##       so that we don't accidentally delete them.
         logging.trace(f"ExecutingSandboxAdd|{node_id}")
+        self.execute_cmd_core(node_id, speculate=True)
+
+    def execute_cmd_core(self, node_id: NodeId, speculate=False):
+        node = self.get_node(node_id)
+        ## TODO: Read and pass the actual variables in this
+        variables = {}
+        is_safe = analysis.safe_to_execute(node.asts, variables)
+        if not is_safe:
+            logging.debug(f'Command: "{node}" is not safe to execute, sending to the original shell to execute...')
+            
+            ## Keep some state around to determine that this command is not safe to execute.
+            self.stopped.add(node_id)
+            self.unsafe.add(node_id)
+            ## TODO: After we respond to the wait, we need to invalidate all later
+            ##        commands as if they had dependencies with it. In the future,
+            ##        we can be smarter with it. Many unsafe commands will not have
+            ##        other side-effects, so we don't need to invalidate anything after them.
+            return
+
+        cmd = node.get_cmd()
+        self.executions[node_id] += 1
+        if speculate:
+            execute_func = executor.async_run_and_trace_command_return_trace_in_sandbox
+        else:
+            execute_func = executor.async_run_and_trace_command_return_trace
+        proc, trace_file, stdout, stderr, variable_file = execute_func(cmd, node_id)
         logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
 
@@ -1236,13 +1293,14 @@ class PartialProgramOrder:
 
     def log_partial_program_order_info(self):
         logging.debug(f"=" * 80)
-        logging.debug(f"WORKSET:        {self.get_workset()}")
-        logging.debug(f"COMMITTED:      {self.get_committed_list()}")
-        logging.debug(f"FRONTIER:       {self.get_frontier()}")
-        logging.debug(f"EXECUTING:      {list(self.commands_currently_executing.keys())}")
-        logging.debug(f"STOPPED:        {list(self.stopped)}")
-        logging.debug(f"WAITING:        {sorted(list(self.waiting_to_be_resolved))}")
-        logging.debug(f"TO RESOLVE:     {self.to_be_resolved}")
+        logging.debug(f"WORKSET:          {self.get_workset()}")
+        logging.debug(f"COMMITTED:        {self.get_committed_list()}")
+        logging.debug(f"FRONTIER:         {self.get_frontier()}")
+        logging.debug(f"EXECUTING:        {list(self.commands_currently_executing.keys())}")
+        logging.debug(f"STOPPED:          {list(self.stopped)}")
+        logging.debug(f" of which UNSAFE: {list(self.get_unsafe())}")
+        logging.debug(f"WAITING:          {sorted(list(self.waiting_to_be_resolved))}")
+        logging.debug(f"TO RESOLVE:       {self.to_be_resolved}")
         self.log_rw_sets()
         logging.debug(f"=" * 80)
 
@@ -1314,10 +1372,12 @@ class PartialProgramOrder:
 
 
 ## TODO: Try to move those to PaSh and import them here
-def parse_cmd_from_file(file_path: str) -> str:
+def parse_cmd_from_file(file_path: str) -> "tuple[str,list[AstNode]]":
+    logging.debug(f'Parsing: {file_path}')
     with open(file_path) as f:
         cmd = f.read()
-    return cmd
+    asts = analysis.parse_shell_to_asts(file_path)
+    return cmd, asts
 
 def parse_edge_line(line: str) -> "tuple[int, int]":
     from_str, to_str = line.split(" -> ")
@@ -1370,9 +1430,11 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
     nodes = {}
     for i in range(number_of_nodes):
         file_path = f'{cmds_directory}/{i}'
-        cmd = parse_cmd_from_file(file_path)
+        cmd, asts = parse_cmd_from_file(file_path)
         loop_ctx = loop_contexts[i]
-        nodes[NodeId(i)] = Node(NodeId(i), cmd, LoopStack(loop_ctx))
+        nodes[NodeId(i)] = Node(NodeId(i), cmd, 
+                                asts=asts, 
+                                loop_context=LoopStack(loop_ctx))
 
     edges = {NodeId(i) : [] for i in range(number_of_nodes)}
     for edge_line in edge_lines:

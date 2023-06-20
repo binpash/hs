@@ -253,7 +253,7 @@ class PartialProgramOrder:
         self.completed_node_info = {}
         ## KK 2023-05-09 @Giorgo What is the difference of the following two?
         self.to_be_resolved = {}
-        self.waiting_to_be_resolved = set()
+        self.speculated = set()
         ## Contains the most recent sandbox directory paths
         self.sandbox_dirs = {}
         ## Commands that were killed by riker
@@ -579,8 +579,8 @@ class PartialProgramOrder:
     def add_to_write_set(self, node_id: NodeId, item: str):
         self.rw_sets[node_id].add_to_write_set(item)
 
-    def add_to_waiting_to_be_resolved(self, node_id: NodeId):
-        self.waiting_to_be_resolved = self.waiting_to_be_resolved.union([node_id])
+    def add_to_speculated(self, node_id: NodeId):
+        self.speculated = self.speculated.union([node_id])
 
     # Check if the specific command can be resolved.
     # KK 2023-05-04 I am not even sure what this function does and why is it useful.
@@ -617,9 +617,9 @@ class PartialProgramOrder:
         return True
 
     def resolve_commands_that_can_be_resolved_and_step_forward(self):
-        cmds_to_resolve = self.__pop_cmds_to_resolve_from_waiting_to_be_resolved()
+        cmds_to_resolve = self.__pop_cmds_to_resolve_from_speculated()
         logging.debug(f"Commands to check for dependencies this round are: {sorted(cmds_to_resolve)}")
-        logging.debug(f"Commands that cannot be resolved this round are: {sorted(self.waiting_to_be_resolved)}")
+        logging.debug(f"Commands that cannot be resolved this round are: {sorted(self.speculated)}")
         
         ## Resolve dependencies for the commands that can actually be resolved
         to_commit = self.__resolve_dependencies_continuous_and_move_frontier(cmds_to_resolve)
@@ -631,28 +631,28 @@ class PartialProgramOrder:
             self.commit_cmd_workspaces(to_commit)
             # self.print_cmd_stderr(stderr)
 
-    def __pop_cmds_to_resolve_from_waiting_to_be_resolved(self):
-        cmd_ids_to_check = sorted(list(self.waiting_to_be_resolved))
+    def __pop_cmds_to_resolve_from_speculated(self):
+        cmd_ids_to_check = sorted(list(self.speculated))
         logging.debug(f" > Uncommitted commands done executing to be checked: {cmd_ids_to_check}")
         cmds_to_resolve = []
         for cmd_id in cmd_ids_to_check:
             # We check if we can resolve any possible dependencies
             # If we can't, we have to wait for another cycle
             if not self.cmd_can_be_resolved(cmd_id):
-                if cmd_id not in self.waiting_to_be_resolved:
+                if cmd_id not in self.speculated:
                     logging.debug(f" > Adding node {cmd_id} to waiting list")
                     logging.trace(f"WaitingAdd|{cmd_id}")
-                    self.waiting_to_be_resolved.add(cmd_id)
+                    self.speculated.add(cmd_id)
                 else:
                     logging.debug(f" > Keeping node {cmd_id} to waiting list")
             # If we are in this branch it means that we can resolve the dependencies of the current command
             else:
                 cmds_to_resolve.append(cmd_id)
                 # We remove the command from the waiting to be resolved set
-                if cmd_id in self.waiting_to_be_resolved:
+                if cmd_id in self.speculated:
                     logging.debug(f" > Removing node {cmd_id} from waiting list")
                     logging.trace(f"WaitingRemove|{cmd_id}")
-                    self.waiting_to_be_resolved.remove(cmd_id)
+                    self.speculated.remove(cmd_id)
                 else:
                     logging.debug(f" > Node {cmd_id} is able to be resolved")
         return sorted(cmds_to_resolve)
@@ -1076,7 +1076,7 @@ class PartialProgramOrder:
                 if frontier_node not in self.get_currently_executing() \
                     and frontier_node not in self.get_committed() \
                     and frontier_node not in self.stopped \
-                    and frontier_node not in self.waiting_to_be_resolved \
+                    and frontier_node not in self.speculated \
                     and frontier_node not in self.workset\
                     and not self.is_loop_node(frontier_node):
                     ## Commit the node
@@ -1152,7 +1152,7 @@ class PartialProgramOrder:
         for cmd_id in non_frontier_ids:
             # We also need for a cmd to not be waiting to be resolved.
             if not cmd_id in self.commands_currently_executing and \
-               not cmd_id in self.waiting_to_be_resolved:
+               not cmd_id in self.speculated:
                 self.speculate_cmd_non_blocking(cmd_id)
 
     def run_all_frontier_cmds(self):
@@ -1264,7 +1264,7 @@ class PartialProgramOrder:
 
         assert(node_id not in self.stopped)
         ## Since the command properly finished executing, it now waits to be resolved
-        self.add_to_waiting_to_be_resolved(node_id)
+        self.add_to_speculated(node_id)
         ## We can now call the general resolution method that determines which commands
         ## can be resolved (all their dependencies are done executing), and resolves them.
         self.resolve_commands_that_can_be_resolved_and_step_forward()
@@ -1299,7 +1299,7 @@ class PartialProgramOrder:
         logging.debug(f"EXECUTING:        {list(self.commands_currently_executing.keys())}")
         logging.debug(f"STOPPED:          {list(self.stopped)}")
         logging.debug(f" of which UNSAFE: {list(self.get_unsafe())}")
-        logging.debug(f"WAITING:          {sorted(list(self.waiting_to_be_resolved))}")
+        logging.debug(f"WAITING:          {sorted(list(self.speculated))}")
         logging.debug(f"TO RESOLVE:       {self.to_be_resolved}")
         self.log_rw_sets()
         logging.debug(f"=" * 80)
@@ -1314,7 +1314,7 @@ class PartialProgramOrder:
                 continue
             # We don't want to modify the set of nodes to check for dependencies for this node
             # as it started running before previous cmds had started executing
-            elif node_id in self.waiting_to_be_resolved:
+            elif node_id in self.speculated:
                 logging.debug(f" > Node: {node_id} is waiting to be resolved, skipping...")
                 continue
             elif node_id in self.get_currently_executing():

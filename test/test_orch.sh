@@ -314,13 +314,31 @@ test_break()
     $shell $2/test_break.sh
 }
 
+test_network_access_1()
+{
+    local shell=$1
+    $shell $2/test_network_access_1.sh
+}
+
+test_network_access_2()
+{
+    local shell=$1
+    $shell $2/test_network_access_2.sh
+}
+
+test_network_access_3()
+{
+    local shell=$1
+    $shell $2/test_network_access_3.sh
+}
+
 ## TODO: make more loop tests with nested loops and commands after the loop
 
 # We run all tests composed with && to exit on the first that fails
 if [ "$#" -eq 0 ]; then 
     run_test test1_1 "1 2 3 1" # 7
     run_test test1_2 "1 2 2 1" # 6
-    run_test test1_3 "1 2 2 1" # 6
+    run_test test1_3 #"1 2 2 1" # 6
     run_test test2_1 "1 1 1 1 1 1 1 1 1 1 1" # 10
     run_test test2_2 "1 1 1 1 1 1 1 1 1 1 1" # 10
     run_test test2_3 "1 1 1 1 1 1 1 1 1 1 1" # 10
@@ -347,6 +365,9 @@ if [ "$#" -eq 0 ]; then
     run_test test_stdout "1 1 1 1 1 1" # 6
     run_test test_loop
     run_test test_break
+    run_test test_network_access_1 "1 2 2"
+    run_test test_network_access_2 "1 2 2 2"
+    run_test test_network_access_3 "1 2 2 2"
 else
     for testname in $@
     do

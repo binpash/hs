@@ -1,7 +1,7 @@
 [submodule "deps/riker"]
 	path = deps/riker
 	url = https://github.com/angelhof/riker.git
-	branch = dyn-par-investigation
+	branch = eric-custom-db-store
 [submodule "deps/pash"]
 	path = deps/pash
 	url = https://github.com/binpash/pash.git

@@ -1223,31 +1223,34 @@ class PartialProgramOrder:
         _proc, trace_file, stdout, stderr, variable_file = self.commands_currently_executing.pop(node_id)
         logging.trace(f"ExecutingRemove|{node_id}")
         # Handle stopped by riker due to network access
+        logging.debug("RIKER EXIT CODE: " + str(riker_exit_code))
         if int(riker_exit_code) == 159:
             logging.debug(f" > Adding {node_id} to stopped because it tried to access the network.")
             logging.trace(f"StoppedAdd|{node_id}:network")
             self.stopped.add(node_id)
-        trace_object = executor.read_trace(sandbox_dir, trace_file)
-        cmd_exit_code = trace.parse_exit_code(trace_object)
-
-        ## Save the completed node info. Note that if the node doesn't commit
-        ##  this information will be invalid and rewritten the next time execution
-        ##  is completed for this node.
-        completed_node_info = CompletedNodeInfo(cmd_exit_code, variable_file, stdout)
-        self.nodes[node_id].set_completed_info(completed_node_info)
-
-        # Handle any other cmd exit with error
-        # TODO: for now we just postpone them until we reach the frontier
-        #       afterwards we might want to reattempt to speculate them
-        if cmd_exit_code != 0 and node_id not in self.frontier:
-            logging.debug(f" > Adding {node_id} to stopped because it exited with an error.")
-            logging.trace(f"StoppedAdd|{node_id}:error")
-            self.stopped.add(node_id)
         else:
+            
+            trace_object = executor.read_trace(sandbox_dir, trace_file)
+            cmd_exit_code = trace.parse_exit_code(trace_object)
 
-            read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
-            rw_set = RWSet(read_set, write_set)
-            self.update_rw_set(node_id, rw_set)
+            ## Save the completed node info. Note that if the node doesn't commit
+            ##  this information will be invalid and rewritten the next time execution
+            ##  is completed for this node.
+            completed_node_info = CompletedNodeInfo(cmd_exit_code, variable_file, stdout)
+            self.nodes[node_id].set_completed_info(completed_node_info)
+
+            # Handle any other cmd exit with error
+            # TODO: for now we just postpone them until we reach the frontier
+            #       afterwards we might want to reattempt to speculate them
+            if cmd_exit_code != 0 and node_id not in self.frontier:
+                logging.debug(f" > Adding {node_id} to stopped because it exited with an error.")
+                logging.trace(f"StoppedAdd|{node_id}:error")
+                self.stopped.add(node_id)
+            else:
+
+                read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
+                rw_set = RWSet(read_set, write_set)
+                self.update_rw_set(node_id, rw_set)
 
         ## Now that command `node_id` is done executing, we can check which other commands
         ## can be resolved (that might have finished execution before but where waiting on `node_id`)

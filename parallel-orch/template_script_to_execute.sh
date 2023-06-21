@@ -24,8 +24,14 @@ echo 'declare -p > "$OUTPUT_VARIABLE_FILE"' >> ./Rikerfile
 ## The (frontier) cmd is run outside a sandbox
 ## so we want to run and trace everything normally
 # rkr --no-inject # --frontier
-rkr # --frontier
-## TODO: Save the exit code here
-rkr --debug trace -o "$TRACE_FILE" > /dev/null
+if [ $sandbox_flag -eq 1 ]; then
+    rkr
+else
+    rkr --frontier
+fi
+exit_code="$?"
 
+rkr --debug trace -o "$TRACE_FILE" > /dev/null
 pash_redir_output echo "Sandbox ${CMD_ID} Output variables saved in: $OUTPUT_VARIABLE_FILE"
+
+(exit $exit_code)

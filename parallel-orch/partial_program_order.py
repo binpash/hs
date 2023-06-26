@@ -367,7 +367,7 @@ class PartialProgramOrder:
         ## Initialize the workset
         self.init_workset()
         logging.debug(f'Initialized workset')
-        self.populate_to_be_resolved_dict([])
+        self.populate_to_be_resolved_dict()
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.to_be_resolved)
         logging.info(f'Initialized the partial order!')
@@ -698,7 +698,7 @@ class PartialProgramOrder:
         # We want stopped commands to not enter the workset again yet
         assert(set(self.workset).isdisjoint(self.stopped))
 
-        self.step_forward(old_committed)
+        self.step_forward()
         # self.log_partial_program_order_info()
         return set(self.get_committed()) - old_committed
 
@@ -1028,7 +1028,7 @@ class PartialProgramOrder:
 
         ## TODO: This needs to change when we modify unrolling to happen speculatively too
         ## TODO: This needs to properly add the node to frontier and to resolve dictionary
-        self.step_forward(self.get_committed())
+        self.step_forward()
         self.frontier.append(new_first_node_id)
 
         ## At the end of unrolling the target node must be part of the PO
@@ -1056,10 +1056,10 @@ class PartialProgramOrder:
     ##               All top-level functions should get minimal arguments (none if possible)
     ##               and should just get their relevant state from the fields of the PO.
     ## TODO: step_forward seems to be an internal function
-    def step_forward(self, old_committed):
+    def step_forward(self):
         self.frontier_commit_and_push()
         self.rerun_stopped()
-        self.populate_to_be_resolved_dict(old_committed)
+        self.populate_to_be_resolved_dict()
 
     ## Pushes the frontier forward as much as possible for all commands in it that can be committed
     def frontier_commit_and_push(self):
@@ -1302,7 +1302,7 @@ class PartialProgramOrder:
         logging.debug(f"=" * 80)
 
     ## TODO: Document how this finds the to be resolved dict
-    def populate_to_be_resolved_dict(self, old_committed):
+    def populate_to_be_resolved_dict(self):
         logging.debug("Populating the resolved dictionary for all nodes")
         for node_id in self.nodes:
             if self.is_committed(node_id):
@@ -1321,10 +1321,6 @@ class PartialProgramOrder:
                 logging.debug(f" > Node: {node_id} is not executing or waiting to be resolved so we modify its set.")
                 self.to_be_resolved[node_id] = []
                 traversal = []
-                ## KK 2023-04-24: Previously old_committed was used here
-                ##                but this doesn't make sense because we are only modifying
-                ##                the to_be_resolved of currently executing commands.
-                # relevant_committed = old_committed
                 relevant_committed = self.get_committed()
                 if node_id not in relevant_committed:
                     to_add = self.get_prev(node_id).copy()

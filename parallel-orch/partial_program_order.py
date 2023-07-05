@@ -1122,7 +1122,10 @@ class PartialProgramOrder:
         
     def is_next_non_committed_node(self, node_id: NodeId) -> bool:
         # We want the predecessor to be committed and the current node to not be committed
-        return self.is_committed(self.get_prev(node_id)) and not self.is_committed(node_id)
+        for prev_node in self.get_prev(node_id):
+            if not (self.is_committed(prev_node) and not self.is_committed(node_id)):
+                return False
+        return True
 
     def rerun_stopped(self):
         new_stopped = self.stopped.copy()

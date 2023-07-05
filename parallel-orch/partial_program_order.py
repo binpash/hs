@@ -702,19 +702,6 @@ class PartialProgramOrder:
         # self.log_partial_program_order_info()
         return set(self.get_committed()) - old_committed
 
-    def rerun_stopped(self):
-        new_stopped = self.stopped.copy()
-        ## We never remove stopped commands that are unsafe
-        ##  from the stopped set to be reexecuted.
-        for cmd_id in self.get_stopped_safe():
-            if cmd_id in self.frontier:
-                self.workset.append(cmd_id)
-                logging.debug(f"Removing {cmd_id} from stopped")
-                logging.trace(f"StoppedRemove|{cmd_id}")
-                new_stopped.remove(cmd_id)
-                # We remove any to-check-for-dependency nodes as the stopped node will execute in frontier
-                self.to_be_resolved[cmd_id] = []
-        self.stopped = new_stopped
 
     ## This method checks if nid1 would be before nid2 if nid2 was part of the PO.
     ##
@@ -1132,6 +1119,24 @@ class PartialProgramOrder:
         else:
             logging.debug(f' > No dependencies')
             return False
+        
+    def is_next_non_committed_node(self, node_id: NodeId) -> bool:
+        # We want the predecessor to be committed and the current node to not be committed
+        return self.is_committed(self.get_prev(node_id)) and not self.is_committed(node_id)
+
+    def rerun_stopped(self):
+        new_stopped = self.stopped.copy()
+        ## We never remove stopped commands that are unsafe
+        ##  from the stopped set to be reexecuted.
+        for cmd_id in self.get_stopped_safe():
+            if self.is_next_non_committed_node(cmd_id):
+                self.workset.append(cmd_id)
+                logging.debug(f"Removing {cmd_id} from stopped")
+                logging.trace(f"StoppedRemove|{cmd_id}")
+                new_stopped.remove(cmd_id)
+                # We remove any to-check-for-dependency nodes as the stopped node will execute in frontier
+                self.to_be_resolved[cmd_id] = []
+        self.stopped = new_stopped
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
@@ -1318,7 +1323,7 @@ class PartialProgramOrder:
                 logging.debug(f" > Node: {node_id} is currently executing, skipping...")
                 continue
             else:
-                logging.debug(f" > Node: {node_id} is not executing or waiting to be resolved so we modify its set.")
+                logging.debug(f" > Node: {node_id} is not executing or waiting to be resolved (speculated) so we modify its set.")
                 self.to_be_resolved[node_id] = []
                 traversal = []
                 relevant_committed = self.get_committed()

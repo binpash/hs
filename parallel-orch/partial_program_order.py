@@ -1145,25 +1145,19 @@ class PartialProgramOrder:
         # self.log_partial_program_order_info()
 
         logging.debug("Scheduling work...")
-        logging.debug("Rerunning stopped commands")
+        logging.debug("Rerunning stopped command...")
         #TODO: move this to schedule_node() at a later time
         self.rerun_stopped()
         ## KK 2023-05-04 Is it a problem if we do that here?
         # self.step_forward(copy.deepcopy(self.committed))
 
         ## TODO: Move loop unrolling here for speculation too
-        
+
         for cmd_id in self.get_workset():
             # We only need to schedule non-committed and non-executing nodes
-            if cmd_id in self.get_committed() or \
-               cmd_id in self.commands_currently_executing:
-                continue
-            else:
+            if not (cmd_id in self.get_committed() or \
+               cmd_id in self.commands_currently_executing):
                 self.schedule_node(cmd_id)
-
-
-        # self.run_all_frontier_cmds()
-        # self.schedule_all_workset_non_frontier_cmds()
         assert(self.valid())
 
     # Nodes to be scheduled are always not committed and not executing
@@ -1176,23 +1170,6 @@ class PartialProgramOrder:
             if not cmd_id in self.speculated:
                 self.speculate_cmd_non_blocking(cmd_id)
         return
-
-    # def schedule_all_workset_non_frontier_cmds(self):
-    #     non_frontier_ids = [node_id for node_id in self.get_workset() 
-    #                         if not self.is_frontier(node_id)]
-    #     for cmd_id in non_frontier_ids:
-    #         # We also need for a cmd to not be waiting to be resolved.
-    #         if not cmd_id in self.commands_currently_executing and \
-    #            not cmd_id in self.speculated:
-    #             self.speculate_cmd_non_blocking(cmd_id)
-
-    # def run_all_frontier_cmds(self):
-    #     logging.debug("Starting execution on the whole frontier")
-    #     cmd_ids = self.get_frontier()
-    #     for cmd_id in cmd_ids:
-    #         # If frontier cmd is still executing, don't re-execute it
-    #         if not cmd_id in self.commands_currently_executing:
-    #             self.run_cmd_non_blocking(cmd_id)
 
     ## Run a command and add it to the dictionary of executing ones
     def run_cmd_non_blocking(self, node_id: NodeId):

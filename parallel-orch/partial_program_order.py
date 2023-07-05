@@ -1150,8 +1150,6 @@ class PartialProgramOrder:
         ## KK 2023-05-04 Is it a problem if we do that here?
         # self.step_forward(copy.deepcopy(self.committed))
 
-        ## TODO: Move loop unrolling here for speculation too
-
         self.run_all_frontier_cmds()
         self.schedule_all_workset_non_frontier_cmds()
         assert(self.valid())
@@ -1171,14 +1169,6 @@ class PartialProgramOrder:
         for cmd_id in cmd_ids:
             # If frontier cmd is still executing, don't re-execute it
             if not cmd_id in self.commands_currently_executing:
-                # We also re-execute stopped frontier cmds,
-                # therefore, they are no longer stopped
-                logging.debug(f" Removing {cmd_id} from stopped")
-                if cmd_id in self.stopped:
-                    self.stopped.remove(cmd_id)
-                    logging.trace(f"StoppedRemove|{cmd_id}")
-                    # We remove any to-check-for-dependency nodes as the stopped node will execute in frontier
-                    self.to_be_resolved[cmd_id] = []
                 self.run_cmd_non_blocking(cmd_id)
 
     ## Run a command and add it to the dictionary of executing ones

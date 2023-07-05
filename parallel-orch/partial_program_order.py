@@ -1045,7 +1045,6 @@ class PartialProgramOrder:
     ## TODO: step_forward seems to be an internal function
     def step_forward(self):
         self.frontier_commit_and_push()
-        self.rerun_stopped()
         self.populate_to_be_resolved_dict()
 
     ## Pushes the frontier forward as much as possible for all commands in it that can be committed
@@ -1144,7 +1143,10 @@ class PartialProgramOrder:
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
         # self.log_partial_program_order_info()
+
         logging.debug("Scheduling work...")
+        logging.debug("Rerunning stopped commands")
+        self.rerun_stopped()
         ## KK 2023-05-04 Is it a problem if we do that here?
         # self.step_forward(copy.deepcopy(self.committed))
 

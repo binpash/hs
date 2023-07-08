@@ -6,14 +6,12 @@ import tempfile
 
 # This module executes a sequence of commands 
 # and traces them with Riker. 
-# Commands [1:N] are run inside an overlay sandbox.
+# All commands are run inside an overlay sandbox.
 
 def async_run_and_trace_command_return_trace(command, node_id, sandbox_mode=False):
     trace_file = util.ptempfile()
-    ## KK 2023-04-24: @giorgo Is there a reason you used tempfile.NamedTemporaryFile and not util.ptempfile()?
-    stdout_file = tempfile.NamedTemporaryFile(dir=config.PASH_SPEC_TMP_PREFIX)
     stdout_file = util.ptempfile()
-    stderr_file = tempfile.NamedTemporaryFile(dir=config.PASH_SPEC_TMP_PREFIX)
+    stderr_file = util.ptempfile()
     variable_file = util.ptempfile()
     logging.debug(f'Scheduler: Stdout file for: {node_id} is: {stdout_file}')
     logging.debug(f'Scheduler: Stderr file for: {node_id} is: {stderr_file}')
@@ -30,10 +28,8 @@ def async_run_and_trace_command(command, trace_file, node_id, stdout_file, stder
     run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command.sh'
     args = ["/bin/bash", run_script, command, trace_file, stdout_file, variable_file]
     if sandbox_mode:
-        # print(" -- Sandbox mode")
         args.append("sandbox")
     else:
-        # print(" -- Standard mode")
         args.append("standard")
     args.append(str(node_id))
     # Save output to temporary files to not saturate the memory

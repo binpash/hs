@@ -22,17 +22,13 @@ fi
 
 # echo "Execution mode: $EXEC_MODE"
 
-if [ $sandbox_flag -eq 1 ]; then
-    ## Generate a temporary directory to store the workfiles
-    mkdir -p /tmp/pash_spec
-    export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/sandbox_XXXXXXX)/"
-    ## We need to execute `try` with bash to keep the exported functions
-    bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh" > "${STDOUT_FILE}"
-    exit_code=$?
-else
-    "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh" > "${STDOUT_FILE}"
-    exit_code=$?
-fi
+
+## Generate a temporary directory to store the workfiles
+mkdir -p /tmp/pash_spec
+export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/sandbox_XXXXXXX)/"
+## We need to execute `try` with bash to keep the exported functions
+bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh" > "${STDOUT_FILE}"
+exit_code=$?
 
 ## Only used for debugging
 # ls -R "${SANDBOX_DIR}/upperdir" 1>&2

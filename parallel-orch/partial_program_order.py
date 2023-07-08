@@ -463,7 +463,6 @@ class PartialProgramOrder:
     ## This adds a node to the committed set and saves important information
     def commit_node(self, node_id: NodeId):
         logging.debug(f" > Commiting node {node_id}")
-        self.save_commit_state_of_cmd(node_id)
         self.committed.add(node_id)
 
 
@@ -598,6 +597,20 @@ class PartialProgramOrder:
         ## Otherwise we can return
         logging.debug(f' >> Able to resolve {node_id}')
         return True
+    
+    def __kill_all_currently_executing_and_schedule_restart(self):
+        nodes_to_kill = self.get_currently_executing()
+        for cmd_id in nodes_to_kill:
+            self.__kill_node(cmd_id)
+            self.workset.remove(cmd_id)
+        # Our new workset is the nodes that were killed
+        # Previous workset got killed 
+        self.workset.extend(nodes_to_kill)
+            
+    def __kill_node(self, cmd_id: NodeId):
+        logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
+        proc_to_kill, _trace_file, _stdout, _stderr, _variable_file = self.commands_currently_executing.pop(cmd_id)
+        proc_to_kill.kill()
 
     def resolve_commands_that_can_be_resolved_and_push_frontier(self):
         cmds_to_resolve = self.__pop_cmds_to_resolve_from_speculated()
@@ -611,6 +624,7 @@ class PartialProgramOrder:
         else:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
+            self.__kill_all_currently_executing_and_schedule_restart()
             self.commit_cmd_workspaces(to_commit)
             # self.print_cmd_stderr(stderr)
 
@@ -1152,8 +1166,8 @@ class PartialProgramOrder:
     ## Run a command and add it to the dictionary of executing ones
     def run_cmd_non_blocking(self, node_id: NodeId):
         ## A command should only be run if it's in the frontier, otherwise it should be spec run
-        logging.trace(f'Running command: {node_id} {self.get_node(node_id)}')
-        logging.trace(f"ExecutingAdd|{node_id}")
+        logging.debug(f'Running command: {node_id} {self.get_node(node_id)}')
+        logging.debug(f"ExecutingAdd|{node_id}")
         self.execute_cmd_core(node_id, speculate=False)
 
     ## Run a command and add it to the dictionary of executing ones
@@ -1163,7 +1177,7 @@ class PartialProgramOrder:
         ##       are relevant for the report maker,
         ##       add them in some library (e.g., trace_for_report) 
         ##       so that we don't accidentally delete them.
-        logging.trace(f"ExecutingSandboxAdd|{node_id}")
+        logging.debug(f"ExecutingSandboxAdd|{node_id}")
         self.execute_cmd_core(node_id, speculate=True)
 
     def execute_cmd_core(self, node_id: NodeId, speculate=False):
@@ -1192,12 +1206,14 @@ class PartialProgramOrder:
         proc, trace_file, stdout, stderr, variable_file = execute_func(cmd, node_id)
         logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
+        logging.debug(f" >>>>> Command {node_id} - {proc.pid} just started executing")
 
     def command_execution_completed(self, node_id: NodeId, riker_exit_code:int, sandbox_dir: str):
         logging.debug(f" --- Node {node_id}, just finished execution ---")
         self.sandbox_dirs[node_id] = sandbox_dir
         ## TODO: Store variable file somewhere so that we can return when wait
         _proc, trace_file, stdout, stderr, variable_file = self.commands_currently_executing.pop(node_id)
+        logging.debug(f" >>>>> Command {node_id} - {_proc.pid} just finished executing")
         logging.trace(f"ExecutingRemove|{node_id}")
         # Handle stopped by riker due to network access
         if int(riker_exit_code) == 159:
@@ -1269,6 +1285,7 @@ class PartialProgramOrder:
         logging.debug(f"=" * 80)
         logging.debug(f"WORKSET:          {self.get_workset()}")
         logging.debug(f"COMMITTED:        {self.get_committed_list()}")
+        logging.debug(f"FRONTIER:         {self.frontier}")
         logging.debug(f"EXECUTING:        {list(self.commands_currently_executing.keys())}")
         logging.debug(f"STOPPED:          {list(self.stopped)}")
         logging.debug(f" of which UNSAFE: {list(self.get_unsafe())}")
@@ -1314,21 +1331,6 @@ class PartialProgramOrder:
 
     def get_currently_executing(self) -> list:
         return sorted(list(self.commands_currently_executing.keys()))
-    
-    ## KK 2023-05-02 What does this function do?
-    def save_commit_state_of_cmd(self, cmd_id):
-        self.committed_order.append(cmd_id)
-        self.commit_state[cmd_id] = set(self.get_committed()) - set(self.to_be_resolved[cmd_id])
-
-    def log_committed_cmd_state(self):
-        logging.info("---------- Committed Order -----------")
-        logging.info(" " + " -> ".join(map(str, self.committed_order)))
-        logging.info("---------- Committed State -----------")
-        for cmd in sorted(self.get_committed_list()):
-            if len(self.commit_state[cmd]) == 0:
-                logging.info(f" CMD {cmd} on\t\tSTART")
-            else:
-                logging.info(f" CMD {cmd} after:\t{', '.join(map(str, self.commit_state[cmd]))}")
 
     def log_executions(self):
         logging.debug("---------- (Re)executions ------------")

@@ -193,7 +193,6 @@ class Scheduler:
             if not self.partial_program_order.is_completed():
                 logging.debug(" |- some nodes were skipped completed.")
             socket_respond(connection, success_response("All finished!"))
-            self.partial_program_order.log_committed_cmd_state()
             self.partial_program_order.log_executions()
             self.done = True
         else:

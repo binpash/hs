@@ -406,9 +406,6 @@ class PartialProgramOrder:
     def is_committed(self, node_id: NodeId) -> bool:
         return node_id in self.committed
 
-    def get_frontier(self) -> list:
-        return sorted(list(self.frontier))
-
     def init_inverse_adjacency(self):
         self.inverse_adjacency = {i: [] for i in self.nodes.keys()}
         for from_id, to_ids in self.adjacency.items():
@@ -429,8 +426,6 @@ class PartialProgramOrder:
 
         ## TODO: Fix the checks below because they do not work currently
         ## TODO: Check that committed is prefix closed w.r.t partial order
-        # self.all_frontier_nodes_after_committed_nodes()
-        # self.frontier_and_committed_intersect()
         return valid1 and valid2
 
     ## Checks if loop nodes are all valid, i.e., that there are no loop nodes handled like normal ones,
@@ -438,23 +433,14 @@ class PartialProgramOrder:
     ##
     ## Note that loop nodes can be in the committed set (after we are done executing all iterations of a loop)
     def loop_nodes_valid(self):
-        forbidden_sets = self.get_frontier() + \
+        # GL 2023-07-08: This works without get_all_next_non_committed_nodes(), not sure why
+        forbidden_sets = self.get_all_next_non_committed_nodes() + \
                          self.get_workset() + \
                          list(self.stopped) + \
                          list(self.commands_currently_executing.keys())
         loop_nodes_in_forbidden_sets = [node_id for node_id in forbidden_sets 
                                 if self.is_loop_node(node_id)]
         return len(loop_nodes_in_forbidden_sets) == 0
-
-    # Check if all frontier nodes are after committed nodes
-    def all_frontier_nodes_after_committed_nodes(self):
-        ## TODO: Make this check a proper predecessor check
-        # return max(self.get_committed()) < min(self.frontier)
-        return False
-
-    # Checks if frontier and committed intersect
-    def frontier_and_committed_intersect(self):
-        return len(set.intersection(set(self.get_committed()), set(self.get_frontier()))) > 0
 
     def __len__(self):
         return len(self.nodes)
@@ -560,9 +546,6 @@ class PartialProgramOrder:
             all_next_transitive = all_next_transitive.union(successors)
             next_work.extend(new_next)
         return list(all_next_transitive)
-
-    def is_frontier(self, node_id: NodeId) -> bool:
-        return node_id in self.frontier
     
     def update_rw_set(self, node_id, rw_set):
         self.rw_sets[node_id] = rw_set
@@ -1034,7 +1017,7 @@ class PartialProgramOrder:
 
 
     ## Pushes the frontier forward as much as possible for all commands in it that can be committed
-    ## This function is not safe to call on its own, since it might leave the PO in a partial state
+    ## This function is not safe to call on its own, since it might leave the PO in a broken state
     ## It should be called right after
     def __frontier_commit_and_push(self):
         logging.debug(" > Commiting and pushing frontier")
@@ -1107,6 +1090,13 @@ class PartialProgramOrder:
             logging.debug(f' > No dependencies')
             return False
         
+    def get_all_next_non_committed_nodes(self) -> "list[NodeId]":
+        next_non_committed_nodes = []
+        for cmd_id in self.get_all_non_committed():
+            if cmd_id in self.workset and self.is_next_non_committed_node(cmd_id):
+                next_non_committed_nodes.append(cmd_id)
+        return next_non_committed_nodes
+    
     def is_next_non_committed_node(self, node_id: NodeId) -> bool:
         # We want the predecessor to be committed and the current node to not be committed
         for prev_node in self.get_prev(node_id):
@@ -1279,7 +1269,6 @@ class PartialProgramOrder:
         logging.debug(f"=" * 80)
         logging.debug(f"WORKSET:          {self.get_workset()}")
         logging.debug(f"COMMITTED:        {self.get_committed_list()}")
-        logging.debug(f"FRONTIER:         {self.get_frontier()}")
         logging.debug(f"EXECUTING:        {list(self.commands_currently_executing.keys())}")
         logging.debug(f"STOPPED:          {list(self.stopped)}")
         logging.debug(f" of which UNSAFE: {list(self.get_unsafe())}")

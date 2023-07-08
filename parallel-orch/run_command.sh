@@ -9,19 +9,17 @@ export EXEC_MODE=${5?No execution mode given}
 export CMD_ID=${6?No command id given}
 
 ## KK 2023-04-24: Not sure this should be run every time we run a command
+## GL 2023-07-08: Tests seem to pass without it
 source "$PASH_TOP/compiler/orchestrator_runtime/speculative/pash_spec_init_setup.sh"
 
-if [ "sandbox" == "$EXEC_MODE" ]; then
-    export sandbox_flag=1
+if [ "speculate" == "$EXEC_MODE" ]; then
+    export speculate_flag=1
 elif [ "standard" == "$EXEC_MODE" ]; then
-    export sandbox_flag=0
+    export speculate_flag=0
 else
     echo "$$: Unknown value ${EXEC_MODE} for execution mode" 1>&2
     exit 1
 fi
-
-# echo "Execution mode: $EXEC_MODE"
-
 
 ## Generate a temporary directory to store the workfiles
 mkdir -p /tmp/pash_spec

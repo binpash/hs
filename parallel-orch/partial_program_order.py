@@ -1186,7 +1186,7 @@ class PartialProgramOrder:
         cmd = node.get_cmd()
         self.executions[node_id] += 1
         if speculate:
-            execute_func = executor.async_run_and_trace_command_return_trace_in_sandbox
+            execute_func = executor.async_run_and_trace_command_return_trace_in_sandbox_speculate
         else:
             execute_func = executor.async_run_and_trace_command_return_trace
         proc, trace_file, stdout, stderr, variable_file = execute_func(cmd, node_id)

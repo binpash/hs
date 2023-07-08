@@ -1,6 +1,6 @@
 #!/bin/bash
 
-## TODO: Pass frontier flag here instead of separate scripts
+## TODO: Pass speculate flag here instead of separate scripts
 
 ## Clean up the riker directory
 ## KK 2023-05-04 should this be done somewhere else? Could this interfere with overlay fs?
@@ -19,12 +19,8 @@ echo $CMD_STRING > ./Rikerfile
 # TODO: There is a bug here and parsing of RW dependencies doesn't really work
 #       when we add the following line.
 echo 'declare -p > "$OUTPUT_VARIABLE_FILE"' >> ./Rikerfile
-# echo 'cat "$OUTPUT_VARIABLE_FILE"' >> ./Rikerfile
-# cat Rikerfile
-## The (frontier) cmd is run outside a sandbox
-## so we want to run and trace everything normally
-# rkr --no-inject # --frontier
-if [ $sandbox_flag -eq 1 ]; then
+
+if [ $speculate_flag -eq 1 ]; then
     rkr
 else
     rkr --frontier

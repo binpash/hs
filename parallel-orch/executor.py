@@ -8,7 +8,7 @@ import tempfile
 # and traces them with Riker. 
 # All commands are run inside an overlay sandbox.
 
-def async_run_and_trace_command_return_trace(command, node_id, sandbox_mode=False):
+def async_run_and_trace_command_return_trace(command, node_id, speculate_mode=False):
     trace_file = util.ptempfile()
     stdout_file = util.ptempfile()
     stderr_file = util.ptempfile()
@@ -16,19 +16,19 @@ def async_run_and_trace_command_return_trace(command, node_id, sandbox_mode=Fals
     logging.debug(f'Scheduler: Stdout file for: {node_id} is: {stdout_file}')
     logging.debug(f'Scheduler: Stderr file for: {node_id} is: {stderr_file}')
     logging.debug(f'Scheduler: Output variable file for: {node_id} is: {variable_file}')
-    process = async_run_and_trace_command(command, trace_file, node_id, stdout_file, stderr_file, variable_file, sandbox_mode)
+    process = async_run_and_trace_command_return_trace_in_sandbox(command, trace_file, node_id, stdout_file, stderr_file, variable_file, speculate_mode)
     return process, trace_file, stdout_file, stderr_file, variable_file
 
-def async_run_and_trace_command_return_trace_in_sandbox(command, node_id):
-    process, trace_file, stdout_file, stderr_file, variable_file = async_run_and_trace_command_return_trace(command, node_id, sandbox_mode=True)
+def async_run_and_trace_command_return_trace_in_sandbox_speculate(command, node_id):
+    process, trace_file, stdout_file, stderr_file, variable_file = async_run_and_trace_command_return_trace(command, node_id, speculate_mode=True)
     return process, trace_file, stdout_file, stderr_file, variable_file
 
-def async_run_and_trace_command(command, trace_file, node_id, stdout_file, stderr_file, variable_file, sandbox_mode=False):
+def async_run_and_trace_command_return_trace_in_sandbox(command, trace_file, node_id, stdout_file, stderr_file, variable_file, speculate_mode=False):
     ## Call Riker to execute the command
     run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command.sh'
     args = ["/bin/bash", run_script, command, trace_file, stdout_file, variable_file]
-    if sandbox_mode:
-        args.append("sandbox")
+    if speculate_mode:
+        args.append("speculate")
     else:
         args.append("standard")
     args.append(str(node_id))

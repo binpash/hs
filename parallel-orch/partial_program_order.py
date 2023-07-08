@@ -616,7 +616,7 @@ class PartialProgramOrder:
         logging.debug(f' >> Able to resolve {node_id}')
         return True
 
-    def resolve_commands_that_can_be_resolved_and_step_forward(self):
+    def resolve_commands_that_can_be_resolved_and_push_frontier(self):
         cmds_to_resolve = self.__pop_cmds_to_resolve_from_speculated()
         logging.debug(f"Commands to check for dependencies this round are: {sorted(cmds_to_resolve)}")
         logging.debug(f"Commands that cannot be resolved this round are: {sorted(self.speculated)}")
@@ -698,7 +698,7 @@ class PartialProgramOrder:
         # We want stopped commands to not enter the workset again yet
         assert(set(self.workset).isdisjoint(self.stopped))
 
-        self.step_forward()
+        self.__frontier_commit_and_push()
         # self.log_partial_program_order_info()
         return set(self.get_committed()) - old_committed
 
@@ -831,7 +831,7 @@ class PartialProgramOrder:
         ## We check if something can be resolved and stepped forward here
         ## KK 2023-05-10 This seems to work for all tests (so it might be idempotent
         ##                since in many tests there is nothing new to resolve after a wait)
-        self.resolve_commands_that_can_be_resolved_and_step_forward()
+        self.resolve_commands_that_can_be_resolved_and_push_frontier()
 
     ## When the frontend sends a wait for a node, it means that execution in the frontend has
     ## already surpassed all nodes prior to it. This is particularly important for loops, 
@@ -1015,7 +1015,9 @@ class PartialProgramOrder:
 
         ## TODO: This needs to change when we modify unrolling to happen speculatively too
         ## TODO: This needs to properly add the node to frontier and to resolve dictionary
-        self.step_forward()
+        
+        # GL 2023-05-22: __frontier_commit_and_push() should be called here instead of step_forward()
+        # Although without it the test cases pass
         self.frontier.append(new_first_node_id)
 
         ## At the end of unrolling the target node must be part of the PO
@@ -1030,25 +1032,11 @@ class PartialProgramOrder:
         ## The node_id must be part of the PO after unrolling, otherwise we did something wrong
         assert(self.is_node_id(node_id))
 
-    ## KK 2023-09-05 @Giorgo Do all of these steps need to be done at once, or are these methods
-    ##               meaningful even if called one by one? In general, I would like there to
-    ##               be a clear set of 1-3 methods that are supposed to be used whenever we
-    ##               add some new nodes (or progress the PO in some way) that will step it properly,
-    ##               while being idempotent (if they are called multiple times nothing goes wrong).
-    ##
-    ##               Internal functions on the other hand (ones that cannot be called on their own
-    ##                since they might leave the PO in a partial state) should be prefixed with an
-    ##               underscore.
-    ##
-    ##               All top-level functions should get minimal arguments (none if possible)
-    ##               and should just get their relevant state from the fields of the PO.
-    ## TODO: step_forward seems to be an internal function
-    def step_forward(self):
-        self.frontier_commit_and_push()
-        self.populate_to_be_resolved_dict()
 
     ## Pushes the frontier forward as much as possible for all commands in it that can be committed
-    def frontier_commit_and_push(self):
+    ## This function is not safe to call on its own, since it might leave the PO in a partial state
+    ## It should be called right after
+    def __frontier_commit_and_push(self):
         logging.debug(" > Commiting and pushing frontier")
         logging.debug(f' > Frontier: {self.frontier}')
         changes_in_frontier = True
@@ -1126,31 +1114,31 @@ class PartialProgramOrder:
                 return False
         return True
 
-    def rerun_stopped(self):
+    # This command never leaves the partial order at a broken state
+    # It is always safe to call it
+    def attempt_move_stopped_to_workset(self):
         new_stopped = self.stopped.copy()
         ## We never remove stopped commands that are unsafe
-        ##  from the stopped set to be reexecuted.
+        ## from the stopped set to be reexecuted.
         for cmd_id in self.get_stopped_safe():
             if self.is_next_non_committed_node(cmd_id):
                 self.workset.append(cmd_id)
-                logging.debug(f"Removing {cmd_id} from stopped")
-                logging.trace(f"StoppedRemove|{cmd_id}")
+                logging.debug(f"StoppedRemove|{cmd_id}")
                 new_stopped.remove(cmd_id)
-                # We remove any to-check-for-dependency nodes as the stopped node will execute in frontier
                 self.to_be_resolved[cmd_id] = []
         self.stopped = new_stopped
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
         # self.log_partial_program_order_info()
-
         logging.debug("Scheduling work...")
-        logging.debug("Rerunning stopped command...")
-        #TODO: move this to schedule_node() at a later time
-        self.rerun_stopped()
-        ## KK 2023-05-04 Is it a problem if we do that here?
-        # self.step_forward(copy.deepcopy(self.committed))
-
+        logging.debug("Rerunning stopped commands")
+        # attempt_move_stopped_to_workset() needs to happen before the node execution
+        self.attempt_move_stopped_to_workset()
+        ## GL 2023-07-05 populate_to_be_resolved_dict() is OK to call anywhere,
+        ##            __frontier_commit_and_push() is not safe to call here
+        self.populate_to_be_resolved_dict()
+        
         ## TODO: Move loop unrolling here for speculation too
 
         for cmd_id in self.get_workset():
@@ -1174,7 +1162,6 @@ class PartialProgramOrder:
     ## Run a command and add it to the dictionary of executing ones
     def run_cmd_non_blocking(self, node_id: NodeId):
         ## A command should only be run if it's in the frontier, otherwise it should be spec run
-        assert(self.is_frontier(node_id))
         logging.trace(f'Running command: {node_id} {self.get_node(node_id)}')
         logging.trace(f"ExecutingAdd|{node_id}")
         self.execute_cmd_core(node_id, speculate=False)
@@ -1264,7 +1251,7 @@ class PartialProgramOrder:
         self.add_to_speculated(node_id)
         ## We can now call the general resolution method that determines which commands
         ## can be resolved (all their dependencies are done executing), and resolves them.
-        self.resolve_commands_that_can_be_resolved_and_step_forward()
+        self.resolve_commands_that_can_be_resolved_and_push_frontier()
         assert(self.valid())
 
     def print_cmd_stderr(self, stderr):

@@ -133,6 +133,13 @@ run_test()
     fi
 }
 
+test_single_command()
+{
+    local shell=$1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > "$3/in1"
+    $shell $2/test_single_command.sh
+}
+
 test1_1()
 {
     local shell=$1
@@ -336,6 +343,7 @@ test_network_access_3()
 
 # We run all tests composed with && to exit on the first that fails
 if [ "$#" -eq 0 ]; then 
+    run_test test_single_command
     run_test test1_1 # "1 2 3 1" # 7
     run_test test1_2 #"1 2 2 1" # 6
     run_test test1_3 #"1 2 2 1" # 6

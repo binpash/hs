@@ -6,6 +6,8 @@ import sys
 import analysis
 import executor
 import trace
+import time
+import subprocess
 
 from shasta.ast_node import AstNode, CommandNode
 
@@ -268,6 +270,7 @@ class PartialProgramOrder:
         self.commit_state = {}
         ## Counts the times a node was (re)executed
         self.executions = {node_id: 0 for node_id in self.nodes.keys()}
+        self.banned_files = set()
     
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -606,11 +609,56 @@ class PartialProgramOrder:
         # Our new workset is the nodes that were killed
         # Previous workset got killed 
         self.workset.extend(nodes_to_kill)
-            
+                
+
+    def is_process_alive(self, pid):
+        """Check if the process with the given PID is alive."""
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return False
+        else:
+            return True
+        
+    def get_child_processes(self, parent_pid):
+        try:
+            output = subprocess.check_output(['pgrep', '-P', str(parent_pid)])
+            return [int(pid) for pid in output.decode('utf-8').split()]
+        except subprocess.CalledProcessError:
+            # No child processes were found
+            return []
+
     def __kill_node(self, cmd_id: NodeId):
         logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
         proc_to_kill, _trace_file, _stdout, _stderr, _variable_file = self.commands_currently_executing.pop(cmd_id)
+        self.banned_files.add(trace_file)
+
+        # Get all child processes of proc_to_kill
+        children = self.get_child_processes(proc_to_kill.pid)
+        
+        # Kill all child processes
+        for child in children:
+            try:
+                # Send SIGTERM signal; you can also use 'SIGKILL' for a forceful kill
+                subprocess.check_call(['kill', '-TERM', str(child)])
+            except subprocess.CalledProcessError:
+                logging.debug(f"Failed to kill PID {child}.")
+
+        # Poll proc_to_kill and its children to ensure they're terminated
+        while any(self.is_process_alive(child) for child in children):
+            logging.debug(f"Child proc {child} still alive. Waiting...")
+            time.sleep(0.01)  # Sleep for 10 milliseconds before checking again
+        
+        # Kill the main process
         proc_to_kill.kill()
+        time.sleep(0.01)
+        # If main process is alive, keep sending SIGKILL
+        while self.is_process_alive(proc_to_kill.pid):
+            logging.debug(f"Parent proc {proc_to_kill.pid} still alive. Attempting to kill again...")
+            proc_to_kill.kill()
+            time.sleep(0.001)  # Sleep for 1 millisecond before checking again
+        logging.debug(self.is_process_alive(proc_to_kill.pid))
+
 
     def resolve_commands_that_can_be_resolved_and_push_frontier(self):
         cmds_to_resolve = self.__pop_cmds_to_resolve_from_speculated()
@@ -1204,7 +1252,6 @@ class PartialProgramOrder:
         else:
             execute_func = executor.async_run_and_trace_command_return_trace
         proc, trace_file, stdout, stderr, variable_file = execute_func(cmd, node_id)
-        logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
         logging.debug(f" >>>>> Command {node_id} - {proc.pid} just started executing")
 
@@ -1267,7 +1314,7 @@ class PartialProgramOrder:
         print(stderr.read().decode(), file=sys.stderr, end="")
 
     def commit_cmd_workspaces(self, to_commit_ids):
-        for cmd_id in to_commit_ids:
+        for cmd_id in sorted(to_commit_ids):
             workspace = self.sandbox_dirs[cmd_id]
             if workspace != "":
                 logging.debug(f" (!) Committing workspace of cmd {cmd_id} found in {workspace}")

@@ -1,12 +1,12 @@
 #!/bin/bash
 
-export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
-export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
-
 ## Install Riker's dependencies
 sudo apt-get update
-sudo apt install -y make clang llvm git gcc python3-cram file graphviz
+sudo apt install -y make clang llvm git gcc python3-cram file graphviz libtool
 sudo update-alternatives --install /usr/bin/cram cram /usr/bin/cram3 100
+
+export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
+export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
 
 ## Download submodule dependencies
 git submodule update --init --recursive

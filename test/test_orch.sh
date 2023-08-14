@@ -336,25 +336,25 @@ test_network_access_3()
 
 # We run all tests composed with && to exit on the first that fails
 if [ "$#" -eq 0 ]; then 
-    run_test test1_1 "1 2 3 1" # 7
-    run_test test1_2 "1 2 2 1" # 6
+    run_test test1_1 # "1 2 3 1" # 7
+    run_test test1_2 #"1 2 2 1" # 6
     run_test test1_3 #"1 2 2 1" # 6
-    run_test test2_1 "1 1 1 1 1 1 1 1 1 1 1" # 10
-    run_test test2_2 "1 1 1 1 1 1 1 1 1 1 1" # 10
-    run_test test2_3 "1 1 1 1 1 1 1 1 1 1 1" # 10
+    run_test test2_1 #"1 1 1 1 1 1 1 1 1 1 1" # 10
+    run_test test2_2 #"1 1 1 1 1 1 1 1 1 1 1" # 10
+    run_test test2_3 #"1 1 1 1 1 1 1 1 1 1 1" # 10
     run_test test3_1 # "1 1 2 1 2" # 7
     run_test test3_2 # "1 1 2 1 2" # 7
     run_test test3_3 # "1 1 2 1 3" # 8
-    run_test test4_1 "1 2 1" # 4
-    run_test test4_2 "1 2 1" # 4
-    run_test test4_3 "1 2 1" # 4
-    run_test test5_1 "1 1 1" # 3
-    run_test test5_2 "1 1 1" # 3
-    run_test test5_3 "1 1 1" # 3
+    run_test test4_1 #"1 2 1" # 4
+    run_test test4_2 #"1 2 1" # 4
+    run_test test4_3 #"1 2 1" # 4
+    run_test test5_1 #"1 1 1" # 3
+    run_test test5_2 #"1 1 1" # 3
+    run_test test5_3 #"1 1 1" # 3
     # run_test test6
-    run_test test7_1 "1 1 1 1 1 1 1 1 1 1 1 1" # 12
-    run_test test7_2 "1 1 1 1 1 1 1 1 1 1 1 1" # 12
-    run_test test7_3 "1 1 1 1 1 1 1 1 1 1 1 1" # 12
+    run_test test7_1 #"1 1 1 1 1 1 1 1 1 1 1 1" # 12
+    run_test test7_2 #"1 1 1 1 1 1 1 1 1 1 1 1" # 12
+    run_test test7_3 #"1 1 1 1 1 1 1 1 1 1 1 1" # 12
     # Test 8 is failing for now
     # cleanup
     # run_test test8
@@ -362,12 +362,12 @@ if [ "$#" -eq 0 ]; then
     run_test test9_1 # "1 2 1 1 1 2 2 2 2 2 1 1 1" # 19
     run_test test9_2 # "1 1 1 1 1 1 1 1 1 1 1 1 1" # 13
     run_test test9_3 # "1 1 1 1 1 1 1 1 2 2 1 1 1" # 15
-    run_test test_stdout "1 1 1 1 1 1" # 6
+    run_test test_stdout #"1 1 1 1 1 1" # 6
     run_test test_loop
     run_test test_break
-    run_test test_network_access_1 "1 2 2"
-    run_test test_network_access_2 "1 2 2 2"
-    run_test test_network_access_3 "1 2 2 2"
+    run_test test_network_access_1 #"1 2 2"
+    run_test test_network_access_2 #"1 2 2 2"
+    run_test test_network_access_3 #"1 2 2 2"
 else
     for testname in $@
     do

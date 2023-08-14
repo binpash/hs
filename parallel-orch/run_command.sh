@@ -30,10 +30,10 @@ exit_code=$?
 
 ## Only used for debugging
 # ls -R "${SANDBOX_DIR}/upperdir" 1>&2
-
+out=`head -3 $SANDBOX_DIR/upperdir/$TRACE_FILE`
 ## Send a message to the scheduler socket
 ## Assumes "${PASH_SPEC_SCHEDULER_SOCKET}" is set and exported
 
 ## Pass the proper exit code
-msg="CommandExecComplete:${CMD_ID}|Exit code:${exit_code}|Sandbox dir:${SANDBOX_DIR}"
+msg="CommandExecComplete:${CMD_ID}|Exit code:${exit_code}|Sandbox dir:${SANDBOX_DIR}|Trace file:${TRACE_FILE}|$$"
 daemon_response=$(pash_spec_communicate_scheduler_just_send "$msg") # Blocking step, daemon will not send response until it's safe to continue

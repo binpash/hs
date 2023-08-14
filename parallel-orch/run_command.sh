@@ -21,10 +21,23 @@ else
     exit 1
 fi
 
-## Generate a temporary directory to store the workfiles
-mkdir -p /tmp/pash_spec
-export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/sandbox_XXXXXXX)/"
-## We need to execute `try` with bash to keep the exported functions
+# ## Generate a temporary directory to store the workfiles
+# mkdir -p /tmp/pash_spec
+# export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/a/sandbox_XXXXXXX)/"
+# ## We need to execute `try` with bash to keep the exported functions
+
+# export TEMPDIR="$(mktemp -d /tmp3/pash_spec/b/sandbox_XXXXXXX)/"
+# echo tempdir $TEMPDIR 1>&2
+# echo sandbox $SANDBOX_DIR 1>&2
+
+
+mkdir -p /tmp/pash_spec/a
+mkdir -p /tmp/pash_spec/b
+export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/a/sandbox_XXXXXXX)/"
+export TEMPDIR="$(mktemp -d /tmp/pash_spec/b/sandbox_XXXXXXX)/"
+# echo tempdir $TEMPDIR
+# echo sandbox $SANDBOX_DIR
+
 bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh" > "${STDOUT_FILE}"
 exit_code=$?
 
@@ -35,5 +48,5 @@ out=`head -3 $SANDBOX_DIR/upperdir/$TRACE_FILE`
 ## Assumes "${PASH_SPEC_SCHEDULER_SOCKET}" is set and exported
 
 ## Pass the proper exit code
-msg="CommandExecComplete:${CMD_ID}|Exit code:${exit_code}|Sandbox dir:${SANDBOX_DIR}|Trace file:${TRACE_FILE}|$$"
+msg="CommandExecComplete:${CMD_ID}|Exit code:${exit_code}|Sandbox dir:${SANDBOX_DIR}|Trace file:${TRACE_FILE}|Tempdir:${TEMPDIR}"
 daemon_response=$(pash_spec_communicate_scheduler_just_send "$msg") # Blocking step, daemon will not send response until it's safe to continue

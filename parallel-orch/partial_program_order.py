@@ -630,7 +630,7 @@ class PartialProgramOrder:
 
     def __kill_node(self, cmd_id: NodeId):
         logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
-        proc_to_kill, _trace_file, _stdout, _stderr, _variable_file = self.commands_currently_executing.pop(cmd_id)
+        proc_to_kill, trace_file, _stdout, _stderr, _variable_file = self.commands_currently_executing.pop(cmd_id)
         self.banned_files.add(trace_file)
 
         # Get all child processes of proc_to_kill
@@ -642,15 +642,13 @@ class PartialProgramOrder:
                 # Send SIGTERM signal; you can also use 'SIGKILL' for a forceful kill
                 subprocess.check_call(['kill', '-TERM', str(child)])
             except subprocess.CalledProcessError:
-                logging.debug(f"Failed to kill PID {child}.")
-
-        # Poll proc_to_kill and its children to ensure they're terminated
+                logging.debug(f"Failed to kill PID {child}.")        # Poll proc_to_kill and its children to ensure they're terminated
         while any(self.is_process_alive(child) for child in children):
             logging.debug(f"Child proc {child} still alive. Waiting...")
             time.sleep(0.01)  # Sleep for 10 milliseconds before checking again
         
-        # Kill the main process
-        proc_to_kill.kill()
+        # Terminate the main process
+        proc_to_kill.terminate()
         time.sleep(0.01)
         # If main process is alive, keep sending SIGKILL
         while self.is_process_alive(proc_to_kill.pid):

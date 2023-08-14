@@ -16,7 +16,7 @@ def async_run_and_trace_command_return_trace(command, node_id, speculate_mode=Fa
     logging.debug(f'Scheduler: Stdout file for: {node_id} is: {stdout_file}')
     logging.debug(f'Scheduler: Stderr file for: {node_id} is: {stderr_file}')
     logging.debug(f'Scheduler: Output variable file for: {node_id} is: {variable_file}')
-    logging.debug(f'Scheduler: Trace file for: {node_id} is: {trace_file}')
+    logging.debug(f'Scheduler: Trace file for: {node_id}: {trace_file}')
     process = async_run_and_trace_command_return_trace_in_sandbox(command, trace_file, node_id, stdout_file, stderr_file, variable_file, speculate_mode)
     return process, trace_file, stdout_file, stderr_file, variable_file
 
@@ -34,7 +34,9 @@ def async_run_and_trace_command_return_trace_in_sandbox(command, trace_file, nod
         args.append("standard")
     args.append(str(node_id))
     # Save output to temporary files to not saturate the memory
+    logging.debug(args)
     process = subprocess.Popen(args, stdout=None, stderr=None)
+    
     # For debugging
     # process = subprocess.Popen(args)
     return process
@@ -48,12 +50,10 @@ def commit_workspace(workspace_path):
 
 ## Read trace and capture each command
 def read_trace(sandbox_dir, trace_file):
-    logging.debug(f'>>>>>>Reading trace from: {trace_file}')
     if sandbox_dir == "":
         path = trace_file
     else:
-        path = f"{sandbox_dir}upperdir/{trace_file}"
-    
+        path = f"{sandbox_dir}/upperdir/{trace_file}"
     logging.debug(f'Reading trace from: {path}')
     with open(path) as f:
         return f.readlines()

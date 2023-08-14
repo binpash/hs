@@ -6,10 +6,10 @@
 ## KK 2023-05-04 should this be done somewhere else? Could this interfere with overlay fs?
 ## TODO: Can we just ask riker to use a different cache (or put the cache to /dev/null)
 ##       since we never really want it to take the cache into account
-rm -rf ./.rkr
+# rm -rf ./.rkr
 
 ## Save the script to execute in the sandboxdir
-echo $CMD_STRING > ./Rikerfile
+echo $CMD_STRING > "$TEMPDIR/Rikerfile"
 # cat ./Rikerfile 1>&2 # only for debugging
 
 ## Save the output shell variables to a file (to pass to the outside context)
@@ -21,13 +21,17 @@ echo $CMD_STRING > ./Rikerfile
 echo 'declare -p > "$OUTPUT_VARIABLE_FILE"' >> ./Rikerfile
 
 if [ $speculate_flag -eq 1 ]; then
-    rkr
+    rkr_cmd="rkr"
 else
-    rkr --frontier
+    rkr_cmd="rkr --frontier"
 fi
+
+strace -o out $rkr_cmd --db "$TEMPDIR" --rikerfile "$TEMPDIR/Rikerfile"
+echo 'first riker run done' 1>&2
+
 exit_code="$?"
 
-rkr --debug trace -o "$TRACE_FILE" > /dev/null
-pash_redir_output echo "Sandbox ${CMD_ID} Output variables saved in: $OUTPUT_VARIABLE_FILE"
+rkr --db "$TEMPDIR" --rikerfile "$TEMPDIR/Rikerfile" --debug trace -o "$TRACE_FILE" > /dev/null
+echo 'second riker run done' 1>&2
 
 (exit $exit_code)

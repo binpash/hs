@@ -34,3 +34,5 @@ PASH_SPEC_TMP_PREFIX = os.getenv('PASH_SPEC_TMP_PREFIX')
 SOCKET_BUF_SIZE = 8192
 
 SCHEDULER_SOCKET = os.getenv("PASH_SPEC_SCHEDULER_SOCKET")
+
+MAX_KILL_ATTEMPTS = 10  # Define a maximum number of kill attempts for each process in the partial program order

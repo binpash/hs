@@ -6,12 +6,9 @@ import sys
 import analysis
 import executor
 import trace
-import time
-import subprocess
+import util
 
 from shasta.ast_node import AstNode, CommandNode
-
-MAX_KILL_ATTEMPTS = 10  # Define a maximum number of kill attempts for each process
 
 
 class CompletedNodeInfo:
@@ -613,23 +610,6 @@ class PartialProgramOrder:
         # Previous workset got killed 
         self.workset.extend(nodes_to_kill)
 
-    def is_process_alive(self, pid):
-        """Check if the process with the given PID is alive."""
-        try:
-            os.kill(pid, 0)
-        except OSError:
-            return False
-        else:
-            return True
-
-    def get_child_processes(self, parent_pid):
-        try:
-            output = subprocess.check_output(['pgrep', '-P', str(parent_pid)])
-            return [int(pid) for pid in output.decode('utf-8').split()]
-        except subprocess.CalledProcessError:
-            # No child processes were found
-            return []
-
     def __kill_node(self, cmd_id: "NodeId"):
         logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
         proc_to_kill, trace_file, _stdout, _stderr, _variable_file = self.commands_currently_executing.pop(cmd_id)
@@ -637,36 +617,14 @@ class PartialProgramOrder:
         self.banned_files.add(trace_file)
 
         # Get all child processes of proc_to_kill
-        children = self.get_child_processes(proc_to_kill.pid)
+        children = util.get_child_processes(proc_to_kill.pid)
         
         # Kill all child processes
         for child in children:
-            kill_attempts = 0
-            while self.is_process_alive(child) and kill_attempts < MAX_KILL_ATTEMPTS:
-                try:
-                    # Send SIGKILL signal for a forceful kill
-                    subprocess.check_call(['kill', '-9', str(child)])
-                    time.sleep(0.01)  # Sleep for 10 milliseconds before checking again
-                except subprocess.CalledProcessError:
-                    logging.debug(f"Failed to kill PID {child}.")
-                kill_attempts += 1
-
-            if kill_attempts >= MAX_KILL_ATTEMPTS:
-                logging.warning(f"Gave up killing child PID {child} after {MAX_KILL_ATTEMPTS} attempts.")
-        
+            self.kill_process(child)
+            
         # Terminate the main process
-        kill_attempts = 0
-        while self.is_process_alive(proc_to_kill.pid) and kill_attempts < MAX_KILL_ATTEMPTS:
-            try:
-                # Send SIGKILL signal for a forceful kill
-                subprocess.check_call(['kill', '-9', str(proc_to_kill.pid)])
-                time.sleep(0.01)  # Sleep for 10 milliseconds before checking again
-            except subprocess.CalledProcessError:
-                logging.debug(f"Failed to kill parent PID {proc_to_kill.pid}.")
-            kill_attempts += 1
-
-        if kill_attempts >= MAX_KILL_ATTEMPTS:
-            logging.warning(f"Gave up killing parent PID {proc_to_kill.pid} after {MAX_KILL_ATTEMPTS} attempts.")
+        self.kill_process(proc_to_kill.pid)
 
     def resolve_commands_that_can_be_resolved_and_push_frontier(self):
         cmds_to_resolve = self.__pop_cmds_to_resolve_from_speculated()

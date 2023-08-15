@@ -28,7 +28,7 @@ jobs:
           os: 
           - ubuntu-20.04
       runs-on: ${{ matrix.os }}
-      # if: github.event.pull_request.draft == false
+      if: github.event.pull_request.draft == false
       steps:
       - uses: actions/checkout@v2 
       - name: Running Correctness Tests

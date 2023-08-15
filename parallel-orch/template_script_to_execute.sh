@@ -27,9 +27,11 @@ else
 fi
 
 strace -o out $rkr_cmd --db "$TEMPDIR" --rikerfile "$TEMPDIR/Rikerfile"
+exit_code="$?"
+
 echo 'first riker run done' 1>&2
 
-exit_code="$?"
+
 
 rkr --db "$TEMPDIR" --rikerfile "$TEMPDIR/Rikerfile" --debug trace -o "$TRACE_FILE" > /dev/null
 echo 'second riker run done' 1>&2

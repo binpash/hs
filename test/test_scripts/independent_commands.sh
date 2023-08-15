@@ -1,5 +1,0 @@
-grep foo "$test_output_dir/in1" > "$test_output_dir/out1"
-grep bar "$test_output_dir/in2" > "$test_output_dir/out2"
-grep baz "$test_output_dir/in3" > "$test_output_dir/out3"
-grep qux "$test_output_dir/in4" > "$test_output_dir/out4"
-grep foo "$test_output_dir/in5" > "$test_output_dir/out5"

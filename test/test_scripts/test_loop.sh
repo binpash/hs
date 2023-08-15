@@ -3,7 +3,7 @@ for i in 1 2; do
     echo hi1
     for j in 1 2 3; do
         echo hi2
-        sleep 0.5
+        sleep 0.2
         echo hi3
     done
     echo hi4
@@ -15,7 +15,7 @@ for i in 1 2 3; do
     echo hi7
     for j in 1 2; do
         echo hi8
-        sleep 0.5
+        sleep 0.2
         echo hi9
     done
     echo hi10

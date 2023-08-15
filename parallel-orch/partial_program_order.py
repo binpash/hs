@@ -243,7 +243,7 @@ class PartialProgramOrder:
         ## TODO: Add assertions that committed etc do not contain loop nodes
         self.committed = set()
         ## Nodes that are in the frontier can only move to committed
-        self.frontier = []
+        self.to_check_for_commit = []
         self.rw_sets = {node_id: None for node_id in self.nodes.keys()}
         self.workset = []
         ## A dictionary from cmd_ids that are currently executing that contains their trace_files
@@ -366,7 +366,6 @@ class PartialProgramOrder:
 
     def init_partial_order(self):
         ## Initialize the frontier with all non-loop source nodes
-        self.frontier = self.get_standard_source_nodes()
         ## Initialize the workset
         self.init_workset()
         logging.debug(f'Initialized workset')
@@ -832,7 +831,7 @@ class PartialProgramOrder:
             next_nodes = self.get_next(new_nodes_sink)
             next_standard_nodes = self.filter_standard_nodes(next_nodes)
             logging.trace(f"Adding its next nodes to the frontier|{','.join(str(node_id) for node_id in next_standard_nodes)}")
-            self.frontier.extend(next_standard_nodes)
+            self.to_check_for_commit.extend(next_standard_nodes)
 
 
 
@@ -1029,7 +1028,7 @@ class PartialProgramOrder:
         
         # GL 2023-05-22: __frontier_commit_and_push() should be called here instead of step_forward()
         # Although without it the test cases pass
-        self.frontier.append(new_first_node_id)
+        self.to_check_for_commit.append(new_first_node_id)
 
         ## At the end of unrolling the target node must be part of the PO
         assert(self.is_node_id(target_concrete_node_id))
@@ -1048,21 +1047,20 @@ class PartialProgramOrder:
     ## This function is not safe to call on its own, since it might leave the PO in a broken state
     ## It should be called right after
     def __frontier_commit_and_push(self):
-        logging.debug(" > Commiting and pushing frontier")
-        logging.debug(f' > Frontier: {self.frontier}')
+        self.to_check_for_commit.extend(self.get_all_next_non_committed_nodes())
         changes_in_frontier = True
         while changes_in_frontier:
             new_frontier = []
             changes_in_frontier = False
             # Second condition below may be unecessary
-            for frontier_node in self.frontier:
+            for frontier_node in self.to_check_for_commit:
                 ## If a node is not in the workset it means that it is actually done executing
                 ## KK 2023-05-10 Do we need all these conditions in here? Some might be redundant?
                 if frontier_node not in self.get_currently_executing() \
                     and frontier_node not in self.get_committed() \
                     and frontier_node not in self.stopped \
                     and frontier_node not in self.speculated \
-                    and frontier_node not in self.workset\
+                    and frontier_node not in self.workset \
                     and not self.is_loop_node(frontier_node):
                     ## Commit the node
                     self.commit_node(frontier_node)
@@ -1081,7 +1079,7 @@ class PartialProgramOrder:
                     logging.debug(f" > Not commiting node {frontier_node}, readding to frontier")
 
             ## Update the frontier to the new frontier
-            self.frontier = new_frontier
+            self.to_check_for_commit = new_frontier
     
 
     ## For a file - dir forward dependency to exist,
@@ -1298,7 +1296,7 @@ class PartialProgramOrder:
         logging.debug(f"=" * 80)
         logging.debug(f"WORKSET:          {self.get_workset()}")
         logging.debug(f"COMMITTED:        {self.get_committed_list()}")
-        logging.debug(f"FRONTIER:         {self.frontier}")
+        logging.debug(f"FRONTIER:         {self.to_check_for_commit}")
         logging.debug(f"EXECUTING:        {list(self.commands_currently_executing.keys())}")
         logging.debug(f"STOPPED:          {list(self.stopped)}")
         logging.debug(f" of which UNSAFE: {list(self.get_unsafe())}")

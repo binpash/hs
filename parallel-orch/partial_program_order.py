@@ -621,10 +621,10 @@ class PartialProgramOrder:
         
         # Kill all child processes
         for child in children:
-            self.kill_process(child)
+            util.kill_process(child)
             
         # Terminate the main process
-        self.kill_process(proc_to_kill.pid)
+        util.kill_process(proc_to_kill.pid)
 
     def resolve_commands_that_can_be_resolved_and_push_frontier(self):
         cmds_to_resolve = self.__pop_cmds_to_resolve_from_speculated()

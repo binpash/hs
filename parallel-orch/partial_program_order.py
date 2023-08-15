@@ -11,6 +11,9 @@ import subprocess
 
 from shasta.ast_node import AstNode, CommandNode
 
+MAX_KILL_ATTEMPTS = 10  # Define a maximum number of kill attempts for each process
+
+
 class CompletedNodeInfo:
     def __init__(self, exit_code, variable_file, stdout_file):
         self.exit_code = exit_code
@@ -609,7 +612,6 @@ class PartialProgramOrder:
         # Our new workset is the nodes that were killed
         # Previous workset got killed 
         self.workset.extend(nodes_to_kill)
-                
 
     def is_process_alive(self, pid):
         """Check if the process with the given PID is alive."""
@@ -619,7 +621,7 @@ class PartialProgramOrder:
             return False
         else:
             return True
-        
+
     def get_child_processes(self, parent_pid):
         try:
             output = subprocess.check_output(['pgrep', '-P', str(parent_pid)])
@@ -628,9 +630,10 @@ class PartialProgramOrder:
             # No child processes were found
             return []
 
-    def __kill_node(self, cmd_id: NodeId):
+    def __kill_node(self, cmd_id: "NodeId"):
         logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
         proc_to_kill, trace_file, _stdout, _stderr, _variable_file = self.commands_currently_executing.pop(cmd_id)
+        # Add the trace file to the banned file list so we know to ignore the CommandExecComplete response
         self.banned_files.add(trace_file)
 
         # Get all child processes of proc_to_kill
@@ -638,25 +641,32 @@ class PartialProgramOrder:
         
         # Kill all child processes
         for child in children:
-            try:
-                # Send SIGTERM signal; you can also use 'SIGKILL' for a forceful kill
-                subprocess.check_call(['kill', '-TERM', str(child)])
-            except subprocess.CalledProcessError:
-                logging.debug(f"Failed to kill PID {child}.")        # Poll proc_to_kill and its children to ensure they're terminated
-        while any(self.is_process_alive(child) for child in children):
-            logging.debug(f"Child proc {child} still alive. Waiting...")
-            time.sleep(0.01)  # Sleep for 10 milliseconds before checking again
+            kill_attempts = 0
+            while self.is_process_alive(child) and kill_attempts < MAX_KILL_ATTEMPTS:
+                try:
+                    # Send SIGKILL signal for a forceful kill
+                    subprocess.check_call(['kill', '-9', str(child)])
+                    time.sleep(0.01)  # Sleep for 10 milliseconds before checking again
+                except subprocess.CalledProcessError:
+                    logging.debug(f"Failed to kill PID {child}.")
+                kill_attempts += 1
+
+            if kill_attempts >= MAX_KILL_ATTEMPTS:
+                logging.warning(f"Gave up killing child PID {child} after {MAX_KILL_ATTEMPTS} attempts.")
         
         # Terminate the main process
-        proc_to_kill.terminate()
-        time.sleep(0.01)
-        # If main process is alive, keep sending SIGKILL
-        while self.is_process_alive(proc_to_kill.pid):
-            logging.debug(f"Parent proc {proc_to_kill.pid} still alive. Attempting to kill again...")
-            proc_to_kill.kill()
-            time.sleep(0.001)  # Sleep for 1 millisecond before checking again
-        logging.debug(self.is_process_alive(proc_to_kill.pid))
+        kill_attempts = 0
+        while self.is_process_alive(proc_to_kill.pid) and kill_attempts < MAX_KILL_ATTEMPTS:
+            try:
+                # Send SIGKILL signal for a forceful kill
+                subprocess.check_call(['kill', '-9', str(proc_to_kill.pid)])
+                time.sleep(0.01)  # Sleep for 10 milliseconds before checking again
+            except subprocess.CalledProcessError:
+                logging.debug(f"Failed to kill parent PID {proc_to_kill.pid}.")
+            kill_attempts += 1
 
+        if kill_attempts >= MAX_KILL_ATTEMPTS:
+            logging.warning(f"Gave up killing parent PID {proc_to_kill.pid} after {MAX_KILL_ATTEMPTS} attempts.")
 
     def resolve_commands_that_can_be_resolved_and_push_frontier(self):
         cmds_to_resolve = self.__pop_cmds_to_resolve_from_speculated()

@@ -26,12 +26,14 @@ else
     rkr_cmd="rkr --frontier"
 fi
 
-strace -o out $rkr_cmd --db "$TEMPDIR" --rikerfile "$TEMPDIR/Rikerfile"
+$rkr_cmd --db "$TEMPDIR" --rikerfile "$TEMPDIR/Rikerfile"
 exit_code="$?"
 
-echo 'first riker run done' 1>&2
-
-
+if [ "$exit_code" -eq 0 ]; then
+    echo "first riker run done (Node: ${CMD_ID})" 1>&2
+else
+    echo "Riker error: first Riker command failed with EC $exit_code - (Node: ${CMD_ID})" 1>&2
+fi
 
 rkr --db "$TEMPDIR" --rikerfile "$TEMPDIR/Rikerfile" --debug trace -o "$TRACE_FILE" > /dev/null
 echo 'second riker run done' 1>&2

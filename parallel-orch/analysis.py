@@ -1,5 +1,6 @@
 import logging
 
+
 import libdash.parser
 from shasta.ast_node import *
 from shasta.json_to_ast import to_ast_node
@@ -48,12 +49,13 @@ def safe_to_execute(asts: "list[AstNode]", variables: dict) -> bool:
     ## If so, then we need to tell the original script to execute the command.
 
     ## Expand the command argument
-    cmd_arg = ast.arguments[0]
-    exp_state = expand.ExpansionState(variables)
-    ## TODO: Catch exceptions around here
-    expanded_cmd_arg = expand.expand_arg(cmd_arg, exp_state)
-    cmd_str = string_of_arg(expanded_cmd_arg)
-    logging.debug(f'Expanded command argument: {expanded_cmd_arg} (str: "{cmd_str}")')
+    if (len(ast.arguments) > 0):
+        cmd_arg = ast.arguments[0]
+        exp_state = expand.ExpansionState(variables)
+        ## TODO: Catch exceptions around here
+        expanded_cmd_arg = expand.expand_arg(cmd_arg, exp_state)
+        cmd_str = string_of_arg(expanded_cmd_arg)
+        logging.critical(f'Expanded command argument: {expanded_cmd_arg} (str: "{cmd_str}")')
 
     ## TODO: Determine if the ast contains a command substitution and if so
     ##        run it in the original script.
@@ -65,14 +67,106 @@ def safe_to_execute(asts: "list[AstNode]", variables: dict) -> bool:
     ##               after it, because we cannot track read-write dependencies
     ##               in the original shell.
 
-    if cmd_str in BASH_PRIMITIVES:
-        return False
+        if cmd_str in BASH_PRIMITIVES:
+            return False
     
     return True
+
+
+def parse_and_gather_rw_sets_early(asts, variables: dict) -> "tuple[set[str], set[str]]":
+    read_set, write_set = set(), set()
+    assert(len(asts) == 1)
+    ast = asts[0]
+    assert(isinstance(ast, CommandNode))
+    logging.debug(f'Ast in question: {ast}')
+    if len(ast.arguments) > 0:
+        cmd_arg = ast.arguments[0]
+        exp_state = expand.ExpansionState(variables)
+        expanded_cmd_arg = expand.expand_arg(cmd_arg, exp_state)
+        cmd_str = string_of_arg(expanded_cmd_arg)
+        # Command cmd assignment
+        if len(ast.arguments) == 1:
+            return read_set, write_set # TODO
+        elif cmd_str in BASH_VAR_ASSIGNMENTS:
+            # This will fail if the assignment contains a variable ref
+            try:
+                expanded_rest_args = [string_of_arg(expand.expand_arg(arg, exp_state)) for arg in ast.arguments[1:]]
+            except:
+                expanded_rest_args = [string_of_arg(arg) for arg in ast.arguments[1:]]
+            read_set, write_set = parse_and_gather_rw_sets_early_command_variable_assignments(expanded_cmd_arg, expanded_rest_args, variables)
+            return read_set, write_set
+        # We cannot get anything from these primitives
+        elif cmd_str in BASH_PRIMITIVES:
+            return read_set, write_set
+        else: # Other commands
+            # This will fail if the assignment contains a variable ref
+            try:
+                expanded_rest_args = [string_of_arg(expand.expand_arg(arg, exp_state)) for arg in ast.arguments[1:]]
+            except:
+                expanded_rest_args = [string_of_arg(arg) for arg in ast.arguments[1:]]
+            read_set, write_set = parse_and_gather_rw_sets_early_other_commands(expanded_cmd_arg, expanded_rest_args, variables)
+            return read_set, write_set
+    else:
+        exp_state = expand.ExpansionState(variables)
+        assignments = ast.assignments
+        if len(assignments) > 0:
+            read_set, write_set = parse_and_gather_rw_sets_early_simple_variable_assignments(assignments, exp_state)
+            return read_set, write_set
+
+# Handles simple cases of variable assignments (e.g. var=val)
+def parse_and_gather_rw_sets_early_simple_variable_assignments(assignments: "list[AssignNode]", exp_state: dict) -> "tuple[set[str], set[str]]":
+    logging.debug(f'> Simple Variable assignment spotted: {" ".join([assignment.pretty() for assignment in assignments])}')
+    # If assigning a value to a variable, then we need to add the variable to the write set
+    vars, vals = zip(*[(assignment.pretty().split('=')[0], assignment.pretty().split('=')[1].strip('"').strip("'")) for assignment in assignments])
+    # Surround vars with ${} to match the expansion
+    vars = {'${' + var + '}' for var in vars}
+    variable_vals = {val for val in vals if val.startswith('$') and not val.startswith('$(')} # TODO: more cases
+    logging.critical(f"vars & vals: {vars} {variable_vals}")
+    return variable_vals, vars
+
+# Handles other cases of variable assignments (e.g. export var=val, declare var=val, etc.)
+def parse_and_gather_rw_sets_early_command_variable_assignments(expanded_cmd_arg, expanded_rest_args, variables: dict) -> "tuple[set[str], set[str]]":
+    logging.debug(f'> Command variable assignment spotted: {string_of_arg(expanded_cmd_arg)} {" ".join([expanded_rest_arg for expanded_rest_arg in expanded_rest_args])}')
+    cmd_str = string_of_arg(expanded_cmd_arg)
+    rest_arg_str = " ".join((expanded_rest_args))
+    # assign_nodes = [AssignNode(expanded_rest_arg.split('=')[0], expanded_rest_arg.split('=')[1]) for expanded_rest_arg in expanded_rest_args]
+    vars, vals = zip(*[(expanded_cmd_arg.split('=')[0], expanded_cmd_arg.split('=')[1].strip('"').strip("'")) for expanded_cmd_arg in expanded_rest_args])
+    vars = {'${' + var + '}' for var in vars}
+    variable_vals = {val for val in vals if val.startswith('$') and not val.startswith('$(')} # TODO: more cases
+    return variable_vals, vars
+
+
+def parse_and_gather_rw_sets_early_other_commands(expanded_cmd_arg, expanded_rest_args, variables: dict) -> "tuple[set[str], set[str]]":
+    logging.debug(f'> Command spotted: {string_of_arg(expanded_cmd_arg)} {" ".join([expanded_rest_arg for expanded_rest_arg in expanded_rest_args])}')
+
+    read_set, write_set = set(), set()
+
+    # Gathering read set
+    for expanded_rest_arg in expanded_rest_args:
+        if expanded_rest_arg.startswith('$') and not expanded_rest_arg.startswith('$('):
+            read_set.add(expanded_rest_arg)
+
+    # GL: Here, we don't modify the write set since we're assuming general commands won't modify shell variables.
+    # However, if we have specific commands that we know modify shell variables, 
+    # we would handle them here.
+    # Write sets will generally be resolved by Riker.
+    # TODO maybe for far later: Here, we could even use PaSh's annotations to help us resolve write sets.
+
+    return read_set, write_set
+    
 
 BASH_PRIMITIVES = ["break", 
                    "continue", 
                    "return"]
+
+BASH_VAR_ASSIGNMENTS = ["export", 
+                        "local", 
+                        "readonly", 
+                        "typeset", 
+                        "declare", 
+                        "unset", 
+                        # "read"
+                        ]
 
 
 safe_cases = {

@@ -1168,6 +1168,19 @@ class PartialProgramOrder:
 
     # Nodes to be scheduled are always not committed and not executing
     def schedule_node(self, cmd_id):
+        
+        ## GL: Here we are going to check for assignment nodes and if we have assignment nodes we can attempt 
+        ##     to resolve dependencies early, statically (given the assignments are expanded first).
+        ##     This method can be later expanded to also attempt to resolve and schedule early other commands.
+        node = self.get_node(cmd_id)
+        variables = []
+        early_read_set, early_write_set = analysis.parse_and_gather_rw_sets_early(node.asts, variables)
+        if len(early_read_set) > 0 or len(early_write_set) > 0:
+            logging.debug(f'Early dependency resolution for node {cmd_id}: {node.cmd_no_redir} | Early read set: {early_read_set} | Early write set: {early_write_set}')
+            rw_set = RWSet(early_read_set, early_write_set)
+            self.update_rw_set(cmd_id, rw_set)
+        else:
+            logging.debug(f'No RW set elements could be resolved from early dependency resolution for node {cmd_id}: {node.cmd_no_redir}')
         # This replaced the old frontier check
         if self.is_next_non_committed_node(cmd_id):
             # TODO: run this and before committing kill any speculated commands still executing
@@ -1209,8 +1222,8 @@ class PartialProgramOrder:
             ##        commands as if they had dependencies with it. In the future,
             ##        we can be smarter with it. Many unsafe commands will not have
             ##        other side-effects, so we don't need to invalidate anything after them.
-            return
-
+            return            
+        
         cmd = node.get_cmd()
         self.executions[node_id] += 1
         if speculate:

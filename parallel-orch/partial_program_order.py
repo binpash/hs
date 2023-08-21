@@ -6,8 +6,10 @@ import sys
 import analysis
 import executor
 import trace
+import util
 
 from shasta.ast_node import AstNode, CommandNode
+
 
 class CompletedNodeInfo:
     def __init__(self, exit_code, variable_file, stdout_file):
@@ -268,6 +270,7 @@ class PartialProgramOrder:
         self.commit_state = {}
         ## Counts the times a node was (re)executed
         self.executions = {node_id: 0 for node_id in self.nodes.keys()}
+        self.banned_files = set()
     
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -367,7 +370,7 @@ class PartialProgramOrder:
         ## Initialize the workset
         self.init_workset()
         logging.debug(f'Initialized workset')
-        self.populate_to_be_resolved_dict([])
+        self.populate_to_be_resolved_dict()
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.to_be_resolved)
         logging.info(f'Initialized the partial order!')
@@ -406,9 +409,6 @@ class PartialProgramOrder:
     def is_committed(self, node_id: NodeId) -> bool:
         return node_id in self.committed
 
-    def get_frontier(self) -> list:
-        return sorted(list(self.frontier))
-
     def init_inverse_adjacency(self):
         self.inverse_adjacency = {i: [] for i in self.nodes.keys()}
         for from_id, to_ids in self.adjacency.items():
@@ -429,8 +429,6 @@ class PartialProgramOrder:
 
         ## TODO: Fix the checks below because they do not work currently
         ## TODO: Check that committed is prefix closed w.r.t partial order
-        # self.all_frontier_nodes_after_committed_nodes()
-        # self.frontier_and_committed_intersect()
         return valid1 and valid2
 
     ## Checks if loop nodes are all valid, i.e., that there are no loop nodes handled like normal ones,
@@ -438,23 +436,14 @@ class PartialProgramOrder:
     ##
     ## Note that loop nodes can be in the committed set (after we are done executing all iterations of a loop)
     def loop_nodes_valid(self):
-        forbidden_sets = self.get_frontier() + \
+        # GL 2023-07-08: This works without get_all_next_non_committed_nodes(), not sure why
+        forbidden_sets = self.get_all_next_non_committed_nodes() + \
                          self.get_workset() + \
                          list(self.stopped) + \
                          list(self.commands_currently_executing.keys())
         loop_nodes_in_forbidden_sets = [node_id for node_id in forbidden_sets 
                                 if self.is_loop_node(node_id)]
         return len(loop_nodes_in_forbidden_sets) == 0
-
-    # Check if all frontier nodes are after committed nodes
-    def all_frontier_nodes_after_committed_nodes(self):
-        ## TODO: Make this check a proper predecessor check
-        # return max(self.get_committed()) < min(self.frontier)
-        return False
-
-    # Checks if frontier and committed intersect
-    def frontier_and_committed_intersect(self):
-        return len(set.intersection(set(self.get_committed()), set(self.get_frontier()))) > 0
 
     def __len__(self):
         return len(self.nodes)
@@ -477,7 +466,6 @@ class PartialProgramOrder:
     ## This adds a node to the committed set and saves important information
     def commit_node(self, node_id: NodeId):
         logging.debug(f" > Commiting node {node_id}")
-        self.save_commit_state_of_cmd(node_id)
         self.committed.add(node_id)
 
 
@@ -560,9 +548,6 @@ class PartialProgramOrder:
             all_next_transitive = all_next_transitive.union(successors)
             next_work.extend(new_next)
         return list(all_next_transitive)
-
-    def is_frontier(self, node_id: NodeId) -> bool:
-        return node_id in self.frontier
     
     def update_rw_set(self, node_id, rw_set):
         self.rw_sets[node_id] = rw_set
@@ -615,8 +600,33 @@ class PartialProgramOrder:
         ## Otherwise we can return
         logging.debug(f' >> Able to resolve {node_id}')
         return True
+    
+    def __kill_all_currently_executing_and_schedule_restart(self):
+        nodes_to_kill = self.get_currently_executing()
+        for cmd_id in nodes_to_kill:
+            self.__kill_node(cmd_id)
+            self.workset.remove(cmd_id)
+        # Our new workset is the nodes that were killed
+        # Previous workset got killed 
+        self.workset.extend(nodes_to_kill)
 
-    def resolve_commands_that_can_be_resolved_and_step_forward(self):
+    def __kill_node(self, cmd_id: "NodeId"):
+        logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
+        proc_to_kill, trace_file, _stdout, _stderr, _variable_file = self.commands_currently_executing.pop(cmd_id)
+        # Add the trace file to the banned file list so we know to ignore the CommandExecComplete response
+        self.banned_files.add(trace_file)
+
+        # Get all child processes of proc_to_kill
+        children = util.get_child_processes(proc_to_kill.pid)
+        
+        # Kill all child processes
+        for child in children:
+            util.kill_process(child)
+            
+        # Terminate the main process
+        util.kill_process(proc_to_kill.pid)
+
+    def resolve_commands_that_can_be_resolved_and_push_frontier(self):
         cmds_to_resolve = self.__pop_cmds_to_resolve_from_speculated()
         logging.debug(f"Commands to check for dependencies this round are: {sorted(cmds_to_resolve)}")
         logging.debug(f"Commands that cannot be resolved this round are: {sorted(self.speculated)}")
@@ -628,6 +638,7 @@ class PartialProgramOrder:
         else:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
+            self.__kill_all_currently_executing_and_schedule_restart()
             self.commit_cmd_workspaces(to_commit)
             # self.print_cmd_stderr(stderr)
 
@@ -698,23 +709,10 @@ class PartialProgramOrder:
         # We want stopped commands to not enter the workset again yet
         assert(set(self.workset).isdisjoint(self.stopped))
 
-        self.step_forward(old_committed)
+        self.__frontier_commit_and_push()
         # self.log_partial_program_order_info()
         return set(self.get_committed()) - old_committed
 
-    def rerun_stopped(self):
-        new_stopped = self.stopped.copy()
-        ## We never remove stopped commands that are unsafe
-        ##  from the stopped set to be reexecuted.
-        for cmd_id in self.get_stopped_safe():
-            if cmd_id in self.frontier:
-                self.workset.append(cmd_id)
-                logging.debug(f"Removing {cmd_id} from stopped")
-                logging.trace(f"StoppedRemove|{cmd_id}")
-                new_stopped.remove(cmd_id)
-                # We remove any to-check-for-dependency nodes as the stopped node will execute in frontier
-                self.to_be_resolved[cmd_id] = []
-        self.stopped = new_stopped
 
     ## This method checks if nid1 would be before nid2 if nid2 was part of the PO.
     ##
@@ -844,7 +842,7 @@ class PartialProgramOrder:
         ## We check if something can be resolved and stepped forward here
         ## KK 2023-05-10 This seems to work for all tests (so it might be idempotent
         ##                since in many tests there is nothing new to resolve after a wait)
-        self.resolve_commands_that_can_be_resolved_and_step_forward()
+        self.resolve_commands_that_can_be_resolved_and_push_frontier()
 
     ## When the frontend sends a wait for a node, it means that execution in the frontend has
     ## already surpassed all nodes prior to it. This is particularly important for loops, 
@@ -1028,7 +1026,9 @@ class PartialProgramOrder:
 
         ## TODO: This needs to change when we modify unrolling to happen speculatively too
         ## TODO: This needs to properly add the node to frontier and to resolve dictionary
-        self.step_forward(self.get_committed())
+        
+        # GL 2023-05-22: __frontier_commit_and_push() should be called here instead of step_forward()
+        # Although without it the test cases pass
         self.frontier.append(new_first_node_id)
 
         ## At the end of unrolling the target node must be part of the PO
@@ -1043,26 +1043,11 @@ class PartialProgramOrder:
         ## The node_id must be part of the PO after unrolling, otherwise we did something wrong
         assert(self.is_node_id(node_id))
 
-    ## KK 2023-09-05 @Giorgo Do all of these steps need to be done at once, or are these methods
-    ##               meaningful even if called one by one? In general, I would like there to
-    ##               be a clear set of 1-3 methods that are supposed to be used whenever we
-    ##               add some new nodes (or progress the PO in some way) that will step it properly,
-    ##               while being idempotent (if they are called multiple times nothing goes wrong).
-    ##
-    ##               Internal functions on the other hand (ones that cannot be called on their own
-    ##                since they might leave the PO in a partial state) should be prefixed with an
-    ##               underscore.
-    ##
-    ##               All top-level functions should get minimal arguments (none if possible)
-    ##               and should just get their relevant state from the fields of the PO.
-    ## TODO: step_forward seems to be an internal function
-    def step_forward(self, old_committed):
-        self.frontier_commit_and_push()
-        self.rerun_stopped()
-        self.populate_to_be_resolved_dict(old_committed)
 
     ## Pushes the frontier forward as much as possible for all commands in it that can be committed
-    def frontier_commit_and_push(self):
+    ## This function is not safe to call on its own, since it might leave the PO in a broken state
+    ## It should be called right after
+    def __frontier_commit_and_push(self):
         logging.debug(" > Commiting and pushing frontier")
         logging.debug(f' > Frontier: {self.frontier}')
         changes_in_frontier = True
@@ -1132,51 +1117,71 @@ class PartialProgramOrder:
         else:
             logging.debug(f' > No dependencies')
             return False
+        
+    def get_all_next_non_committed_nodes(self) -> "list[NodeId]":
+        next_non_committed_nodes = []
+        for cmd_id in self.get_all_non_committed():
+            if cmd_id in self.workset and self.is_next_non_committed_node(cmd_id):
+                next_non_committed_nodes.append(cmd_id)
+        return next_non_committed_nodes
+    
+    def is_next_non_committed_node(self, node_id: NodeId) -> bool:
+        # We want the predecessor to be committed and the current node to not be committed
+        for prev_node in self.get_prev(node_id):
+            if not (self.is_committed(prev_node) and not self.is_committed(node_id)):
+                return False
+        return True
+
+    # This command never leaves the partial order at a broken state
+    # It is always safe to call it
+    def attempt_move_stopped_to_workset(self):
+        new_stopped = self.stopped.copy()
+        ## We never remove stopped commands that are unsafe
+        ## from the stopped set to be reexecuted.
+        for cmd_id in self.get_stopped_safe():
+            if self.is_next_non_committed_node(cmd_id):
+                self.workset.append(cmd_id)
+                logging.debug(f"StoppedRemove|{cmd_id}")
+                new_stopped.remove(cmd_id)
+                self.to_be_resolved[cmd_id] = []
+        self.stopped = new_stopped
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
         # self.log_partial_program_order_info()
         logging.debug("Scheduling work...")
-        ## KK 2023-05-04 Is it a problem if we do that here?
-        # self.step_forward(copy.deepcopy(self.committed))
-
+        logging.debug("Rerunning stopped commands")
+        # attempt_move_stopped_to_workset() needs to happen before the node execution
+        self.attempt_move_stopped_to_workset()
+        ## GL 2023-07-05 populate_to_be_resolved_dict() is OK to call anywhere,
+        ##            __frontier_commit_and_push() is not safe to call here
+        self.populate_to_be_resolved_dict()
+        
         ## TODO: Move loop unrolling here for speculation too
 
-        self.run_all_frontier_cmds()
-        self.schedule_all_workset_non_frontier_cmds()
+        for cmd_id in self.get_workset():
+            # We only need to schedule non-committed and non-executing nodes
+            if not (cmd_id in self.get_committed() or \
+               cmd_id in self.commands_currently_executing):
+                self.schedule_node(cmd_id)
         assert(self.valid())
 
-    def schedule_all_workset_non_frontier_cmds(self):
-        non_frontier_ids = [node_id for node_id in self.get_workset() 
-                            if not self.is_frontier(node_id)]
-        for cmd_id in non_frontier_ids:
-            # We also need for a cmd to not be waiting to be resolved.
-            if not cmd_id in self.commands_currently_executing and \
-               not cmd_id in self.speculated:
+    # Nodes to be scheduled are always not committed and not executing
+    def schedule_node(self, cmd_id):
+        # This replaced the old frontier check
+        if self.is_next_non_committed_node(cmd_id):
+            # TODO: run this and before committing kill any speculated commands still executing
+            self.run_cmd_non_blocking(cmd_id)
+        else:
+            if not cmd_id in self.speculated:
                 self.speculate_cmd_non_blocking(cmd_id)
-
-    def run_all_frontier_cmds(self):
-        logging.debug("Starting execution on the whole frontier")
-        cmd_ids = self.get_frontier()
-        for cmd_id in cmd_ids:
-            # If frontier cmd is still executing, don't re-execute it
-            if not cmd_id in self.commands_currently_executing:
-                # We also re-execute stopped frontier cmds,
-                # therefore, they are no longer stopped
-                logging.debug(f" Removing {cmd_id} from stopped")
-                if cmd_id in self.stopped:
-                    self.stopped.remove(cmd_id)
-                    logging.trace(f"StoppedRemove|{cmd_id}")
-                    # We remove any to-check-for-dependency nodes as the stopped node will execute in frontier
-                    self.to_be_resolved[cmd_id] = []
-                self.run_cmd_non_blocking(cmd_id)
+        return
 
     ## Run a command and add it to the dictionary of executing ones
     def run_cmd_non_blocking(self, node_id: NodeId):
         ## A command should only be run if it's in the frontier, otherwise it should be spec run
-        assert(self.is_frontier(node_id))
-        logging.trace(f'Running command: {node_id} {self.get_node(node_id)}')
-        logging.trace(f"ExecutingAdd|{node_id}")
+        logging.debug(f'Running command: {node_id} {self.get_node(node_id)}')
+        logging.debug(f"ExecutingAdd|{node_id}")
         self.execute_cmd_core(node_id, speculate=False)
 
     ## Run a command and add it to the dictionary of executing ones
@@ -1186,7 +1191,7 @@ class PartialProgramOrder:
         ##       are relevant for the report maker,
         ##       add them in some library (e.g., trace_for_report) 
         ##       so that we don't accidentally delete them.
-        logging.trace(f"ExecutingSandboxAdd|{node_id}")
+        logging.debug(f"ExecutingSandboxAdd|{node_id}")
         self.execute_cmd_core(node_id, speculate=True)
 
     def execute_cmd_core(self, node_id: NodeId, speculate=False):
@@ -1209,41 +1214,39 @@ class PartialProgramOrder:
         cmd = node.get_cmd()
         self.executions[node_id] += 1
         if speculate:
-            execute_func = executor.async_run_and_trace_command_return_trace_in_sandbox
+            execute_func = executor.async_run_and_trace_command_return_trace_in_sandbox_speculate
         else:
             execute_func = executor.async_run_and_trace_command_return_trace
         proc, trace_file, stdout, stderr, variable_file = execute_func(cmd, node_id)
-        logging.debug(f'Read trace from: {trace_file}')
         self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
+        logging.debug(f" >>>>> Command {node_id} - {proc.pid} just started executing")
 
     def command_execution_completed(self, node_id: NodeId, riker_exit_code:int, sandbox_dir: str):
         logging.debug(f" --- Node {node_id}, just finished execution ---")
         self.sandbox_dirs[node_id] = sandbox_dir
         ## TODO: Store variable file somewhere so that we can return when wait
         _proc, trace_file, stdout, stderr, variable_file = self.commands_currently_executing.pop(node_id)
+        logging.debug(f" >>>>> Command {node_id} - {_proc.pid} just finished executing")
         logging.trace(f"ExecutingRemove|{node_id}")
         # Handle stopped by riker due to network access
         if int(riker_exit_code) == 159:
             logging.debug(f" > Adding {node_id} to stopped because it tried to access the network.")
             logging.trace(f"StoppedAdd|{node_id}:network")
             self.stopped.add(node_id)
-        trace_object = executor.read_trace(sandbox_dir, trace_file)
-        cmd_exit_code = trace.parse_exit_code(trace_object)
-
-        ## Save the completed node info. Note that if the node doesn't commit
-        ##  this information will be invalid and rewritten the next time execution
-        ##  is completed for this node.
-        completed_node_info = CompletedNodeInfo(cmd_exit_code, variable_file, stdout)
-        self.nodes[node_id].set_completed_info(completed_node_info)
-
-        # Handle any other cmd exit with error
-        # TODO: for now we just postpone them until we reach the frontier
-        #       afterwards we might want to reattempt to speculate them
-        if cmd_exit_code != 0 and node_id not in self.frontier:
-            logging.debug(f" > Adding {node_id} to stopped because it exited with an error.")
-            logging.trace(f"StoppedAdd|{node_id}:error")
-            self.stopped.add(node_id)
         else:
+            
+            trace_object = executor.read_trace(sandbox_dir, trace_file)
+            cmd_exit_code = trace.parse_exit_code(trace_object)
+
+            ## Save the completed node info. Note that if the node doesn't commit
+            ##  this information will be invalid and rewritten the next time execution
+            ##  is completed for this node.
+            completed_node_info = CompletedNodeInfo(cmd_exit_code, variable_file, stdout)
+            self.nodes[node_id].set_completed_info(completed_node_info)
+
+            ## We no longer add failed commands to the stopped set, 
+            ## because this leads to more repetitions than needed
+            ## and does not allow us to properly speculate commands
 
             read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
             rw_set = RWSet(read_set, write_set)
@@ -1267,7 +1270,7 @@ class PartialProgramOrder:
         self.add_to_speculated(node_id)
         ## We can now call the general resolution method that determines which commands
         ## can be resolved (all their dependencies are done executing), and resolves them.
-        self.resolve_commands_that_can_be_resolved_and_step_forward()
+        self.resolve_commands_that_can_be_resolved_and_push_frontier()
         assert(self.valid())
 
     def print_cmd_stderr(self, stderr):
@@ -1277,7 +1280,7 @@ class PartialProgramOrder:
         print(stderr.read().decode(), file=sys.stderr, end="")
 
     def commit_cmd_workspaces(self, to_commit_ids):
-        for cmd_id in to_commit_ids:
+        for cmd_id in sorted(to_commit_ids):
             workspace = self.sandbox_dirs[cmd_id]
             if workspace != "":
                 logging.debug(f" (!) Committing workspace of cmd {cmd_id} found in {workspace}")
@@ -1295,7 +1298,7 @@ class PartialProgramOrder:
         logging.debug(f"=" * 80)
         logging.debug(f"WORKSET:          {self.get_workset()}")
         logging.debug(f"COMMITTED:        {self.get_committed_list()}")
-        logging.debug(f"FRONTIER:         {self.get_frontier()}")
+        logging.debug(f"FRONTIER:         {self.frontier}")
         logging.debug(f"EXECUTING:        {list(self.commands_currently_executing.keys())}")
         logging.debug(f"STOPPED:          {list(self.stopped)}")
         logging.debug(f" of which UNSAFE: {list(self.get_unsafe())}")
@@ -1305,7 +1308,7 @@ class PartialProgramOrder:
         logging.debug(f"=" * 80)
 
     ## TODO: Document how this finds the to be resolved dict
-    def populate_to_be_resolved_dict(self, old_committed):
+    def populate_to_be_resolved_dict(self):
         logging.debug("Populating the resolved dictionary for all nodes")
         for node_id in self.nodes:
             if self.is_committed(node_id):
@@ -1321,13 +1324,9 @@ class PartialProgramOrder:
                 logging.debug(f" > Node: {node_id} is currently executing, skipping...")
                 continue
             else:
-                logging.debug(f" > Node: {node_id} is not executing or waiting to be resolved so we modify its set.")
+                logging.debug(f" > Node: {node_id} is not executing or waiting to be resolved (speculated) so we modify its set.")
                 self.to_be_resolved[node_id] = []
                 traversal = []
-                ## KK 2023-04-24: Previously old_committed was used here
-                ##                but this doesn't make sense because we are only modifying
-                ##                the to_be_resolved of currently executing commands.
-                # relevant_committed = old_committed
                 relevant_committed = self.get_committed()
                 if node_id not in relevant_committed:
                     to_add = self.get_prev(node_id).copy()
@@ -1345,21 +1344,6 @@ class PartialProgramOrder:
 
     def get_currently_executing(self) -> list:
         return sorted(list(self.commands_currently_executing.keys()))
-    
-    ## KK 2023-05-02 What does this function do?
-    def save_commit_state_of_cmd(self, cmd_id):
-        self.committed_order.append(cmd_id)
-        self.commit_state[cmd_id] = set(self.get_committed()) - set(self.to_be_resolved[cmd_id])
-
-    def log_committed_cmd_state(self):
-        logging.info("---------- Committed Order -----------")
-        logging.info(" " + " -> ".join(map(str, self.committed_order)))
-        logging.info("---------- Committed State -----------")
-        for cmd in sorted(self.get_committed_list()):
-            if len(self.commit_state[cmd]) == 0:
-                logging.info(f" CMD {cmd} on\t\tSTART")
-            else:
-                logging.info(f" CMD {cmd} after:\t{', '.join(map(str, self.commit_state[cmd]))}")
 
     def log_executions(self):
         logging.debug("---------- (Re)executions ------------")

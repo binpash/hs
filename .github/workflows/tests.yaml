@@ -19,7 +19,6 @@ on:
     - test/**
     - scripts/**
   workflow_dispatch:
-
 # Jobs section
 jobs:
     PaSh-Spec-Tests:
@@ -32,20 +31,21 @@ jobs:
       if: github.event.pull_request.draft == false
       steps:
       - uses: actions/checkout@v2 
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - name: Running Correctness Tests
         run: |
+          cd ..
+          cp -r dynamic-parallelizer ~
+          cd ~/dynamic-parallelizer
           sudo touch /.githubenv
           # install the system deps and pash the environment
           sudo -E bash scripts/install_deps_ubuntu20.sh
-          export PASH_TOP="$PWD/deps/pash"
-          export PATH=$PATH:$PASH_TOP
-          file ./deps/riker/debug/bin/rkr
           uname -a
           # run all the tests
           export DEBUG=100
-          bash ./test/test_orch.sh  
+          export PASH_TOP="$PWD/deps/pash"
+          export PATH=$PATH:$PASH_TOP
+          file ~/dynamic-parallelizer/deps/riker/debug/bin/rkr
+          bash ~/dynamic-parallelizer/test/test_orch.sh  
           # get the timer
           timer=$(LANG=en_us_88591; date)
           echo "VERSION<<EOF" >> $GITHUB_ENV
@@ -74,4 +74,4 @@ jobs:
       - name: Exit Code
         run: |
           # check if everything executed without errors
-          cd test && bash exit_code.sh
+          cd ~/dynamic-parallelizer/test && bash exit_code.sh

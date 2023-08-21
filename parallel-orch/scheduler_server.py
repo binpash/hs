@@ -119,7 +119,8 @@ class Scheduler:
             command_id = parse_node_id(components[0].split(":")[1])
             exit_code = int(components[1].split(":")[1])
             sandbox_dir = components[2].split(":")[1]
-            return command_id, exit_code, sandbox_dir
+            trace_file = components[3].split(":")[1]
+            return command_id, exit_code, sandbox_dir, trace_file
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')
 
@@ -157,7 +158,10 @@ class Scheduler:
     def handle_command_exec_complete(self, input_cmd: str):
         assert(input_cmd.startswith("CommandExecComplete:"))
         ## Read the node id from the command argument
-        cmd_id, exit_code, sandbox_dir = self.__parse_command_exec_complete(input_cmd)
+        cmd_id, exit_code, sandbox_dir, trace_file = self.__parse_command_exec_complete(input_cmd)
+        if trace_file in self.partial_program_order.banned_files:
+            logging.debug(f'CommandExecComplete: {cmd_id} ignored')
+            return
         logging.debug(input_cmd)
 
         ## Gather RWset, resolve dependencies, and progress graph
@@ -193,7 +197,6 @@ class Scheduler:
             if not self.partial_program_order.is_completed():
                 logging.debug(" |- some nodes were skipped completed.")
             socket_respond(connection, success_response("All finished!"))
-            self.partial_program_order.log_committed_cmd_state()
             self.partial_program_order.log_executions()
             self.done = True
         else:

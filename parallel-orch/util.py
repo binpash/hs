@@ -2,8 +2,9 @@ import config
 import logging
 import os
 import socket
+import subprocess
 import tempfile
-
+import time
 
 def ptempfile():
     fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX)
@@ -54,3 +55,42 @@ def socket_respond(connection: socket.socket, message: str):
     bytes_message = message.encode('utf-8')
     connection.sendall(bytes_message)
     connection.close()
+
+# Check if the process with the given PID is alive.
+def is_process_alive(pid) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    else:
+        return True
+
+# Get all child process PIDs of a process
+def get_child_processes(parent_pid) -> int:
+    try:
+        output = subprocess.check_output(['pgrep', '-P', str(parent_pid)])
+        return [int(pid) for pid in output.decode('utf-8').split()]
+    except subprocess.CalledProcessError:
+        # No child processes were found
+        return []
+
+# Note: Check this function as it does not seem the right way to kill a proc.
+# SIGKILL should be sent once and for all.
+# Kills the process with the provided PID.
+# Returns True if the process was successfully killed, False otherwise.
+def kill_process(pid: int) -> bool:
+    kill_attempts = 0
+    while is_process_alive(pid) and kill_attempts < config.MAX_KILL_ATTEMPTS:
+        try:
+            # Send SIGKILL signal for a forceful kill
+            subprocess.check_call(['kill', '-9', str(pid)])
+            time.sleep(0.005)  # Sleep for 5 milliseconds before checking again
+        except subprocess.CalledProcessError:
+            logging.debug(f"Failed to kill PID {pid}.")
+        kill_attempts += 1
+    
+    if kill_attempts >= config.MAX_KILL_ATTEMPTS:
+        logging.warning(f"Gave up killing PID {pid} after {config.MAX_KILL_ATTEMPTS} attempts.")
+        return False
+    
+    return True

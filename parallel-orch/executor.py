@@ -2,7 +2,7 @@ import config
 import logging
 import subprocess
 import util
-import tempfile
+import os
 
 # This module executes a sequence of commands 
 # and traces them with Riker. 
@@ -57,3 +57,13 @@ def read_trace(sandbox_dir, trace_file):
     logging.debug(f'Reading trace from: {path}')
     with open(path) as f:
         return f.readlines()
+    
+def read_env_file(env_file, sandbox_dir=None):
+    if sandbox_dir is None:
+        path = env_file
+    else:
+        path = f"{sandbox_dir}/upperdir/{env_file}"
+    logging.debug(f'Reading env from: {path}')
+    # with subprocess and return the output
+    # out = subprocess.check_output([f"{os.getenv('PASH_TOP')}/compiler/orchestrator_runtime/pash_source_declare_vars.sh", path])
+    # return out.decode("utf-8")

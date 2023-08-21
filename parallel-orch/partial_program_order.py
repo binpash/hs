@@ -340,7 +340,7 @@ class PartialProgramOrder:
         self.new_envs[node_id] = new_env_file
         
     def get_new_env_file_for_node(self, node_id: NodeId) -> str:
-        return self.new_envs[node_id]
+        return self.new_envs.get(node_id)
 
     ## This returns all previous nodes of a sub partial order
     def get_sub_po_prev_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
@@ -1273,7 +1273,9 @@ class PartialProgramOrder:
             return
 
         assert(node_id not in self.stopped)
-
+        
+        ## Here we need to compare the new env file and the latest env file for *significant* differences
+        self.compare_new_and_latest_env_files(self.get_new_env_file_for_node(node_id), variable_file, sandbox_dir)
         
         ## Since the command properly finished executing, it now waits to be resolved
         self.add_to_speculated(node_id)
@@ -1281,6 +1283,25 @@ class PartialProgramOrder:
         ## can be resolved (all their dependencies are done executing), and resolves them.
         self.resolve_commands_that_can_be_resolved_and_push_frontier()
         assert(self.valid())
+        
+    def compare_new_and_latest_env_files(self, new_env_file, latest_env_file, sandbox_dir):
+        logging.critical(f"Comparing new and latest env files: {new_env_file} {latest_env_file}")
+        assert(latest_env_file is not None)
+        if new_env_file is None:
+            logging.critical("No new env yet. Will check again on commit.")
+            return True
+        logging.debug(f"Comparing new and latest env files: {new_env_file} {latest_env_file}")
+        new_env = executor.read_env_file(new_env_file)
+        latest_env = executor.read_env_file(latest_env_file, sandbox_dir)
+        logging.debug(f">> New env: {new_env}")
+        logging.debug(f">> Latest env: {latest_env}")
+        # This needs to become selective and only return false in *significant* differences
+        if new_env != latest_env:
+            logging.debug(f" > New env is different than latest env.")
+            return False
+        else:
+            logging.debug(f" > New env is the same as latest env.")
+            return True
 
     def print_cmd_stderr(self, stderr):
         # stdout.seek(0)

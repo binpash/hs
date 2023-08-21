@@ -98,6 +98,7 @@ class Scheduler:
 
         ## Set the new env file for the node
         self.partial_program_order.set_new_env_file_for_node(node_id, pash_runtime_vars_file_str)
+        logging.critical(f'New env file for node: {node_id} is: {pash_runtime_vars_file_str}')
 
         ## Inform the partial order that we received a wait for a node so that it can push loops
         ## forward and so on.

@@ -4,7 +4,7 @@
 export CMD_STRING=${1?No command was given to execute}
 export TRACE_FILE=${2?No trace file path given}
 export STDOUT_FILE=${3?No stdout file given}
-export OUTPUT_VARIABLE_FILE=${4?No output variable file given}
+export LATEST_ENV_FILE=${4?No output variable file given}
 export EXEC_MODE=${5?No execution mode given}
 export CMD_ID=${6?No command id given}
 

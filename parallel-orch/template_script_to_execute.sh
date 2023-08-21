@@ -18,7 +18,9 @@ echo $CMD_STRING > "$TEMPDIR/Rikerfile"
 # echo 'bash "$RUNTIME_DIR/pash_declare_vars.sh" "$OUTPUT_VARIABLE_FILE"' >> ./Rikerfile
 # TODO: There is a bug here and parsing of RW dependencies doesn't really work
 #       when we add the following line.
-echo 'declare -p > "$OUTPUT_VARIABLE_FILE"' >> ./Rikerfile
+# echo 'declare -p > "$OUTPUT_VARIABLE_FILE"' >> ./Rikerfile
+
+bash "$RUNTIME_DIR/pash_declare_vars.sh" "$LATEST_ENV_FILE"
 
 if [ $speculate_flag -eq 1 ]; then
     rkr_cmd="rkr"

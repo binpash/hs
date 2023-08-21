@@ -74,6 +74,8 @@ def get_child_processes(parent_pid) -> int:
         # No child processes were found
         return []
 
+# Note: Check this function as it does not seem the right way to kill a proc.
+# SIGKILL should be sent once and for all.
 # Kills the process with the provided PID.
 # Returns True if the process was successfully killed, False otherwise.
 def kill_process(pid: int) -> bool:

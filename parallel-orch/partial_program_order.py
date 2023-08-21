@@ -271,6 +271,7 @@ class PartialProgramOrder:
         ## Counts the times a node was (re)executed
         self.executions = {node_id: 0 for node_id in self.nodes.keys()}
         self.banned_files = set()
+        self.new_envs = {}
     
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -334,6 +335,12 @@ class PartialProgramOrder:
         ## KK 2024-05-03: I don't see how we can get multiple sink with the current structure
         assert(len(sink_nodes) == 1)
         return sink_nodes
+    
+    def set_new_env_file_for_node(self, node_id: NodeId, new_env_file: str):
+        self.new_envs[node_id] = new_env_file
+        
+    def get_new_env_file_for_node(self, node_id: NodeId) -> str:
+        return self.new_envs[node_id]
 
     ## This returns all previous nodes of a sub partial order
     def get_sub_po_prev_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
@@ -1234,7 +1241,7 @@ class PartialProgramOrder:
             logging.trace(f"StoppedAdd|{node_id}:network")
             self.stopped.add(node_id)
         else:
-            
+
             trace_object = executor.read_trace(sandbox_dir, trace_file)
             cmd_exit_code = trace.parse_exit_code(trace_object)
 
@@ -1266,6 +1273,8 @@ class PartialProgramOrder:
             return
 
         assert(node_id not in self.stopped)
+
+        
         ## Since the command properly finished executing, it now waits to be resolved
         self.add_to_speculated(node_id)
         ## We can now call the general resolution method that determines which commands

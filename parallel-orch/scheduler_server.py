@@ -72,16 +72,19 @@ class Scheduler:
         self.partial_program_order = parse_partial_program_order_from_file(partial_order_file)
         self.partial_program_order.init_partial_order()
 
-    def __parse_wait(self, input_cmd: str) -> NodeId:
+    def __parse_wait(self, input_cmd: str) -> "tuple[NodeId, str]":
+        
+        logging.critical(input_cmd)
         try:
-            node_id_component, loop_iter_counter_component = input_cmd.rstrip().split("|")
+            node_id_component, loop_iter_counter_component, pash_runtime_vars_file_component = input_cmd.rstrip().split("|")
             raw_node_id_int = int(node_id_component.split(":")[1].rstrip())
             loop_counters_str = loop_iter_counter_component.split(":")[1].rstrip()
+            pash_runtime_vars_file_str = pash_runtime_vars_file_component.split(":")[1].rstrip()
             if loop_counters_str == "None":
-                node_id = NodeId(raw_node_id_int)
+                node_id = NodeId(raw_node_id_int), pash_runtime_vars_file_str
             else:
                 loop_counters = [int(cnt) for cnt in loop_counters_str.split("-")]
-                node_id = NodeId(raw_node_id_int, LoopStack(loop_counters))            
+                node_id = NodeId(raw_node_id_int, LoopStack(loop_counters)), pash_runtime_vars_file_str           
             return node_id
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')
@@ -90,9 +93,11 @@ class Scheduler:
         assert(input_cmd.startswith("Wait"))
         ## We have received this message by the JIT, which waits for a node_id to
         ## finish execution.
-        node_id = self.__parse_wait(input_cmd)        
-        logging.debug(f'Scheduler: Received wait for node_id: {node_id}')
+        node_id, pash_runtime_vars_file_str = self.__parse_wait(input_cmd)        
+        logging.debug(f'Scheduler: Received wait for node_id: {node_id}|New env file: {pash_runtime_vars_file_str}')
 
+        ## Set the new env file for the node
+        self.partial_program_order.set_new_env_file_for_node(node_id, pash_runtime_vars_file_str)
 
         ## Inform the partial order that we received a wait for a node so that it can push loops
         ## forward and so on.

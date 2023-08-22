@@ -20,7 +20,7 @@ fi
 ## Save the script to execute in the sandboxdir
 echo $CMD_STRING >> "$TEMPDIR/Rikerfile"
 
-# cat "$TEMPDIR/Rikerfile" 1>&2 # only for debugging
+source "$RUNTIME_DIR/pash_declare_vars.sh" "$LATEST_ENV_FILE"
 
 if [ $speculate_flag -eq 1 ]; then
     rkr_cmd="rkr"

@@ -4,6 +4,7 @@ import os
 import sys
 
 import analysis
+import config
 import executor
 import trace
 import util
@@ -1284,6 +1285,21 @@ class PartialProgramOrder:
         self.resolve_commands_that_can_be_resolved_and_push_frontier()
         assert(self.valid())
         
+    # This needs to become more fine grained
+    def exclude_insignificant_diffs(self, env_diff_dict):
+        return {k: v for k, v in env_diff_dict.items() if k not in config.INSIGNIFICANT_VARS}
+    
+    def significant_diff_in_env_dicts(self, only_in_new, only_in_latest, different_in_both):
+        # Exclude insignificant differences
+        only_in_new_sig = self.exclude_insignificant_diffs(only_in_new)
+        only_in_latest_sig = self.exclude_insignificant_diffs(only_in_latest)
+        different_in_both_sig = self.exclude_insignificant_diffs(different_in_both)
+        # If still diffs are present, return False
+        if len(only_in_new_sig) > 0 or len(only_in_latest_sig) > 0 or len(different_in_both_sig) > 0:
+            return False
+        else:
+            return True
+        
     def new_and_latest_env_files_have_significand_differences(self, new_env_file, latest_env_file, sandbox_dir):
         logging.debug(f"Comparing new and latest env files: {new_env_file} {latest_env_file}")
         assert(latest_env_file is not None)
@@ -1300,11 +1316,7 @@ class PartialProgramOrder:
         logging.debug(f"Unique to latest (Before Riker): {only_in_latest}")
         logging.debug(f"Differing values:                {different_in_both}")
         
-        # This needs to become selective and only return false in *significant* differences
-        if len(only_in_new) > 0 or len(only_in_latest) > 0 or len(different_in_both) > 0:
-            return False
-        else:
-            return True
+        return self.significant_diff_in_env_dicts(only_in_new, only_in_latest, different_in_both)
 
     def print_cmd_stderr(self, stderr):
         # stdout.seek(0)

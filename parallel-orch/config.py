@@ -1,6 +1,5 @@
 import os
 import subprocess
-import sys
 import logging
 
 
@@ -16,7 +15,7 @@ logging.getLoggerClass().trace = log_logger
 
 def log_root(msg, *args, **kwargs):
     logging.log(level, msg, *args, **kwargs)
-logging.addLevelName(level, "TRACE")
+logging.addLevelName(level, 'TRACE')
 logging.trace = log_root
 
 
@@ -33,6 +32,10 @@ PASH_SPEC_TMP_PREFIX = os.getenv('PASH_SPEC_TMP_PREFIX')
 
 SOCKET_BUF_SIZE = 8192
 
-SCHEDULER_SOCKET = os.getenv("PASH_SPEC_SCHEDULER_SOCKET")
+SCHEDULER_SOCKET = os.getenv('PASH_SPEC_SCHEDULER_SOCKET')
 
 MAX_KILL_ATTEMPTS = 10  # Define a maximum number of kill attempts for each process in the partial program order
+
+INSIGNIFICANT_VARS = {'PWD', 'OLDPWD', 'SHLVL', 'PASH_SPEC_TMP_PREFIX', 'PASH_SPEC_SCHEDULER_SOCKET', 'PASH_SPEC_TOP',
+                      'PASH_TOP', 'PASH_TOP_LEVEL','RANDOM', 'LOGNAME', 'MACHTYPE', 'MOTD_SHOWN', 'OPTERR', 'OPTIND',
+                      'PPID', 'PROMPT_COMMAND', 'PS4', 'SHELL', 'SHELLOPTS', 'SHLVL', 'TERM', 'UID', 'USER', 'XDG_SESSION_ID'}

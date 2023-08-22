@@ -7,6 +7,7 @@ export STDOUT_FILE=${3?No stdout file given}
 export LATEST_ENV_FILE=${4?No output variable file given}
 export EXEC_MODE=${5?No execution mode given}
 export CMD_ID=${6?No command id given}
+export ENV_FILE=${7?No env file given}
 
 ## KK 2023-04-24: Not sure this should be run every time we run a command
 ## GL 2023-07-08: Tests seem to pass without it

@@ -273,6 +273,7 @@ class PartialProgramOrder:
         self.executions = {node_id: 0 for node_id in self.nodes.keys()}
         self.banned_files = set()
         self.new_envs = {}
+        self.latest_envs = {}
     
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -342,6 +343,12 @@ class PartialProgramOrder:
         
     def get_new_env_file_for_node(self, node_id: NodeId) -> str:
         return self.new_envs.get(node_id)
+    
+    def set_latest_env_file_for_node(self, node_id: NodeId, latest_env_file: str):
+        self.latest_envs[node_id] = latest_env_file
+        
+    def get_latest_env_file_for_node(self, node_id: NodeId) -> str:
+        return self.latest_envs.get(node_id)
 
     ## This returns all previous nodes of a sub partial order
     def get_sub_po_prev_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
@@ -1221,11 +1228,12 @@ class PartialProgramOrder:
 
         cmd = node.get_cmd()
         self.executions[node_id] += 1
+        env_file_to_execute_with = self.get_new_env_file_for_node(node_id)
         if speculate:
             execute_func = executor.async_run_and_trace_command_return_trace_in_sandbox_speculate
         else:
             execute_func = executor.async_run_and_trace_command_return_trace
-        proc, trace_file, stdout, stderr, variable_file = execute_func(cmd, node_id)
+        proc, trace_file, stdout, stderr, variable_file = execute_func(cmd, node_id, env_file_to_execute_with)
         self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
         logging.debug(f" >>>>> Command {node_id} - {proc.pid} just started executing")
 
@@ -1251,6 +1259,8 @@ class PartialProgramOrder:
             ##  is completed for this node.
             completed_node_info = CompletedNodeInfo(cmd_exit_code, variable_file, stdout)
             self.nodes[node_id].set_completed_info(completed_node_info)
+            
+            self.set_latest_env_file_for_node(node_id, variable_file)
 
             ## We no longer add failed commands to the stopped set, 
             ## because this leads to more repetitions than needed
@@ -1274,33 +1284,44 @@ class PartialProgramOrder:
             return
 
         assert(node_id not in self.stopped)
-        
+
         ## Here we need to compare the new env file and the latest env file for *significant* differences
-        self.new_and_latest_env_files_have_significand_differences(self.get_new_env_file_for_node(node_id), variable_file, sandbox_dir)
-        
-        ## Since the command properly finished executing, it now waits to be resolved
-        self.add_to_speculated(node_id)
-        ## We can now call the general resolution method that determines which commands
-        ## can be resolved (all their dependencies are done executing), and resolves them.
-        self.resolve_commands_that_can_be_resolved_and_push_frontier()
-        assert(self.valid())
+        ## If significant differences are present, there is no need to resolve any dependencies
+        ## since the command will be re-executed,
+        #  this time with its most recent env.
+        if self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), variable_file, sandbox_dir):
+            logging.debug(f"Significant differences found between new and latest env files for {node_id}.")
+            # self.workset.append(node_id)
+        else:
+            # Since the command properly finished executing, it now waits to be resolved
+            self.add_to_speculated(node_id)
+            ## We can now call the general resolution method that determines which commands
+            ## can be resolved (all their dependencies are done executing), and resolves them.
+            self.resolve_commands_that_can_be_resolved_and_push_frontier()
+            assert(self.valid())
         
     # This needs to become more fine grained
     def exclude_insignificant_diffs(self, env_diff_dict):
         return {k: v for k, v in env_diff_dict.items() if k not in config.INSIGNIFICANT_VARS}
     
+    def include_only_significant_vars(self, env_diff_dict):
+        return {k: v for k, v in env_diff_dict.items() if k in config.SIGNIFICANT_VARS}
+    
     def significant_diff_in_env_dicts(self, only_in_new, only_in_latest, different_in_both):
         # Exclude insignificant differences
-        only_in_new_sig = self.exclude_insignificant_diffs(only_in_new)
-        only_in_latest_sig = self.exclude_insignificant_diffs(only_in_latest)
-        different_in_both_sig = self.exclude_insignificant_diffs(different_in_both)
+        only_in_new_sig = self.include_only_significant_vars(only_in_new)
+        only_in_latest_sig = self.include_only_significant_vars(only_in_latest)
+        different_in_both_sig = self.include_only_significant_vars(different_in_both)
         # If still diffs are present, return False
         if len(only_in_new_sig) > 0 or len(only_in_latest_sig) > 0 or len(different_in_both_sig) > 0:
-            return False
-        else:
+            logging.debug(f"Unique to new (Wait):            {only_in_new_sig}")
+            logging.debug(f"Unique to latest (Before Riker): {only_in_latest_sig}")
+            logging.debug(f"Differing values:                {different_in_both_sig}")
             return True
+        else:
+            return False
         
-    def new_and_latest_env_files_have_significand_differences(self, new_env_file, latest_env_file, sandbox_dir):
+    def new_and_latest_env_files_have_significant_differences(self, new_env_file, latest_env_file, sandbox_dir):
         logging.debug(f"Comparing new and latest env files: {new_env_file} {latest_env_file}")
         assert(latest_env_file is not None)
         if new_env_file is None:
@@ -1312,9 +1333,9 @@ class PartialProgramOrder:
         
         only_in_new, only_in_latest, different_in_both = util.compare_env_strings(new_env, latest_env)
         
-        logging.debug(f"Unique to new (Wait):            {only_in_new}")
-        logging.debug(f"Unique to latest (Before Riker): {only_in_latest}")
-        logging.debug(f"Differing values:                {different_in_both}")
+        # logging.debug(f"Unique to new (Wait):            {only_in_new}")
+        # logging.debug(f"Unique to latest (Before Riker): {only_in_latest}")
+        # logging.debug(f"Differing values:                {different_in_both}")
         
         return self.significant_diff_in_env_dicts(only_in_new, only_in_latest, different_in_both)
 

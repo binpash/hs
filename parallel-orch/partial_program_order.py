@@ -1275,7 +1275,7 @@ class PartialProgramOrder:
         assert(node_id not in self.stopped)
         
         ## Here we need to compare the new env file and the latest env file for *significant* differences
-        self.compare_new_and_latest_env_files(self.get_new_env_file_for_node(node_id), variable_file, sandbox_dir)
+        self.new_and_latest_env_files_have_significand_differences(self.get_new_env_file_for_node(node_id), variable_file, sandbox_dir)
         
         ## Since the command properly finished executing, it now waits to be resolved
         self.add_to_speculated(node_id)
@@ -1284,23 +1284,26 @@ class PartialProgramOrder:
         self.resolve_commands_that_can_be_resolved_and_push_frontier()
         assert(self.valid())
         
-    def compare_new_and_latest_env_files(self, new_env_file, latest_env_file, sandbox_dir):
-        logging.critical(f"Comparing new and latest env files: {new_env_file} {latest_env_file}")
+    def new_and_latest_env_files_have_significand_differences(self, new_env_file, latest_env_file, sandbox_dir):
+        logging.debug(f"Comparing new and latest env files: {new_env_file} {latest_env_file}")
         assert(latest_env_file is not None)
         if new_env_file is None:
-            logging.critical("No new env yet. Will check again on commit.")
+            logging.debug("No new env yet. Will check again on commit.")
             return True
         logging.debug(f"Comparing new and latest env files: {new_env_file} {latest_env_file}")
         new_env = executor.read_env_file(new_env_file)
         latest_env = executor.read_env_file(latest_env_file, sandbox_dir)
-        logging.debug(f">> New env: {new_env}")
-        logging.debug(f">> Latest env: {latest_env}")
+        
+        only_in_new, only_in_latest, different_in_both = util.compare_files(new_env, latest_env)
+        
+        logging.debug(f"Unique to new (Wait):            {only_in_new}")
+        logging.debug(f"Unique to latest (Before Riker): {only_in_latest}")
+        logging.debug(f"Differing values:                {different_in_both}")
+        
         # This needs to become selective and only return false in *significant* differences
-        if new_env != latest_env:
-            logging.debug(f" > New env is different than latest env.")
+        if len(only_in_new) > 0 or len(only_in_latest) > 0 or len(different_in_both) > 0:
             return False
         else:
-            logging.debug(f" > New env is the same as latest env.")
             return True
 
     def print_cmd_stderr(self, stderr):

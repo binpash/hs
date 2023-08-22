@@ -2,16 +2,6 @@
 
 ## TODO: Pass speculate flag here instead of separate scripts
 
-## Clean up the riker directory
-## KK 2023-05-04 should this be done somewhere else? Could this interfere with overlay fs?
-## TODO: Can we just ask riker to use a different cache (or put the cache to /dev/null)
-##       since we never really want it to take the cache into account
-# rm -rf ./.rkr
-
-## Save the script to execute in the sandboxdir
-echo $CMD_STRING > "$TEMPDIR/Rikerfile"
-# cat ./Rikerfile 1>&2 # only for debugging
-
 ## Save the output shell variables to a file (to pass to the outside context)
 ## TODO: Currently pash_declare_vars doesn't work because riker invokes /bin/sh
 ##       which is bash in POSIX mode.
@@ -20,7 +10,17 @@ echo $CMD_STRING > "$TEMPDIR/Rikerfile"
 #       when we add the following line.
 # echo 'declare -p > "$OUTPUT_VARIABLE_FILE"' >> ./Rikerfile
 
-bash "$RUNTIME_DIR/pash_declare_vars.sh" "$LATEST_ENV_FILE"
+touch "$TEMPDIR/Rikerfile"
+
+if [ $ENV_FILE != "None" ]; then
+    source $ENV_FILE 1>&2
+    echo "source $ENV_FILE" >> "$TEMPDIR/Rikerfile"
+fi
+
+## Save the script to execute in the sandboxdir
+echo $CMD_STRING >> "$TEMPDIR/Rikerfile"
+
+# cat "$TEMPDIR/Rikerfile" 1>&2 # only for debugging
 
 if [ $speculate_flag -eq 1 ]; then
     rkr_cmd="rkr"

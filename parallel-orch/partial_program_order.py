@@ -1294,7 +1294,7 @@ class PartialProgramOrder:
         new_env = executor.read_env_file(new_env_file)
         latest_env = executor.read_env_file(latest_env_file, sandbox_dir)
         
-        only_in_new, only_in_latest, different_in_both = util.compare_files(new_env, latest_env)
+        only_in_new, only_in_latest, different_in_both = util.compare_env_strings(new_env, latest_env)
         
         logging.debug(f"Unique to new (Wait):            {only_in_new}")
         logging.debug(f"Unique to latest (Before Riker): {only_in_latest}")

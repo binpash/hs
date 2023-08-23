@@ -232,7 +232,7 @@ class RWSet:
 
 class PartialProgramOrder:
 
-    def __init__(self, nodes, edges):
+    def __init__(self, nodes, edges, initial_env_file):
         self.nodes = nodes
         # TODO: consider changing values to sets instead of lists
         self.adjacency = edges
@@ -274,6 +274,7 @@ class PartialProgramOrder:
         self.banned_files = set()
         self.new_envs = {}
         self.latest_envs = {}
+        self.initial_env_file = initial_env_file
     
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -1464,13 +1465,16 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
     cmds_directory = str(lines[0])
     logging.debug(f'Cmds are stored in: {cmds_directory}')
 
+    ## The initial env file
+    initial_env_file = str(lines[1])
+
     ## The number of nodes
-    number_of_nodes = int(lines[1])
+    number_of_nodes = int(lines[2])
     logging.debug(f'Number of po cmds: {number_of_nodes}')
 
     ## The loop context for each node
-    loop_context_start=2
-    loop_context_end=number_of_nodes+2
+    loop_context_start=3
+    loop_context_end=number_of_nodes+3
     loop_context_lines = lines[loop_context_start:loop_context_end]
     loop_contexts = parse_loop_contexts(loop_context_lines)
     logging.debug(f'Loop contexts: {loop_contexts}')
@@ -1495,4 +1499,4 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
     
     logging.trace(f"Nodes|{','.join([str(node) for node in nodes])}")
     logging.trace(f"Edges|{edges}")
-    return PartialProgramOrder(nodes, edges)
+    return PartialProgramOrder(nodes, edges, initial_env_file)

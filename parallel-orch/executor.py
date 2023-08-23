@@ -8,37 +8,30 @@ import os
 # and traces them with Riker. 
 # All commands are run inside an overlay sandbox.
 
-def async_run_and_trace_command_return_trace(command, node_id, new_env_file, speculate_mode=False):
+def async_run_and_trace_command_return_trace(command, node_id, latest_env_file, speculate_mode=False):
     trace_file = util.ptempfile()
     stdout_file = util.ptempfile()
     stderr_file = util.ptempfile()
-    variable_file = util.ptempfile()
     riker_env_file = util.ptempfile()
     logging.debug(f'Scheduler: Stdout file for: {node_id} is: {stdout_file}')
     logging.debug(f'Scheduler: Stderr file for: {node_id} is: {stderr_file}')
-    logging.debug(f'Scheduler: Output variable file for: {node_id} is: {variable_file}')
     logging.debug(f'Scheduler: Trace file for: {node_id}: {trace_file}')
-    process = async_run_and_trace_command_return_trace_in_sandbox(command, trace_file, node_id, stdout_file, stderr_file, variable_file, new_env_file, riker_env_file, speculate_mode)
-    return process, trace_file, stdout_file, stderr_file, variable_file, riker_env_file
+    process = async_run_and_trace_command_return_trace_in_sandbox(command, trace_file, node_id, stdout_file, stderr_file, latest_env_file, riker_env_file, speculate_mode)
+    return process, trace_file, stdout_file, stderr_file, riker_env_file
 
-def async_run_and_trace_command_return_trace_in_sandbox_speculate(command, node_id, new_env_file):
-    process, trace_file, stdout_file, stderr_file, variable_file, riker_env_file = async_run_and_trace_command_return_trace(command, node_id, new_env_file, speculate_mode=True)
-    return process, trace_file, stdout_file, stderr_file, variable_file, riker_env_file
+def async_run_and_trace_command_return_trace_in_sandbox_speculate(command, node_id, latest_env_file):
+    process, trace_file, stdout_file, stderr_file, riker_env_file = async_run_and_trace_command_return_trace(command, node_id, latest_env_file, speculate_mode=True)
+    return process, trace_file, stdout_file, stderr_file, riker_env_file
 
-def async_run_and_trace_command_return_trace_in_sandbox(command, trace_file, node_id, stdout_file, stderr_file, variable_file, new_env_file, riker_env_file, speculate_mode=False):
+def async_run_and_trace_command_return_trace_in_sandbox(command, trace_file, node_id, stdout_file, stderr_file, latest_env_file, riker_env_file, speculate_mode=False):
     ## Call Riker to execute the command
     run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command.sh'
-    args = ["/bin/bash", run_script, command, trace_file, stdout_file, variable_file]
+    args = ["/bin/bash", run_script, command, trace_file, stdout_file, latest_env_file]
     if speculate_mode:
         args.append("speculate")
     else:
         args.append("standard")
     args.append(str(node_id))
-    logging.critical(f'env__: {new_env_file}')
-    if new_env_file is None:
-        args.append("None")
-    else:
-        args.append(new_env_file)
     args.append(riker_env_file)
     # Save output to temporary files to not saturate the memory
     logging.debug(args)

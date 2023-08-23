@@ -6,26 +6,23 @@
 
 touch "$TEMPDIR/Rikerfile"
 
-if [ $NEW_ENV_FILE != "None" ]; then
-    source $NEW_ENV_FILE 1>&2
-    echo "source $NEW_ENV_FILE" >> "$TEMPDIR/Rikerfile"
-fi
+## We source the latest env file
+echo "source $LATEST_ENV_FILE" > "$TEMPDIR/Rikerfile"
 
 ## Save the script to execute in the sandboxdir
 echo $CMD_STRING >> "$TEMPDIR/Rikerfile"
-echo "Riker env: $RIKER_ENV_FILE" 1>&2
 
 ## Add command to export Riker's environment variables after run is complete to a file
 echo "source $RUNTIME_DIR/pash_declare_vars.sh $RIKER_ENV_FILE" >> "$TEMPDIR/Rikerfile"
-
-## Save the current (latest) env to a file (before Riker is run)
-source "$RUNTIME_DIR/pash_declare_vars.sh" "$LATEST_ENV_FILE"
 
 if [ $speculate_flag -eq 1 ]; then
     rkr_cmd="rkr"
 else
     rkr_cmd="rkr --frontier"
 fi
+
+echo "RKRRRR" 1>&2
+cat "$TEMPDIR/Rikerfile" 1>&2
 
 $rkr_cmd --db "$TEMPDIR" --rikerfile "$TEMPDIR/Rikerfile"
 exit_code="$?"

@@ -4,11 +4,10 @@
 export CMD_STRING=${1?No command was given to execute}
 export TRACE_FILE=${2?No trace file path given}
 export STDOUT_FILE=${3?No stdout file given}
-export LATEST_ENV_FILE=${4?No output variable file given}
+export LATEST_ENV_FILE=${4?No env file to run with given}
 export EXEC_MODE=${5?No execution mode given}
 export CMD_ID=${6?No command id given}
-export NEW_ENV_FILE=${7?No env file given}
-export RIKER_ENV_FILE=${8?No Riker env file given}
+export RIKER_ENV_FILE=${7?No Riker env file given}
 
 
 ## KK 2023-04-24: Not sure this should be run every time we run a command
@@ -30,6 +29,9 @@ export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/a/sandbox_XXXXXXX)/"
 export TEMPDIR="$(mktemp -d /tmp/pash_spec/b/sandbox_XXXXXXX)"
 # echo tempdir $TEMPDIR
 # echo sandbox $SANDBOX_DIR
+
+echo "OK UP TO HERE" 1>&2
+
 
 bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh" > "${STDOUT_FILE}"
 exit_code=$?

@@ -339,6 +339,12 @@ test_network_access_3()
     $shell $2/test_network_access_3.sh
 }
 
+test_local_vars_1()
+{
+    local shell=$1
+    $shell $2/test_local_vars_1.sh
+}
+
 ## TODO: make more loop tests with nested loops and commands after the loop
 
 # We run all tests composed with && to exit on the first that fails

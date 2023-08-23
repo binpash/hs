@@ -24,20 +24,10 @@ else
     exit 1
 fi
 
-# ## Generate a temporary directory to store the workfiles
-# mkdir -p /tmp/pash_spec
-# export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/a/sandbox_XXXXXXX)/"
-# ## We need to execute `try` with bash to keep the exported functions
-
-# export TEMPDIR="$(mktemp -d /tmp3/pash_spec/b/sandbox_XXXXXXX)/"
-# echo tempdir $TEMPDIR 1>&2
-# echo sandbox $SANDBOX_DIR 1>&2
-
-
 mkdir -p /tmp/pash_spec/a
 mkdir -p /tmp/pash_spec/b
 export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/a/sandbox_XXXXXXX)/"
-export TEMPDIR="$(mktemp -d /tmp/pash_spec/b/sandbox_XXXXXXX)/"
+export TEMPDIR="$(mktemp -d /tmp/pash_spec/b/sandbox_XXXXXXX)"
 # echo tempdir $TEMPDIR
 # echo sandbox $SANDBOX_DIR
 

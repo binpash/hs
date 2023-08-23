@@ -1,11 +1,5 @@
 #!/bin/bash
 
-## TODO: Pass speculate flag here instead of separate scripts
-
-## Save the output shell variables to a file (to pass to the outside context)
-## TODO: Currently pash_declare_vars doesn't work because riker invokes /bin/sh
-##       which is bash in POSIX mode.
-# echo 'bash "$RUNTIME_DIR/pash_declare_vars.sh" "$OUTPUT_VARIABLE_FILE"' >> ./Rikerfile
 # TODO: There is a bug here and parsing of RW dependencies doesn't really work
 #       when we add the following line.
 # echo 'declare -p > "$OUTPUT_VARIABLE_FILE"' >> ./Rikerfile
@@ -19,9 +13,10 @@ fi
 
 ## Save the script to execute in the sandboxdir
 echo $CMD_STRING >> "$TEMPDIR/Rikerfile"
+echo "Riker env: $RIKER_ENV_FILE" 1>&2
 
 ## Add command to export Riker's environment variables after run is complete to a file
-echo "source $RUNTIME_DIR/pash_declare_vars.sh $TEMPDIR/$RIKER_ENV_FILE" >> "$TEMPDIR/Rikerfile"
+echo "source $RUNTIME_DIR/pash_declare_vars.sh $RIKER_ENV_FILE" >> "$TEMPDIR/Rikerfile"
 
 ## Save the current (latest) env to a file (before Riker is run)
 source "$RUNTIME_DIR/pash_declare_vars.sh" "$LATEST_ENV_FILE"

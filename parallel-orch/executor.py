@@ -19,11 +19,11 @@ def async_run_and_trace_command_return_trace(command, node_id, new_env_file, spe
     logging.debug(f'Scheduler: Output variable file for: {node_id} is: {variable_file}')
     logging.debug(f'Scheduler: Trace file for: {node_id}: {trace_file}')
     process = async_run_and_trace_command_return_trace_in_sandbox(command, trace_file, node_id, stdout_file, stderr_file, variable_file, new_env_file, riker_env_file, speculate_mode)
-    return process, trace_file, stdout_file, stderr_file, variable_file
+    return process, trace_file, stdout_file, stderr_file, variable_file, riker_env_file
 
 def async_run_and_trace_command_return_trace_in_sandbox_speculate(command, node_id, new_env_file):
-    process, trace_file, stdout_file, stderr_file, variable_file = async_run_and_trace_command_return_trace(command, node_id, new_env_file, speculate_mode=True)
-    return process, trace_file, stdout_file, stderr_file, variable_file
+    process, trace_file, stdout_file, stderr_file, variable_file, riker_env_file = async_run_and_trace_command_return_trace(command, node_id, new_env_file, speculate_mode=True)
+    return process, trace_file, stdout_file, stderr_file, variable_file, riker_env_file
 
 def async_run_and_trace_command_return_trace_in_sandbox(command, trace_file, node_id, stdout_file, stderr_file, variable_file, new_env_file, riker_env_file, speculate_mode=False):
     ## Call Riker to execute the command
@@ -65,11 +65,11 @@ def read_trace(sandbox_dir, trace_file):
     with open(path) as f:
         return f.readlines()
     
-def read_env_file(new_env_file, sandbox_dir=None):
+def read_env_file(env_file, sandbox_dir=None):
     if sandbox_dir is None:
-        path = new_env_file
+        path = env_file
     else:
-        path = f"{sandbox_dir}/upperdir/{new_env_file}"
+        path = f"{sandbox_dir}/upperdir/{env_file}"
     logging.debug(f'Reading env from: {path}')
     out = subprocess.check_output([f"{os.getenv('PASH_TOP')}/compiler/orchestrator_runtime/pash_filter_vars.sh", path])
     return out.decode("utf-8")

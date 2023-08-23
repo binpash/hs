@@ -627,7 +627,7 @@ class PartialProgramOrder:
 
     def __kill_node(self, cmd_id: "NodeId"):
         logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
-        proc_to_kill, trace_file, _stdout, _stderr, _variable_file = self.commands_currently_executing.pop(cmd_id)
+        proc_to_kill, trace_file, _stdout, _stderr, _variable_file, _riker_env_file = self.commands_currently_executing.pop(cmd_id)
         # Add the trace file to the banned file list so we know to ignore the CommandExecComplete response
         self.banned_files.add(trace_file)
 
@@ -1233,15 +1233,15 @@ class PartialProgramOrder:
             execute_func = executor.async_run_and_trace_command_return_trace_in_sandbox_speculate
         else:
             execute_func = executor.async_run_and_trace_command_return_trace
-        proc, trace_file, stdout, stderr, variable_file = execute_func(cmd, node_id, env_file_to_execute_with)
-        self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
+        proc, trace_file, stdout, stderr, variable_file, riker_env_file = execute_func(cmd, node_id, env_file_to_execute_with)
+        self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file, riker_env_file)
         logging.debug(f" >>>>> Command {node_id} - {proc.pid} just started executing")
 
     def command_execution_completed(self, node_id: NodeId, riker_exit_code:int, sandbox_dir: str):
         logging.debug(f" --- Node {node_id}, just finished execution ---")
         self.sandbox_dirs[node_id] = sandbox_dir
         ## TODO: Store variable file somewhere so that we can return when wait
-        _proc, trace_file, stdout, stderr, variable_file = self.commands_currently_executing.pop(node_id)
+        _proc, trace_file, stdout, stderr, variable_file, riker_env_file = self.commands_currently_executing.pop(node_id)
         logging.debug(f" >>>>> Command {node_id} - {_proc.pid} just finished executing")
         logging.trace(f"ExecutingRemove|{node_id}")
         # Handle stopped by riker due to network access
@@ -1277,7 +1277,7 @@ class PartialProgramOrder:
             logging.debug(f"Nothing new to be resolved since {node_id} exited with an error.")
             if node_id in self.workset:
                 self.workset.remove(node_id)
-                logging.trace(f"WorksetRemove|{node_id}")
+                logging.debug(f"WorksetRemove|{node_id}")
             # If no commands can be resolved this round, 
             # do nothing and wait until a new command finishes executing
             logging.debug("No resolvable nodes were found in this round, nothing will change...")
@@ -1285,6 +1285,8 @@ class PartialProgramOrder:
 
         assert(node_id not in self.stopped)
 
+
+        logging.critical(f"Riker env>>: {executor.read_env_file(riker_env_file, sandbox_dir)}")
         ## Here we need to compare the new env file and the latest env file for *significant* differences
         ## If significant differences are present, there is no need to resolve any dependencies
         ## since the command will be re-executed,

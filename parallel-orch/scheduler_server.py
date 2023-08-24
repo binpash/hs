@@ -106,6 +106,7 @@ class Scheduler:
 
         ## If the node_id is already committed, just return its exit code
         if node_id in self.partial_program_order.get_committed():
+            # TODO: Env check and if no conflicts, commit
             logging.debug(f'Node: {node_id} found in committed, responding immediately!')
             self.waiting_for_response[node_id] = connection
             self.respond_to_pending_wait(node_id)
@@ -144,11 +145,12 @@ class Scheduler:
         self.respond_to_frontend_core(node_id, response)
 
 
+    ## TODO: send riker env here
     def respond_to_pending_wait(self, node_id: int):
         ## Get the completed node info
         node = self.partial_program_order.get_node(node_id)
         completed_node_info = node.get_completed_node_info()
-        msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_variable_file()} {completed_node_info.get_stdout_file()}'
+        msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_post_execution_env_file()} {completed_node_info.get_stdout_file()}'
         response = success_response(msg)
         ## Send the response
         self.respond_to_frontend_core(node_id, response)

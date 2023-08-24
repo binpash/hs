@@ -388,22 +388,20 @@ class PartialProgramOrder:
         self.init_workset()
         logging.debug(f'Initialized workset')
         self.populate_to_be_resolved_dict()
+        self.init_latest_env_files()
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.to_be_resolved)
         logging.info(f'Initialized the partial order!')
         self.log_partial_program_order_info()
         
         assert(self.valid())
+        
+    def init_latest_env_files(self):
+        for node_id in self.get_all_non_committed():
+            self.set_latest_env_file_for_node(node_id, self.initial_env_file)
 
     def init_workset(self):
         self.workset = self.get_all_non_committed_standard_nodes()
-        for node in self.workset:
-            self.set_latest_env_file_for_node(node, self.initial_env_file)
-            
-    def init_workset(self):
-        self.workset = self.get_all_non_committed_standard_nodes()
-        for node in self.workset:
-            self.set_latest_env_file_for_node(node, self.initial_env_file)
 
     ## Check if the partial order is done
     def is_completed(self) -> bool:
@@ -1017,7 +1015,13 @@ class PartialProgramOrder:
         ## Add all new standard nodes to the workset (since they have to be tracked)
         for new_node_id in all_new_node_ids:
             if not self.is_loop_node(new_node_id):
-                self.workset.append(new_node_id) 
+                self.workset.append(new_node_id)
+                ## GL: 08-24-2023: This might not the best way to treat this as we need
+                ## to update the env half way through the loop. 
+                ## For now, we just copy the env from the parent loop node
+                non_iter_id = new_node_id.get_non_iter_id()
+                logging.debug(f"Copying latest env from loop context to loop node: {non_iter_id} -> {new_node_id}")
+                self.latest_envs[new_node_id] = self.latest_envs[non_iter_id]
 
         ## KK 2023-05-22 Do we need to correctly populate the resolved set of next commands
         ##               after unrolling the loop.
@@ -1300,10 +1304,10 @@ class PartialProgramOrder:
         significant_diffs = self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
                                                                       self.get_latest_env_file_for_node(node_id), 
                                                                       sandbox_dir)
-        # This means that the current node does not yet have a new env file,
-        # so we cannot compare it to the latest env file
-        # For now we just put it on hold, and continue the process when 
-        # another command is done executing, or when no other commands are executing and we receive the new env file
+        # # This means that the current node does not yet have a new env file,
+        # # so we cannot compare it to the latest env file
+        # # For now we just put it on hold, and continue the process when 
+        # # another command is done executing, or when no other commands are executing and we receive the new env file
         if significant_diffs is None:
             logging.critical(f"Wait not received yet for node {node_id}. For now, ignore... TODO: FIXTHIS")
             self.ready_to_commit_waiting_for_frontend.append(node_id)
@@ -1319,9 +1323,7 @@ class PartialProgramOrder:
             ## can be resolved (all their dependencies are done executing), and resolves them.
             self.resolve_commands_that_can_be_resolved_and_push_frontier()
             assert(self.valid())
-            
-        
-        
+
     # This needs to become more fine grained
     def exclude_insignificant_diffs(self, env_diff_dict):
         return {k: v for k, v in env_diff_dict.items() if k not in config.INSIGNIFICANT_VARS}

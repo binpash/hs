@@ -13,10 +13,11 @@ from shasta.ast_node import AstNode, CommandNode
 
 
 class CompletedNodeInfo:
-    def __init__(self, exit_code, post_execution_env_file, stdout_file):
+    def __init__(self, exit_code, post_execution_env_file, stdout_file, sandbox_dir):
         self.exit_code = exit_code
         self.post_execution_env_file = post_execution_env_file
         self.stdout_file = stdout_file
+        self.sandbox_dir = sandbox_dir
 
     def get_exit_code(self):
         return self.exit_code
@@ -26,9 +27,12 @@ class CompletedNodeInfo:
 
     def get_stdout_file(self):
         return self.stdout_file
+    
+    def get_sandbox_dir(self):
+        return self.sandbox_dir
 
     def __str__(self):
-        return f'CompletedNodeInfo(ec:{self.get_exit_code()}, env:{self.get_post_execution_env_file()}, stdout:{self.get_stdout_file()})'
+        return f'CompletedNodeInfo(ec:{self.get_exit_code()}, env:{self.get_post_execution_env_file()}, stdout:{self.get_stdout_file()}, sandbox:{self.get_sandbox_dir()})'
 
 ## This class is used for both loop contexts and loop iters
 ## The indices go from inner to outer
@@ -275,7 +279,7 @@ class PartialProgramOrder:
         self.new_envs = {}
         self.latest_envs = {}
         self.initial_env_file = initial_env_file
-        self.ready_to_commit_waiting_for_frontend = []
+        self.waiting_for_frontend = set()
     
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -1264,14 +1268,13 @@ class PartialProgramOrder:
             logging.trace(f"StoppedAdd|{node_id}:network")
             self.stopped.add(node_id)
         else:
-
             trace_object = executor.read_trace(sandbox_dir, trace_file)
             cmd_exit_code = trace.parse_exit_code(trace_object)
 
             ## Save the completed node info. Note that if the node doesn't commit
             ##  this information will be invalid and rewritten the next time execution
             ##  is completed for this node.
-            completed_node_info = CompletedNodeInfo(cmd_exit_code, post_execution_env_file, stdout)
+            completed_node_info = CompletedNodeInfo(cmd_exit_code, post_execution_env_file, stdout, sandbox_dir)
             self.nodes[node_id].set_completed_info(completed_node_info)
             
             ## We no longer add failed commands to the stopped set, 
@@ -1282,9 +1285,6 @@ class PartialProgramOrder:
             rw_set = RWSet(read_set, write_set)
             self.update_rw_set(node_id, rw_set)
 
-        ## Now that command `node_id` is done executing, we can check which other commands
-        ## can be resolved (that might have finished execution before but where waiting on `node_id`)
-        logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing")
         if node_id in self.stopped:
             logging.debug(f"Nothing new to be resolved since {node_id} exited with an error.")
             if node_id in self.workset:
@@ -1295,34 +1295,30 @@ class PartialProgramOrder:
             logging.debug("No resolvable nodes were found in this round, nothing will change...")
             return
 
-        assert(node_id not in self.stopped)
-
-        ## Here we need to compare the new env file and the latest env file for *significant* differences
-        ## If significant differences are present, there is no need to resolve any dependencies
-        ## since the command will be re-executed,
-        #  this time with its most recent env.
-        significant_diffs = self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
-                                                                      self.get_latest_env_file_for_node(node_id), 
-                                                                      sandbox_dir)
-        # # This means that the current node does not yet have a new env file,
-        # # so we cannot compare it to the latest env file
-        # # For now we just put it on hold, and continue the process when 
-        # # another command is done executing, or when no other commands are executing and we receive the new env file
-        if significant_diffs is None:
-            logging.critical(f"Wait not received yet for node {node_id}. For now, ignore... TODO: FIXTHIS")
-            self.ready_to_commit_waiting_for_frontend.append(node_id)
-        elif significant_diffs == True:
-            logging.debug(f"Significant differences found between new and latest env files for {node_id}.")
-            logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
-            # If there are significant differences, set the new env as the latest (the one to run Riker with)
-            self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(node_id))
+        ## Here we check if the most recent env has been received. If not, we cannot resolve anything just yet.
+        if self.get_new_env_file_for_node(node_id) is None:
+            self.waiting_for_frontend.add(node_id)
+            self.workset.remove(node_id)
+        ## Here we continue with the normal execution flow
         else:
-            # Since the command properly finished executing, it now waits to be resolved
-            self.add_to_speculated(node_id)
-            ## We can now call the general resolution method that determines which commands
-            ## can be resolved (all their dependencies are done executing), and resolves them.
-            self.resolve_commands_that_can_be_resolved_and_push_frontier()
-            assert(self.valid())
+            logging.debug(f"Node {node_id} has already received its latest env from runtime. Examining differences...")
+            self.waiting_for_frontend.discard(node_id)
+            if self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
+                                                                        self.get_latest_env_file_for_node(node_id), 
+                                                                        sandbox_dir):
+                logging.debug(f"Significant differences found between new and latest env files for {node_id}.")
+                logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
+                # If there are significant differences, set the new env as the latest (the one to run Riker with)
+                self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(node_id))
+                self.workset.append(node_id)
+            else:
+                logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing")
+                assert(node_id not in self.stopped)
+                self.add_to_speculated(node_id)
+                ## We can now call the general resolution method that determines which commands
+                ## can be resolved (all their dependencies are done executing), and resolves them.
+                self.resolve_commands_that_can_be_resolved_and_push_frontier()
+                assert(self.valid())
 
     # This needs to become more fine grained
     def exclude_insignificant_diffs(self, env_diff_dict):
@@ -1338,11 +1334,13 @@ class PartialProgramOrder:
         different_in_both_sig = self.include_only_significant_vars(different_in_both)
         # If still diffs are present, return False
         if len(only_in_new_sig) > 0 or len(only_in_latest_sig) > 0 or len(different_in_both_sig) > 0:
+            logging.debug("Significant differences found:")
             logging.debug(f"Unique to new (Wait):            {only_in_new_sig}")
             logging.debug(f"Unique to latest (Before Riker): {only_in_latest_sig}")
             logging.debug(f"Differing values:                {different_in_both_sig}")
             return True
         else:
+            logging.debug("No significant differences found:")
             return False
         
     def new_and_latest_env_files_have_significant_differences(self, new_env_file, latest_env_file, sandbox_dir):
@@ -1351,16 +1349,11 @@ class PartialProgramOrder:
         if new_env_file is None:
             logging.debug("No new env yet. Will check again on commit.")
             return None
-        logging.debug(f"Comparing new and latest env files: {new_env_file} {latest_env_file}")
         new_env = executor.read_env_file(new_env_file)
         latest_env = executor.read_env_file(latest_env_file)
         
         only_in_new, only_in_latest, different_in_both = util.compare_env_strings(new_env, latest_env)
-        
-        # logging.debug(f"Unique to new (Wait):            {only_in_new}")
-        # logging.debug(f"Unique to latest (Before Riker): {only_in_latest}")
-        # logging.debug(f"Differing values:                {different_in_both}")
-        
+
         return self.significant_diff_in_env_dicts(only_in_new, only_in_latest, different_in_both)
 
     def print_cmd_stderr(self, stderr):
@@ -1413,6 +1406,9 @@ class PartialProgramOrder:
             elif node_id in self.get_currently_executing():
                 logging.debug(f" > Node: {node_id} is currently executing, skipping...")
                 continue
+            elif node_id in self.waiting_for_frontend:
+                logging.debug(f" > Node: {node_id} is currently waiting for frontend, skipping...")
+                continue
             else:
                 logging.debug(f" > Node: {node_id} is not executing or waiting to be resolved (speculated) so we modify its set.")
                 self.to_be_resolved[node_id] = []
@@ -1443,6 +1439,29 @@ class PartialProgramOrder:
         logging.debug(f" Total (re)executions: {sum(list(self.executions.values()))}")
         logging.debug(f"TotalExec|{sum(list(self.executions.values()))}")
         logging.debug("--------------------------------------")
+        
+        
+    def resolve_most_recent_envs_and_continue_command_execution(self, node_id: NodeId):
+        if node_id in self.waiting_for_frontend:
+            logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
+            self.waiting_for_frontend.remove(node_id)
+            sandbox_dir = self.nodes[node_id].get_completed_node_info().get_sandbox_dir()
+            if self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
+                                                                        self.get_latest_env_file_for_node(node_id), 
+                                                                        sandbox_dir):
+                logging.debug(f"Significant differences found between new and latest env files for {node_id}.")
+                logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
+                # If there are significant differences, set the new env as the latest (the one to run Riker with)
+                self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(node_id))
+                self.workset.append(node_id)
+            else:                
+                logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing and got its latest env")
+                assert(node_id not in self.stopped)
+                self.add_to_speculated(node_id)
+                ## We can now call the general resolution method that determines which commands
+                ## can be resolved (all their dependencies are done executing), and resolves them.
+                self.resolve_commands_that_can_be_resolved_and_push_frontier()
+                assert(self.valid())
 
 
 ## TODO: Try to move those to PaSh and import them here

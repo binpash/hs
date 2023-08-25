@@ -102,6 +102,9 @@ class Scheduler:
 
         ## Inform the partial order that we received a wait for a node so that it can push loops
         ## forward and so on.
+        
+        self.partial_program_order.resolve_most_recent_envs_and_continue_command_execution(node_id)
+        
         self.partial_program_order.wait_received(node_id)
 
         ## If the node_id is already committed, just return its exit code

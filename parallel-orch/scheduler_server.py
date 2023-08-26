@@ -150,11 +150,13 @@ class Scheduler:
 
     ## TODO: send riker env here
     def respond_to_pending_wait(self, node_id: int):
+        logging.debug(f'Responding to pending wait for node: {node_id}')
         ## Get the completed node info
         node = self.partial_program_order.get_node(node_id)
         completed_node_info = node.get_completed_node_info()
         msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_post_execution_env_file()} {completed_node_info.get_stdout_file()}'
         response = success_response(msg)
+        logging.critical(response)
         ## Send the response
         self.respond_to_frontend_core(node_id, response)
 

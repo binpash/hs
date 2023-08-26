@@ -1095,7 +1095,8 @@ class PartialProgramOrder:
                     and frontier_node not in self.stopped \
                     and frontier_node not in self.speculated \
                     and frontier_node not in self.workset\
-                    and not self.is_loop_node(frontier_node):
+                    and not self.is_loop_node(frontier_node)\
+                    and frontier_node not in self.waiting_for_frontend:
                     ## Commit the node
                     self.commit_node(frontier_node)
 
@@ -1297,6 +1298,7 @@ class PartialProgramOrder:
 
         ## Here we check if the most recent env has been received. If not, we cannot resolve anything just yet.
         if self.get_new_env_file_for_node(node_id) is None:
+            logging.debug(f"Node {node_id} has not received its latest env from runtime yet. Waiting...")
             self.waiting_for_frontend.add(node_id)
             self.workset.remove(node_id)
         ## Here we continue with the normal execution flow
@@ -1310,7 +1312,9 @@ class PartialProgramOrder:
                 logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
                 # If there are significant differences, set the new env as the latest (the one to run Riker with)
                 self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(node_id))
-                self.workset.append(node_id)
+                # Add the node to the workset again
+                if node_id not in self.workset:
+                    self.workset.append(node_id)
             else:
                 logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing")
                 assert(node_id not in self.stopped)
@@ -1386,6 +1390,7 @@ class PartialProgramOrder:
         logging.debug(f"STOPPED:          {list(self.stopped)}")
         logging.debug(f" of which UNSAFE: {list(self.get_unsafe())}")
         logging.debug(f"WAITING:          {sorted(list(self.speculated))}")
+        logging.debug(f"for FRONTEND:     {sorted(list(self.waiting_for_frontend))}")
         logging.debug(f"TO RESOLVE:       {self.to_be_resolved}")
         self.log_rw_sets()
         logging.debug(f"=" * 80)
@@ -1453,7 +1458,9 @@ class PartialProgramOrder:
                 logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
                 # If there are significant differences, set the new env as the latest (the one to run Riker with)
                 self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(node_id))
-                self.workset.append(node_id)
+                # Add the node to the workset again
+                if node_id not in self.workset:
+                    self.workset.append(node_id)
             else:                
                 logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing and got its latest env")
                 assert(node_id not in self.stopped)

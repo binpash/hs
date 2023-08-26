@@ -1306,8 +1306,7 @@ class PartialProgramOrder:
             logging.debug(f"Node {node_id} has already received its latest env from runtime. Examining differences...")
             self.waiting_for_frontend.discard(node_id)
             if self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
-                                                                        self.get_latest_env_file_for_node(node_id), 
-                                                                        sandbox_dir):
+                                                                        self.get_latest_env_file_for_node(node_id)):
                 logging.debug(f"Significant differences found between new and latest env files for {node_id}.")
                 logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
                 # If there are significant differences, set the new env as the latest (the one to run Riker with)
@@ -1347,12 +1346,14 @@ class PartialProgramOrder:
             logging.debug("No significant differences found:")
             return False
         
-    def new_and_latest_env_files_have_significant_differences(self, new_env_file, latest_env_file, sandbox_dir):
+    def new_and_latest_env_files_have_significant_differences(self, new_env_file, latest_env_file):
+        # Early resolution if same files are compared
+        if new_env_file == latest_env_file:
+            logging.debug(f"Env files are the same. No need to compare.")
+            return False
         logging.debug(f"Comparing new and latest env files: {new_env_file} {latest_env_file}")
         assert(latest_env_file is not None)
-        if new_env_file is None:
-            logging.debug("No new env yet. Will check again on commit.")
-            return None
+        
         new_env = executor.read_env_file(new_env_file)
         latest_env = executor.read_env_file(latest_env_file)
         
@@ -1452,8 +1453,7 @@ class PartialProgramOrder:
             self.waiting_for_frontend.remove(node_id)
             sandbox_dir = self.nodes[node_id].get_completed_node_info().get_sandbox_dir()
             if self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
-                                                                        self.get_latest_env_file_for_node(node_id), 
-                                                                        sandbox_dir):
+                                                                        self.get_latest_env_file_for_node(node_id)):
                 logging.debug(f"Significant differences found between new and latest env files for {node_id}.")
                 logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
                 # If there are significant differences, set the new env as the latest (the one to run Riker with)

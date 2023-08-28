@@ -1304,24 +1304,7 @@ class PartialProgramOrder:
         ## Here we continue with the normal execution flow
         else:
             logging.debug(f"Node {node_id} has already received its latest env from runtime. Examining differences...")
-            self.waiting_for_frontend.discard(node_id)
-            if self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
-                                                                        self.get_latest_env_file_for_node(node_id)):
-                logging.debug(f"Significant differences found between new and latest env files for {node_id}.")
-                logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
-                # If there are significant differences, set the new env as the latest (the one to run Riker with)
-                self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(node_id))
-                # Add the node to the workset again
-                if node_id not in self.workset:
-                    self.workset.append(node_id)
-            else:
-                logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing")
-                assert(node_id not in self.stopped)
-                self.add_to_speculated(node_id)
-                ## We can now call the general resolution method that determines which commands
-                ## can be resolved (all their dependencies are done executing), and resolves them.
-                self.resolve_commands_that_can_be_resolved_and_push_frontier()
-                assert(self.valid())
+            self.resolve_most_recent_envs_and_continue_command_execution(node_id)
 
     # This needs to become more fine grained
     def exclude_insignificant_diffs(self, env_diff_dict):
@@ -1345,6 +1328,28 @@ class PartialProgramOrder:
         else:
             logging.debug("No significant differences found:")
             return False
+        
+    def resolve_most_recent_envs_and_continue_command_execution(self, node_id: NodeId):
+        logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
+        # Node is no longer waiting to be resolved. It might have not been waiting at all.
+        self.waiting_for_frontend.discard(node_id)
+        if self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
+                                                                    self.get_latest_env_file_for_node(node_id)):
+            logging.debug(f"Significant differences found between new and latest env files for {node_id}.")
+            logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
+            # If there are significant differences, set the new env as the latest (the one to run Riker with)
+            self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(node_id))
+            # Add the node to the workset again
+            if node_id not in self.workset:
+                self.workset.append(node_id)
+        else:                
+            logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing and got its latest env")
+            assert(node_id not in self.stopped)
+            self.add_to_speculated(node_id)
+            ## We can now call the general resolution method that determines which commands
+            ## can be resolved (all their dependencies are done executing), and resolves them.
+            self.resolve_commands_that_can_be_resolved_and_push_frontier()
+            assert(self.valid())
         
     def new_and_latest_env_files_have_significant_differences(self, new_env_file, latest_env_file):
         # Early resolution if same files are compared
@@ -1445,30 +1450,6 @@ class PartialProgramOrder:
         logging.debug(f" Total (re)executions: {sum(list(self.executions.values()))}")
         logging.debug(f"TotalExec|{sum(list(self.executions.values()))}")
         logging.debug("--------------------------------------")
-        
-        
-    def resolve_most_recent_envs_and_continue_command_execution(self, node_id: NodeId):
-        if node_id in self.waiting_for_frontend:
-            logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
-            self.waiting_for_frontend.remove(node_id)
-            sandbox_dir = self.nodes[node_id].get_completed_node_info().get_sandbox_dir()
-            if self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
-                                                                        self.get_latest_env_file_for_node(node_id)):
-                logging.debug(f"Significant differences found between new and latest env files for {node_id}.")
-                logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
-                # If there are significant differences, set the new env as the latest (the one to run Riker with)
-                self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(node_id))
-                # Add the node to the workset again
-                if node_id not in self.workset:
-                    self.workset.append(node_id)
-            else:                
-                logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing and got its latest env")
-                assert(node_id not in self.stopped)
-                self.add_to_speculated(node_id)
-                ## We can now call the general resolution method that determines which commands
-                ## can be resolved (all their dependencies are done executing), and resolves them.
-                self.resolve_commands_that_can_be_resolved_and_push_frontier()
-                assert(self.valid())
 
 
 ## TODO: Try to move those to PaSh and import them here

@@ -100,7 +100,9 @@ class Scheduler:
         ## Inform the partial order that we received a wait for a node so that it can push loops
         ## forward and so on.
         
-        self.partial_program_order.resolve_most_recent_envs_and_continue_command_execution(node_id)
+        if node_id in self.partial_program_order.waiting_for_frontend:
+            logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
+            self.partial_program_order.resolve_most_recent_envs_and_continue_command_execution(node_id)
         
         self.partial_program_order.wait_received(node_id)
 

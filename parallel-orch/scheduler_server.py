@@ -73,8 +73,6 @@ class Scheduler:
         self.partial_program_order.init_partial_order()
 
     def __parse_wait(self, input_cmd: str) -> "tuple[NodeId, str]":
-        
-        logging.critical(input_cmd)
         try:
             node_id_component, loop_iter_counter_component, pash_runtime_vars_file_component = input_cmd.rstrip().split("|")
             raw_node_id_int = int(node_id_component.split(":")[1].rstrip())
@@ -98,7 +96,6 @@ class Scheduler:
 
         ## Set the new env file for the node
         self.partial_program_order.set_new_env_file_for_node(node_id, pash_runtime_vars_file_str)
-        logging.critical(f'New env file for node: {node_id} is: {pash_runtime_vars_file_str}')
 
         ## Inform the partial order that we received a wait for a node so that it can push loops
         ## forward and so on.
@@ -156,7 +153,6 @@ class Scheduler:
         completed_node_info = node.get_completed_node_info()
         msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_post_execution_env_file()} {completed_node_info.get_stdout_file()}'
         response = success_response(msg)
-        logging.critical(response)
         ## Send the response
         self.respond_to_frontend_core(node_id, response)
 

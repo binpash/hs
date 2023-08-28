@@ -7,6 +7,7 @@
 touch "$TEMPDIR/Rikerfile"
 
 ## We source the latest env file
+## TODO: Executing through $RUNTIME_DIR/pash_source_declare_vars.sh fails. Figure out why.
 echo "source $LATEST_ENV_FILE" > "$TEMPDIR/Rikerfile"
 
 ## Save the script to execute in the sandboxdir
@@ -21,7 +22,6 @@ else
     rkr_cmd="rkr --frontier"
 fi
 
-echo "RKRRRR" 1>&2
 cat "$TEMPDIR/Rikerfile" 1>&2
 
 $rkr_cmd --db "$TEMPDIR" --rikerfile "$TEMPDIR/Rikerfile"

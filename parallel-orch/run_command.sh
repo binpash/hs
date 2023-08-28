@@ -30,9 +30,6 @@ export TEMPDIR="$(mktemp -d /tmp/pash_spec/b/sandbox_XXXXXXX)"
 # echo tempdir $TEMPDIR
 # echo sandbox $SANDBOX_DIR
 
-echo "OK UP TO HERE" 1>&2
-
-
 bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh" > "${STDOUT_FILE}"
 exit_code=$?
 

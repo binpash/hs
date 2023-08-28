@@ -1296,11 +1296,12 @@ class PartialProgramOrder:
             logging.debug("No resolvable nodes were found in this round, nothing will change...")
             return
 
+        # Remove from workset and add it again later if necessary
+        self.workset.remove(node_id)
         ## Here we check if the most recent env has been received. If not, we cannot resolve anything just yet.
         if self.get_new_env_file_for_node(node_id) is None:
             logging.debug(f"Node {node_id} has not received its latest env from runtime yet. Waiting...")
             self.waiting_for_frontend.add(node_id)
-            self.workset.remove(node_id)
         ## Here we continue with the normal execution flow
         else:
             logging.debug(f"Node {node_id} has already received its latest env from runtime. Examining differences...")
@@ -1342,8 +1343,9 @@ class PartialProgramOrder:
                 # If there are significant differences, set the new env as the latest (the one to run Riker with)
                 self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(new_env_node))
                 # Add the node to the workset again
-                if node_id not in self.workset:
-                    self.workset.append(node_id)
+                assert node_id not in self.workset
+                self.workset.append(node_id)
+                self.waiting_for_frontend.discard(node_id)
             elif node_id == new_env_node:
                 logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing and got its latest env.")
                 assert(node_id not in self.stopped)

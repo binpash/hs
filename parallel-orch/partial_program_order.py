@@ -1282,9 +1282,7 @@ class PartialProgramOrder:
             ## We no longer add failed commands to the stopped set, 
             ## because this leads to more repetitions than needed
             ## and does not allow us to properly speculate commands
-            logging.critical("___________________--___________________")
             read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
-            logging.critical("___________________++___________________")
             rw_set = RWSet(read_set, write_set)
             self.update_rw_set(node_id, rw_set)
 

@@ -167,7 +167,8 @@ class Node:
         ## There can only be a single AST per node, and this
         ##  must be a command.
         assert(len(asts) == 1)
-        assert(isinstance(asts[0], CommandNode))
+        ## GL 2023-08-29: I removed this in order for PipeNodes to work
+        # assert(isinstance(asts[0], CommandNode))
         self.cmd_no_redir = trace.remove_command_redir(self.cmd)
         self.loop_context = loop_context
         ## Keep track of how many iterations of this loop node we have unrolled
@@ -1281,8 +1282,9 @@ class PartialProgramOrder:
             ## We no longer add failed commands to the stopped set, 
             ## because this leads to more repetitions than needed
             ## and does not allow us to properly speculate commands
-
+            logging.critical("___________________--___________________")
             read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
+            logging.critical("___________________++___________________")
             rw_set = RWSet(read_set, write_set)
             self.update_rw_set(node_id, rw_set)
 

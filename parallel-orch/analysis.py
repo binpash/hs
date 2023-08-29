@@ -41,6 +41,10 @@ def safe_to_execute(asts: "list[AstNode]", variables: dict) -> bool:
     ## There should always be a single AST per node and it must be a command
     assert(len(asts) == 1)
     ast = asts[0]
+    ## GL 2023-08-29: I added this in order for PipeNodes to work
+    ##                I suppose piped commands should be generally safe to execute
+    if isinstance(asts[0], PipeNode):
+        return True
     assert(isinstance(ast, CommandNode))
     logging.debug(f'Ast in question: {ast}')
     ## Expand and check whether the asts contain

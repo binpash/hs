@@ -97,13 +97,12 @@ class Scheduler:
         ## Set the new env file for the node
         self.partial_program_order.set_new_env_file_for_node(node_id, pash_runtime_vars_file_str)
 
+        
+        ## Attempt to resolve environment differences on waiting partial order nodes
+        self.partial_program_order.maybe_resolve_most_recent_envs_and_continue_resolution(node_id)
+        
         ## Inform the partial order that we received a wait for a node so that it can push loops
         ## forward and so on.
-        
-        if node_id in self.partial_program_order.waiting_for_frontend:
-            logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
-            self.partial_program_order.resolve_most_recent_envs_and_continue_command_execution(node_id)
-        
         self.partial_program_order.wait_received(node_id)
 
         ## If the node_id is already committed, just return its exit code

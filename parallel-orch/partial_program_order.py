@@ -1330,6 +1330,11 @@ class PartialProgramOrder:
             logging.debug("No significant differences found:")
             return False
         
+    def maybe_resolve_most_recent_envs_and_continue_resolution(self, node_id: NodeId):
+        if node_id in self.waiting_for_frontend:
+                logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
+                self.partial_program_order.resolve_most_recent_envs_and_continue_command_execution(node_id)
+        
     def resolve_most_recent_envs_and_continue_command_execution(self, new_env_node: NodeId):
         to_check = list(self.waiting_for_frontend) + [new_env_node]
         logging.debug(f"Node {new_env_node} received its latest env from runtime. Comparing env with itself and other waiting nodes.")

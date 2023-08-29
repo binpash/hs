@@ -9,7 +9,7 @@ import executor
 import trace
 import util
 
-from shasta.ast_node import AstNode, CommandNode
+from shasta.ast_node import AstNode, CommandNode, PipeNode
 
 
 class CompletedNodeInfo:
@@ -167,8 +167,8 @@ class Node:
         ## There can only be a single AST per node, and this
         ##  must be a command.
         assert(len(asts) == 1)
-        ## GL 2023-08-29: I removed this in order for PipeNodes to work
-        # assert(isinstance(asts[0], CommandNode))
+        # Check that the node contains only CommandNode(s)
+        analysis.validate_node(asts[0])
         self.cmd_no_redir = trace.remove_command_redir(self.cmd)
         self.loop_context = loop_context
         ## Keep track of how many iterations of this loop node we have unrolled

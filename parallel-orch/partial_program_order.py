@@ -280,6 +280,7 @@ class PartialProgramOrder:
         self.latest_envs = {}
         self.initial_env_file = initial_env_file
         self.waiting_for_frontend = set()
+        self.stopped_due_to_unsafe = False
     
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -392,7 +393,7 @@ class PartialProgramOrder:
         self.init_workset()
         logging.debug(f'Initialized workset')
         self.populate_to_be_resolved_dict()
-        self.init_latest_env_files()
+        self.init_latest_env_files(self.initial_env_file)
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.to_be_resolved)
         logging.info(f'Initialized the partial order!')
@@ -400,12 +401,12 @@ class PartialProgramOrder:
         
         assert(self.valid())
         
-    def init_latest_env_files(self):
+    def init_latest_env_files(self, env_file):
         for node_id in self.get_all_non_committed():
-            self.set_latest_env_file_for_node(node_id, self.initial_env_file)
+            self.set_latest_env_file_for_node(node_id, env_file)
 
-    def init_workset(self):
-        self.workset = self.get_all_non_committed_standard_nodes()
+    def init_workset(self, start=None):
+        self.workset = self.get_all_non_committed_standard_nodes(start)
 
     ## Check if the partial order is done
     def is_completed(self) -> bool:
@@ -483,8 +484,12 @@ class PartialProgramOrder:
     def get_node_loop_context(self, node_id: NodeId) -> LoopStack:
         return self.get_node(node_id).get_loop_context()
 
-    def get_all_non_committed(self) -> "list[NodeId]":
-        all_node_ids = self.nodes.keys()
+    def get_all_non_committed(self, start=None) -> "list[NodeId]":
+        if start is None:
+            all_node_ids = self.nodes.keys()
+        else:
+            all_node_ids = self.get_transitive_closure([start])
+        logging.critical(f">>>>>>>>>>>>>>> {all_node_ids}")
         non_committed_node_ids = [node_id for node_id in all_node_ids
                                   if not self.is_committed(node_id)]  
         return non_committed_node_ids
@@ -522,8 +527,8 @@ class PartialProgramOrder:
 
 
     ## Returns all non committed non-loop nodes
-    def get_all_non_committed_standard_nodes(self) -> "list[NodeId]":
-        all_non_committed = self.get_all_non_committed()
+    def get_all_non_committed_standard_nodes(self, start=None) -> "list[NodeId]":
+        all_non_committed = self.get_all_non_committed(start)
         logging.debug(f"All non committed nodes: {all_non_committed}")
         return self.filter_standard_nodes(all_non_committed)
 
@@ -635,6 +640,12 @@ class PartialProgramOrder:
         # Our new workset is the nodes that were killed
         # Previous workset got killed 
         self.workset.extend(nodes_to_kill)
+        
+    def __kill_all_currently_executing(self):
+        nodes_to_kill = self.get_currently_executing()
+        for cmd_id in nodes_to_kill:
+            self.__kill_node(cmd_id)
+            self.workset.remove(cmd_id)
 
     def __kill_node(self, cmd_id: "NodeId"):
         logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
@@ -1178,10 +1189,37 @@ class PartialProgramOrder:
                 new_stopped.remove(cmd_id)
                 self.to_be_resolved[cmd_id] = []
         self.stopped = new_stopped
+        
+    def maybe_restart_po_if_frozen(self, node_id):
+        if self.stopped_due_to_unsafe:
+            logging.critical("Restarting frozen PO")
+            self.restart_frozen_po(node_id)
+        else:
+            logging.critical("No need for restart. PO is executing normally")
+        
+        
+    def restart_frozen_po(self, node_id):
+        logging.critical(f'{"="*60}')
+        ## Initialize the frontier with all non-loop source nodes
+        self.frontier.append(node_id)
+        ## Initialize the workset
+        self.init_workset(node_id)
+        logging.debug(f'Initialized workset')
+        self.populate_to_be_resolved_dict()
+        self.init_latest_env_files(self.get_new_env_file_for_node(node_id))
+        logging.debug(f'To be resolved sets per node:')
+        logging.debug(self.to_be_resolved)
+        logging.critical(f'Restarted the partial order!')
+        self.stopped_due_to_unsafe = False
+        self.log_partial_program_order_info()
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
         # self.log_partial_program_order_info()
+        if self.stopped_due_to_unsafe:
+            logging.critical("Not scheduling work. PO remains frozen.")
+            return
+        
         logging.debug("Scheduling work...")
         logging.debug("Rerunning stopped commands")
         # attempt_move_stopped_to_workset() needs to happen before the node execution
@@ -1209,6 +1247,26 @@ class PartialProgramOrder:
             if not cmd_id in self.speculated:
                 self.speculate_cmd_non_blocking(cmd_id)
         return
+    
+    
+    def maybe_clear_po_state(self):
+        # In the future we are not always going to clear the PO state
+        # as some nodes will be safe to speculate after them.
+        # For now, we clear the PO state if we have any unsafe nodes.
+        self.clear_po_state()
+    
+    def clear_po_state(self):
+        # Kills executing commands, removes it from the workset 
+        # and currently exeuting sets.
+        self.__kill_all_currently_executing()
+        self.frontier = []
+        self.workset = []
+        self.stopped = set()
+        self.speculated = set()
+        self.waiting_for_frontend = set()
+        self.to_be_resolved = {}
+        self.commands_currently_executing = {}
+        self.latest_envs = {}
 
     ## Run a command and add it to the dictionary of executing ones
     def run_cmd_non_blocking(self, node_id: NodeId):
@@ -1333,7 +1391,7 @@ class PartialProgramOrder:
     def maybe_resolve_most_recent_envs_and_continue_resolution(self, node_id: NodeId):
         if node_id in self.waiting_for_frontend:
                 logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
-                self.partial_program_order.resolve_most_recent_envs_and_continue_command_execution(node_id)
+                self.resolve_most_recent_envs_and_continue_command_execution(node_id)
         
     def resolve_most_recent_envs_and_continue_command_execution(self, new_env_node: NodeId):
         to_check = list(self.waiting_for_frontend) + [new_env_node]

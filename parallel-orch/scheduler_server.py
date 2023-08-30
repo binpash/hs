@@ -96,7 +96,8 @@ class Scheduler:
 
         ## Set the new env file for the node
         self.partial_program_order.set_new_env_file_for_node(node_id, pash_runtime_vars_file_str)
-
+        
+        self.partial_program_order.maybe_restart_po_if_frozen(node_id)
         
         ## Attempt to resolve environment differences on waiting partial order nodes
         self.partial_program_order.maybe_resolve_most_recent_envs_and_continue_resolution(node_id)
@@ -115,6 +116,8 @@ class Scheduler:
             logging.debug(f'Node: {node_id} found in unsafe, it must be executed in the original shell!')
             self.waiting_for_response[node_id] = connection
             self.respond_unsafe_to_pending_wait(node_id)
+            self.partial_program_order.stopped_due_to_unsafe = True
+            self.partial_program_order.maybe_clear_po_state()
         else:
             ## Command has not executed yet, so we need to wait for it
             logging.debug(f'Node: {node_id} has not finished execution, waiting for response...')

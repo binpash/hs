@@ -446,6 +446,7 @@ class PartialProgramOrder:
     ## TODO: Call valid and add assertiosn for loops here.
     def valid(self):
         logging.debug("Checking partial order validity...")
+        
         self.log_partial_program_order_info()
         valid1 = self.loop_nodes_valid()
         ## TODO: Add a check that for x, y : NodeIds, x < y iff x is a predecessor to x
@@ -453,7 +454,6 @@ class PartialProgramOrder:
 
         ## Any command in unsafe must also be in stopped
         valid2 = self.unsafe.issubset(self.stopped)
-
         ## TODO: Fix the checks below because they do not work currently
         ## TODO: Check that committed is prefix closed w.r.t partial order
         return valid1 and valid2
@@ -489,7 +489,6 @@ class PartialProgramOrder:
             all_node_ids = self.nodes.keys()
         else:
             all_node_ids = self.get_transitive_closure([start])
-        logging.critical(f">>>>>>>>>>>>>>> {all_node_ids}")
         non_committed_node_ids = [node_id for node_id in all_node_ids
                                   if not self.is_committed(node_id)]  
         return non_committed_node_ids
@@ -820,6 +819,31 @@ class PartialProgramOrder:
         return nid1.id < nid2.id
 
 
+    def commit_nodes_skipped_by_unsafe_node(self, node_id: NodeId):
+        logging.debug(f"Commiting all nodes before {node_id}")
+        if not self.is_node_id(node_id):
+            logging.debug(f" > Node {node_id} is not part of the PO so we compute the nodes that would be before it...")
+            all_non_committed = self.get_all_non_committed()
+
+            all_non_committed_loop_nodes = self.filter_loop_nodes(all_non_committed)
+            non_committed_loop_nodes_that_would_be_predecessors = [n_id for n_id in all_non_committed_loop_nodes
+                                                                   if self.hypothetical_before(n_id, node_id)]
+            new_committed_nodes = non_committed_loop_nodes_that_would_be_predecessors
+        else:
+            logging.debug(f" > Node {node_id} is part of the PO so we just check its predecessors following the inverse edges...")
+            inverse_tc_node_ids = self.get_inverse_transitive_closure([node_id])
+            non_committed_loop_nodes_in_inverse_tc = [node_id for node_id in inverse_tc_node_ids
+                                                    if not self.is_committed(node_id) and
+                                                    self.is_loop_node(node_id)]
+            logging.debug(f'Non committed loop nodes that are predecessors to {node_id} are: {non_committed_loop_nodes_in_inverse_tc}')
+            
+            new_committed_nodes = non_committed_loop_nodes_in_inverse_tc
+        
+        logging.debug(f'Adding following loop nodes to committed: {new_committed_nodes}')
+        for node_id in new_committed_nodes:
+            self.commit_node(node_id)
+        
+
     def progress_po_due_to_wait(self, node_id: NodeId):
         logging.debug(f"Checking if we can progress the partial order after having received a wait for {node_id}")
         ## The node might not be part of the partial order if it corresponds to
@@ -1047,7 +1071,6 @@ class PartialProgramOrder:
     def unroll_loop_node(self, target_concrete_node_id: NodeId):
         raw_node_id = target_concrete_node_id.get_non_iter_id()
         assert(self.is_loop_node(raw_node_id))
-
         logging.debug(f'Edges: {self.adjacency}')
 
         ## Find the closest non-committed successor with this node id
@@ -1072,6 +1095,7 @@ class PartialProgramOrder:
         
         # GL 2023-05-22: __frontier_commit_and_push() should be called here instead of step_forward()
         # Although without it the test cases pass
+        # self.__frontier_commit_and_push()
         self.frontier.append(new_first_node_id)
 
         ## At the end of unrolling the target node must be part of the PO
@@ -1123,6 +1147,8 @@ class PartialProgramOrder:
                 else:
                     new_frontier.extend([frontier_node])
                     logging.debug(f" > Not commiting node {frontier_node}, readding to frontier")
+                    
+                    # TODO: find out which branch triggered the else.
 
             ## Update the frontier to the new frontier
             self.frontier = new_frontier
@@ -1192,32 +1218,51 @@ class PartialProgramOrder:
         
     def maybe_restart_po_if_frozen(self, node_id):
         if self.stopped_due_to_unsafe:
-            logging.critical("Restarting frozen PO")
+            logging.debug("Restarting frozen PO")
             self.restart_frozen_po(node_id)
         else:
-            logging.critical("No need for restart. PO is executing normally")
+            logging.debug("No need for restart. PO is executing normally")
         
         
     def restart_frozen_po(self, node_id):
-        logging.critical(f'{"="*60}')
+        
+        # There are several things to take in mind:
+        # 1. We need to commit all nodes that are before this one
+        #    which were not executed because of a jump in the po (e.g., a break)
+        # 2. We need to unroll the next node after the restart in case it is a loop node.
+        # 3. We need to add the new node to the frontier
+        # 4. We treat this node as the start of the (new) partial order, 
+        #    so we ignore its past and empty the inverse anjaceny of this node
+        logging.debug("Commiting nodes skipped by the unsafe node")
+        self.commit_nodes_skipped_by_unsafe_node(node_id)
+        logging.debug("Applying the latest env to all nodes in the new PO")
+        self.init_latest_env_files(self.get_new_env_file_for_node(node_id))
+        if node_id.has_iters():
+            self.maybe_unroll(node_id)
+        else:
+            self.frontier.append(node_id)
+        logging.debug(f"Setting {node_id} as the new start of the partial order")
+        self.inverse_adjacency[node_id] = [] 
         ## Initialize the frontier with all non-loop source nodes
-        self.frontier.append(node_id)
+        # self.frontier.append(node_id)
         ## Initialize the workset
         self.init_workset(node_id)
         logging.debug(f'Initialized workset')
         self.populate_to_be_resolved_dict()
-        self.init_latest_env_files(self.get_new_env_file_for_node(node_id))
+        
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.to_be_resolved)
-        logging.critical(f'Restarted the partial order!')
         self.stopped_due_to_unsafe = False
+        logging.debug(f'Restarted the partial order!')
         self.log_partial_program_order_info()
+
+
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
         # self.log_partial_program_order_info()
         if self.stopped_due_to_unsafe:
-            logging.critical("Not scheduling work. PO remains frozen.")
+            logging.debug("Not scheduling work. PO remains frozen.")
             return
         
         logging.debug("Scheduling work...")
@@ -1229,7 +1274,7 @@ class PartialProgramOrder:
         self.populate_to_be_resolved_dict()
         
         ## TODO: Move loop unrolling here for speculation too
-
+        logging.debug("Scheduling commands")
         for cmd_id in self.get_workset():
             # We only need to schedule non-committed and non-executing nodes
             if not (cmd_id in self.get_committed() or \
@@ -1489,7 +1534,10 @@ class PartialProgramOrder:
         logging.debug(f"WAITING:          {sorted(list(self.speculated))}")
         logging.debug(f"for FRONTEND:     {sorted(list(self.waiting_for_frontend))}")
         logging.debug(f"TO RESOLVE:       {self.to_be_resolved}")
+        logging.debug(f"Adjacency:        {self.adjacency}")
+        logging.debug(f"Inverse Adj:      {self.inverse_adjacency}")
         self.log_rw_sets()
+        
         logging.debug(f"=" * 80)
 
     ## TODO: Document how this finds the to be resolved dict

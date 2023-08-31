@@ -2,7 +2,6 @@ import subprocess
 import time
 import json
 import os
-import matplotlib.pyplot as plt
 from benchmark_plots import *
 import logging
 
@@ -12,15 +11,24 @@ os.environ['ORCH_TOP'] = os.environ.get('ORCH_TOP', subprocess.check_output(['gi
 os.environ['WORKING_DIR'] = os.path.join(os.environ['ORCH_TOP'], 'report')
 os.environ['TEST_SCRIPT_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'benchmarks')
 os.environ['RESOURCE_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'resources')
+os.environ['PASH_TOP'] = os.path.join(os.environ['ORCH_TOP'], 'deps', 'pash')
+os.environ['PASH_SPEC_TOP'] = os.path.join(os.environ['ORCH_TOP'])
 
 BASH_COMMAND = "/bin/bash"
 ORCH_COMMAND = os.path.join(os.environ['ORCH_TOP'], 'pash-spec.sh')
 
 REPORT_OUTPUT_DIR = os.path.join(os.environ['WORKING_DIR'], 'report_output')
 
+def resolve_working_dir(path):
+    return path.format(RESOURCE_DIR=os.environ.get('RESOURCE_DIR'))
+
+def resolve_command_path(command):
+    return command.format(TEST_SCRIPT_DIR=os.environ.get('TEST_SCRIPT_DIR'))
+
+
 def run_pre_execution_command(command, working_dir=os.getcwd()):
-    print("Running pre-execution command: ", command)
-    process = subprocess.Popen(command.strip().split(" "), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=working_dir)
+    print("Running pre-execution command:", command)
+    process = subprocess.Popen(command.strip().split(" "), cwd=working_dir)
     process.wait()
     return process.returncode
 
@@ -38,11 +46,9 @@ def compare_results(bash_output, orch_output):
 
 def print_results(benchmark_name, bash_time, orch_time, are_results_same, diff_percentage):
     if orch_time < bash_time:
-            comparison_result = f"hs is {diff_percentage:.2f}% faster than Bash"
-    elif orch_time > bash_time:
-        comparison_result = f"hs is {abs(diff_percentage):.2f}% slower than Bash"
+            comparison_result = f"hs is {round(diff_percentage/100, 1)}x ({diff_percentage:.2f}%) faster than Bash"
     else:
-        comparison_result = "hs and Bash have the same execution time"
+        comparison_result = f"hs is {round(diff_percentage/100, 1)}x ({diff_percentage:.2f}%) slower than Bash"
     print("-" * 40)
     print(f"Results for benchmark:  {benchmark_name}")
     print(f"Bash Execution Time:    {bash_time}s")
@@ -70,12 +76,15 @@ def main():
             run_pre_execution_command(pre_command, os.environ.get('RESOURCE_DIR'))
 
         # TODO: in the future, we are going to parse the orch_error and generate reports
-        bash_time, bash_output, _bash_error = run_command([BASH_COMMAND, benchmark['command']], os.environ.get('TEST_SCRIPT_DIR'))
-        orch_time, orch_output, orch_error = run_command([ORCH_COMMAND, benchmark['orch_args'], benchmark['command']], os.environ.get('TEST_SCRIPT_DIR'))
+        working_dir = resolve_working_dir(benchmark.get('working_dir', os.environ.get('TEST_SCRIPT_DIR')))
+        
+        bash_time, bash_output, _bash_error = run_command([BASH_COMMAND, resolve_command_path(benchmark['command'])], working_dir)
+        orch_time, orch_output, orch_error = run_command([ORCH_COMMAND, benchmark['orch_args'], resolve_command_path(benchmark['command'])], working_dir)
         bash_times.append(bash_time)
         orch_times.append(orch_time)
+        # print(bash_output)
         are_results_same = compare_results(bash_output, orch_output)
-        diff_percentage = ((bash_time - orch_time) / bash_time) * 100
+        diff_percentage = abs((bash_time - orch_time) / bash_time) * 100
         print_results(benchmark['name'], bash_time, orch_time, are_results_same, diff_percentage)
 
     # Create output dir for reports

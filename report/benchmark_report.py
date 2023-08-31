@@ -4,6 +4,7 @@ import json
 import os
 from benchmark_plots import *
 import logging
+import difflib
 
 # Setting and exporting environment variables (same as tests for now).
 # This will change in the future.
@@ -40,11 +41,17 @@ def run_command(command, working_dir=os.getcwd()):
     end_time = time.time()
     return (end_time - start_time, stdout.decode('utf-8'), stderr.decode('utf-8'))
 
-# TODO: Make this more robust - maybe even use sth like difflib
 def compare_results(bash_output, orch_output):
-    return bash_output == orch_output
+    
+    bash_lines = bash_output.splitlines()
+    orch_lines = orch_output.splitlines()
 
-def print_results(benchmark_name, bash_time, orch_time, are_results_same, diff_percentage):
+    # Compare lines
+    d = difflib.ndiff(bash_lines, orch_lines)
+    return [diff for diff in d if diff.startswith('- ') or diff.startswith('+ ')]
+
+
+def print_results(benchmark_name, bash_time, orch_time, diff_lines, diff_percentage):
     if orch_time < bash_time:
             comparison_result = f"hs is {round(diff_percentage/100, 1)}x ({diff_percentage:.2f}%) faster than Bash"
     else:
@@ -53,8 +60,11 @@ def print_results(benchmark_name, bash_time, orch_time, are_results_same, diff_p
     print(f"Results for benchmark:  {benchmark_name}")
     print(f"Bash Execution Time:    {bash_time}s")
     print(f"hs Execution Time:      {orch_time}s")
-    print(f"Valid:                  {'Yes' if are_results_same else 'No'}")
+    print(f"Valid:                  {'Yes' if len(diff_lines) == 0 else 'No - see below'}")
+    for line in diff_lines:
+        print(line)
     print(comparison_result)
+    
     print("-" * 40)
     print("-" * 40)
 
@@ -83,9 +93,9 @@ def main():
         bash_times.append(bash_time)
         orch_times.append(orch_time)
         # print(bash_output)
-        are_results_same = compare_results(bash_output, orch_output)
+        diff_lines = compare_results(bash_output, orch_output)
         diff_percentage = abs((bash_time - orch_time) / bash_time) * 100
-        print_results(benchmark['name'], bash_time, orch_time, are_results_same, diff_percentage)
+        print_results(benchmark['name'], bash_time, orch_time, diff_lines, diff_percentage)
 
     # Create output dir for reports
     os.makedirs(REPORT_OUTPUT_DIR, exist_ok=True)

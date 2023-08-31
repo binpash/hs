@@ -81,9 +81,9 @@ def safe_to_execute(asts: "list[AstNode]", variables: dict) -> bool:
     if isinstance(asts[0], PipeNode):
         return is_pipe_node_safe_to_execute(asts[0], variables)
     else:
-        assert(isinstance(ast, CommandNode))
-        logging.debug(f'Ast in question: {ast}')
-        return is_node_safe(ast, variables)
+        assert(isinstance(asts[0], CommandNode))
+        logging.debug(f'Ast in question: {asts[0]}')
+        return is_node_safe(asts[0], variables)
     ## TODO: Determine if the ast contains a command substitution and if so
     ##        run it in the original script.
     ##       In the future, we should be able to perform stateful expansion too,

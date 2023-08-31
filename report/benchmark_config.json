@@ -1,0 +1,41 @@
+[
+    {
+        "name": "Dgsh 1.sh - 2M",
+        "pre_execution_script": ["wget -ncO in2M.xml http://aiweb.cs.washington.edu/research/projects/xmltk/xmldata/data/mondial/mondial-3.0.xml"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/1.sh resources/in2M.xml",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 1.sh - 120M",
+        "pre_execution_script": ["wget -ncO in120M.xml http://aiweb.cs.washington.edu/research/projects/xmltk/xmldata/data/dblp/dblp.xml"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/1.sh resources/in120M.xml",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 1.sh - 700M",
+        "pre_execution_script": ["wget -ncO in700M.xml http://aiweb.cs.washington.edu/research/projects/xmltk/xmldata/data/pir/psd7003.xml"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/1.sh resources/in700M.xml",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 2.sh (no function) - Τry Repo",
+        "pre_execution_script": ["git clone https://github.com/binpash/try.git"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/2_no_func.sh",
+        "working_dir": "{RESOURCE_DIR}/try",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 2.sh (no function) - PaSh Repo",
+        "pre_execution_script": ["git clone https://github.com/binpash/pash.git"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/2_no_func.sh",
+        "working_dir": "{RESOURCE_DIR}/try",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 2.sh (no function) - PaSh Repo",
+        "pre_execution_script": ["git clone https://github.com/binpash/pash.git"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/2_no_func.sh",
+        "working_dir": "{RESOURCE_DIR}/try",
+        "orch_args": "-d 2"
+    }
+]

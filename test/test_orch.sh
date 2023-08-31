@@ -339,11 +339,48 @@ test_network_access_3()
     $shell $2/test_network_access_3.sh
 }
 
+test_local_vars_1()
+{
+    local shell=$1
+    $shell $2/test_local_vars_1.sh
+}
+
+test_local_vars_2()
+{
+    local shell=$1
+    $shell $2/test_local_vars_2.sh
+}
+
+test_local_vars_3()
+{
+    local shell=$1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in2
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in3
+    $shell $2/test_local_vars_3.sh
+}
+
+test_command_var_assignments_1(){
+    local shell=$1
+    $shell $2/test_command_var_assignments_1.sh
+}
+
+test_command_var_assignments_2(){
+    local shell=$1
+    $shell $2/test_command_var_assignments_2.sh
+}
+
+
 ## TODO: make more loop tests with nested loops and commands after the loop
 
 # We run all tests composed with && to exit on the first that fails
 if [ "$#" -eq 0 ]; then 
     run_test test_single_command
+    run_test test_local_vars_1
+    run_test test_local_vars_2
+    run_test test_local_vars_3
+    run_test test_command_var_assignments_1
+    run_test test_command_var_assignments_2
     run_test test1_1 # "1 2 3 1" # 7
     run_test test1_2 #"1 2 2 1" # 6
     run_test test1_3 #"1 2 2 1" # 6
@@ -363,9 +400,7 @@ if [ "$#" -eq 0 ]; then
     run_test test7_1 #"1 1 1 1 1 1 1 1 1 1 1 1" # 12
     run_test test7_2 #"1 1 1 1 1 1 1 1 1 1 1 1" # 12
     run_test test7_3 #"1 1 1 1 1 1 1 1 1 1 1 1" # 12
-    # Test 8 is failing for now
-    # cleanup
-    # run_test test8
+
     # for now we don't check for reps in tests 9_x
     run_test test9_1 # "1 2 1 1 1 2 2 2 2 2 1 1 1" # 19
     run_test test9_2 # "1 1 1 1 1 1 1 1 1 1 1 1 1" # 13

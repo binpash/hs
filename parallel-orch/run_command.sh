@@ -4,9 +4,11 @@
 export CMD_STRING=${1?No command was given to execute}
 export TRACE_FILE=${2?No trace file path given}
 export STDOUT_FILE=${3?No stdout file given}
-export OUTPUT_VARIABLE_FILE=${4?No output variable file given}
+export LATEST_ENV_FILE=${4?No env file to run with given}
 export EXEC_MODE=${5?No execution mode given}
 export CMD_ID=${6?No command id given}
+export POST_EXEC_ENV=${7?No Riker env file given}
+
 
 ## KK 2023-04-24: Not sure this should be run every time we run a command
 ## GL 2023-07-08: Tests seem to pass without it
@@ -21,20 +23,10 @@ else
     exit 1
 fi
 
-# ## Generate a temporary directory to store the workfiles
-# mkdir -p /tmp/pash_spec
-# export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/a/sandbox_XXXXXXX)/"
-# ## We need to execute `try` with bash to keep the exported functions
-
-# export TEMPDIR="$(mktemp -d /tmp3/pash_spec/b/sandbox_XXXXXXX)/"
-# echo tempdir $TEMPDIR 1>&2
-# echo sandbox $SANDBOX_DIR 1>&2
-
-
 mkdir -p /tmp/pash_spec/a
 mkdir -p /tmp/pash_spec/b
 export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/a/sandbox_XXXXXXX)/"
-export TEMPDIR="$(mktemp -d /tmp/pash_spec/b/sandbox_XXXXXXX)/"
+export TEMPDIR="$(mktemp -d /tmp/pash_spec/b/sandbox_XXXXXXX)"
 # echo tempdir $TEMPDIR
 # echo sandbox $SANDBOX_DIR
 

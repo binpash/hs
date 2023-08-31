@@ -5,6 +5,8 @@ import socket
 import subprocess
 import tempfile
 import time
+import difflib
+import re
 
 def ptempfile():
     fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX)
@@ -94,3 +96,45 @@ def kill_process(pid: int) -> bool:
         return False
     
     return True
+
+
+# HACK: Parsing an env file like this is likely problematic.
+# TODO: We can leave this as-is for now, but we should consider
+#       using a more robust approach for comparing the env files
+def parse_env_string_to_dict(content):
+    # Parse scalar string vars
+    scalar_vars_string = re.findall(r'declare (?:-x|--)? (\w+)="([^"]*)"', content, re.DOTALL)
+
+    # Parse scalar integer vars
+    scalar_vars_int = re.findall(r'declare -i (\w+)="(\d+)"', content)
+
+    # Parse array declarations
+    array_vars = re.findall(r'declare -a (\w+)=(\([^)]+\))', content)
+
+    # Merge all parsed variables
+    result = {key: value for key, value in scalar_vars_string}
+    result.update({key: int(value) for key, value in scalar_vars_int})
+    result.update({key: value for key, value in array_vars})
+    
+    return result
+
+def compare_dicts(dict1, dict2):
+    only_in_first = {}
+    only_in_second = {}
+    different_in_both = {}
+    # Check for keys in dict1 but not in dict2 and for different values
+    for key, value in dict1.items():
+        if key not in dict2:
+            only_in_first[key] = value
+        elif dict1[key] != dict2[key]:
+            different_in_both[key] = (dict1[key], dict2[key])
+    # Check for keys in dict2 but not in dict1
+    for key, value in dict2.items():
+        if key not in dict1:
+            only_in_second[key] = value
+    return only_in_first, only_in_second, different_in_both
+
+def compare_env_strings(file1_content, file2_content):
+    dict1 = parse_env_string_to_dict(file1_content)
+    dict2 = parse_env_string_to_dict(file2_content)
+    return compare_dicts(dict1, dict2)

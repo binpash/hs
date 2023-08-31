@@ -72,16 +72,17 @@ class Scheduler:
         self.partial_program_order = parse_partial_program_order_from_file(partial_order_file)
         self.partial_program_order.init_partial_order()
 
-    def __parse_wait(self, input_cmd: str) -> NodeId:
+    def __parse_wait(self, input_cmd: str) -> "tuple[NodeId, str]":
         try:
-            node_id_component, loop_iter_counter_component = input_cmd.rstrip().split("|")
+            node_id_component, loop_iter_counter_component, pash_runtime_vars_file_component = input_cmd.rstrip().split("|")
             raw_node_id_int = int(node_id_component.split(":")[1].rstrip())
             loop_counters_str = loop_iter_counter_component.split(":")[1].rstrip()
+            pash_runtime_vars_file_str = pash_runtime_vars_file_component.split(":")[1].rstrip()
             if loop_counters_str == "None":
-                node_id = NodeId(raw_node_id_int)
+                node_id = NodeId(raw_node_id_int), pash_runtime_vars_file_str
             else:
                 loop_counters = [int(cnt) for cnt in loop_counters_str.split("-")]
-                node_id = NodeId(raw_node_id_int, LoopStack(loop_counters))            
+                node_id = NodeId(raw_node_id_int, LoopStack(loop_counters)), pash_runtime_vars_file_str           
             return node_id
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')
@@ -90,16 +91,23 @@ class Scheduler:
         assert(input_cmd.startswith("Wait"))
         ## We have received this message by the JIT, which waits for a node_id to
         ## finish execution.
-        node_id = self.__parse_wait(input_cmd)        
-        logging.debug(f'Scheduler: Received wait for node_id: {node_id}')
+        node_id, pash_runtime_vars_file_str = self.__parse_wait(input_cmd)        
+        logging.debug(f'Scheduler: Received wait for node_id: {node_id}|New env file: {pash_runtime_vars_file_str}')
 
+        ## Set the new env file for the node
+        self.partial_program_order.set_new_env_file_for_node(node_id, pash_runtime_vars_file_str)
 
+        
+        ## Attempt to resolve environment differences on waiting partial order nodes
+        self.partial_program_order.maybe_resolve_most_recent_envs_and_continue_resolution(node_id)
+        
         ## Inform the partial order that we received a wait for a node so that it can push loops
         ## forward and so on.
         self.partial_program_order.wait_received(node_id)
 
         ## If the node_id is already committed, just return its exit code
         if node_id in self.partial_program_order.get_committed():
+            # TODO: Env check and if no conflicts, commit
             logging.debug(f'Node: {node_id} found in committed, responding immediately!')
             self.waiting_for_response[node_id] = connection
             self.respond_to_pending_wait(node_id)
@@ -138,11 +146,13 @@ class Scheduler:
         self.respond_to_frontend_core(node_id, response)
 
 
+    ## TODO: send riker env here
     def respond_to_pending_wait(self, node_id: int):
+        logging.debug(f'Responding to pending wait for node: {node_id}')
         ## Get the completed node info
         node = self.partial_program_order.get_node(node_id)
         completed_node_info = node.get_completed_node_info()
-        msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_variable_file()} {completed_node_info.get_stdout_file()}'
+        msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_post_exec_env()} {completed_node_info.get_stdout_file()}'
         response = success_response(msg)
         ## Send the response
         self.respond_to_frontend_core(node_id, response)

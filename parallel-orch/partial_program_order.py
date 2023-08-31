@@ -4,6 +4,7 @@ import os
 import sys
 
 import analysis
+import config
 import executor
 import trace
 import util
@@ -12,22 +13,26 @@ from shasta.ast_node import AstNode, CommandNode
 
 
 class CompletedNodeInfo:
-    def __init__(self, exit_code, variable_file, stdout_file):
+    def __init__(self, exit_code, post_exec_env, stdout_file, sandbox_dir):
         self.exit_code = exit_code
-        self.variable_file = variable_file
+        self.post_exec_env = post_exec_env
         self.stdout_file = stdout_file
+        self.sandbox_dir = sandbox_dir
 
     def get_exit_code(self):
         return self.exit_code
 
-    def get_variable_file(self):
-        return self.variable_file
+    def get_post_exec_env(self):
+        return self.post_exec_env
 
     def get_stdout_file(self):
         return self.stdout_file
+    
+    def get_sandbox_dir(self):
+        return self.sandbox_dir
 
     def __str__(self):
-        return f'CompletedNodeInfo(ec:{self.get_exit_code()}, vf:{self.get_variable_file()}, stdout:{self.get_stdout_file()})'
+        return f'CompletedNodeInfo(ec:{self.get_exit_code()}, env:{self.get_post_exec_env()}, stdout:{self.get_stdout_file()}, sandbox:{self.get_sandbox_dir()})'
 
 ## This class is used for both loop contexts and loop iters
 ## The indices go from inner to outer
@@ -231,7 +236,7 @@ class RWSet:
 
 class PartialProgramOrder:
 
-    def __init__(self, nodes, edges):
+    def __init__(self, nodes, edges, initial_env_file):
         self.nodes = nodes
         # TODO: consider changing values to sets instead of lists
         self.adjacency = edges
@@ -271,6 +276,10 @@ class PartialProgramOrder:
         ## Counts the times a node was (re)executed
         self.executions = {node_id: 0 for node_id in self.nodes.keys()}
         self.banned_files = set()
+        self.new_envs = {}
+        self.latest_envs = {}
+        self.initial_env_file = initial_env_file
+        self.waiting_for_frontend = set()
     
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -334,6 +343,18 @@ class PartialProgramOrder:
         ## KK 2024-05-03: I don't see how we can get multiple sink with the current structure
         assert(len(sink_nodes) == 1)
         return sink_nodes
+    
+    def set_new_env_file_for_node(self, node_id: NodeId, new_env_file: str):
+        self.new_envs[node_id] = new_env_file
+        
+    def get_new_env_file_for_node(self, node_id: NodeId) -> str:
+        return self.new_envs.get(node_id)
+    
+    def set_latest_env_file_for_node(self, node_id: NodeId, latest_env_file: str):
+        self.latest_envs[node_id] = latest_env_file
+        
+    def get_latest_env_file_for_node(self, node_id: NodeId) -> str:
+        return self.latest_envs.get(node_id)
 
     ## This returns all previous nodes of a sub partial order
     def get_sub_po_prev_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
@@ -371,12 +392,17 @@ class PartialProgramOrder:
         self.init_workset()
         logging.debug(f'Initialized workset')
         self.populate_to_be_resolved_dict()
+        self.init_latest_env_files()
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.to_be_resolved)
         logging.info(f'Initialized the partial order!')
         self.log_partial_program_order_info()
         
         assert(self.valid())
+        
+    def init_latest_env_files(self):
+        for node_id in self.get_all_non_committed():
+            self.set_latest_env_file_for_node(node_id, self.initial_env_file)
 
     def init_workset(self):
         self.workset = self.get_all_non_committed_standard_nodes()
@@ -612,7 +638,7 @@ class PartialProgramOrder:
 
     def __kill_node(self, cmd_id: "NodeId"):
         logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
-        proc_to_kill, trace_file, _stdout, _stderr, _variable_file = self.commands_currently_executing.pop(cmd_id)
+        proc_to_kill, trace_file, _stdout, _stderr, _post_exec_env = self.commands_currently_executing.pop(cmd_id)
         # Add the trace file to the banned file list so we know to ignore the CommandExecComplete response
         self.banned_files.add(trace_file)
 
@@ -993,7 +1019,13 @@ class PartialProgramOrder:
         ## Add all new standard nodes to the workset (since they have to be tracked)
         for new_node_id in all_new_node_ids:
             if not self.is_loop_node(new_node_id):
-                self.workset.append(new_node_id) 
+                self.workset.append(new_node_id)
+                ## GL: 08-24-2023: This might not the best way to treat this as we need
+                ## to update the env half way through the loop. 
+                ## For now, we just copy the env from the parent loop node
+                non_iter_id = new_node_id.get_non_iter_id()
+                logging.debug(f"Copying latest env from loop context to loop node: {non_iter_id} -> {new_node_id}")
+                self.latest_envs[new_node_id] = self.latest_envs[non_iter_id]
 
         ## KK 2023-05-22 Do we need to correctly populate the resolved set of next commands
         ##               after unrolling the loop.
@@ -1063,7 +1095,8 @@ class PartialProgramOrder:
                     and frontier_node not in self.stopped \
                     and frontier_node not in self.speculated \
                     and frontier_node not in self.workset\
-                    and not self.is_loop_node(frontier_node):
+                    and not self.is_loop_node(frontier_node)\
+                    and frontier_node not in self.waiting_for_frontend:
                     ## Commit the node
                     self.commit_node(frontier_node)
 
@@ -1213,19 +1246,21 @@ class PartialProgramOrder:
 
         cmd = node.get_cmd()
         self.executions[node_id] += 1
+        env_file_to_execute_with = self.get_latest_env_file_for_node(node_id)
+        logging.debug(f"Executing with environment file: {env_file_to_execute_with}")
         if speculate:
             execute_func = executor.async_run_and_trace_command_return_trace_in_sandbox_speculate
         else:
             execute_func = executor.async_run_and_trace_command_return_trace
-        proc, trace_file, stdout, stderr, variable_file = execute_func(cmd, node_id)
-        self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, variable_file)
+        proc, trace_file, stdout, stderr, post_exec_env = execute_func(cmd, node_id, env_file_to_execute_with)
+        self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, post_exec_env)
         logging.debug(f" >>>>> Command {node_id} - {proc.pid} just started executing")
 
     def command_execution_completed(self, node_id: NodeId, riker_exit_code:int, sandbox_dir: str):
         logging.debug(f" --- Node {node_id}, just finished execution ---")
         self.sandbox_dirs[node_id] = sandbox_dir
         ## TODO: Store variable file somewhere so that we can return when wait
-        _proc, trace_file, stdout, stderr, variable_file = self.commands_currently_executing.pop(node_id)
+        _proc, trace_file, stdout, stderr, post_exec_env = self.commands_currently_executing.pop(node_id)
         logging.debug(f" >>>>> Command {node_id} - {_proc.pid} just finished executing")
         logging.trace(f"ExecutingRemove|{node_id}")
         # Handle stopped by riker due to network access
@@ -1234,16 +1269,15 @@ class PartialProgramOrder:
             logging.trace(f"StoppedAdd|{node_id}:network")
             self.stopped.add(node_id)
         else:
-            
             trace_object = executor.read_trace(sandbox_dir, trace_file)
             cmd_exit_code = trace.parse_exit_code(trace_object)
 
             ## Save the completed node info. Note that if the node doesn't commit
             ##  this information will be invalid and rewritten the next time execution
             ##  is completed for this node.
-            completed_node_info = CompletedNodeInfo(cmd_exit_code, variable_file, stdout)
+            completed_node_info = CompletedNodeInfo(cmd_exit_code, post_exec_env, stdout, sandbox_dir)
             self.nodes[node_id].set_completed_info(completed_node_info)
-
+            
             ## We no longer add failed commands to the stopped set, 
             ## because this leads to more repetitions than needed
             ## and does not allow us to properly speculate commands
@@ -1252,26 +1286,119 @@ class PartialProgramOrder:
             rw_set = RWSet(read_set, write_set)
             self.update_rw_set(node_id, rw_set)
 
-        ## Now that command `node_id` is done executing, we can check which other commands
-        ## can be resolved (that might have finished execution before but where waiting on `node_id`)
-        logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing")
         if node_id in self.stopped:
             logging.debug(f"Nothing new to be resolved since {node_id} exited with an error.")
             if node_id in self.workset:
                 self.workset.remove(node_id)
-                logging.trace(f"WorksetRemove|{node_id}")
+                logging.debug(f"WorksetRemove|{node_id}")
             # If no commands can be resolved this round, 
             # do nothing and wait until a new command finishes executing
             logging.debug("No resolvable nodes were found in this round, nothing will change...")
             return
 
-        assert(node_id not in self.stopped)
-        ## Since the command properly finished executing, it now waits to be resolved
-        self.add_to_speculated(node_id)
-        ## We can now call the general resolution method that determines which commands
-        ## can be resolved (all their dependencies are done executing), and resolves them.
-        self.resolve_commands_that_can_be_resolved_and_push_frontier()
-        assert(self.valid())
+        # Remove from workset and add it again later if necessary
+        self.workset.remove(node_id)
+        ## Here we check if the most recent env has been received. If not, we cannot resolve anything just yet.
+        if self.get_new_env_file_for_node(node_id) is None:
+            logging.debug(f"Node {node_id} has not received its latest env from runtime yet. Waiting...")
+            self.waiting_for_frontend.add(node_id)
+        ## Here we continue with the normal execution flow
+        else:
+            logging.debug(f"Node {node_id} has already received its latest env from runtime. Examining differences...")
+            self.resolve_most_recent_envs_and_continue_command_execution(node_id)
+
+    #TODO: Remove ths in the future - we need a more robust approach to check for env diffs.
+    def exclude_insignificant_diffs(self, env_diff_dict):
+        return {k: v for k, v in env_diff_dict.items() if k not in config.INSIGNIFICANT_VARS}
+    
+    #TODO: Remove ths in the future - we need a more robust approach to check for env diffs.
+    def include_only_significant_vars(self, env_diff_dict):
+        return {k: v for k, v in env_diff_dict.items() if k in config.SIGNIFICANT_VARS}
+    
+    def significant_diff_in_env_dicts(self, only_in_new, only_in_latest, different_in_both):
+        # Exclude insignificant differences
+        only_in_new_sig = self.include_only_significant_vars(only_in_new)
+        only_in_latest_sig = self.include_only_significant_vars(only_in_latest)
+        different_in_both_sig = self.include_only_significant_vars(different_in_both)
+        # If still diffs are present, return False
+        if len(only_in_new_sig) > 0 or len(only_in_latest_sig) > 0 or len(different_in_both_sig) > 0:
+            logging.debug("Significant differences found:")
+            logging.debug(f"Unique to new (Wait):            {only_in_new_sig}")
+            logging.debug(f"Unique to latest (Before Riker): {only_in_latest_sig}")
+            logging.debug(f"Differing values:                {different_in_both_sig}")
+            return True
+        else:
+            logging.debug("No significant differences found:")
+            return False
+        
+    def maybe_resolve_most_recent_envs_and_continue_resolution(self, node_id: NodeId):
+        if node_id in self.waiting_for_frontend:
+                logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
+                self.resolve_most_recent_envs_and_continue_command_execution(node_id)
+        
+    def resolve_most_recent_envs_and_continue_command_execution(self, new_env_node: NodeId):
+        to_check = list(self.waiting_for_frontend) + [new_env_node]
+        logging.debug(f"Node {new_env_node} received its latest env from runtime. Comparing env with itself and other waiting nodes.")
+        # Node is no longer waiting to be resolved. It might have not been waiting at all.
+        self.waiting_for_frontend.discard(new_env_node)
+        for node_id in to_check:
+            if self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(new_env_node), 
+                                                                        self.get_latest_env_file_for_node(node_id)):
+                logging.debug(f"Significant differences found between new and latest env files for {node_id}.")
+                logging.debug(f"Assigning node {new_env_node} new env (Wait) as the new latest env of node {node_id} and re-executing.")
+                # If there are significant differences, set the new env as the latest (the one to run Riker with)
+                self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(new_env_node))
+                # Add the node to the workset again
+                assert node_id not in self.workset
+                self.workset.append(node_id)
+                self.waiting_for_frontend.discard(node_id)
+            elif node_id == new_env_node:
+                logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing and got its latest env.")
+                assert(node_id not in self.stopped)
+                self.add_to_speculated(node_id)
+                ## We can now call the general resolution method that determines which commands
+                ## can be resolved (all their dependencies are done executing), and resolves them.
+                self.resolve_commands_that_can_be_resolved_and_push_frontier()
+                assert(self.valid())
+            else:
+                logging.debug(f"Node {node_id} has no significant differences with the new env, but has not yet received its wait. Nothing to do for now.")
+        
+    def resolve_most_recent_envs_and_continue_command_execution_check_only_wait_node(self, node_id: NodeId):
+        logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
+        # Node is no longer waiting to be resolved. It might have not been waiting at all.
+        self.waiting_for_frontend.discard(node_id)
+        if self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
+                                                                    self.get_latest_env_file_for_node(node_id)):
+            logging.debug(f"Significant differences found between new and latest env files for {node_id}.")
+            logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
+            # If there are significant differences, set the new env as the latest (the one to run Riker with)
+            self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(node_id))
+            # Add the node to the workset again
+            if node_id not in self.workset:
+                self.workset.append(node_id)
+        else:                
+            logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing and got its latest env")
+            assert(node_id not in self.stopped)
+            self.add_to_speculated(node_id)
+            ## We can now call the general resolution method that determines which commands
+            ## can be resolved (all their dependencies are done executing), and resolves them.
+            self.resolve_commands_that_can_be_resolved_and_push_frontier()
+            assert(self.valid())
+        
+    def new_and_latest_env_files_have_significant_differences(self, new_env_file, latest_env_file):
+        # Early resolution if same files are compared
+        if new_env_file == latest_env_file:
+            logging.debug(f"Env files are the same. No need to compare.")
+            return False
+        logging.debug(f"Comparing new and latest env files: {new_env_file} {latest_env_file}")
+        assert(latest_env_file is not None)
+        
+        new_env = executor.read_env_file(new_env_file)
+        latest_env = executor.read_env_file(latest_env_file)
+        
+        only_in_new, only_in_latest, different_in_both = util.compare_env_strings(new_env, latest_env)
+
+        return self.significant_diff_in_env_dicts(only_in_new, only_in_latest, different_in_both)
 
     def print_cmd_stderr(self, stderr):
         # stdout.seek(0)
@@ -1303,6 +1430,7 @@ class PartialProgramOrder:
         logging.debug(f"STOPPED:          {list(self.stopped)}")
         logging.debug(f" of which UNSAFE: {list(self.get_unsafe())}")
         logging.debug(f"WAITING:          {sorted(list(self.speculated))}")
+        logging.debug(f"for FRONTEND:     {sorted(list(self.waiting_for_frontend))}")
         logging.debug(f"TO RESOLVE:       {self.to_be_resolved}")
         self.log_rw_sets()
         logging.debug(f"=" * 80)
@@ -1322,6 +1450,9 @@ class PartialProgramOrder:
                 continue
             elif node_id in self.get_currently_executing():
                 logging.debug(f" > Node: {node_id} is currently executing, skipping...")
+                continue
+            elif node_id in self.waiting_for_frontend:
+                logging.debug(f" > Node: {node_id} is currently waiting for frontend, skipping...")
                 continue
             else:
                 logging.debug(f" > Node: {node_id} is not executing or waiting to be resolved (speculated) so we modify its set.")
@@ -1396,13 +1527,16 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
     cmds_directory = str(lines[0])
     logging.debug(f'Cmds are stored in: {cmds_directory}')
 
+    ## The initial env file
+    initial_env_file = str(lines[1])
+
     ## The number of nodes
-    number_of_nodes = int(lines[1])
+    number_of_nodes = int(lines[2])
     logging.debug(f'Number of po cmds: {number_of_nodes}')
 
     ## The loop context for each node
-    loop_context_start=2
-    loop_context_end=number_of_nodes+2
+    loop_context_start=3
+    loop_context_end=number_of_nodes+3
     loop_context_lines = lines[loop_context_start:loop_context_end]
     loop_contexts = parse_loop_contexts(loop_context_lines)
     logging.debug(f'Loop contexts: {loop_contexts}')
@@ -1427,4 +1561,4 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
     
     logging.trace(f"Nodes|{','.join([str(node) for node in nodes])}")
     logging.trace(f"Edges|{edges}")
-    return PartialProgramOrder(nodes, edges)
+    return PartialProgramOrder(nodes, edges, initial_env_file)

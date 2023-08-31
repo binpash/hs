@@ -1,13 +1,11 @@
+import os
 import matplotlib.pyplot as plt
-import scienceplots
+# import scienceplots
 
 # plt.style.use('science')
     
-# Plot a comparison of execution times for Bash and Orch.
-def plot_benchmark_results(benchmarks, bash_times, orch_times):
-    
-
-
+# Plot a comparison of execution times for Bash and hs.
+def plot_benchmark_times_combined(benchmarks, bash_times, orch_times, output_dir, filename):
     fig, ax = plt.subplots(figsize=(10,6))
     
     # Define bar width and positions
@@ -25,4 +23,21 @@ def plot_benchmark_results(benchmarks, bash_times, orch_times):
     ax.legend()
     
     plt.tight_layout()
-    plt.savefig("out.pdf")
+    plt.savefig(os.path.join(output_dir, f"{filename}.pdf"))
+
+def plot_benchmark_times_individual(benchmarks, bash_times, orch_times, output_dir, filename):
+    num_benchmarks = len(benchmarks)
+    fig, axes = plt.subplots(num_benchmarks, 1, figsize=(10, 6*num_benchmarks))
+    # Check if only one benchmark, else wrap axes in a list
+    if num_benchmarks == 1:
+        axes = [axes]
+    for ax, benchmark, bash_time, pash_time in zip(axes, benchmarks, bash_times, orch_times):
+        bar_width = 0.2
+        labels = ['Bash', 'hs']
+        times = [bash_time, pash_time]
+        ax.bar(labels, times, width=bar_width, color=['b', 'r'])
+        ax.set_ylabel('Execution Time (s)')
+        ax.set_title(f'Execution Time Comparison for {benchmark}: Bash vs hs')
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, f"{filename}.pdf"))

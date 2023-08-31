@@ -1307,10 +1307,11 @@ class PartialProgramOrder:
             logging.debug(f"Node {node_id} has already received its latest env from runtime. Examining differences...")
             self.resolve_most_recent_envs_and_continue_command_execution(node_id)
 
-    # This needs to become more fine grained
+    #TODO: Remove ths in the future - we need a more robust approach to check for env diffs.
     def exclude_insignificant_diffs(self, env_diff_dict):
         return {k: v for k, v in env_diff_dict.items() if k not in config.INSIGNIFICANT_VARS}
     
+    #TODO: Remove ths in the future - we need a more robust approach to check for env diffs.
     def include_only_significant_vars(self, env_diff_dict):
         return {k: v for k, v in env_diff_dict.items() if k in config.SIGNIFICANT_VARS}
     

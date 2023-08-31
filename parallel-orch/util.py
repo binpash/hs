@@ -98,6 +98,9 @@ def kill_process(pid: int) -> bool:
     return True
 
 
+# HACK: Parsing an env file like this is likely problematic.
+# TODO: We can leave this as-is for now, but we should consider
+#       using a more robust approach for comparing the env files
 def parse_env_string_to_dict(content):
     # Parse scalar string vars
     scalar_vars_string = re.findall(r'declare (?:-x|--)? (\w+)="([^"]*)"', content, re.DOTALL)

@@ -9,7 +9,7 @@ import executor
 import trace
 import util
 
-from shasta.ast_node import AstNode, CommandNode
+from shasta.ast_node import AstNode, CommandNode, PipeNode
 
 
 class CompletedNodeInfo:
@@ -167,7 +167,8 @@ class Node:
         ## There can only be a single AST per node, and this
         ##  must be a command.
         assert(len(asts) == 1)
-        assert(isinstance(asts[0], CommandNode))
+        # Check that the node contains only CommandNode(s)
+        analysis.validate_node(asts[0])
         self.cmd_no_redir = trace.remove_command_redir(self.cmd)
         self.loop_context = loop_context
         ## Keep track of how many iterations of this loop node we have unrolled
@@ -1281,7 +1282,6 @@ class PartialProgramOrder:
             ## We no longer add failed commands to the stopped set, 
             ## because this leads to more repetitions than needed
             ## and does not allow us to properly speculate commands
-
             read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
             rw_set = RWSet(read_set, write_set)
             self.update_rw_set(node_id, rw_set)
@@ -1333,7 +1333,7 @@ class PartialProgramOrder:
     def maybe_resolve_most_recent_envs_and_continue_resolution(self, node_id: NodeId):
         if node_id in self.waiting_for_frontend:
                 logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
-                self.partial_program_order.resolve_most_recent_envs_and_continue_command_execution(node_id)
+                self.resolve_most_recent_envs_and_continue_command_execution(node_id)
         
     def resolve_most_recent_envs_and_continue_command_execution(self, new_env_node: NodeId):
         to_check = list(self.waiting_for_frontend) + [new_env_node]

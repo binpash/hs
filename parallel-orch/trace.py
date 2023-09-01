@@ -78,6 +78,9 @@ class PathRefKey:
 
     def __str__(self):
         return f"Key({self.lhs_ref}@{self.env})"
+    
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
 class ExpectResult():
@@ -88,6 +91,15 @@ class ExpectResult():
 
     def __str__(self, ref, result):
         return f"ExpectResult({self.ref}, {self.result})"
+
+
+class PipeRef:
+    
+    def __init__(self, lhs_ref, env):
+        self.ref = PathRefKey(env, lhs_ref)
+        
+    def __str__(self):
+        return f"PipeRef({self.lhs_ref})"
 
 
 def log_resolved_trace_items(resolved_dict):
@@ -116,6 +128,9 @@ def is_no_command_prefix(line):
 
 def is_new_path_ref(trace_item):
     return "PathRef" in trace_item
+
+def is_pipe_ref(trace_item):
+    return "PipeRef" in trace_item
 
 
 def get_path_ref_id(trace_item):
@@ -210,6 +225,8 @@ def is_expect_result(trace_item):
 def parse_expect_result(trace_item):
     return trace_item.lstrip("ExpectResult(").split(")")[0].split(", ")
 
+def parse_pipe_ref(trace_item):
+    return trace_item.split("] = ")[0].lstrip("[").split(", ")
 
 def parse_launch(refs_dict, keys_order, env, line) -> None:
     assignment_prefix, assignments = parse_launch_command(
@@ -219,7 +236,6 @@ def parse_launch(refs_dict, keys_order, env, line) -> None:
         rhs_ref = PathRefKey(env, assignment[1].strip())
         refs_dict[lhs_ref] = refs_dict[rhs_ref]
         keys_order.append(lhs_ref)
-
 
 def add_ref_to_refs_dict(refs_dict, keys_order, lhs_ref, ref):
     refs_dict[lhs_ref] = ref
@@ -256,13 +272,25 @@ def parse_new_path_ref(refs_dict, keys_order, env, line):
     refs_dict[lhs_ref] = path_ref
     keys_order.append(lhs_ref)
 
-
 def parse_expect_result_item(expect_result_dict, env, line):
     line = remove_command_prefix(line).strip()
     path_ref_id, result = parse_expect_result(line)
     lhs_ref = PathRefKey(env, path_ref_id)
     expect_result_dict[lhs_ref] = ExpectResult(lhs_ref, result)
-
+    
+def parse_pipe_ref_item(refs_dict, keys_order, env, line):
+    line = remove_command_prefix(line).strip()
+    # lhs_ref, rhs_ref = parse_pipe_ref(line)
+    # Warning HACK: This is a hack to get the correct lhs_ref
+    # we are probably ok with this because it.
+    rhs_ref, lhs_ref = parse_pipe_ref(line)
+    lhs_key = PathRefKey(env, lhs_ref)
+    lhs_key_rev = PathRefKey(env, rhs_ref)
+    pipe_ref = PipeRef(rhs_ref, env)
+    pipe_ref_rev = PipeRef(lhs_ref, env)
+    refs_dict[lhs_key] = pipe_ref.ref
+    refs_dict[lhs_key_rev] = pipe_ref_rev.ref
+    keys_order.append(lhs_key)
 
 def parse_rw_sets(trace_object) -> None:
     # logging.trace("".join(trace_object))
@@ -284,6 +312,9 @@ def parse_rw_sets(trace_object) -> None:
         # Parses PathRef(...)
         elif is_new_path_ref(line):
             parse_new_path_ref(refs_dict, keys_order, env, line)
+        # Parses PipeRef
+        elif is_pipe_ref(line):
+            parse_pipe_ref_item(refs_dict, keys_order, env, line)
         # Parses ExpectResult(...)
         elif is_expect_result(line):
             parse_expect_result_item(expect_result_dict, env, line)

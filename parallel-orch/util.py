@@ -135,3 +135,20 @@ def compare_env_strings(file1_content, file2_content):
     dict1 = parse_env_string_to_dict(file1_content)
     dict2 = parse_env_string_to_dict(file2_content)
     return compare_dicts(dict1, dict2)
+
+def log_time_delta_from_start(module: str, action: str, node=None):
+    logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time From start:{to_milliseconds_str(time.time() - config.START_TIME)}")
+
+def set_named_timestamp(action: str, node=None):
+    key = f"{action}{',' + str(node) if node is not None else ''}"
+    config.named_timestamps[key] = time.time()
+    
+def log_time_delta_from_start_and_set_named_timestamp(module: str, action: str, node=None):
+    set_named_timestamp(action, node)
+    logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}")
+    
+def log_time_delta_from_named_timestamp(module: str, action: str, node=None):
+    logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}|Step time:{to_milliseconds_str(time.time() - config.named_timestamps[action])}")
+
+def to_milliseconds_str(seconds: float) -> str:
+    return f"{seconds * 1000:.3f}ms"

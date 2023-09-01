@@ -1,6 +1,7 @@
 import os
 import subprocess
 import logging
+import time
 
 
 ## TODO: Figure out how logging here plays out together with the log() in PaSh
@@ -27,7 +28,7 @@ else:
 
 
 ## Ensure that PASH_TMP_PREFIX is set by pa.sh
-assert(not os.getenv('PASH_SPEC_TMP_PREFIX') is None)
+# assert(not os.getenv('PASH_SPEC_TMP_PREFIX') is None)
 PASH_SPEC_TMP_PREFIX = os.getenv('PASH_SPEC_TMP_PREFIX')
 
 SOCKET_BUF_SIZE = 8192
@@ -41,3 +42,7 @@ INSIGNIFICANT_VARS = {'PWD', 'OLDPWD', 'SHLVL', 'PASH_SPEC_TMP_PREFIX', 'PASH_SP
                       'PPID', 'PROMPT_COMMAND', 'PS4', 'SHELL', 'SHELLOPTS', 'SHLVL', 'TERM', 'UID', 'USER', 'XDG_SESSION_ID'}
 
 SIGNIFICANT_VARS = {'foo', 'bar', 'baz'}
+
+START_TIME = time.time()
+
+named_timestamps = {}

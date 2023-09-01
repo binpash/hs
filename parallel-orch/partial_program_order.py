@@ -7,6 +7,7 @@ import analysis
 import config
 import executor
 import trace
+from util import *
 import util
 
 from shasta.ast_node import AstNode, CommandNode, PipeNode
@@ -654,20 +655,26 @@ class PartialProgramOrder:
         util.kill_process(proc_to_kill.pid)
 
     def resolve_commands_that_can_be_resolved_and_push_frontier(self):
+        
         cmds_to_resolve = self.__pop_cmds_to_resolve_from_speculated()
         logging.debug(f"Commands to check for dependencies this round are: {sorted(cmds_to_resolve)}")
         logging.debug(f"Commands that cannot be resolved this round are: {sorted(self.speculated)}")
-        
         ## Resolve dependencies for the commands that can actually be resolved
         to_commit = self.__resolve_dependencies_continuous_and_move_frontier(cmds_to_resolve)
+        for cmd in to_commit:
+            log_time_delta_from_named_timestamp("PartialOrder", "ResolveDependenciesDone", cmd, key=f"ResolveDependencies-{cmd}")
+            log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "ProcKilling")
+        
         if len(to_commit) == 0:
             logging.debug(" > No nodes to be committed this round")
         else:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
             self.__kill_all_currently_executing_and_schedule_restart()
+            log_time_delta_from_named_timestamp("PartialOrder", "ProcKilling")
             self.commit_cmd_workspaces(to_commit)
             # self.print_cmd_stderr(stderr)
+        
 
     def __pop_cmds_to_resolve_from_speculated(self):
         cmd_ids_to_check = sorted(list(self.speculated))
@@ -679,7 +686,6 @@ class PartialProgramOrder:
             if not self.cmd_can_be_resolved(cmd_id):
                 if cmd_id not in self.speculated:
                     logging.debug(f" > Adding node {cmd_id} to waiting list")
-                    logging.trace(f"WaitingAdd|{cmd_id}")
                     self.speculated.add(cmd_id)
                 else:
                     logging.debug(f" > Keeping node {cmd_id} to waiting list")
@@ -693,6 +699,8 @@ class PartialProgramOrder:
                     self.speculated.remove(cmd_id)
                 else:
                     logging.debug(f" > Node {cmd_id} is able to be resolved")
+                # The node can be resolved now
+                log_time_delta_from_named_timestamp("PartialOrder", "WaitingToResolveDone", cmd_id, key=f"WaitingToResolve-{cmd_id}")
         return sorted(cmds_to_resolve)
 
 
@@ -717,7 +725,9 @@ class PartialProgramOrder:
     ## as the input of a following command
     def __resolve_dependencies_continuous_and_move_frontier(self, cmds_to_resolve):
         self.log_partial_program_order_info()
-
+        for cmd in cmds_to_resolve:
+            log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "ResolveDependencies", cmd, key=f"ResolveDependencies-{cmd}")
+        
         logging.debug(f"Commands to be checked for dependencies: {sorted(cmds_to_resolve)}")
         logging.debug(" --- Starting dependency resolution --- ")
         new_workset = self.resolve_dependencies(cmds_to_resolve)
@@ -1183,7 +1193,6 @@ class PartialProgramOrder:
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
         # self.log_partial_program_order_info()
-        logging.debug("Scheduling work...")
         logging.debug("Rerunning stopped commands")
         # attempt_move_stopped_to_workset() needs to happen before the node execution
         self.attempt_move_stopped_to_workset()
@@ -1204,10 +1213,12 @@ class PartialProgramOrder:
     def schedule_node(self, cmd_id):
         # This replaced the old frontier check
         if self.is_next_non_committed_node(cmd_id):
+            log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "RunFrontierNode", cmd_id, key=f"Run-{cmd_id}")
             # TODO: run this and before committing kill any speculated commands still executing
             self.run_cmd_non_blocking(cmd_id)
         else:
             if not cmd_id in self.speculated:
+                log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "RunNode", cmd_id, key=f"Run-{cmd_id}")
                 self.speculate_cmd_non_blocking(cmd_id)
         return
 
@@ -1258,11 +1269,13 @@ class PartialProgramOrder:
         logging.debug(f" >>>>> Command {node_id} - {proc.pid} just started executing")
 
     def command_execution_completed(self, node_id: NodeId, riker_exit_code:int, sandbox_dir: str):
+        log_time_delta_from_named_timestamp("PartialOrder", "CommandExecComplete", node_id, key=f"Run-{node_id}")
+        log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "PostExecResolution", node_id, key=f"PostExecResolution-{node_id}")
+        
         logging.debug(f" --- Node {node_id}, just finished execution ---")
         self.sandbox_dirs[node_id] = sandbox_dir
         ## TODO: Store variable file somewhere so that we can return when wait
         _proc, trace_file, stdout, stderr, post_execution_env_file = self.commands_currently_executing.pop(node_id)
-        logging.debug(f" >>>>> Command {node_id} - {_proc.pid} just finished executing")
         logging.trace(f"ExecutingRemove|{node_id}")
         # Handle stopped by riker due to network access
         if int(riker_exit_code) == 159:
@@ -1295,9 +1308,11 @@ class PartialProgramOrder:
             # do nothing and wait until a new command finishes executing
             logging.debug("No resolvable nodes were found in this round, nothing will change...")
             return
-
+        
+        log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolutionECCheckDone", node_id, key=f"PostExecResolution-{node_id}", invalidate=False)
         # Remove from workset and add it again later if necessary
         self.workset.remove(node_id)
+        log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "PostExecResolution_FrontendWait", node_id, key=f"PostExecResolution_FrontendWait-{node_id}")
         ## Here we check if the most recent env has been received. If not, we cannot resolve anything just yet.
         if self.get_new_env_file_for_node(node_id) is None:
             logging.debug(f"Node {node_id} has not received its latest env from runtime yet. Waiting...")
@@ -1336,6 +1351,7 @@ class PartialProgramOrder:
                 self.resolve_most_recent_envs_and_continue_command_execution(node_id)
         
     def resolve_most_recent_envs_and_continue_command_execution(self, new_env_node: NodeId):
+        log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution_FrontendWaitReceived", new_env_node, key=f"PostExecResolution_FrontendWait-{new_env_node}")
         to_check = list(self.waiting_for_frontend) + [new_env_node]
         logging.debug(f"Node {new_env_node} received its latest env from runtime. Comparing env with itself and other waiting nodes.")
         # Node is no longer waiting to be resolved. It might have not been waiting at all.
@@ -1354,6 +1370,7 @@ class PartialProgramOrder:
             elif node_id == new_env_node:
                 logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing and got its latest env.")
                 assert(node_id not in self.stopped)
+                log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "WaitingToResolve", node_id, key=f"WaitingToResolve-{node_id}")
                 self.add_to_speculated(node_id)
                 ## We can now call the general resolution method that determines which commands
                 ## can be resolved (all their dependencies are done executing), and resolves them.
@@ -1378,6 +1395,7 @@ class PartialProgramOrder:
         else:                
             logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing and got its latest env")
             assert(node_id not in self.stopped)
+            log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "WaitingToResolve", node_id, key=f"WaitingToResolve-{node_id}")
             self.add_to_speculated(node_id)
             ## We can now call the general resolution method that determines which commands
             ## can be resolved (all their dependencies are done executing), and resolves them.
@@ -1407,6 +1425,7 @@ class PartialProgramOrder:
 
     def commit_cmd_workspaces(self, to_commit_ids):
         for cmd_id in sorted(to_commit_ids):
+            log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "CommitNode", cmd_id)
             workspace = self.sandbox_dirs[cmd_id]
             if workspace != "":
                 logging.debug(f" (!) Committing workspace of cmd {cmd_id} found in {workspace}")
@@ -1414,6 +1433,7 @@ class PartialProgramOrder:
                 logging.debug(commit_workspace_out.decode())
             else:
                 logging.debug(f" (!) No need to commit workspace of cmd {cmd_id} as it was run in the main workspace")
+            log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "CommitNode", cmd_id)
 
     def log_rw_sets(self):
         logging.debug("====== RW Sets " + "=" * 65)

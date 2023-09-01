@@ -172,8 +172,6 @@ class Scheduler:
         if trace_file in self.partial_program_order.banned_files:
             logging.debug(f'CommandExecComplete: {cmd_id} ignored')
             return
-        logging.debug(input_cmd)
-
         ## Gather RWset, resolve dependencies, and progress graph
         self.partial_program_order.command_execution_completed(cmd_id, exit_code, sandbox_dir)
 
@@ -185,23 +183,31 @@ class Scheduler:
         connection, input_cmd = socket_get_next_cmd(self.socket)
 
         if(input_cmd.startswith("Init")):
+            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "PartialOrderInit")
             connection.close()
             self.handle_init(input_cmd)
-            ## TODO: Read the partial order from the given file  
+            ## TODO: Read the partial order from the given file
+            log_time_delta_from_named_timestamp("Scheduler", "PartialOrderInit")
         elif (input_cmd.startswith("Daemon Start") or input_cmd == ""):
+            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "DaemonStart")
             connection.close()
             ## This happens when pa.sh first connects to daemon to see if it is on
             logging.debug(f'PaSh made first contact with scheduler server.')
+            log_time_delta_from_named_timestamp("Scheduler", "DaemonStart")
         elif (input_cmd.startswith("CommandExecComplete:")):
+            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "CommandExecComplete")
             ## We have received this message from an a runner (tracer +isolation)
             ## The runner should have already parsed RWsets and serialized them to
             ## a file.
             connection.close()
             self.handle_command_exec_complete(input_cmd)
+            log_time_delta_from_named_timestamp("Scheduler", "CommandExecComplete")
         elif (input_cmd.startswith("Wait")):
+            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "Wait")
             self.handle_wait(input_cmd, connection)
+            log_time_delta_from_named_timestamp("Scheduler", "Wait")
         elif (input_cmd.startswith("Done")):
-            
+            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "Done")
             logging.debug(f'Scheduler server received shutdown message.')
             logging.debug(f'The partial order was successfully completed.')
             if not self.partial_program_order.is_completed():
@@ -209,6 +215,7 @@ class Scheduler:
             socket_respond(connection, success_response("All finished!"))
             self.partial_program_order.log_executions()
             self.done = True
+            log_time_delta_from_named_timestamp("Scheduler", "Done")
         else:
             logging.error(error_response(f'Error: Unsupported command: {input_cmd}'))
             raise Exception(f'Error: Unsupported command: {input_cmd}')
@@ -230,10 +237,12 @@ class Scheduler:
     ## It should add some work (if possible), and then return immediately.
     ## It is called once per loop iteration, making sure that there is always work happening
     def schedule_work(self):
+        log_time_delta_from_start_and_set_named_timestamp("Scheduler", "ScheduleWork")
         self.partial_program_order.schedule_work()
 
         ## Respond to any waiting nodes that have been deemed to be unsafe
         self.check_unsafe_and_waiting()
+        log_time_delta_from_named_timestamp("Scheduler", "ScheduleWork")
 
     def run(self):
         ## The first command should be the daemon start
@@ -266,6 +275,7 @@ class Scheduler:
 
 
 def main():
+    log_time_delta_from_start("Scheduler", "Scheduler Init")
     args = init()
 
     # Format logging
@@ -281,7 +291,7 @@ def main():
     if args.debug_level == 1:
         logging.getLogger().setLevel(logging.INFO)
     elif args.debug_level >= 2:
-        logging.getLogger().setLevel(logging.DEBUG)
+        logging.getLogger().setLevel(logging.INFO)
     # elif args.debug_level >= 3:
     #     logging.getLogger().setLevel(logging.TRACE)
 

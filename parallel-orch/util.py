@@ -139,16 +139,26 @@ def compare_env_strings(file1_content, file2_content):
 def log_time_delta_from_start(module: str, action: str, node=None):
     logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time From start:{to_milliseconds_str(time.time() - config.START_TIME)}")
 
-def set_named_timestamp(action: str, node=None):
-    key = f"{action}{',' + str(node) if node is not None else ''}"
+def set_named_timestamp(action: str, node=None, key=None):
+    if key is None:
+        key = f"{action}{',' + str(node) if node is not None else ''}"
     config.named_timestamps[key] = time.time()
     
-def log_time_delta_from_start_and_set_named_timestamp(module: str, action: str, node=None):
-    set_named_timestamp(action, node)
+def invalidate_named_timestamp(action: str, node=None, key=None):
+    if key is None:
+        key = f"{action}{',' + str(node) if node is not None else ''}"
+    del config.named_timestamps[key]
+    
+def log_time_delta_from_start_and_set_named_timestamp(module: str, action: str, node=None, key=None):
+    set_named_timestamp(action, node, key)
     logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}")
     
-def log_time_delta_from_named_timestamp(module: str, action: str, node=None):
-    logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}|Step time:{to_milliseconds_str(time.time() - config.named_timestamps[action])}")
+def log_time_delta_from_named_timestamp(module: str, action: str, node=None, key=None, invalidate=True):
+    if key is None:
+        key = f"{action}{',' + str(node) if node is not None else ''}"
+    logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}|Step time:{to_milliseconds_str(time.time() - config.named_timestamps[key])}")
+    if invalidate:
+        invalidate_named_timestamp(action, node, key)
 
 def to_milliseconds_str(seconds: float) -> str:
     return f"{seconds * 1000:.3f}ms"

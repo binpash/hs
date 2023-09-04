@@ -662,7 +662,8 @@ class PartialProgramOrder:
         ## Resolve dependencies for the commands that can actually be resolved
         to_commit = self.__resolve_dependencies_continuous_and_move_frontier(cmds_to_resolve)
         for cmd in to_commit:
-            log_time_delta_from_named_timestamp("PartialOrder", "ResolveDependenciesDone", cmd, key=f"ResolveDependencies-{cmd}")
+            log_time_delta_from_named_timestamp("PartialOrder", "ResolveDependencies", cmd)
+            log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution", cmd, key=f"PostExecResolution-{cmd}")
             log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "ProcKilling")
         
         if len(to_commit) == 0:
@@ -673,7 +674,6 @@ class PartialProgramOrder:
             self.__kill_all_currently_executing_and_schedule_restart()
             log_time_delta_from_named_timestamp("PartialOrder", "ProcKilling")
             self.commit_cmd_workspaces(to_commit)
-            # self.print_cmd_stderr(stderr)
         
 
     def __pop_cmds_to_resolve_from_speculated(self):
@@ -700,7 +700,7 @@ class PartialProgramOrder:
                 else:
                     logging.debug(f" > Node {cmd_id} is able to be resolved")
                 # The node can be resolved now
-                log_time_delta_from_named_timestamp("PartialOrder", "WaitingToResolveDone", cmd_id, key=f"WaitingToResolve-{cmd_id}")
+                log_time_delta_from_named_timestamp("PartialOrder", "WaitingToResolve", cmd_id)
         return sorted(cmds_to_resolve)
 
 
@@ -726,7 +726,7 @@ class PartialProgramOrder:
     def __resolve_dependencies_continuous_and_move_frontier(self, cmds_to_resolve):
         self.log_partial_program_order_info()
         for cmd in cmds_to_resolve:
-            log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "ResolveDependencies", cmd, key=f"ResolveDependencies-{cmd}")
+            log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "ResolveDependencies", cmd)
         
         logging.debug(f"Commands to be checked for dependencies: {sorted(cmds_to_resolve)}")
         logging.debug(" --- Starting dependency resolution --- ")
@@ -896,15 +896,19 @@ class PartialProgramOrder:
         ##               node is very complex and not elegant. 
         ## TODO: Could we swap unrolling and progressing so that we always 
         ##        check if a node can be progressed by checking edges?
+        log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "ProgressingPoDueToWait", node_id)
         self.progress_po_due_to_wait(node_id)
+        log_time_delta_from_named_timestamp("PartialOrder", "ProgressingPoDueToWait", node_id)
 
+
+        log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "ProgressingPoDueToWait", node_id)
         ## Unroll some nodes if needed.
         if node_id.has_iters():
             ## TODO: This unrolling can also happen and be moved to speculation.
             ##       For now we are being conservative and that is why it only happens here
             ## TODO: Move this to the scheduler.schedule_work() (if we have a loop node waiting for response and we are not unrolled, unroll to create work)
             self.maybe_unroll(node_id)
-
+        
         assert(self.valid())
 
     def find_outer_loop_sub_partial_order(self, loop_id: int, nodes_subset: "list[NodeId]") -> "list[NodeId]":
@@ -1081,8 +1085,9 @@ class PartialProgramOrder:
     def maybe_unroll(self, node_id: NodeId) -> NodeId:
         ## Only unrolls this node if it doesn't already exist in the PO
         if not self.is_node_id(node_id):
+            log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "Unrolling", node_id)
             self.unroll_loop_node(node_id)
-
+            log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "Unrolling", node_id)
         ## The node_id must be part of the PO after unrolling, otherwise we did something wrong
         assert(self.is_node_id(node_id))
 
@@ -1212,13 +1217,12 @@ class PartialProgramOrder:
     # Nodes to be scheduled are always not committed and not executing
     def schedule_node(self, cmd_id):
         # This replaced the old frontier check
+        log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "RunNode", cmd_id)
         if self.is_next_non_committed_node(cmd_id):
-            log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "RunFrontierNode", cmd_id, key=f"Run-{cmd_id}")
             # TODO: run this and before committing kill any speculated commands still executing
             self.run_cmd_non_blocking(cmd_id)
         else:
             if not cmd_id in self.speculated:
-                log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "RunNode", cmd_id, key=f"Run-{cmd_id}")
                 self.speculate_cmd_non_blocking(cmd_id)
         return
 
@@ -1269,7 +1273,7 @@ class PartialProgramOrder:
         logging.debug(f" >>>>> Command {node_id} - {proc.pid} just started executing")
 
     def command_execution_completed(self, node_id: NodeId, riker_exit_code:int, sandbox_dir: str):
-        log_time_delta_from_named_timestamp("PartialOrder", "CommandExecComplete", node_id, key=f"Run-{node_id}")
+        log_time_delta_from_named_timestamp("PartialOrder", "RunNode", node_id)
         log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "PostExecResolution", node_id, key=f"PostExecResolution-{node_id}")
         
         logging.debug(f" --- Node {node_id}, just finished execution ---")
@@ -1309,10 +1313,10 @@ class PartialProgramOrder:
             logging.debug("No resolvable nodes were found in this round, nothing will change...")
             return
         
-        log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolutionECCheckDone", node_id, key=f"PostExecResolution-{node_id}", invalidate=False)
+        log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolutionECCheck", node_id, key=f"PostExecResolution-{node_id}", invalidate=False)
         # Remove from workset and add it again later if necessary
         self.workset.remove(node_id)
-        log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "PostExecResolution_FrontendWait", node_id, key=f"PostExecResolution_FrontendWait-{node_id}")
+        log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "PostExecResolutionFrontendWait", node_id)
         ## Here we check if the most recent env has been received. If not, we cannot resolve anything just yet.
         if self.get_new_env_file_for_node(node_id) is None:
             logging.debug(f"Node {node_id} has not received its latest env from runtime yet. Waiting...")
@@ -1351,7 +1355,7 @@ class PartialProgramOrder:
                 self.resolve_most_recent_envs_and_continue_command_execution(node_id)
         
     def resolve_most_recent_envs_and_continue_command_execution(self, new_env_node: NodeId):
-        log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution_FrontendWaitReceived", new_env_node, key=f"PostExecResolution_FrontendWait-{new_env_node}")
+        log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution_FrontendWaitReceived", new_env_node, key=f"PostExecResolution-{new_env_node}", invalidate=False)
         to_check = list(self.waiting_for_frontend) + [new_env_node]
         logging.debug(f"Node {new_env_node} received its latest env from runtime. Comparing env with itself and other waiting nodes.")
         # Node is no longer waiting to be resolved. It might have not been waiting at all.
@@ -1370,7 +1374,7 @@ class PartialProgramOrder:
             elif node_id == new_env_node:
                 logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing and got its latest env.")
                 assert(node_id not in self.stopped)
-                log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "WaitingToResolve", node_id, key=f"WaitingToResolve-{node_id}")
+                log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "WaitingToResolve", node_id)
                 self.add_to_speculated(node_id)
                 ## We can now call the general resolution method that determines which commands
                 ## can be resolved (all their dependencies are done executing), and resolves them.
@@ -1395,7 +1399,7 @@ class PartialProgramOrder:
         else:                
             logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing and got its latest env")
             assert(node_id not in self.stopped)
-            log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "WaitingToResolve", node_id, key=f"WaitingToResolve-{node_id}")
+            log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "WaitingToResolve", node_id)
             self.add_to_speculated(node_id)
             ## We can now call the general resolution method that determines which commands
             ## can be resolved (all their dependencies are done executing), and resolves them.

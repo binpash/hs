@@ -17,7 +17,6 @@ os.environ['PASH_SPEC_TOP'] = os.path.join(os.environ['ORCH_TOP'])
 
 BASH_COMMAND = "/bin/bash"
 ORCH_COMMAND = os.path.join(os.environ['ORCH_TOP'], 'pash-spec.sh')
-
 REPORT_OUTPUT_DIR = os.path.join(os.environ['WORKING_DIR'], 'report_output')
 
 def replace_with_env_var(input_string):
@@ -25,10 +24,7 @@ def replace_with_env_var(input_string):
         "TEST_SCRIPT_DIR": os.environ.get("TEST_SCRIPT_DIR", os.getcwd()),
         "RESOURCE_DIR": os.environ.get("RESOURCE_DIR", os.getcwd())
     }
-    
-    # Replace placeholders with actual environment variables using `format`
     replaced_string = input_string.format(**format_args)
-    
     return replaced_string
 
 def run_pre_execution_command(command, working_dir=os.getcwd()):
@@ -40,8 +36,15 @@ def run_pre_execution_command(command, working_dir=os.getcwd()):
 def run_command(command, working_dir=os.getcwd()):
     print("Running (and timing) command: ", " ".join(command))
     start_time = time.time()
-    
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_dir)
+    stdout, stderr = process.communicate()
+    end_time = time.time()
+    return (end_time - start_time, stdout.decode('utf-8'), stderr.decode('utf-8'))
+
+def run_command_with_orch(command, orch_args, working_dir=os.getcwd()):
+    print("Running (and timing) command with orch: ", " ".join(command))
+    start_time = time.time()
+    process = subprocess.Popen([ORCH_COMMAND, orch_args] + command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_dir, env=os.environ)
     stdout, stderr = process.communicate()
     end_time = time.time()
     return (end_time - start_time, stdout.decode('utf-8'), stderr.decode('utf-8'))
@@ -50,7 +53,6 @@ def compare_results(bash_output, orch_output):
     
     bash_lines = bash_output.splitlines()
     orch_lines = orch_output.splitlines()
-
     # Compare lines
     d = difflib.ndiff(bash_lines, orch_lines)
     return [diff for diff in d if diff.startswith('- ') or diff.startswith('+ ')]
@@ -72,7 +74,26 @@ def print_results(benchmark_name, bash_time, orch_time, diff_lines, diff_percent
     print("-" * 40)
     print("-" * 40)
     
-    
+def print_sorted_logs(orch_output):
+    relevant_lines = [line for line in orch_output.split("\n") if line.startswith("INFO:root:>|")]
+    # Extract lines with step time and sort
+    step_time_lines = [(line, float(line.split("Step time:")[1].split("ms")[0])) for line in relevant_lines if "Step time:" in line]
+    sorted_step_time_lines = sorted(step_time_lines, key=lambda x: x[1], reverse=True)
+
+    for entry in sorted_step_time_lines:
+        split_line = entry[0].split("|")[1:]
+        pretty_line = " | ".join(split_line)
+        print(f"{pretty_line}, Step Time: {entry[1]:.3f}ms")
+    print(orch_output)
+
+
+def export_env_vars(env_vars):
+    for env_var in env_vars:
+        lhs, rhs = env_var.split("=")
+        rhs = replace_with_env_var(rhs)
+        os.environ[lhs] = rhs
+
+
 def main():
     # Load benchmark configurations
     with open(os.path.join(os.environ.get('WORKING_DIR'), 'benchmark_config.json'), 'r') as f:
@@ -82,6 +103,9 @@ def main():
     orch_times = []
 
     for benchmark in benchmarks_config:
+        
+        # Set up preferred environment
+        export_env_vars(benchmark.get('env', {}))
         # Create resource dir if non-existent
         os.makedirs(os.environ.get('RESOURCE_DIR'), exist_ok=True)
         # Run pre-execution commands
@@ -97,15 +121,18 @@ def main():
         bash_time, bash_output, _bash_error = run_command(bash_cmd_str, working_dir)
         
         
-        orch_cmd_str = [ORCH_COMMAND, benchmark['orch_args'], "-c", replace_with_env_var(benchmark['command'])]
+        orch_cmd_str = replace_with_env_var(benchmark['command']).split(" ")
         print(orch_cmd_str)
-        orch_time, orch_output, orch_error = run_command(orch_cmd_str, working_dir)
+        orch_time, orch_output, orch_error = run_command_with_orch(orch_cmd_str, benchmark['orch_args'], working_dir)
         bash_times.append(bash_time)
         orch_times.append(orch_time)
         diff_lines = compare_results(bash_output, orch_output)
         diff_percentage = abs((bash_time - orch_time) / bash_time) * 100
         
         print_results(benchmark['name'], bash_time, orch_time, diff_lines, diff_percentage)
+        
+        print(bash_output)
+        print(orch_output)
         # print(orch_error)
         # print(">", bash_output, _bash_error)
 
@@ -113,6 +140,7 @@ def main():
     os.makedirs(REPORT_OUTPUT_DIR, exist_ok=True)
     # Plot the results
     benchmark_names = [benchmark['name'] for benchmark in benchmarks_config]
+    # print_sorted_logs(orch_error)
     # plot_benchmark_times_combined(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_combined")
     # plot_benchmark_times_individual(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_individual")
     print(f"Execution graphs can be found in {REPORT_OUTPUT_DIR}")

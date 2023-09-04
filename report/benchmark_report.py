@@ -20,12 +20,16 @@ ORCH_COMMAND = os.path.join(os.environ['ORCH_TOP'], 'pash-spec.sh')
 
 REPORT_OUTPUT_DIR = os.path.join(os.environ['WORKING_DIR'], 'report_output')
 
-def resolve_working_dir(path):
-    return path.format(RESOURCE_DIR=os.environ.get('RESOURCE_DIR'))
-
-def resolve_command_path(command):
-    return command.format(TEST_SCRIPT_DIR=os.environ.get('TEST_SCRIPT_DIR'))
-
+def replace_with_env_var(input_string):
+    format_args = {
+        "TEST_SCRIPT_DIR": os.environ.get("TEST_SCRIPT_DIR", os.getcwd()),
+        "RESOURCE_DIR": os.environ.get("RESOURCE_DIR", os.getcwd())
+    }
+    
+    # Replace placeholders with actual environment variables using `format`
+    replaced_string = input_string.format(**format_args)
+    
+    return replaced_string
 
 def run_pre_execution_command(command, working_dir=os.getcwd()):
     print("Running pre-execution command:", command)
@@ -36,6 +40,7 @@ def run_pre_execution_command(command, working_dir=os.getcwd()):
 def run_command(command, working_dir=os.getcwd()):
     print("Running (and timing) command: ", " ".join(command))
     start_time = time.time()
+    
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_dir)
     stdout, stderr = process.communicate()
     end_time = time.time()
@@ -64,11 +69,10 @@ def print_results(benchmark_name, bash_time, orch_time, diff_lines, diff_percent
     for line in diff_lines:
         print(line)
     print(comparison_result)
+    print("-" * 40)
+    print("-" * 40)
     
-    print("-" * 40)
-    print("-" * 40)
-
-
+    
 def main():
     # Load benchmark configurations
     with open(os.path.join(os.environ.get('WORKING_DIR'), 'benchmark_config.json'), 'r') as f:
@@ -86,23 +90,31 @@ def main():
             run_pre_execution_command(pre_command, os.environ.get('RESOURCE_DIR'))
 
         # TODO: in the future, we are going to parse the orch_error and generate reports
-        working_dir = resolve_working_dir(benchmark.get('working_dir', os.environ.get('TEST_SCRIPT_DIR')))
+        working_dir = replace_with_env_var(benchmark.get('working_dir', os.environ.get('TEST_SCRIPT_DIR')))
         
-        bash_time, bash_output, _bash_error = run_command([BASH_COMMAND, resolve_command_path(benchmark['command'])], working_dir)
-        orch_time, orch_output, orch_error = run_command([ORCH_COMMAND, benchmark['orch_args'], resolve_command_path(benchmark['command'])], working_dir)
+        bash_cmd_str = [BASH_COMMAND] + replace_with_env_var(benchmark['command']).split(" ")
+        print(bash_cmd_str)
+        bash_time, bash_output, _bash_error = run_command(bash_cmd_str, working_dir)
+        
+        
+        orch_cmd_str = [ORCH_COMMAND, benchmark['orch_args'], "-c", replace_with_env_var(benchmark['command'])]
+        print(orch_cmd_str)
+        orch_time, orch_output, orch_error = run_command(orch_cmd_str, working_dir)
         bash_times.append(bash_time)
         orch_times.append(orch_time)
-        # print(bash_output)
         diff_lines = compare_results(bash_output, orch_output)
         diff_percentage = abs((bash_time - orch_time) / bash_time) * 100
+        
         print_results(benchmark['name'], bash_time, orch_time, diff_lines, diff_percentage)
+        # print(orch_error)
+        # print(">", bash_output, _bash_error)
 
     # Create output dir for reports
     os.makedirs(REPORT_OUTPUT_DIR, exist_ok=True)
     # Plot the results
     benchmark_names = [benchmark['name'] for benchmark in benchmarks_config]
-    plot_benchmark_times_combined(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_combined")
-    plot_benchmark_times_individual(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_individual")
+    # plot_benchmark_times_combined(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_combined")
+    # plot_benchmark_times_individual(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_individual")
     print(f"Execution graphs can be found in {REPORT_OUTPUT_DIR}")
 
 if __name__ == "__main__":

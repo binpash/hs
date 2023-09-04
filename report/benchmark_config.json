@@ -1,20 +1,23 @@
 [
     {
         "name": "Dgsh 1.sh - 2M",
+        "env": ["INPUT_FILE={RESOURCE_DIR}/in2M.xml"],
         "pre_execution_script": ["wget -nc -O in2M.xml http://aiweb.cs.washington.edu/research/projects/xmltk/xmldata/data/mondial/mondial-3.0.xml"],
-        "command": "{TEST_SCRIPT_DIR}/dgsh/1.sh {RESOURCE_DIR}/in2M.xml",
+        "command": "{TEST_SCRIPT_DIR}/dgsh/1.sh",
         "orch_args": "-d 2"
     },
     {
         "name": "Dgsh 1.sh - 120M",
+        "env": ["INPUT_FILE={RESOURCE_DIR}/in120M.xml"],
         "pre_execution_script": ["wget -nc -O in120M.xml http://aiweb.cs.washington.edu/research/projects/xmltk/xmldata/data/dblp/dblp.xml"],
-        "command": "{TEST_SCRIPT_DIR}/dgsh/1.sh {RESOURCE_DIR}/in120M.xml",
+        "command": "{TEST_SCRIPT_DIR}/dgsh/1.sh",
         "orch_args": "-d 2"
     },
     {
         "name": "Dgsh 1.sh - 700M",
+        "env": ["INPUT_FILE={RESOURCE_DIR}/in700M.xml"],
         "pre_execution_script": ["wget -nc -O in700M.xml http://aiweb.cs.washington.edu/research/projects/xmltk/xmldata/data/pir/psd7003.xml"],
-        "command": "{TEST_SCRIPT_DIR}/dgsh/1.sh {RESOURCE_DIR}/in700M.xml",
+        "command": "{TEST_SCRIPT_DIR}/dgsh/1.sh",
         "orch_args": "-d 2"
     },
     {

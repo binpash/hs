@@ -2,9 +2,7 @@
 
 ## Initialize the necessary temporary files
 file1=$(mktemp)
-
-cat $1 >"$file1"
-
+cat $INPUT_FILE >"$file1"
 printf 'File type:\t'
 file - <"$file1"
 

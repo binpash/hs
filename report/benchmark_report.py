@@ -6,6 +6,7 @@ from benchmark_plots import *
 import logging
 import difflib
 
+
 # Setting and exporting environment variables (same as tests for now).
 # This will change in the future.
 os.environ['ORCH_TOP'] = os.environ.get('ORCH_TOP', subprocess.check_output(['git', 'rev-parse', '--show-toplevel', '--show-superproject-working-tree']).decode('utf-8').strip())
@@ -18,6 +19,26 @@ os.environ['PASH_SPEC_TOP'] = os.path.join(os.environ['ORCH_TOP'])
 BASH_COMMAND = "/bin/bash"
 ORCH_COMMAND = os.path.join(os.environ['ORCH_TOP'], 'pash-spec.sh')
 REPORT_OUTPUT_DIR = os.path.join(os.environ['WORKING_DIR'], 'report_output')
+
+
+
+def parse_logs_into_activities(log_data):
+    info_lines = [line.replace("INFO:root:>|", "").split("|") for line in log_data.split("\n") if line.startswith("INFO:root:>|")]
+    print(info_lines)
+    # Define a regex pattern to extract data from the log lines
+    pattern = r">\|(?P<activity>[\w\-,]+)\|Time from start:(?P<start_time>[\d\.]+)ms"
+    step_time_pattern = r"Step time:(?P<step_time>[\d\.]+)ms"
+
+    activities = []
+    
+    for line in info_lines:
+        if len(line) == 4:
+            activity = line[1]
+            end_time = float(line[2].split(":")[1].rstrip("ms"))
+            step_time = float(line[3].split(":")[1].rstrip("ms"))
+            start_time = end_time - step_time
+            activities.append((activity, start_time, step_time))
+    return activities
 
 def replace_with_env_var(input_string):
     format_args = {
@@ -94,7 +115,7 @@ def print_exec_time_for_cmds(orch_outpt):
 
     # Total number of times a RunNode command was executed
     total_run_node_commands = len(node_and_times)
-    # print(node_and_times)
+    
     # Total time of all RunNode commands
     total_time = sum([entry[2] for entry in node_and_times])
     
@@ -144,7 +165,6 @@ def main():
             logging.debug(f"|Pre-execution: {pre_command}")
             run_pre_execution_command(pre_command, os.environ.get('RESOURCE_DIR'))
 
-        # TODO: in the future, we are going to parse the orch_error and generate reports
         working_dir = replace_with_env_var(benchmark.get('working_dir', os.environ.get('TEST_SCRIPT_DIR')))
         
         bash_cmd_str = [BASH_COMMAND] + replace_with_env_var(benchmark['command']).split(" ")
@@ -159,16 +179,20 @@ def main():
         
         print_results(benchmark['name'], bash_time, orch_time, diff_lines, diff_percentage)
         
+        activities = parse_logs_into_activities(log_data=orch_error)
+        plot_gantt(activities, REPORT_OUTPUT_DIR, f"{benchmark['name']}_gantt.pdf")
+
     print_exec_time_for_cmds(orch_error)
 
     # Create output dir for reports
     os.makedirs(REPORT_OUTPUT_DIR, exist_ok=True)
     # Plot the results
     benchmark_names = [benchmark['name'] for benchmark in benchmarks_config]
+    
+    print(f"Execution graphs can be found in {REPORT_OUTPUT_DIR}")
     # print_sorted_logs(orch_error)
     plot_benchmark_times_combined(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_combined")
     plot_benchmark_times_individual(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_individual")
-    print(f"Execution graphs can be found in {REPORT_OUTPUT_DIR}")
     
 
 if __name__ == "__main__":

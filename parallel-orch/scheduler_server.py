@@ -291,7 +291,7 @@ def main():
     if args.debug_level == 1:
         logging.getLogger().setLevel(logging.INFO)
     elif args.debug_level >= 2:
-        logging.getLogger().setLevel(logging.INFO)
+        logging.getLogger().setLevel(logging.DEBUG)
     # elif args.debug_level >= 3:
     #     logging.getLogger().setLevel(logging.TRACE)
 

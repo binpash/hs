@@ -65,14 +65,14 @@ def print_results(benchmark_name, bash_time, orch_time, diff_lines, diff_percent
         comparison_result = f"hs is {round(diff_percentage/100, 1)}x ({diff_percentage:.2f}%) slower than Bash"
     print("-" * 40)
     print(f"Results for benchmark:  {benchmark_name}")
-    print(f"Bash Execution Time:    {bash_time}s")
-    print(f"hs Execution Time:      {orch_time}s")
+    print(f"Bash Execution Time:    {round(bash_time, 3)}s")
+    print(f"hs Execution Time:      {round(orch_time, 3)}s")
     print(f"Valid:                  {'Yes' if len(diff_lines) == 0 else 'No - see below'}")
     for line in diff_lines:
         print(line)
     print(comparison_result)
     print("-" * 40)
-    print("-" * 40)
+    print()
     
 def print_sorted_logs(orch_output):
     relevant_lines = [line for line in orch_output.split("\n") if line.startswith("INFO:root:>|")]
@@ -84,7 +84,38 @@ def print_sorted_logs(orch_output):
         split_line = entry[0].split("|")[1:]
         pretty_line = " | ".join(split_line)
         print(f"{pretty_line}, Step Time: {entry[1]:.3f}ms")
-    print(orch_output)
+        
+
+def print_exec_time_for_cmds(orch_outpt):
+    # Split the log into lines and filter the relevant ones
+    relevant_lines = [line.replace("INFO:root:>|PartialOrder|RunNode,", "") for line in orch_outpt.split("\n") if line.startswith("INFO:root:>|PartialOrder|RunNode,") and "Step time:" in line]
+    # Extract lines with RunNode commands and their step times
+    node_and_times = [(int(line.split("|")[0]), float(line.split("|")[1].split(":")[1][:-2]), float(line.split("|")[2].split(":")[1][:-2])) for line in relevant_lines]
+
+    # Total number of times a RunNode command was executed
+    total_run_node_commands = len(node_and_times)
+    # print(node_and_times)
+    # Total time of all RunNode commands
+    total_time = sum([entry[2] for entry in node_and_times])
+    
+    # Extract and sum the total time of the step per node
+    node_times = {}
+    counts = {}
+    for node, _, time in node_and_times:
+        if node in node_times:
+            node_times[node] += time
+            counts[node] += 1
+        else:
+            node_times[node] = time
+            counts[node] = 1
+
+    print("-" * 40)
+    print(f"Total number of times a RunNode command was executed: {total_run_node_commands}")
+    print(f"Total time of all RunNode commands: {total_time:.3f}ms")
+    print("\nTotal time of the step per node:")
+    for node, time in sorted(node_times.items(), key=lambda x: x[1], reverse=True):
+        print(f"{node}: {time:.3f}ms ({counts[node]} times)")
+    print("-" * 40)
 
 
 def export_env_vars(env_vars):
@@ -117,12 +148,9 @@ def main():
         working_dir = replace_with_env_var(benchmark.get('working_dir', os.environ.get('TEST_SCRIPT_DIR')))
         
         bash_cmd_str = [BASH_COMMAND] + replace_with_env_var(benchmark['command']).split(" ")
-        print(bash_cmd_str)
         bash_time, bash_output, _bash_error = run_command(bash_cmd_str, working_dir)
         
-        
         orch_cmd_str = replace_with_env_var(benchmark['command']).split(" ")
-        print(orch_cmd_str)
         orch_time, orch_output, orch_error = run_command_with_orch(orch_cmd_str, benchmark['orch_args'], working_dir)
         bash_times.append(bash_time)
         orch_times.append(orch_time)
@@ -131,19 +159,17 @@ def main():
         
         print_results(benchmark['name'], bash_time, orch_time, diff_lines, diff_percentage)
         
-        print(bash_output)
-        print(orch_output)
-        # print(orch_error)
-        # print(">", bash_output, _bash_error)
+    print_exec_time_for_cmds(orch_error)
 
     # Create output dir for reports
     os.makedirs(REPORT_OUTPUT_DIR, exist_ok=True)
     # Plot the results
     benchmark_names = [benchmark['name'] for benchmark in benchmarks_config]
     # print_sorted_logs(orch_error)
-    # plot_benchmark_times_combined(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_combined")
-    # plot_benchmark_times_individual(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_individual")
+    plot_benchmark_times_combined(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_combined")
+    plot_benchmark_times_individual(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_individual")
     print(f"Execution graphs can be found in {REPORT_OUTPUT_DIR}")
+    
 
 if __name__ == "__main__":
     main()

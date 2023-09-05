@@ -24,7 +24,6 @@ REPORT_OUTPUT_DIR = os.path.join(os.environ['WORKING_DIR'], 'report_output')
 
 def parse_logs_into_activities(log_data):
     info_lines = [line.replace("INFO:root:>|", "").split("|") for line in log_data.split("\n") if line.startswith("INFO:root:>|")]
-    print(info_lines)
     # Define a regex pattern to extract data from the log lines
     pattern = r">\|(?P<activity>[\w\-,]+)\|Time from start:(?P<start_time>[\d\.]+)ms"
     step_time_pattern = r"Step time:(?P<step_time>[\d\.]+)ms"
@@ -121,21 +120,26 @@ def print_exec_time_for_cmds(orch_outpt):
     
     # Extract and sum the total time of the step per node
     node_times = {}
+    node_distinct_times = {}
     counts = {}
     for node, _, time in node_and_times:
         if node in node_times:
             node_times[node] += time
+            node_distinct_times[node].append(time)
             counts[node] += 1
         else:
             node_times[node] = time
+            node_distinct_times[node] = [time]
             counts[node] = 1
+    
+    time_lost_per_node = {node: sum(node_distinct_times[node]) - node_distinct_times[node][-1] for node in node_times}
 
     print("-" * 40)
     print(f"Total number of times a RunNode command was executed: {total_run_node_commands}")
     print(f"Total time of all RunNode commands: {total_time:.3f}ms")
-    print("\nTotal time of the step per node:")
-    for node, time in sorted(node_times.items(), key=lambda x: x[1], reverse=True):
-        print(f"{node}: {time:.3f}ms ({counts[node]} times)")
+    print("\nTotal execution time per node:")
+    for node, time_lost in sorted(time_lost_per_node.items(), key=lambda x: x[1], reverse=True):
+        print(f"{node:2d}: {node_times[node]:.3f}ms ({counts[node]} times) | Avg: {sum(node_distinct_times[node])/len(node_distinct_times[node]):.3f}ms | {node_distinct_times[node]} | Time lost: {time_lost:.3f}ms")
     print("-" * 40)
 
 
@@ -153,6 +157,9 @@ def main():
         
     bash_times = []
     orch_times = []
+    
+    # Create output dir for reports
+    os.makedirs(REPORT_OUTPUT_DIR, exist_ok=True)
 
     for benchmark in benchmarks_config:
         
@@ -180,12 +187,11 @@ def main():
         print_results(benchmark['name'], bash_time, orch_time, diff_lines, diff_percentage)
         
         activities = parse_logs_into_activities(log_data=orch_error)
-        plot_gantt(activities, REPORT_OUTPUT_DIR, f"{benchmark['name']}_gantt.pdf")
+        plot_gantt(activities, REPORT_OUTPUT_DIR, f"{benchmark['name']}_gantt")
 
-    print_exec_time_for_cmds(orch_error)
+        print_exec_time_for_cmds(orch_error)
 
-    # Create output dir for reports
-    os.makedirs(REPORT_OUTPUT_DIR, exist_ok=True)
+    
     # Plot the results
     benchmark_names = [benchmark['name'] for benchmark in benchmarks_config]
     

@@ -189,9 +189,9 @@ def is_launch(line):
 
 
 def parse_launch_command(trace_item):
-    assignment_prefix = trace_item.split(", ")[0].split(
+    assignment_prefix = trace_item.split("], ")[0].split(
         "([Command ")[1].rstrip("]").strip()
-    assignment_suffix = ", ".join(trace_item.split(", ")[1:]).strip()
+    assignment_suffix = ", ".join(trace_item.split("], ")[1:]).strip()
     assignment_string = assignment_suffix[1:-2].split(",")
     assignments = [(x.split("=")) for x in assignment_string]
     return assignment_prefix, assignments

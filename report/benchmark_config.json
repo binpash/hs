@@ -40,5 +40,33 @@
         "command": "{TEST_SCRIPT_DIR}/dgsh/2_no_func.sh",
         "working_dir": "{RESOURCE_DIR}/try",
         "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 3.sh - Riker Repo",
+        "pre_execution_script": ["git clone https://github.com/curtsinger-lab/riker.git"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/3.sh",
+        "working_dir": "{RESOURCE_DIR}/riker",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 4.sh (no function) - PaSh Repo",
+        "pre_execution_script": ["git clone https://github.com/curtsinger-lab/riker.git"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/2_no_func.sh",
+        "working_dir": "{RESOURCE_DIR}/riker",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 5.sh - 2M",
+        "env": ["INPUT_FILE={RESOURCE_DIR}/in2M.xml"],
+        "pre_execution_script": ["wget -nc -O in2M.xml http://aiweb.cs.washington.edu/research/projects/xmltk/xmldata/data/mondial/mondial-3.0.xml"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/5.sh",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 5.sh - 120M",
+        "env": ["INPUT_FILE={RESOURCE_DIR}/in120M.xml"],
+        "pre_execution_script": ["wget -nc -O in120M.xml http://aiweb.cs.washington.edu/research/projects/xmltk/xmldata/data/dblp/dblp.xml"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/5.sh",
+        "orch_args": "-d 2"
     }
 ]

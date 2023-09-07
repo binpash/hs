@@ -10,7 +10,7 @@ file5=$(mktemp)
 cat $INPUT_FILE > $file1
 
 # Consistent sorting across machines
-export LC_ALL=C
+# export LC_ALL=C
 
 # Stream input from file and split input one word per line
 # Create list of unique words

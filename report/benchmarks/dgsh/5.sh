@@ -6,7 +6,7 @@ file2=$(mktemp)
 file3=$(mktemp)
 file4=$(mktemp)
 
-export LC_ALL=C
+# export LC_ALL=C
 
 cat $INPUT_FILE >"$file1"
 

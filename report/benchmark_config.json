@@ -80,7 +80,7 @@
         "name": "Dgsh 7.sh (no func)",
         "env": ["INPUT_FILE={RESOURCE_DIR}/words.txt"],
         "pre_execution_script": ["wget -nc -O words.txt https://raw.githubusercontent.com/dwyl/english-words/master/words.txt"],
-        "command": "{TEST_SCRIPT_DIR}/dgsh/7_no_func.sh",
+        "command": "{TEST_SCRIPT_DIR}/dgsh/8_no_func.sh",
         "orch_args": "-d 2"
     }
 ]

@@ -1,9 +1,9 @@
 [
     {
-        "name": "Dgsh 1.sh - 2M",
-        "env": ["INPUT_FILE={RESOURCE_DIR}/in2M.xml"],
-        "pre_execution_script": ["wget -nc -O in2M.xml http://aiweb.cs.washington.edu/research/projects/xmltk/xmldata/data/mondial/mondial-3.0.xml"],
-        "command": "{TEST_SCRIPT_DIR}/dgsh/1.sh",
+        "name": "Dgsh 6.sh",
+        "env": ["INPUT_FILE={RESOURCE_DIR}/words.txt"],
+        "pre_execution_script": ["wget -nc -O words.txt https://raw.githubusercontent.com/dwyl/english-words/master/words.txt"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/6.sh",
         "orch_args": "-d 2"
     },
     {
@@ -67,6 +67,20 @@
         "env": ["INPUT_FILE={RESOURCE_DIR}/in120M.xml"],
         "pre_execution_script": ["wget -nc -O in120M.xml http://aiweb.cs.washington.edu/research/projects/xmltk/xmldata/data/dblp/dblp.xml"],
         "command": "{TEST_SCRIPT_DIR}/dgsh/5.sh",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 6.sh",
+        "env": ["INPUT_FILE={RESOURCE_DIR}/words.txt"],
+        "pre_execution_script": ["wget -nc -O words.txt https://raw.githubusercontent.com/dwyl/english-words/master/words.txt"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/6.sh",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 7.sh (no func)",
+        "env": ["INPUT_FILE={RESOURCE_DIR}/words.txt"],
+        "pre_execution_script": ["wget -nc -O words.txt https://raw.githubusercontent.com/dwyl/english-words/master/words.txt"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/7_no_func.sh",
         "orch_args": "-d 2"
     }
 ]

@@ -49,7 +49,7 @@ def replace_with_env_var(input_string):
 
 def run_pre_execution_command(command, working_dir=os.getcwd()):
     print("Running pre-execution command:", command)
-    process = subprocess.Popen(command.strip().split(" "), cwd=working_dir)
+    process = subprocess.Popen(command, cwd=working_dir)
     process.wait()
     return process.returncode
 
@@ -169,14 +169,14 @@ def main():
         os.makedirs(os.environ.get('RESOURCE_DIR'), exist_ok=True)
         # Run pre-execution commands
         for pre_command in benchmark.get('pre_execution_script', []):
-            logging.debug(f"|Pre-execution: {pre_command}")
-            run_pre_execution_command(pre_command, os.environ.get('RESOURCE_DIR'))
+            print(f"{pre_command}")
+            split_pre_command = replace_with_env_var(pre_command).split(" ")
+            run_pre_execution_command(split_pre_command, os.environ.get('RESOURCE_DIR'))
 
         working_dir = replace_with_env_var(benchmark.get('working_dir', os.environ.get('TEST_SCRIPT_DIR')))
         
         bash_cmd_str = [BASH_COMMAND] + replace_with_env_var(benchmark['command']).split(" ")
         bash_time, bash_output, _bash_error = run_command(bash_cmd_str, working_dir)
-        
         orch_cmd_str = replace_with_env_var(benchmark['command']).split(" ")
         orch_time, orch_output, orch_error = run_command_with_orch(orch_cmd_str, benchmark['orch_args'], working_dir)
         bash_times.append(bash_time)

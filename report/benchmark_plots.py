@@ -42,23 +42,27 @@ def plot_benchmark_times_individual(benchmarks, bash_times, orch_times, output_d
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, f"{filename}.pdf"))
     
-def plot_gantt(activities, output_dir, filename):
-    fig, ax = plt.subplots(figsize=(15, 20))  # Increase figure size
+
+def plot_gantt(activities, output_dir, filename, simple=False):
+
+    if simple:
+        activities = [activity for activity in activities if activity[0].startswith("RunNode,") or activity[0] == "Wait"]
+
+    # Set figure height based on the number of activities
+    fig_height = len(activities)
+    fig, ax = plt.subplots(figsize=(15, 0.2 * fig_height))
 
     # Sort the activities by their start time
     activities.sort(key=lambda x: x[1])
 
-    # Reduce the height of each bar and reduce the gap between bars
-    bar_height = 5
-    gap = 1
+    bar_height = 0.8
+    gap = 0.2
 
-    # Plotting each activity
     for index, activity in enumerate(activities):
         action, start_time, duration = activity
         ax.broken_barh([(start_time, duration)], (index*(bar_height + gap), bar_height), facecolors='blue', edgecolor='black')
-        ax.text(start_time + duration/2, index*(bar_height + gap) + bar_height/2, action, ha='center', va='center', fontsize=6, color='white')
+        ax.text(start_time + duration/2, index*(bar_height + gap) + bar_height/2, action, ha='center', va='center', fontsize=6, color='gray')
 
-    # Setting labels & title
     ax.set_xlabel('Time (ms)')
     ax.set_title(f'Gantt Chart of {filename.strip("_gantt.pdf")}')
     ax.set_yticks([i*(bar_height + gap) + bar_height/2 for i in range(len(activities))])

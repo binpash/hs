@@ -82,5 +82,13 @@
         "pre_execution_script": ["wget -nc -O words.txt https://raw.githubusercontent.com/dwyl/english-words/master/words.txt"],
         "command": "{TEST_SCRIPT_DIR}/dgsh/8_no_func.sh",
         "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 9.sh - Riker Repo",
+        "env": ["INPUT={RESOURCE_DIR}/../../deps/riker/"],
+        "pre_execution_script": ["git clone https://github.com/curtsinger-lab/riker.git"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/9.sh",
+        "working_dir": "{RESOURCE_DIR}/riker",
+        "orch_args": "-d 2"
     }
 ]

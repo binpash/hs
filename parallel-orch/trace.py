@@ -4,6 +4,7 @@ import os
 from typing import Tuple
 from enum import Enum
 import logging
+from copy import deepcopy
 
 
 class Ref(Enum):
@@ -44,6 +45,9 @@ class PathRef:
 
     def __str__(self):
         return f"PathRef({self.ref}, {self.path}, {'r' if self.is_read else '-'}{'w' if self.is_write else '-'}{'x' if self.is_exec else '-'} {'no follow' if self.is_nofollow else ''})"
+    
+    def __repr__(self) -> str:
+        return self.__str__()
 
     def get_resolved_path(self):
         # Remove dupliate prefixes
@@ -60,6 +64,7 @@ class PathRef:
 
         return os.path.join(commonprefix, ref_without_prefix, path_without_prefix).replace("/./", "/")
 
+    
 
 class PathRefKey:
 
@@ -339,19 +344,25 @@ def replace_path_ref_terminal_nodes(refs_dict: dict):
     refs_dict_new = {}
     for i, ref in refs_dict.items():
         if isinstance(ref, PathRef):
+            
             # HACK: This is hard-coded stdout
             if ref.path == "" and ref.is_nofollow:
                 continue
             else:
-                if ref.ref not in refs_dict:
+                # If ref of ref is string, it means that we reached a terminal node.
+                if isinstance(ref.ref, str):
+                    pass
+                elif ref.ref not in refs_dict:
                     key = PathRefKey("No Command", "r1")
                     ref.ref = refs_dict[key].value
                 else:
+                    
                     if isinstance(refs_dict[ref.ref], Ref):
-                        ref.ref = refs_dict[ref.ref].value
+                        ref.ref = deepcopy(str(refs_dict[ref.ref].value))
                     else:
-                        ref.ref = os.getcwd()
-                refs_dict_new[i] = ref
+                        ref.ref = deepcopy(refs_dict[ref.ref])
+                assert(i not in refs_dict_new)
+                refs_dict_new[i] = deepcopy(ref)
     return refs_dict_new
 
 

@@ -4,13 +4,22 @@
 file1=$(mktemp)
 file2=$(mktemp)
 file3=$(mktemp)
+file4=$(mktemp)
 
-# Read the input stream and save to a temporary file
-cat $INPUT_FILE > "$file1"
+# Save the ls output to a temporary file
+ls -n > "$file1"
 
-# Process the input in two different ways
-cut -d , -f 5-6 "$file1" > "$file2"
-cut -d , -f 2-4 "$file1" > "$file3"
+# Reorder fields in DIR-like way
+awk '!/^total/ {print $6, $7, $8, $1, sprintf("%8d", $5), $9}' "$file1" > "$file2"
 
-# Merge the processed results
-paste -d , "$file2" "$file3"
+# Count number of files
+wc -l "$file1" | tr -d \\n > "$file3"
+echo -n ' File(s) ' >> "$file3"
+awk '{s += $5} END {printf("%d bytes\n", s)}' "$file1" >> "$file3"
+
+# Count number of directories and print label for number of dirs and calculate free bytes
+grep -c '^d' "$file1" | tr -d \\n > "$file4"
+df -h . | awk '!/Use%/{print " Dir(s) " $4 " bytes free"}' >> "$file4"
+
+# Display the results
+cat "$file2" "$file3" "$file4"

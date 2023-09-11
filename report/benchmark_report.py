@@ -12,7 +12,7 @@ import difflib
 os.environ['ORCH_TOP'] = os.environ.get('ORCH_TOP', subprocess.check_output(['git', 'rev-parse', '--show-toplevel', '--show-superproject-working-tree']).decode('utf-8').strip())
 os.environ['WORKING_DIR'] = os.path.join(os.environ['ORCH_TOP'], 'report')
 os.environ['TEST_SCRIPT_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'benchmarks')
-os.environ['RESOURCE_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'resources')
+os.environ['RESOURCE_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'ramdisk')
 os.environ['PASH_TOP'] = os.path.join(os.environ['ORCH_TOP'], 'deps', 'pash')
 os.environ['PASH_SPEC_TOP'] = os.path.join(os.environ['ORCH_TOP'])
 

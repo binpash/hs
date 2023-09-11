@@ -150,15 +150,21 @@ def invalidate_named_timestamp(action: str, node=None, key=None):
     del config.named_timestamps[key]
     
 def log_time_delta_from_start_and_set_named_timestamp(module: str, action: str, node=None, key=None):
-    set_named_timestamp(action, node, key)
-    logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}")
+    try:
+        set_named_timestamp(action, node, key)
+        logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}")
+    except KeyError:
+        logging.error(f"Named timestamp {key} already exists")
     
 def log_time_delta_from_named_timestamp(module: str, action: str, node=None, key=None, invalidate=True):
-    if key is None:
-        key = f"{action}{',' + str(node) if node is not None else ''}"
-    logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}|Step time:{to_milliseconds_str(time.time() - config.named_timestamps[key])}")
-    if invalidate:
-        invalidate_named_timestamp(action, node, key)
+    try:
+        if key is None:
+            key = f"{action}{',' + str(node) if node is not None else ''}"
+        logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}|Step time:{to_milliseconds_str(time.time() - config.named_timestamps[key])}")
+        if invalidate:
+            invalidate_named_timestamp(action, node, key)
+    except KeyError:
+        logging.error(f"Named timestamp {key} does not exist")
 
 def to_milliseconds_str(seconds: float) -> str:
     return f"{seconds * 1000:.3f}ms"

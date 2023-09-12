@@ -629,14 +629,18 @@ class PartialProgramOrder:
         logging.debug(f' >> Able to resolve {node_id}')
         return True
     
-    def __kill_all_currently_executing_and_schedule_restart(self):
+    def __kill_all_currently_executing_and_schedule_restart(self, node_ids: "list[NodeId]"):
         nodes_to_kill = self.get_currently_executing()
+        latest_env = self.get_latest_env_file_for_node(max(node_ids))
         for cmd_id in nodes_to_kill:
             self.__kill_node(cmd_id)
+            self.set_latest_env_file_for_node(cmd_id, latest_env)
             self.workset.remove(cmd_id)
         # Our new workset is the nodes that were killed
         # Previous workset got killed 
         self.workset.extend(nodes_to_kill)
+        
+        
 
     def __kill_node(self, cmd_id: "NodeId"):
         logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
@@ -671,7 +675,7 @@ class PartialProgramOrder:
         else:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
-            self.__kill_all_currently_executing_and_schedule_restart()
+            # self.__kill_all_currently_executing_and_schedule_restart(to_commit)
             log_time_delta_from_named_timestamp("PartialOrder", "ProcKilling")
             self.commit_cmd_workspaces(to_commit)
         
@@ -1127,7 +1131,21 @@ class PartialProgramOrder:
                 # If node is still being executed, we cannot progress further
                 else:
                     new_frontier.extend([frontier_node])
-                    logging.debug(f" > Not commiting node {frontier_node}, readding to frontier")
+                    if frontier_node in self.get_currently_executing():
+                        logging.debug(f" > Node {frontier_node} is still being executed")
+                    elif frontier_node in self.get_committed():
+                        logging.debug(f" > Node {frontier_node} is already committed")
+                    elif frontier_node in self.stopped:
+                        logging.debug(f" > Node {frontier_node} is stopped")
+                    elif frontier_node in self.speculated:
+                        logging.debug(f" > Node {frontier_node} is speculated")
+                    elif frontier_node in self.workset:
+                        logging.debug(f" > Node {frontier_node} is in the workset")
+                    elif self.is_loop_node(frontier_node):
+                        logging.debug(f" > Node {frontier_node} is a loop node")
+                    elif frontier_node in self.waiting_for_frontend:
+                        logging.debug(f" > Node {frontier_node} is waiting for frontend")
+                    logging.debug(f" > Not commiting node {frontier_node}, keeping in frontier")
 
             ## Update the frontier to the new frontier
             self.frontier = new_frontier
@@ -1324,7 +1342,7 @@ class PartialProgramOrder:
         ## Here we continue with the normal execution flow
         else:
             logging.debug(f"Node {node_id} has already received its latest env from runtime. Examining differences...")
-            self.resolve_most_recent_envs_and_continue_command_execution(node_id)
+            self.resolve_most_recent_envs_and_continue_command_execution_check_only_wait_node(node_id)
 
     # This needs to become more fine grained
     def exclude_insignificant_diffs(self, env_diff_dict):
@@ -1352,7 +1370,7 @@ class PartialProgramOrder:
     def maybe_resolve_most_recent_envs_and_continue_resolution(self, node_id: NodeId):
         if node_id in self.waiting_for_frontend:
                 logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
-                self.resolve_most_recent_envs_and_continue_command_execution(node_id)
+                self.resolve_most_recent_envs_and_continue_command_execution_check_only_wait_node(node_id)
         
     def resolve_most_recent_envs_and_continue_command_execution(self, new_env_node: NodeId):
         log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution_FrontendWaitReceived", new_env_node, key=f"PostExecResolution-{new_env_node}", invalidate=False)
@@ -1393,9 +1411,23 @@ class PartialProgramOrder:
             logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
             # If there are significant differences, set the new env as the latest (the one to run Riker with)
             self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(node_id))
+            logging.critical(f">>>>>>>>>>>>>>>>{node_id} - {self.get_new_env_file_for_node(node_id)}")
             # Add the node to the workset again
             if node_id not in self.workset:
                 self.workset.append(node_id)
+            # Kill and restart all currently executing commands
+            self.__kill_all_currently_executing_and_schedule_restart([node_id])
+            logging.critical(f">>>>>>>>>>>>>>>>{node_id} - {self.get_new_env_file_for_node(node_id)}")
+            for waiting_for_frontend_node in self.waiting_for_frontend:
+                if waiting_for_frontend_node not in self.workset:
+                    self.workset.append(waiting_for_frontend_node)
+                self.set_latest_env_file_for_node(waiting_for_frontend_node, self.get_new_env_file_for_node(node_id))
+                assert(self.get_new_env_file_for_node(node_id) is not None)
+                assert(self.get_latest_env_file_for_node(waiting_for_frontend_node) is not None)
+            self.log_partial_program_order_info()
+            logging.debug("-")
+            self.waiting_for_frontend = set()
+            self.populate_to_be_resolved_dict()
         else:                
             logging.debug(f"Finding sets of commands that can be resolved after {node_id} finished executing and got its latest env")
             assert(node_id not in self.stopped)

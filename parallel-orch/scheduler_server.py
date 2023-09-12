@@ -1,10 +1,8 @@
 import argparse
-import copy
 import logging
 import signal
 from util import *
 import config
-import sys
 from partial_program_order import parse_partial_program_order_from_file, LoopStack, NodeId, parse_node_id
 
 ##
@@ -28,6 +26,15 @@ def parse_args():
                         type=str,
                         default=None,
                         help="Set logging output file. Default: stdout")
+    parser.add_argument("--sandbox-killing-on-commit",
+                        action="store_true",
+                        default=False,
+                        help="Kill any running overlay instances before commiting to the lower layer")
+    parser.add_argument("--env-check-all-nodes-on-wait", 
+                        action="store_true",
+                        default=None,
+                        help="When receiving a wait check for env changes between the current node and all other waiting nodes, instead of only examining the current wait node.")
+    
     args, unknown_args = parser.parse_known_args()
     return args
 
@@ -294,7 +301,10 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
     # elif args.debug_level >= 3:
     #     logging.getLogger().setLevel(logging.TRACE)
-
+    
+    # Set optimization options
+    config.sandbox_killing = args.sandbox_killing_on_commit
+    config.all_node_env_resolution = args.env_check_all_nodes_on_wait
     scheduler = Scheduler(config.SCHEDULER_SOCKET)
     scheduler.run()
    

@@ -650,8 +650,10 @@ class PartialProgramOrder:
             if most_recent_new_env is not None:
                 self.set_latest_env_file_for_node(cmd_id, most_recent_new_env)
             self.workset.remove(cmd_id)
+            log_time_delta_from_named_timestamp("PartialOrder", "RunNode", cmd_id)
+            log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution", cmd_id, key=f"PostExecResolution-{cmd_id}")
         # Our new workset is the nodes that were killed
-        # Previous workset got killed 
+        # Previous workset got killed
         self.workset.extend(nodes_to_kill)
 
     def __kill_node(self, cmd_id: "NodeId"):
@@ -688,7 +690,8 @@ class PartialProgramOrder:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
             if config.sandbox_killing:
-                self.__kill_all_currently_executing_and_schedule_restart(to_commit)
+                # self.__kill_all_currently_executing_and_schedule_restart(to_commit)
+                pass
             log_time_delta_from_named_timestamp("PartialOrder", "ProcKilling")
             self.commit_cmd_workspaces(to_commit)
         
@@ -1355,7 +1358,7 @@ class PartialProgramOrder:
         ## Here we continue with the normal execution flow
         else:
             logging.debug(f"Node {node_id} has already received its latest env from runtime. Examining differences...")
-            self.resolve_most_recent_envs_and_continue_command_execution_check_only_wait_node(node_id)
+            self.call_resolve_most_recent_envs_and_continue_command_execution(node_id)
 
     # This needs to become more fine grained
     def exclude_insignificant_diffs(self, env_diff_dict):
@@ -1383,7 +1386,13 @@ class PartialProgramOrder:
     def maybe_resolve_most_recent_envs_and_continue_resolution(self, node_id: NodeId):
         if node_id in self.waiting_for_frontend:
                 logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
-                self.resolve_most_recent_envs_and_continue_command_execution_check_only_wait_node(node_id)
+                self.call_resolve_most_recent_envs_and_continue_command_execution(node_id)
+                
+    def call_resolve_most_recent_envs_and_continue_command_execution(self, new_env_node: NodeId):
+        if config.all_node_env_resolution:
+            self.resolve_most_recent_envs_and_continue_command_execution(new_env_node)
+        else:
+            self.resolve_most_recent_envs_and_continue_command_execution_check_only_wait_node(new_env_node)
         
     def resolve_most_recent_envs_and_continue_command_execution(self, new_env_node: NodeId):
         log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution_FrontendWaitReceived", new_env_node, key=f"PostExecResolution-{new_env_node}", invalidate=False)
@@ -1424,17 +1433,19 @@ class PartialProgramOrder:
             logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
             # If there are significant differences, set the new env as the latest (the one to run Riker with)
             self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(node_id))
-            logging.critical(f">>>>>>>>>>>>>>>>{node_id} - {self.get_new_env_file_for_node(node_id)}")
             # Add the node to the workset again
             if node_id not in self.workset:
                 self.workset.append(node_id)
             # Kill and restart all currently executing commands
+            # The envs are updated inside __kill_all_currently_executing_and_schedule_restart
             self.__kill_all_currently_executing_and_schedule_restart([node_id])
             logging.critical(f">>>>>>>>>>>>>>>>{node_id} - {self.get_new_env_file_for_node(node_id)}")
+            # For all other nodes not killed, we update the latest env and restart them
             for waiting_for_frontend_node in self.waiting_for_frontend:
                 if waiting_for_frontend_node not in self.workset:
                     self.workset.append(waiting_for_frontend_node)
-                self.set_latest_env_file_for_node(waiting_for_frontend_node, self.get_new_env_file_for_node(node_id))
+                most_recent_new_env = self.get_most_recent_possible_new_env_for_node(waiting_for_frontend_node)
+                self.set_latest_env_file_for_node(waiting_for_frontend_node, most_recent_new_env)
                 assert(self.get_new_env_file_for_node(node_id) is not None)
                 assert(self.get_latest_env_file_for_node(waiting_for_frontend_node) is not None)
             self.log_partial_program_order_info()

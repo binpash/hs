@@ -282,7 +282,7 @@ class PartialProgramOrder:
         self.latest_envs = {}
         self.initial_env_file = initial_env_file
         self.waiting_for_frontend = set()
-    
+            
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
 
@@ -357,6 +357,17 @@ class PartialProgramOrder:
         
     def get_latest_env_file_for_node(self, node_id: NodeId) -> str:
         return self.latest_envs.get(node_id)
+    
+    def get_most_recent_possible_new_env_for_node(self, node_id) -> str:
+        most_recent_env_node = node_id
+        while self.get_new_env_file_for_node(most_recent_env_node) is None:
+            predecessor = self.get_prev(most_recent_env_node)
+            logging.critical(predecessor)
+            if len(predecessor) == 0:
+                return None
+            else:
+                most_recent_env_node = predecessor[0]
+        return self.get_new_env_file_for_node(most_recent_env_node)
 
     ## This returns all previous nodes of a sub partial order
     def get_sub_po_prev_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
@@ -629,18 +640,19 @@ class PartialProgramOrder:
         logging.debug(f' >> Able to resolve {node_id}')
         return True
     
-    def __kill_all_currently_executing_and_schedule_restart(self, node_ids: "list[NodeId]"):
+    def __kill_all_currently_executing_and_schedule_restart(self, node_ids: "list[NodeId]", start=None):
         nodes_to_kill = self.get_currently_executing()
-        latest_env = self.get_latest_env_file_for_node(max(node_ids))
+        if start is not None:
+            nodes_to_kill = [node_id for node_id in nodes_to_kill if node_id in self.get_transitive_closure([start])]
         for cmd_id in nodes_to_kill:
             self.__kill_node(cmd_id)
-            self.set_latest_env_file_for_node(cmd_id, latest_env)
+            most_recent_new_env = self.get_most_recent_possible_new_env_for_node(cmd_id)
+            if most_recent_new_env is not None:
+                self.set_latest_env_file_for_node(cmd_id, most_recent_new_env)
             self.workset.remove(cmd_id)
         # Our new workset is the nodes that were killed
         # Previous workset got killed 
         self.workset.extend(nodes_to_kill)
-        
-        
 
     def __kill_node(self, cmd_id: "NodeId"):
         logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
@@ -675,7 +687,8 @@ class PartialProgramOrder:
         else:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
-            # self.__kill_all_currently_executing_and_schedule_restart(to_commit)
+            if config.sandbox_killing:
+                self.__kill_all_currently_executing_and_schedule_restart(to_commit)
             log_time_delta_from_named_timestamp("PartialOrder", "ProcKilling")
             self.commit_cmd_workspaces(to_commit)
         

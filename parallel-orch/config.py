@@ -46,3 +46,6 @@ SIGNIFICANT_VARS = {'foo', 'bar', 'baz','file1', 'file2', 'file3', 'file4', 'fil
 START_TIME = time.time()
 
 named_timestamps = {}
+
+sandbox_killing = False
+all_node_env_resolution = False

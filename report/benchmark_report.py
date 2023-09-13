@@ -21,6 +21,10 @@ ORCH_COMMAND = os.path.join(os.environ['ORCH_TOP'], 'pash-spec.sh')
 REPORT_OUTPUT_DIR = os.path.join(os.environ['WORKING_DIR'], 'report_output')
 
 
+def save_log_data(log_data, output_dir, filename):
+    with open(os.path.join(output_dir, filename), 'w') as f:
+        f.write(log_data)
+
 
 def parse_logs_into_activities(log_data):
     info_lines = [line.replace("INFO:root:>|", "").split("|") for line in log_data.split("\n") if line.startswith("INFO:root:>|")]
@@ -179,6 +183,7 @@ def main():
         bash_time, bash_output, _bash_error = run_command(bash_cmd_str, working_dir)
         orch_cmd_str = replace_with_env_var(benchmark['command']).split(" ")
         orch_time, orch_output, orch_error = run_command_with_orch(orch_cmd_str, benchmark['orch_args'], working_dir)
+        save_log_data(orch_error, REPORT_OUTPUT_DIR, f"{benchmark['name']}_log.log")
         bash_times.append(bash_time)
         orch_times.append(orch_time)
         diff_lines = compare_results(bash_output, orch_output)

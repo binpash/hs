@@ -9,6 +9,7 @@ import executor
 import trace
 from util import *
 import util
+from collections import defaultdict
 
 from shasta.ast_node import AstNode, CommandNode, PipeNode
 
@@ -282,6 +283,8 @@ class PartialProgramOrder:
         self.latest_envs = {}
         self.initial_env_file = initial_env_file
         self.waiting_for_frontend = set()
+        self.run_after = defaultdict(set)
+        self.pending_to_execute = set()
             
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -671,6 +674,30 @@ class PartialProgramOrder:
             
         # Terminate the main process
         util.kill_process(proc_to_kill.pid)
+        
+    def resolve_dependencies_early(self, node_id=None):
+        to_check = self.waiting_for_frontend.copy()
+        if node_id:
+            to_check.add(node_id)
+        node_id_has_dependency = False
+        for second_cmd_id in to_check:
+            ## reverse sort breaks because it does not guarantee that the new env has arrived
+            for first_cmd_id in sorted(self.to_be_resolved[second_cmd_id], reverse=True):
+                if self.rw_sets.get(first_cmd_id) is not None:
+                    if self.has_forward_dependency(first_cmd_id, second_cmd_id):                       
+                        # if second_cmd_id not in self.workset and self.check_if_to_be_resolved_entry_would_change(second_cmd_id):
+                        node_id_has_dependency = True
+                        self.waiting_for_frontend.discard(second_cmd_id)
+                        self.run_after[first_cmd_id].add(second_cmd_id)
+                        self.pending_to_execute.add(second_cmd_id)
+                        # self.workset.append(second_cmd_id)
+                        logging.debug(f"Early resolution: Rerunning node {second_cmd_id} after {first_cmd_id} because of a dependency")
+                        log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution", second_cmd_id)
+                        break
+        logging.critical("HERE")
+        # if node_id_has_dependency == True:
+        self.populate_to_be_resolved_dict()
+        return node_id_has_dependency
 
     def resolve_commands_that_can_be_resolved_and_push_frontier(self):
         
@@ -1305,7 +1332,25 @@ class PartialProgramOrder:
         proc, trace_file, stdout, stderr, post_execution_env_file = execute_func(cmd, node_id, env_file_to_execute_with)
         self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, post_execution_env_file)
         logging.debug(f" >>>>> Command {node_id} - {proc.pid} just started executing")
-
+        
+    # This method attempts to add to workset (rerun) 
+    # any command that found to have a dependency through early resolution
+    def attempt_rerun_pending_nodes(self):
+        restarted_nodes = set()
+        for node_id, run_after_nodes in self.run_after.items():
+            new_run_after_nodes = run_after_nodes.copy()
+            if self.get_new_env_file_for_node(node_id) is not None and node_id not in self.pending_to_execute:
+                for node in run_after_nodes:
+                    if node not in self.get_currently_executing():
+                        logging.debug(f"Running node {node} after execution of {node_id}")
+                        self.workset.append(node)
+                        self.pending_to_execute.discard(node)
+                        self.set_latest_env_file_for_node(node, self.get_new_env_file_for_node(node_id))
+                        restarted_nodes.add(node)
+                        new_run_after_nodes.discard(node)
+            self.run_after[node_id] = new_run_after_nodes
+        return restarted_nodes
+    
     def command_execution_completed(self, node_id: NodeId, riker_exit_code:int, sandbox_dir: str):
         log_time_delta_from_named_timestamp("PartialOrder", "RunNode", node_id)
         log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "PostExecResolution", node_id, key=f"PostExecResolution-{node_id}")
@@ -1347,8 +1392,16 @@ class PartialProgramOrder:
             logging.debug("No resolvable nodes were found in this round, nothing will change...")
             return
         
+        self.resolve_dependencies_early(node_id)
+        
+        restarted_cmds = self.attempt_rerun_pending_nodes()
+        logging.critical(f"Restarted__{(node_id, restarted_cmds, self.pending_to_execute, self.run_after)}")
         log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolutionECCheck", node_id, key=f"PostExecResolution-{node_id}", invalidate=False)
         # Remove from workset and add it again later if necessary
+        
+        # assert node_id not in restarted_cmds
+        # if len(restarted_cmds) > 0:
+            
         self.workset.remove(node_id)
         log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "PostExecResolutionFrontendWait", node_id)
         ## Here we check if the most recent env has been received. If not, we cannot resolve anything just yet.
@@ -1358,7 +1411,7 @@ class PartialProgramOrder:
         ## Here we continue with the normal execution flow
         else:
             logging.debug(f"Node {node_id} has already received its latest env from runtime. Examining differences...")
-            self.call_resolve_most_recent_envs_and_continue_command_execution(node_id)
+            self.resolve_most_recent_envs_and_continue_command_execution_check_only_wait_node(node_id)
 
     # This needs to become more fine grained
     def exclude_insignificant_diffs(self, env_diff_dict):
@@ -1385,15 +1438,9 @@ class PartialProgramOrder:
         
     def maybe_resolve_most_recent_envs_and_continue_resolution(self, node_id: NodeId):
         if node_id in self.waiting_for_frontend:
-                logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
-                self.call_resolve_most_recent_envs_and_continue_command_execution(node_id)
-                
-    def call_resolve_most_recent_envs_and_continue_command_execution(self, new_env_node: NodeId):
-        if config.all_node_env_resolution:
-            self.resolve_most_recent_envs_and_continue_command_execution(new_env_node)
-        else:
-            self.resolve_most_recent_envs_and_continue_command_execution_check_only_wait_node(new_env_node)
-        
+            logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
+            self.resolve_most_recent_envs_and_continue_command_execution_check_only_wait_node(node_id)
+    
     def resolve_most_recent_envs_and_continue_command_execution(self, new_env_node: NodeId):
         log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution_FrontendWaitReceived", new_env_node, key=f"PostExecResolution-{new_env_node}", invalidate=False)
         to_check = list(self.waiting_for_frontend) + [new_env_node]

@@ -5,6 +5,9 @@ import os
 from benchmark_plots import *
 import logging
 import difflib
+import argparse
+import csv
+
 
 
 # Setting and exporting environment variables (same as tests for now).
@@ -21,7 +24,17 @@ ORCH_COMMAND = os.path.join(os.environ['ORCH_TOP'], 'pash-spec.sh')
 REPORT_OUTPUT_DIR = os.path.join(os.environ['WORKING_DIR'], 'report_output')
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Benchmark and report interface for a system.")
+    parser.add_argument('--no-plots', action='store_true', help="Do not print plots.")
+    parser.add_argument('--no-logs', action='store_true', help="Do not save log files.")
+    parser.add_argument('--csv-output', action='store_true', help="Save results in CSV format.")
+    return parser.parse_args()
+
+
 def save_log_data(log_data, output_dir, filename):
+    if args.no_logs:
+        return
     with open(os.path.join(output_dir, filename), 'w') as f:
         f.write(log_data)
 
@@ -92,25 +105,21 @@ def print_results(benchmark_name, bash_time, orch_time, diff_lines, diff_percent
     print(f"Bash Execution Time:    {round(bash_time, 3)}s")
     print(f"hs Execution Time:      {round(orch_time, 3)}s")
     print(f"Valid:                  {'Yes' if len(diff_lines) == 0 else 'No - see below'}")
-    for line in diff_lines:
-        print(line)
+    if len(diff_lines) > 0:
+        for line in diff_lines:
+            print(line)
+        print("-" * 40)
     print(comparison_result)
-    print("-" * 40)
     print()
-    
-def print_sorted_logs(orch_output):
-    relevant_lines = [line for line in orch_output.split("\n") if line.startswith("INFO:root:>|")]
-    # Extract lines with step time and sort
-    step_time_lines = [(line, float(line.split("Step time:")[1].split("ms")[0])) for line in relevant_lines if "Step time:" in line]
-    sorted_step_time_lines = sorted(step_time_lines, key=lambda x: x[1], reverse=True)
+    if args.csv_output:
+        csv_filename = os.path.join(REPORT_OUTPUT_DIR, f"results.csv")
+        with open(csv_filename, 'a') as csv_file:
+            writer = csv.writer(csv_file)
+            valid = 'Yes' if len(diff_lines) == 0 else 'No'
+            writer.writerow([benchmark_name, bash_time, orch_time, valid, comparison_result])
 
-    for entry in sorted_step_time_lines:
-        split_line = entry[0].split("|")[1:]
-        pretty_line = " | ".join(split_line)
-        print(f"{pretty_line}, Step Time: {entry[1]:.3f}ms")
-        
 
-def print_exec_time_for_cmds(orch_outpt):
+def print_exec_time_for_cmds(orch_outpt, benchmark_name):
     # Split the log into lines and filter the relevant ones
     relevant_lines = [line.replace("INFO:root:>|PartialOrder|RunNode,", "") for line in orch_outpt.split("\n") if line.startswith("INFO:root:>|PartialOrder|RunNode,") and "Step time:" in line]
     # Extract lines with RunNode commands and their step times
@@ -145,6 +154,17 @@ def print_exec_time_for_cmds(orch_outpt):
     for node, time_lost in sorted(time_lost_per_node.items(), key=lambda x: x[1], reverse=True):
         print(f"{node:2d}: {node_times[node]:.3f}ms ({counts[node]} times) | Avg: {sum(node_distinct_times[node])/len(node_distinct_times[node]):.3f}ms | {node_distinct_times[node]} | Time lost: {time_lost:.3f}ms")
     print("-" * 40)
+    print(f"Total time lost: {sum(time_lost_per_node.values()):.02f}ms")
+    print("=" * 100)
+    
+    if args.csv_output:
+        csv_filename = os.path.join(REPORT_OUTPUT_DIR, f"{benchmark_name}_execution_times.csv")
+        with open(csv_filename, 'w') as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(["Node", "Time (ms)", "Execution Count", "Average Time (ms)", "Distinct Times", "Time Lost (ms)"])
+            for node, time_lost in sorted(time_lost_per_node.items(), key=lambda x: x[1], reverse=True):
+                writer.writerow([node, node_times[node], counts[node], sum(node_distinct_times[node])/len(node_distinct_times[node]), node_distinct_times[node], time_lost])
+
 
 
 def export_env_vars(env_vars):
@@ -155,6 +175,7 @@ def export_env_vars(env_vars):
 
 
 def main():
+    
     # Load benchmark configurations
     with open(os.path.join(os.environ.get('WORKING_DIR'), 'benchmark_config.json'), 'r') as f:
         benchmarks_config = json.load(f)
@@ -164,9 +185,15 @@ def main():
     
     # Create output dir for reports
     os.makedirs(REPORT_OUTPUT_DIR, exist_ok=True)
+    
+    if args.csv_output:
+        csv_filename = os.path.join(REPORT_OUTPUT_DIR, f"results.csv")
+        with open(csv_filename, 'w') as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(["Benchmark", "Bash Execution Time", "hs Execution Time", "Valid", "Comparison"])
 
     for benchmark in benchmarks_config:
-        
+        print("=" * 100)
         # Set up preferred environment
         export_env_vars(benchmark.get('env', {}))
         # Create resource dir if non-existent
@@ -183,7 +210,6 @@ def main():
         bash_time, bash_output, _bash_error = run_command(bash_cmd_str, working_dir)
         orch_cmd_str = replace_with_env_var(benchmark['command']).split(" ")
         orch_time, orch_output, orch_error = run_command_with_orch(orch_cmd_str, benchmark['orch_args'], working_dir)
-        save_log_data(orch_error, REPORT_OUTPUT_DIR, f"{benchmark['name']}_log.log")
         bash_times.append(bash_time)
         orch_times.append(orch_time)
         diff_lines = compare_results(bash_output, orch_output)
@@ -192,19 +218,27 @@ def main():
         print_results(benchmark['name'], bash_time, orch_time, diff_lines, diff_percentage)
         
         activities = parse_logs_into_activities(log_data=orch_error)
-        plot_gantt(activities, REPORT_OUTPUT_DIR, f"{benchmark['name']}_gantt")
+        if not args.no_plots:
+            plot_gantt(activities, REPORT_OUTPUT_DIR, f"{benchmark['name']}_gantt", simple=True)
 
-        print_exec_time_for_cmds(orch_error)
+        print_exec_time_for_cmds(orch_error, benchmark['name'])
+        
+        # Instead of always saving the logs, check the argument:
+        if not args.no_logs:
+            save_log_data(orch_error, REPORT_OUTPUT_DIR, f"{benchmark['name']}_log.log")
+
 
     
     # Plot the results
     benchmark_names = [benchmark['name'] for benchmark in benchmarks_config]
     
     print(f"Execution graphs can be found in {REPORT_OUTPUT_DIR}")
-    # print_sorted_logs(orch_error)
-    plot_benchmark_times_combined(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_combined")
-    plot_benchmark_times_individual(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_individual")
-    
+
+    if not args.no_plots:
+        plot_benchmark_times_combined(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_combined")
+        plot_benchmark_times_individual(benchmark_names, bash_times, orch_times, REPORT_OUTPUT_DIR, "benchmark_times_individual")
+
 
 if __name__ == "__main__":
+    args = parse_args()
     main()

@@ -728,8 +728,7 @@ class PartialProgramOrder:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
             if config.sandbox_killing:
-                # self.__kill_all_currently_executing_and_schedule_restart(to_commit)
-                pass
+                self.__kill_all_currently_executing_and_schedule_restart(to_commit)
             log_time_delta_from_named_timestamp("PartialOrder", "ProcKilling")
             self.commit_cmd_workspaces(to_commit)
         

@@ -26,7 +26,7 @@ def parse_args():
                         type=str,
                         default=None,
                         help="Set logging output file. Default: stdout")
-    parser.add_argument("--sandbox-killing-on-commit",
+    parser.add_argument("--sandbox-killing",
                         action="store_true",
                         default=False,
                         help="Kill any running overlay instances before commiting to the lower layer")
@@ -305,7 +305,7 @@ def main():
     #     logging.getLogger().setLevel(logging.TRACE)
     
     # Set optimization options
-    config.sandbox_killing = args.sandbox_killing_on_commit
+    config.sandbox_killing = args.sandbox_killing
     config.all_node_env_resolution = args.env_check_all_nodes_on_wait
     scheduler = Scheduler(config.SCHEDULER_SOCKET)
     scheduler.run()

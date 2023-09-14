@@ -79,9 +79,11 @@ def run_command(command, working_dir=os.getcwd()):
     return (end_time - start_time, stdout.decode('utf-8'), stderr.decode('utf-8'))
 
 def run_command_with_orch(command, orch_args, working_dir=os.getcwd()):
-    print("Running (and timing) command with orch: ", " ".join(command))
+    orch_args = orch_args.split(" ")
+    print("Running (and timing) command with orch: ", " ".join([ORCH_COMMAND] + orch_args + command))
+    print([ORCH_COMMAND] + orch_args + command)
     start_time = time.time()
-    process = subprocess.Popen([ORCH_COMMAND, orch_args] + command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_dir, env=os.environ)
+    process = subprocess.Popen([ORCH_COMMAND] + orch_args + command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_dir, env=os.environ)
     stdout, stderr = process.communicate()
     end_time = time.time()
     return (end_time - start_time, stdout.decode('utf-8'), stderr.decode('utf-8'))

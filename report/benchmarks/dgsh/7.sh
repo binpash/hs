@@ -22,10 +22,11 @@ file_hosts=$(mktemp)
 file_sorted_hosts=$(mktemp)
 file_unique_hosts=$(mktemp)
 file_domains=$(mktemp)
-file_sorted_pages=$(mktemp)
-file_access_times=$(mktemp)
-file_access_dates=$(mktemp)
-
+file_requests=$(mktemp)
+file_times=$(mktemp)
+file_bytes=$(mktemp)
+file_day_count=$(mktemp)
+file_dates=$(mktemp)
 # This file will capture a large portion of the processed data to be reused in subsequent parts
 cat $INPUT_FILE > "$file_initial"
 

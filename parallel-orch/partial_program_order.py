@@ -366,7 +366,6 @@ class PartialProgramOrder:
         most_recent_env_node = node_id
         while self.get_new_env_file_for_node(most_recent_env_node) is None:
             predecessor = self.get_prev(most_recent_env_node)
-            logging.critical(predecessor)
             if len(predecessor) == 0:
                 return None
             else:
@@ -666,15 +665,14 @@ class PartialProgramOrder:
         # Add the trace file to the banned file list so we know to ignore the CommandExecComplete response
         self.banned_files.add(trace_file)
 
-        # Get all child processes of proc_to_kill
-        children = util.get_child_processes(proc_to_kill.pid)
-        
-        # Kill all child processes
-        for child in children:
-            util.kill_process(child)
-            
-        # Terminate the main process
-        util.kill_process(proc_to_kill.pid)
+        alive_after_kill = util.kill_process_tree(proc_to_kill.pid)
+
+        if alive_after_kill:
+            logging.critical("Processes still alive after attempting to kill:")
+            for proc in alive_after_kill:
+                logging.critical(proc)
+        else:
+            logging.critical("All processes were successfully terminated.")
         
     def resolve_dependencies_early(self, node_id=None):
         to_check = {node for node in self.waiting_for_frontend if node not in self.speculated}
@@ -728,6 +726,7 @@ class PartialProgramOrder:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
             if config.sandbox_killing:
+                logging.info("Sandbox killing")
                 self.__kill_all_currently_executing_and_schedule_restart(to_commit)
             log_time_delta_from_named_timestamp("PartialOrder", "ProcKilling")
             self.commit_cmd_workspaces(to_commit)

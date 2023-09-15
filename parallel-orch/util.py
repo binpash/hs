@@ -5,8 +5,9 @@ import socket
 import subprocess
 import tempfile
 import time
-import difflib
 import re
+import psutil
+import signal
 
 def ptempfile():
     fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX)
@@ -57,46 +58,6 @@ def socket_respond(connection: socket.socket, message: str):
     bytes_message = message.encode('utf-8')
     connection.sendall(bytes_message)
     connection.close()
-
-# Check if the process with the given PID is alive.
-def is_process_alive(pid) -> bool:
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    else:
-        return True
-
-# Get all child process PIDs of a process
-def get_child_processes(parent_pid) -> int:
-    try:
-        output = subprocess.check_output(['pgrep', '-P', str(parent_pid)])
-        return [int(pid) for pid in output.decode('utf-8').split()]
-    except subprocess.CalledProcessError:
-        # No child processes were found
-        return []
-
-# Note: Check this function as it does not seem the right way to kill a proc.
-# SIGKILL should be sent once and for all.
-# Kills the process with the provided PID.
-# Returns True if the process was successfully killed, False otherwise.
-def kill_process(pid: int) -> bool:
-    kill_attempts = 0
-    while is_process_alive(pid) and kill_attempts < config.MAX_KILL_ATTEMPTS:
-        try:
-            # Send SIGKILL signal for a forceful kill
-            subprocess.check_call(['kill', '-9', str(pid)])
-            time.sleep(0.005)  # Sleep for 5 milliseconds before checking again
-        except subprocess.CalledProcessError:
-            logging.debug(f"Failed to kill PID {pid}.")
-        kill_attempts += 1
-    
-    if kill_attempts >= config.MAX_KILL_ATTEMPTS:
-        logging.warning(f"Gave up killing PID {pid} after {config.MAX_KILL_ATTEMPTS} attempts.")
-        return False
-    
-    return True
-
 
 def parse_env_string_to_dict(content):
     # Parse scalar string vars
@@ -168,3 +129,37 @@ def log_time_delta_from_named_timestamp(module: str, action: str, node=None, key
 
 def to_milliseconds_str(seconds: float) -> str:
     return f"{seconds * 1000:.3f}ms"
+
+
+
+def get_all_child_processes(pid):
+    try:
+        parent = psutil.Process(pid)
+    except psutil.NoSuchProcess:
+        return []
+    
+    children = parent.children(recursive=True)
+    parent_of_parent = parent.parent()
+    logging.critical("PARENT_PROCESS: " + str(parent_of_parent))
+    logging.critical("MAIN_PROCESS: " + str(parent))
+    all_processes = [parent] + children
+    for process in all_processes:
+        logging.critical("PROCESS: " + str(process))
+    return all_processes
+
+
+def kill_process_tree(pid, sig=signal.SIGTERM):
+    processes = get_all_child_processes(pid)
+    for proc in processes:
+        try:
+            os.kill(proc.pid, sig)
+        except (psutil.NoSuchProcess):
+            pass
+        except (PermissionError):
+            logging.critical("NO PERMISSION")
+
+    # Check if processes are still alive
+    time.sleep(0.01)
+
+    alive_processes = [f"{proc}-({proc.status()})" for proc in processes if proc.is_running()]
+    return alive_processes

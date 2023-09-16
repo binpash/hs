@@ -157,6 +157,8 @@ def kill_process_tree(pid, sig=signal.SIGTERM):
             pass
         except (PermissionError):
             logging.critical("NO PERMISSION")
+        except (ProcessLookupError):
+            logging.critical("PROCESS LOOKUP ERROR")
 
     # Check if processes are still alive
     time.sleep(0.01)

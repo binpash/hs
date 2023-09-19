@@ -1,66 +1,78 @@
-## Dynamic Parallelizer
+## hs README
 
-A dynamic parallelizer that optimistically/speculatively executes everything in a script in parallel and ensures that it executes correctly by tracing it and reexecuting the parts that were erroneous.
+### Overview
 
-## Installing
+`hs` is an out-of-order shell designed to execute script commands in a speculative parallel manner. It achieves this by tracing the script's execution, and if an error arises due to speculative execution, the script re-executes the necessary parts to ensure correct outcomes. The project aims to boost the parallel execution of shell scripts, reducing their runtime and enhancing efficiency.
 
-```sh
-./scripts/install_deps_ubuntu20.sh
+### Structure
+
+The project's top-level directory contains the following:
+
+- `deps`: Dependencies required by `hs`.
+- `docs`: Documentation and architectural diagrams.
+- `model-checking`: Tools and utilities for model checking.
+- `parallel-orch`: Main orchestration components.
+- `pash-spec.sh`: Entry script to initiate the `hs` process.
+- `README.md`: This documentation file.
+- `report`: Generated reports related to test runs and performance metrics.
+- `requirements.txt`: List of Python dependencies.
+- `Rikerfile`: Configuration file for Riker.
+
+### Installation
+
+Install `hs` on your Linux-based machine by following these steps:
+
+**Note:** Currently works with `Ubuntu 20.04` or later
+
+1. Navigate to the project directory:
+   ```sh
+   cd path_to/dynamic-parallelizer
+   ```
+
+2. Run the installation script:
+   ```sh
+   ./scripts/install_deps_ubuntu20.sh
+   ```
+
+This script will handle all the necessary installations, including dependencies, try, Riker, and PaSh.
+
+### Running `hs`
+
+The main entry script to initiate `hs` is `pash-spec.sh`. This script sets up the necessary environment and invokes the orchestrator in `parallel-orch/orch.py`. It's designed to accept a variety of arguments to customize its behavior, such as setting debug levels or specifying log files.
+
+Example of running the script:
+
+```bash
+./pash-spec.sh [arguments] script_to_speculatively_run.sh
 ```
 
-## Tests
+**Arguments**:
 
-To run the tests:
-```sh
-cd test
-./test_orch.sh
+- `-d, --debug-level`: Set the debugging level. Default is `0`.
+- `-f, --log_file`: Define the logging output file. By default, logs are printed to stdout.
+- `--sandbox-killing`: Kill any running overlay instances before committing to the lower layer.
+- `--env-check-all-nodes-on-wait`: On a wait, check for environment changes between the current node and all other waiting nodes. (not fully functional yet!)
+
+### Testing
+
+To run the provided tests:
+
+```bash
+./test/test_orch.sh
 ```
 
-### TODO Items
+For in-depth analysis, set the `DEBUG` environment variable to `2` for detailed logs and redirect logs to a file:
 
-#### Complete control flow and complex script support
-
-Extend the architecture to support complete scripts and not just partial order graphs of commands.
-
-A potential solution is shown below:
-
-![Architecture Diagram](/docs/handdrawn_architecture.jpeg)
-
-This solution includes a preprocessor that creates two executable artifacts: 
-- the preprocessed/instrumented script (similar to what the PaSh-JIT preprocessor produces)
-- the partial program order graph (a graph of commands that will be speculated and executed with tracing from the orchestrator)
-
-The graph might contain unexpanded commands, so the orchestrator should support unexpanded strings.
-On these commands, the orchestrator can speculate for the value of these strings and then when they become the frontier (the preprocessed script has reached them), we actually know their values and could confirm/abort the speculation.
-
-The two executors communicate with each other and progress through the script execution in tandem. The JIT executor (left) also needs to trace execution to inform the orchestrator about changes in the environment.
-
-#### Orchestator: Partial Program Order Graph
-
-**Note:** we have moved to a continuous scheduling implementation. An example explaining its operation can be found [here](/docs/example.md).
-
-The orchestrator needs to support arbitrary partial program order graphs (instead of just sequences of instructions), to figure out the precise real program order dependencies.
-
-
-An instance of a graph is shown below:
-
-![Example Partial Program Order Graph](/docs/handdrawn_partial_program_order.jpeg)
-
-One important characteristic of the graph (and the speculative execution algorithm) is that there is a committed prefix-closed part that has already executed and cannot be affected.
-The rest of the graph is uncommited and therefore might or might not have completed execution. The uncommited frontier, the part of the graph adjacent to the prefix is guaranteed to execute and complete without speculation (since we have both the environment and the variables resolved) and this is part of the argument for the termination of the algorithm. Every step that the orchestration takes, it can always commit the uncommited frontier, and therefore the commited prefix grows until it reaches the whole graph.
-
-#### Orchestrator: Backward dependencies and Execution Isolation/Aborting/Reverting
-
-How do we resolve backward dependencies? For example: 
-```sh
-grep foo in1 > out1
-grep bar in0 > in1 ## Its write might affect the first command exec.
+```bash
+DEBUG=2 ./test/test_orch.sh 2>logs.txt
 ```
 
-One solution would be to run the non-frontier (non-root) commands in an isolated environment and only at the end of their execution commit their results. This might have significant overhead, except if we can just write to temporary files and then move them? Or let them work in a temporary directory? 
+### Contributing and Further Development
 
-Another way would be to dynamically track writes of non-frontier commands and stop them when they try to write to something that might be a read dependency of the first, but there are timing issues here that I don't see how to resolve.
+Contributions are always welcome! The project roadmap includes extending the architecture to support complete scripts, optimizing the scheduler for better performance, etc.
 
-#### Commands that change current directory
+More issues to be added soon...
 
-Can we actually trace that and not run these commands? Is that simply a change of an environment variable? They will run in a forked version anyway, but we want to see their results.
+### License
+
+`hs` is licensed under the MIT License. See the `LICENSE` file for more information.

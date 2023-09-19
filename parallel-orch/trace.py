@@ -50,6 +50,10 @@ class PathRef:
         return self.__str__()
 
     def get_resolved_path(self):
+        
+        if isinstance(self.ref, PathRef):
+            self.ref = self.ref.get_resolved_path()
+        
         # Remove dupliate prefixes
         if not self.path.startswith("/"):
             modified_path = "/" + self.path

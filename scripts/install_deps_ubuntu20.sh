@@ -8,6 +8,8 @@ sudo update-alternatives --install /usr/bin/cram cram /usr/bin/cram3 100
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
 export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
 
+pip3 install --user -r $PASH_TOP/requirements.txt
+
 ## Download submodule dependencies
 git submodule update --init --recursive
 

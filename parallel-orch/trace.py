@@ -452,3 +452,22 @@ def parse_exit_code(trace_object) -> int:
     for line in reversed(trace_object):
         if "Exit(" in line:
             return int(line.split("Exit(")[1].rstrip(")\n"))
+
+# Trace can be called as a script with the trace file to analyze as an argument
+def main():
+    logging.basicConfig(level=logging.DEBUG)
+    trace_file = sys.argv[1]
+    with open(trace_file, "r") as f:
+        trace_object = f.readlines()
+    read_set, write_set = parse_and_gather_cmd_rw_sets(trace_object)
+    print("Read set:")
+    for r in read_set:
+        print(r)
+    print("Write set:")
+    for w in write_set:
+        print(w)
+    print("Exit code:")
+    print(parse_exit_code(trace_object))
+    
+if __name__ == "__main__":
+    main()

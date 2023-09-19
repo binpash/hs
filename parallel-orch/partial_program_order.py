@@ -672,7 +672,7 @@ class PartialProgramOrder:
             for proc in alive_after_kill:
                 logging.critical(proc)
         else:
-            logging.critical("All processes were successfully terminated.")
+            logging.debug("All processes were successfully terminated.")
         
     def resolve_dependencies_early(self, node_id=None):
         to_check = {node for node in self.waiting_for_frontend if node not in self.speculated}
@@ -709,8 +709,13 @@ class PartialProgramOrder:
         return
 
     def resolve_commands_that_can_be_resolved_and_push_frontier(self):
-        
-        cmds_to_resolve = self.__pop_cmds_to_resolve_from_speculated()
+        # This may be obsolete since we only resolve one node at a time
+        # cmds_to_resolve = self.__pop_cmds_to_resolve_from_speculated()
+        # assert len(cmds_to_resolve) <= 1
+        if len(self.speculated) == 0:
+            cmds_to_resolve = []
+        else:
+            cmds_to_resolve = [self.speculated.pop()]
         logging.debug(f"Commands to check for dependencies this round are: {sorted(cmds_to_resolve)}")
         logging.debug(f"Commands that cannot be resolved this round are: {sorted(self.speculated)}")
         ## Resolve dependencies for the commands that can actually be resolved
@@ -730,34 +735,6 @@ class PartialProgramOrder:
                 self.__kill_all_currently_executing_and_schedule_restart(to_commit)
             log_time_delta_from_named_timestamp("PartialOrder", "ProcKilling")
             self.commit_cmd_workspaces(to_commit)
-        
-
-    def __pop_cmds_to_resolve_from_speculated(self):
-        cmd_ids_to_check = sorted(list(self.speculated))
-        logging.debug(f" > Uncommitted commands done executing to be checked: {cmd_ids_to_check}")
-        cmds_to_resolve = []
-        for cmd_id in cmd_ids_to_check:
-            # We check if we can resolve any possible dependencies
-            # If we can't, we have to wait for another cycle
-            if not self.cmd_can_be_resolved(cmd_id):
-                if cmd_id not in self.speculated:
-                    logging.debug(f" > Adding node {cmd_id} to waiting list")
-                    self.speculated.add(cmd_id)
-                else:
-                    logging.debug(f" > Keeping node {cmd_id} to waiting list")
-            # If we are in this branch it means that we can resolve the dependencies of the current command
-            else:
-                cmds_to_resolve.append(cmd_id)
-                # We remove the command from the waiting to be resolved set
-                if cmd_id in self.speculated:
-                    logging.debug(f" > Removing node {cmd_id} from waiting list")
-                    logging.trace(f"WaitingRemove|{cmd_id}")
-                    self.speculated.remove(cmd_id)
-                else:
-                    logging.debug(f" > Node {cmd_id} is able to be resolved")
-                # The node can be resolved now
-                log_time_delta_from_named_timestamp("PartialOrder", "WaitingToResolve", cmd_id)
-        return sorted(cmds_to_resolve)
 
 
     def resolve_dependencies(self, cmds_to_resolve):
@@ -1166,8 +1143,8 @@ class PartialProgramOrder:
                     and frontier_node not in self.get_committed() \
                     and frontier_node not in self.stopped \
                     and frontier_node not in self.speculated \
-                    and frontier_node not in self.workset\
-                    and not self.is_loop_node(frontier_node)\
+                    and frontier_node not in self.workset \
+                    and not self.is_loop_node(frontier_node) \
                     and frontier_node not in self.waiting_for_frontend:
                     ## Commit the node
                     self.commit_node(frontier_node)
@@ -1341,7 +1318,7 @@ class PartialProgramOrder:
             execute_func = executor.async_run_and_trace_command_return_trace
         proc, trace_file, stdout, stderr, post_execution_env_file = execute_func(cmd, node_id, env_file_to_execute_with)
         self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, post_execution_env_file)
-        logging.debug(f" >>>>> Command {node_id} - {proc.pid} just started executing")
+        logging.debug(f" >>>>> Command {node_id} - {proc.pid} just started executing - {post_execution_env_file}")
         
     # This method attempts to add to workset (rerun) 
     # any command that found to have a dependency through early resolution
@@ -1416,7 +1393,6 @@ class PartialProgramOrder:
             # We will however attempt to resolve dependencies early
             self.resolve_dependencies_early(node_id)
             restarted_cmds = self.attempt_rerun_pending_nodes()
-            logging.critical(f"Restarted {restarted_cmds}")
             self.log_partial_program_order_info()
         ## Here we continue with the normal execution flow
         else:
@@ -1467,7 +1443,6 @@ class PartialProgramOrder:
             # Kill and restart all currently executing commands
             # The envs are updated inside __kill_all_currently_executing_and_schedule_restart
             self.__kill_all_currently_executing_and_schedule_restart([node_id])
-            logging.critical(f">>>>>>>>>>>>>>>>{node_id} - {self.get_new_env_file_for_node(node_id)}")
             # For all other nodes not killed, we update the latest env and restart them
             for waiting_for_frontend_node in self.waiting_for_frontend:
                 if waiting_for_frontend_node not in self.workset:
@@ -1491,7 +1466,7 @@ class PartialProgramOrder:
             # We will however attempt to resolve dependencies early for the remaining nodes
             self.resolve_dependencies_early(node_id)
             restarted_cmds = self.attempt_rerun_pending_nodes()
-            logging.critical(f"Restarted after successfull env resolution {restarted_cmds}")
+            logging.debug(f"Restarted after successfull env resolution {restarted_cmds}")
             self.log_partial_program_order_info()
             self.resolve_commands_that_can_be_resolved_and_push_frontier()
             assert(self.valid())
@@ -1546,6 +1521,9 @@ class PartialProgramOrder:
         logging.debug(f"for FRONTEND:     {sorted(list(self.waiting_for_frontend))}")
         logging.debug(f"TO RESOLVE:       {self.to_be_resolved}")
         logging.debug(f"PENDING TO EXEC:  {self.pending_to_execute}")
+        logging.debug(f"RUN AFTER:        {self.run_after}")
+        logging.debug(f"New envs:         {self.new_envs}")
+        logging.debug(f"Latest envs:      {self.latest_envs}")
         self.log_rw_sets()
         logging.debug(f"=" * 80)
 

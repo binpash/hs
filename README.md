@@ -71,7 +71,7 @@ DEBUG=2 ./test/test_orch.sh 2>logs.txt
 
 Contributions are always welcome! The project roadmap includes extending the architecture to support complete scripts, optimizing the scheduler for better performance, etc.
 
-More issues to be added soon...
+For a detailed description of possible optimizations, see the [related issues](https://github.com/binpash/dynamic-parallelizer/issues?q=is%3Aopen+is%3Aissue+label%3Aoptimization)
 
 ### License
 

@@ -286,6 +286,7 @@ class PartialProgramOrder:
         self.run_after = defaultdict(set)
         self.pending_to_execute = set()
         self.to_be_resolved_prev = {}
+        self.prechecked_env = set()
             
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
@@ -656,7 +657,9 @@ class PartialProgramOrder:
         for cmd_id in nodes_to_kill:
             self.__kill_node(cmd_id)
             most_recent_new_env = self.get_most_recent_possible_new_env_for_node(cmd_id)
+            self.prechecked_env.discard(cmd_id)
             if most_recent_new_env is not None:
+                
                 self.set_latest_env_file_for_node(cmd_id, most_recent_new_env)
             self.workset.remove(cmd_id)
             log_time_delta_from_named_timestamp("PartialOrder", "RunNode", cmd_id)
@@ -664,6 +667,16 @@ class PartialProgramOrder:
         # Our new workset is the nodes that were killed
         # Previous workset got killed
         self.workset.extend(nodes_to_kill)
+        
+    def __kill_executing_node_and_schedule_restart(self, node_id: NodeId):
+        self.__kill_node(node_id)
+        most_recent_new_env = self.get_most_recent_possible_new_env_for_node(node_id)
+        if most_recent_new_env is not None:
+            self.set_latest_env_file_for_node(node_id, most_recent_new_env)
+        self.workset.remove(node_id)
+        log_time_delta_from_named_timestamp("PartialOrder", "RunNode", node_id)
+        log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution", node_id, key=f"PostExecResolution-{node_id}")
+        self.workset.extend(node_id)
 
     def __kill_node(self, cmd_id: "NodeId"):
         logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
@@ -1432,16 +1445,47 @@ class PartialProgramOrder:
             logging.debug("No significant differences found:")
             return False
         
+    def resolve_most_recent_envs_check_only_wait_node_early(self, node_id: NodeId, restarted_cmds=None):
+        if self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
+                                                                    self.get_latest_env_file_for_node(node_id)):
+            logging.debug(f"[Early] Significant differences found between new and latest env files for {node_id}.")
+            logging.debug(f"[Early] Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
+            self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(node_id))
+            if node_id not in self.workset:
+                self.workset.append(node_id)
+            
+            nodes_to_kill = self.get_currently_executing().copy()
+            self.__kill_all_currently_executing_and_schedule_restart([node_id])
+            for waiting_for_frontend_node in self.waiting_for_frontend:
+                if waiting_for_frontend_node not in self.workset:
+                    self.workset.append(waiting_for_frontend_node)
+                most_recent_new_env = self.get_most_recent_possible_new_env_for_node(waiting_for_frontend_node)
+                self.prechecked_env.discard(waiting_for_frontend_node)
+                self.set_latest_env_file_for_node(waiting_for_frontend_node, most_recent_new_env)
+                assert(self.get_new_env_file_for_node(node_id) is not None)
+                assert(self.get_latest_env_file_for_node(waiting_for_frontend_node) is not None)
+            self.log_partial_program_order_info()
+            logging.debug("-")
+            self.waiting_for_frontend = set()
+            self.populate_to_be_resolved_dict()
+        else:
+            self.prechecked_env.add(node_id)
+        
+
+        
     def maybe_resolve_most_recent_envs_and_continue_resolution(self, node_id: NodeId):
         if node_id in self.waiting_for_frontend:
-            logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
+            logging.debug(f"Node {node_id} received its new env from runtime, continuing full env resolution.")
             self.resolve_most_recent_envs_and_continue_command_execution_check_only_wait_node(node_id)
+        else:
+            logging.debug(f"Node {node_id} received its new env from runtime, continuing early env resolution.")
+            self.resolve_most_recent_envs_check_only_wait_node_early(node_id)
 
     def resolve_most_recent_envs_and_continue_command_execution_check_only_wait_node(self, node_id: NodeId, restarted_cmds=None):
         logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
         # Node is no longer waiting to be resolved. It might have not been waiting at all.
         self.waiting_for_frontend.discard(node_id)
-        if self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
+        if node_id not in self.prechecked_env and self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
                                                                     self.get_latest_env_file_for_node(node_id)):
             logging.debug(f"Significant differences found between new and latest env files for {node_id}.")
             logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
@@ -1459,6 +1503,7 @@ class PartialProgramOrder:
                     self.workset.append(waiting_for_frontend_node)
                 most_recent_new_env = self.get_most_recent_possible_new_env_for_node(waiting_for_frontend_node)
                 self.set_latest_env_file_for_node(waiting_for_frontend_node, most_recent_new_env)
+                self.prechecked_env.discard(waiting_for_frontend_node)
                 assert(self.get_new_env_file_for_node(node_id) is not None)
                 assert(self.get_latest_env_file_for_node(waiting_for_frontend_node) is not None)
             self.log_partial_program_order_info()

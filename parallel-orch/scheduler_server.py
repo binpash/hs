@@ -34,6 +34,10 @@ def parse_args():
                         action="store_true",
                         default=None,
                         help="When receiving a wait check for env changes between the current node and all other waiting nodes, instead of only examining the current wait node.")
+    parser.add_argument("--speculate-immidiately",
+                        action="store_true",
+                        default=False,
+                        help="Speculate immidiately instead of waiting for the first Wait message.")
     
     args, unknown_args = parser.parse_known_args()
     return args
@@ -103,6 +107,9 @@ class Scheduler:
 
         ## Set the new env file for the node
         self.partial_program_order.set_new_env_file_for_node(node_id, pash_runtime_vars_file_str)
+        
+        self.partial_program_order.init_latest_env_files(node_id)
+        
         ## Attempt to rerun all pending nodes
         self.partial_program_order.attempt_rerun_pending_nodes()
 
@@ -306,6 +313,7 @@ def main():
     # Set optimization options
     config.sandbox_killing = args.sandbox_killing
     config.all_node_env_resolution = args.env_check_all_nodes_on_wait
+    config.speculate_immidiately = args.speculate_immidiately
     scheduler = Scheduler(config.SCHEDULER_SOCKET)
     scheduler.run()
    

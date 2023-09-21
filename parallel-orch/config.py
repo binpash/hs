@@ -39,7 +39,7 @@ INSIGNIFICANT_VARS = {'PWD', 'OLDPWD', 'SHLVL', 'PASH_SPEC_TMP_PREFIX', 'PASH_SP
                       'PASH_TOP', 'PASH_TOP_LEVEL','RANDOM', 'LOGNAME', 'MACHTYPE', 'MOTD_SHOWN', 'OPTERR', 'OPTIND',
                       'PPID', 'PROMPT_COMMAND', 'PS4', 'SHELL', 'SHELLOPTS', 'SHLVL', 'TERM', 'UID', 'USER', 'XDG_SESSION_ID'}
 
-SIGNIFICANT_VARS = {'foo', 'bar', 'baz','file1', 'file2', 'file3', 'file4', 'file5', 'LC_ALL', 'nchars'}
+SIGNIFICANT_VARS = {'foo', 'bar', 'baz', 'file1', 'file2', 'file3', 'file4', 'file5', 'LC_ALL', 'nchars', 'filename'}
 
 START_TIME = time.time()
 
@@ -47,3 +47,4 @@ named_timestamps = {}
 
 sandbox_killing = False
 all_node_env_resolution = False
+speculate_immidiately = False

@@ -408,17 +408,23 @@ class PartialProgramOrder:
         self.init_workset()
         logging.debug(f'Initialized workset')
         self.populate_to_be_resolved_dict()
-        self.init_latest_env_files()
+        if config.speculate_immidiately:
+            self.init_latest_env_files()
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.to_be_resolved)
         logging.info(f'Initialized the partial order!')
         self.log_partial_program_order_info()
-        
         assert(self.valid())
         
-    def init_latest_env_files(self):
+
+    def init_latest_env_files(self, node=None):
+        if node is None:
+            env_to_assign = self.initial_env_file
+        else:
+            env_to_assign = self.get_new_env_file_for_node(node)
         for node_id in self.get_all_non_committed():
-            self.set_latest_env_file_for_node(node_id, self.initial_env_file)
+            self.set_latest_env_file_for_node(node_id, env_to_assign)
+
 
     def init_workset(self):
         self.workset = self.get_all_non_committed_standard_nodes()
@@ -1244,6 +1250,10 @@ class PartialProgramOrder:
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
+        if not config.speculate_immidiately and \
+           self.get_latest_env_file_for_node(self.get_standard_source_nodes()[0]) is None:
+                logging.debug("Not scheduling work yet, waiting for first Wait")
+                return
         # self.log_partial_program_order_info()
         logging.debug("Rerunning stopped commands")
         # attempt_move_stopped_to_workset() needs to happen before the node execution

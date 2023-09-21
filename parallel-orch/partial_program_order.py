@@ -667,16 +667,7 @@ class PartialProgramOrder:
         # Our new workset is the nodes that were killed
         # Previous workset got killed
         self.workset.extend(nodes_to_kill)
-        
-    def __kill_executing_node_and_schedule_restart(self, node_id: NodeId):
-        self.__kill_node(node_id)
-        most_recent_new_env = self.get_most_recent_possible_new_env_for_node(node_id)
-        if most_recent_new_env is not None:
-            self.set_latest_env_file_for_node(node_id, most_recent_new_env)
-        self.workset.remove(node_id)
-        log_time_delta_from_named_timestamp("PartialOrder", "RunNode", node_id)
-        log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution", node_id, key=f"PostExecResolution-{node_id}")
-        self.workset.extend(node_id)
+
 
     def __kill_node(self, cmd_id: "NodeId"):
         logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
@@ -1263,8 +1254,12 @@ class PartialProgramOrder:
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
-        if not config.speculate_immidiately and \
-           self.get_latest_env_file_for_node(self.get_standard_source_nodes()[0]) is None:
+        
+        if not config.speculate_immidiately:
+            starting_env_node = self.get_source_nodes()
+            ## It means we have a loop node at the start
+            ## In that case, we roll back to the original initial env
+            if len(starting_env_node) > 0 and self.get_latest_env_file_for_node(starting_env_node[0]) is None:
                 logging.debug("Not scheduling work yet, waiting for first Wait")
                 return
         # self.log_partial_program_order_info()
@@ -1357,6 +1352,7 @@ class PartialProgramOrder:
                         self.pending_to_execute.discard(node)
                         self.set_latest_env_file_for_node(node, self.get_new_env_file_for_node(node_id))
                         restarted_nodes.add(node)
+                        self.prechecked_env.discard(node)
                         new_run_after_nodes.discard(node)
             self.run_after[node_id] = new_run_after_nodes
         return restarted_nodes
@@ -1446,11 +1442,17 @@ class PartialProgramOrder:
             return False
         
     def resolve_most_recent_envs_check_only_wait_node_early(self, node_id: NodeId, restarted_cmds=None):
-        if self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
+        # We check whether we received a wait for a node we haven't yet unrolled.
+        # We need to first unroll the node and then speculate about it.
+        # TODO: Maybe we could move unrolling earlier in handle_wait()?
+        if not self.is_node_id(node_id):
+            return
+        if node_id not in self.prechecked_env and self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
                                                                     self.get_latest_env_file_for_node(node_id)):
             logging.debug(f"[Early] Significant differences found between new and latest env files for {node_id}.")
             logging.debug(f"[Early] Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
             self.set_latest_env_file_for_node(node_id, self.get_new_env_file_for_node(node_id))
+            self.prechecked_env.discard(node_id)
             if node_id not in self.workset:
                 self.workset.append(node_id)
             

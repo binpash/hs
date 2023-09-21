@@ -108,11 +108,9 @@ class Scheduler:
         ## Set the new env file for the node
         self.partial_program_order.set_new_env_file_for_node(node_id, pash_runtime_vars_file_str)
         
-        if not config.speculate_immidiately:
-            starting_env_node = self.partial_program_order.get_source_nodes()
-            if len(starting_env_node) > 0 and self.partial_program_order.get_latest_env_file_for_node(starting_env_node[0]) is None:
-                logging.debug("Initializing latest env and speculating")
-                self.partial_program_order.init_latest_env_files(node_id)
+        if self.partial_program_order.is_first_node_when_env_is_uninitialized(config.speculate_immidiately):
+            logging.debug("Initializing latest env and speculating")
+            self.partial_program_order.init_latest_env_files(node_id)
         
         ## Attempt to rerun all pending nodes
         self.partial_program_order.attempt_rerun_pending_nodes()

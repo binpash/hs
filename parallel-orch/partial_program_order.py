@@ -616,6 +616,16 @@ class PartialProgramOrder:
     def add_to_speculated(self, node_id: NodeId):
         self.speculated = self.speculated.union([node_id])
 
+    def is_first_node_when_env_is_uninitialized(self, speculate_immidiately):
+        if not speculate_immidiately:
+            starting_env_node = self.get_source_nodes()
+            ## We may have a loop node at the start
+            ## In that case, we roll back to the initial env
+            if len(starting_env_node) > 0 and self.get_latest_env_file_for_node(starting_env_node[0]) is None:
+                logging.debug("Initializing latest env and speculating")
+                return True
+        return False
+    
     # Check if the specific command can be resolved.
     # KK 2023-05-04 I am not even sure what this function does and why is it useful.
     def cmd_can_be_resolved(self, node_id: int) -> bool:
@@ -1254,14 +1264,9 @@ class PartialProgramOrder:
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
-        
-        if not config.speculate_immidiately:
-            starting_env_node = self.get_source_nodes()
-            ## It means we have a loop node at the start
-            ## In that case, we roll back to the original initial env
-            if len(starting_env_node) > 0 and self.get_latest_env_file_for_node(starting_env_node[0]) is None:
-                logging.debug("Not scheduling work yet, waiting for first Wait")
-                return
+        if self.is_first_node_when_env_is_uninitialized(config.speculate_immidiately):
+            logging.debug("Not scheduling work yet, waiting for first Wait")
+            return
         # self.log_partial_program_order_info()
         logging.debug("Rerunning stopped commands")
         # attempt_move_stopped_to_workset() needs to happen before the node execution

@@ -161,7 +161,11 @@ def kill_process_tree(pid, sig=signal.SIGTERM):
             logging.critical("PROCESS LOOKUP ERROR")
 
     # Check if processes are still alive
-    time.sleep(0.01)
-
-    alive_processes = [f"{proc}-({proc.status()})" for proc in processes if proc.is_running()]
+    alive_processes = []
+    for proc in processes:
+        try:
+            if proc.is_running():
+                alive_processes.append(f"{proc}-({proc.status()})")
+        except:
+            pass
     return alive_processes

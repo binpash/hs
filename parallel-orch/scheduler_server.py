@@ -117,14 +117,12 @@ class Scheduler:
         ## Attempt to rerun all pending nodes
         self.partial_program_order.attempt_rerun_pending_nodes()
 
-        ## Attempt to resolve environment differences on waiting partial order nodes
-        self.partial_program_order.maybe_resolve_most_recent_envs_and_continue_resolution(node_id)
-        
         ## Inform the partial order that we received a wait for a node so that it can push loops
         ## forward and so on.
         self.partial_program_order.wait_received(node_id)
 
-        # self.partial_program_order.maybe_resolve_most_recent_envs_and_continue_resolution(node_id)
+        # Moved this below wait_received, in order to support unrolled loop nodes
+        self.partial_program_order.maybe_resolve_most_recent_envs_and_continue_resolution(node_id)
         
         ## If the node_id is already committed, just return its exit code
         if node_id in self.partial_program_order.get_committed():

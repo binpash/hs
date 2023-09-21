@@ -1445,8 +1445,6 @@ class PartialProgramOrder:
         # We check whether we received a wait for a node we haven't yet unrolled.
         # We need to first unroll the node and then speculate about it.
         # TODO: Maybe we could move unrolling earlier in handle_wait()?
-        if not self.is_node_id(node_id):
-            return
         if node_id not in self.prechecked_env and self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
                                                                     self.get_latest_env_file_for_node(node_id)):
             logging.debug(f"[Early] Significant differences found between new and latest env files for {node_id}.")

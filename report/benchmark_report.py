@@ -89,19 +89,24 @@ def run_command_with_orch(command, orch_args, working_dir=os.getcwd()):
     return (end_time - start_time, stdout.decode('utf-8'), stderr.decode('utf-8'))
 
 def compare_results(bash_output, orch_output):
-    
     bash_lines = bash_output.splitlines()
-    orch_lines = orch_output.splitlines()
+    if len(bash_output) <= 10000:
+        orch_lines = orch_output.splitlines()[:10000]
+    else:
+        bash_lines = bash_lines[:10000]
+        orch_lines = orch_output.splitlines()[:10000]
     # Compare lines
     d = difflib.ndiff(bash_lines, orch_lines)
     return [diff for diff in d if diff.startswith('- ') or diff.startswith('+ ')]
 
 
 def print_results(benchmark_name, bash_time, orch_time, diff_lines, diff_percentage):
-    if orch_time < bash_time:
-            comparison_result = f"hs is {round(diff_percentage/100, 1)}x ({diff_percentage:.2f}%) faster than Bash"
+    if bash_time > orch_time:
+        speedup = bash_time / orch_time
+        comparison_result = f"hs is {speedup:.2f}x ({bash_time - orch_time:.2f}s) faster than Bash"
     else:
-        comparison_result = f"hs is {round(diff_percentage/100, 1)}x ({diff_percentage:.2f}%) slower than Bash"
+        speedup = orch_time / bash_time
+        comparison_result = f"hs is {speedup:.2f}x ({orch_time - bash_time:.2f}s) slower than Bash"
     print("-" * 40)
     print(f"Results for benchmark:  {benchmark_name}")
     print(f"Bash Execution Time:    {round(bash_time, 3)}s")

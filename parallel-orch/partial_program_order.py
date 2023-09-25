@@ -660,7 +660,7 @@ class PartialProgramOrder:
         logging.debug(f' >> Able to resolve {node_id}')
         return True
     
-    def __kill_all_currently_executing_and_schedule_restart(self, node_ids: "list[NodeId]", start=None):
+    def __kill_all_currently_executing_and_schedule_restart(self, start=None):
         nodes_to_kill = self.get_currently_executing()
         if start is not None:
             nodes_to_kill = [node_id for node_id in nodes_to_kill if node_id in self.get_transitive_closure([start])]
@@ -1453,10 +1453,12 @@ class PartialProgramOrder:
         self.prechecked_env.discard(node_id)
         if node_id not in self.workset:
             self.workset.append(node_id)
-        self.__kill_all_currently_executing_and_schedule_restart([node_id])
+        self.__kill_all_currently_executing_and_schedule_restart(start=node_id)
+        new_waiting_for_frontend = self.waiting_for_frontend.copy()
         for waiting_for_frontend_node in self.waiting_for_frontend:
-            if waiting_for_frontend_node not in self.workset:
+            if waiting_for_frontend_node not in self.workset and waiting_for_frontend_node in self.get_transitive_closure([node_id]):
                 self.workset.append(waiting_for_frontend_node)
+                new_waiting_for_frontend.remove(waiting_for_frontend_node)
             most_recent_new_env = self.get_most_recent_possible_new_env_for_node(waiting_for_frontend_node)
             self.set_latest_env_file_for_node(waiting_for_frontend_node, most_recent_new_env)
             self.prechecked_env.discard(waiting_for_frontend_node)
@@ -1464,7 +1466,7 @@ class PartialProgramOrder:
             assert(self.get_latest_env_file_for_node(waiting_for_frontend_node) is not None)
         self.log_partial_program_order_info()
         logging.debug("-")
-        self.waiting_for_frontend = set()
+        self.waiting_for_frontend = new_waiting_for_frontend
         self.populate_to_be_resolved_dict()
 
     def resolve_most_recent_envs_check_only_wait_node_early(self, node_id: NodeId, restarted_cmds=None):

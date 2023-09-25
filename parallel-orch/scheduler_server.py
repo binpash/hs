@@ -117,14 +117,15 @@ class Scheduler:
 
         ## Inform the partial order that we received a wait for a node so that it can push loops
         ## forward and so on.
-        self.partial_program_order.wait_received(node_id)
-
+        self.partial_program_order.maybe_unroll(node_id)
+        
         # Moved this below wait_received, in order to support unrolled loop nodes
         self.partial_program_order.maybe_resolve_most_recent_envs_and_continue_resolution(node_id)
         
+        self.partial_program_order.wait_received(node_id)
+
         ## If the node_id is already committed, just return its exit code
         if node_id in self.partial_program_order.get_committed():
-            # TODO: Env check and if no conflicts, commit
             logging.debug(f'Node: {node_id} found in committed, responding immediately!')
             self.waiting_for_response[node_id] = connection
             self.respond_to_pending_wait(node_id)

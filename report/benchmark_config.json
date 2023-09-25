@@ -7,20 +7,6 @@
         "orch_args": "-d 2"
     },
     {
-        "name": "Dgsh 1.sh - 120M",
-        "env": ["INPUT_FILE={RESOURCE_DIR}/in120M.xml"],
-        "pre_execution_script": ["wget -nc -O in120M.xml http://aiweb.cs.washington.edu/research/projects/xmltk/xmldata/data/dblp/dblp.xml"],
-        "command": "{TEST_SCRIPT_DIR}/dgsh/1.sh",
-        "orch_args": "-d 2"
-    },
-    {
-        "name": "Dgsh 1.sh - 700M",
-        "env": ["INPUT_FILE={RESOURCE_DIR}/in700M.xml"],
-        "pre_execution_script": ["wget -nc -O in700M.xml http://aiweb.cs.washington.edu/research/projects/xmltk/xmldata/data/pir/psd7003.xml"],
-        "command": "{TEST_SCRIPT_DIR}/dgsh/1.sh",
-        "orch_args": "-d 2"
-    },
-    {
         "name": "Dgsh 2.sh (no function) - Τry Repo",
         "pre_execution_script": ["git clone https://github.com/binpash/try.git"],
         "command": "{TEST_SCRIPT_DIR}/dgsh/2_no_func.sh",
@@ -77,11 +63,18 @@
         "orch_args": "-d 2"
     },
     {
-        "name": "Dgsh 7.sh (no func)",
+        "name": "7.sh - kill",
         "env": ["INPUT_FILE={RESOURCE_DIR}/words.txt"],
-        "pre_execution_script": ["wget -nc -O words.txt https://raw.githubusercontent.com/dwyl/english-words/master/words.txt"],
+        "pre_execution_script": ["wget -nc -O weblog.log https://raw.githubusercontent.com/elastic/examples/master/Common%20Data%20Formats/apache_logs/apache_logs"],
         "command": "{TEST_SCRIPT_DIR}/dgsh/8_no_func.sh",
-        "orch_args": "-d 2"
+        "orch_args": "-d 2 --sandbox-killing"
+    },
+    {
+        "name": "7.sh - kill",
+        "env": ["INPUT_FILE={RESOURCE_DIR}/words.txt"],
+        "pre_execution_script": ["wget -nc -O weblog.log https://raw.githubusercontent.com/elastic/examples/master/Common%20Data%20Formats/apache_logs/apache_logs"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/8_no_func.sh",
+        "orch_args": "-d 2 --sandbox-killing"
     },
     {
         "name": "Dgsh 9.sh - Riker Repo",
@@ -90,5 +83,19 @@
         "command": "{TEST_SCRIPT_DIR}/dgsh/9.sh",
         "working_dir": "{RESOURCE_DIR}/riker",
         "orch_args": "-d 2"
+    },
+    {
+        "name": "18.sh - 120M",
+        "env": ["INPUT_FILE={RESOURCE_DIR}/in120M.xml"],
+        "pre_execution_script": ["wget -nc -O in120M.xml http://aiweb.cs.washington.edu/research/projects/xmltk/xmldata/data/dblp/dblp.xml"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/18.sh",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "18.sh - 120M - kill",
+        "env": ["INPUT_FILE={RESOURCE_DIR}/in120M.xml"],
+        "pre_execution_script": ["wget -nc -O in120M.xml http://aiweb.cs.washington.edu/research/projects/xmltk/xmldata/data/dblp/dblp.xml"],
+        "command": "{TEST_SCRIPT_DIR}/dgsh/18.sh",
+        "orch_args": "-d 2 --sandbox-killing"
     }
 ]

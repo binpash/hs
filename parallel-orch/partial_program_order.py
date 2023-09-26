@@ -409,7 +409,7 @@ class PartialProgramOrder:
         self.init_workset()
         logging.debug(f'Initialized workset')
         self.populate_to_be_resolved_dict()
-        if config.speculate_immidiately:
+        if config.SPECULATE_IMMEDIATELY:
             self.init_latest_env_files()
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.to_be_resolved)
@@ -616,8 +616,8 @@ class PartialProgramOrder:
     def add_to_speculated(self, node_id: NodeId):
         self.speculated = self.speculated.union([node_id])
 
-    def is_first_node_when_env_is_uninitialized(self, speculate_immidiately):
-        if not speculate_immidiately:
+    def is_first_node_when_env_is_uninitialized(self, speculate_immediately):
+        if not speculate_immediately:
             starting_env_node = self.get_source_nodes()
             ## We may have a loop node at the start
             ## In that case, we roll back to the initial env
@@ -750,7 +750,7 @@ class PartialProgramOrder:
         else:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
-            if config.sandbox_killing:
+            if config.SANDBOX_KILLING:
                 logging.info("Sandbox killing")
                 self.__kill_all_currently_executing_and_schedule_restart(to_commit)
             log_time_delta_from_named_timestamp("PartialOrder", "ProcKilling")
@@ -1264,7 +1264,7 @@ class PartialProgramOrder:
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
-        if self.is_first_node_when_env_is_uninitialized(config.speculate_immidiately):
+        if self.is_first_node_when_env_is_uninitialized(config.SPECULATE_IMMEDIATELY):
             logging.debug("Not scheduling work yet, waiting for first Wait")
             return
         # self.log_partial_program_order_info()

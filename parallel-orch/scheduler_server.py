@@ -34,10 +34,10 @@ def parse_args():
                         action="store_true",
                         default=None,
                         help="When receiving a wait check for env changes between the current node and all other waiting nodes, instead of only examining the current wait node.")
-    parser.add_argument("--speculate-immidiately",
+    parser.add_argument("--speculate-immediately",
                         action="store_true",
                         default=False,
-                        help="Speculate immidiately instead of waiting for the first Wait message.")
+                        help="Speculate immediately instead of waiting for the first Wait message.")
     
     args, unknown_args = parser.parse_known_args()
     return args
@@ -108,7 +108,7 @@ class Scheduler:
         ## Set the new env file for the node
         self.partial_program_order.set_new_env_file_for_node(node_id, pash_runtime_vars_file_str)
         
-        if self.partial_program_order.is_first_node_when_env_is_uninitialized(config.speculate_immidiately):
+        if self.partial_program_order.is_first_node_when_env_is_uninitialized(config.SPECULATE_IMMEDIATELY):
             logging.debug("Initializing latest env and speculating")
             self.partial_program_order.init_latest_env_files(node_id)
         
@@ -314,9 +314,9 @@ def main():
     #     logging.getLogger().setLevel(logging.TRACE)
     
     # Set optimization options
-    config.sandbox_killing = args.sandbox_killing
-    config.all_node_env_resolution = args.env_check_all_nodes_on_wait
-    config.speculate_immidiately = args.speculate_immidiately
+    config.SANDBOX_KILLING = args.sandbox_killing
+    config.ALL_NODE_ENV_RESOLUTION = args.env_check_all_nodes_on_wait
+    config.SPECULATE_IMMEDIATELY = args.speculate_immediately
     scheduler = Scheduler(config.SCHEDULER_SOCKET)
     scheduler.run()
    

@@ -29,7 +29,45 @@ def parse_shell_to_asts(input_script_path) -> "list[AstNode]":
     except libdash.parser.ParsingException as e:
         logging.error(f'Parsing error: {e}')
         exit(1)
+        
 
+def validate_node(ast) -> bool:
+    assert(isinstance(ast, (CommandNode, PipeNode)))
+    if isinstance(ast, CommandNode):
+        return True
+    else:
+        for cmd in ast.items:
+            assert isinstance(cmd, CommandNode)
+
+
+def is_node_safe(node: CommandNode, variables: dict) -> str:
+    ## Expand and check whether the asts contain
+    ## a command substitution or a primitive.
+    ## If so, then we need to tell the original script to execute the command.
+
+    ## Expand the command argument
+    cmd_arg = node.arguments[0]
+    exp_state = expand.ExpansionState(variables)
+    ## TODO: Catch exceptions around here
+    expanded_cmd_arg = expand.expand_arg(cmd_arg, exp_state)
+    cmd_str = string_of_arg(expanded_cmd_arg)
+    logging.debug(f'Expanded command argument: {expanded_cmd_arg} (str: "{cmd_str}")')
+    
+    ## KK 2023-05-26 We need to keep in mind that whenever we execute something
+    ##               in the original shell, then we cannot speculate anything
+    ##               after it, because we cannot track read-write dependencies
+    ##               in the original shell.
+    if cmd_str in BASH_PRIMITIVES:
+        return False
+    return True
+
+
+def is_pipe_node_safe_to_execute(node: PipeNode, variables: dict) -> bool:
+    for cmd in node.items:
+        logging.debug(f'Ast in question: {cmd}')
+        if not is_node_safe(cmd, variables):
+            return False
+    return True
 
 ## Returns true if the script is safe to speculate and execute outside
 ##  of the original shell context.
@@ -40,35 +78,17 @@ def parse_shell_to_asts(input_script_path) -> "list[AstNode]":
 def safe_to_execute(asts: "list[AstNode]", variables: dict) -> bool:
     ## There should always be a single AST per node and it must be a command
     assert(len(asts) == 1)
-    ast = asts[0]
-    assert(isinstance(ast, CommandNode))
-    logging.debug(f'Ast in question: {ast}')
-    ## Expand and check whether the asts contain
-    ##  a command substitution or a primitive.
-    ## If so, then we need to tell the original script to execute the command.
-
-    ## Expand the command argument
-    cmd_arg = ast.arguments[0]
-    exp_state = expand.ExpansionState(variables)
-    ## TODO: Catch exceptions around here
-    expanded_cmd_arg = expand.expand_arg(cmd_arg, exp_state)
-    cmd_str = string_of_arg(expanded_cmd_arg)
-    logging.debug(f'Expanded command argument: {expanded_cmd_arg} (str: "{cmd_str}")')
-
+    if isinstance(asts[0], PipeNode):
+        return is_pipe_node_safe_to_execute(asts[0], variables)
+    else:
+        assert(isinstance(asts[0], CommandNode))
+        logging.debug(f'Ast in question: {asts[0]}')
+        return is_node_safe(asts[0], variables)
     ## TODO: Determine if the ast contains a command substitution and if so
     ##        run it in the original script.
     ##       In the future, we should be able to perform stateful expansion too,
     ##        and properly execute and trace command substitutions.
 
-    ## KK 2023-05-26 We need to keep in mind that whenever we execute something
-    ##               in the original shell, then we cannot speculate anything
-    ##               after it, because we cannot track read-write dependencies
-    ##               in the original shell.
-
-    if cmd_str in BASH_PRIMITIVES:
-        return False
-    
-    return True
 
 BASH_PRIMITIVES = ["break", 
                    "continue", 

@@ -1,10 +1,8 @@
 import argparse
-import copy
 import logging
 import signal
 from util import *
 import config
-import sys
 from partial_program_order import parse_partial_program_order_from_file, LoopStack, NodeId, parse_node_id
 
 ##
@@ -28,6 +26,15 @@ def parse_args():
                         type=str,
                         default=None,
                         help="Set logging output file. Default: stdout")
+    parser.add_argument("--sandbox-killing",
+                        action="store_true",
+                        default=False,
+                    help="Kill any running overlay instances before commiting to the lower layer")
+    parser.add_argument("--speculate-immediately",
+                    action="store_true",
+                    default=False,
+                    help="Speculate immediately instead of waiting for the first Wait message.")
+    
     args, unknown_args = parser.parse_known_args()
     return args
 
@@ -96,18 +103,25 @@ class Scheduler:
 
         ## Set the new env file for the node
         self.partial_program_order.set_new_env_file_for_node(node_id, pash_runtime_vars_file_str)
+        
+        if self.partial_program_order.is_first_node_when_env_is_uninitialized(config.SPECULATE_IMMEDIATELY):
+            logging.debug("Initializing latest env and speculating")
+            self.partial_program_order.init_latest_env_files(node_id)
+        
+        ## Attempt to rerun all pending nodes
+        self.partial_program_order.attempt_rerun_pending_nodes()
 
-        
-        ## Attempt to resolve environment differences on waiting partial order nodes
-        self.partial_program_order.maybe_resolve_most_recent_envs_and_continue_resolution(node_id)
-        
         ## Inform the partial order that we received a wait for a node so that it can push loops
         ## forward and so on.
+        self.partial_program_order.maybe_unroll(node_id)
+        
+        # Moved this below wait_received, in order to support unrolled loop nodes
+        self.partial_program_order.maybe_resolve_most_recent_envs_and_continue_resolution(node_id)
+        
         self.partial_program_order.wait_received(node_id)
 
         ## If the node_id is already committed, just return its exit code
         if node_id in self.partial_program_order.get_committed():
-            # TODO: Env check and if no conflicts, commit
             logging.debug(f'Node: {node_id} found in committed, responding immediately!')
             self.waiting_for_response[node_id] = connection
             self.respond_to_pending_wait(node_id)
@@ -152,7 +166,7 @@ class Scheduler:
         ## Get the completed node info
         node = self.partial_program_order.get_node(node_id)
         completed_node_info = node.get_completed_node_info()
-        msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_post_exec_env()} {completed_node_info.get_stdout_file()}'
+        msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_post_execution_env_file()} {completed_node_info.get_stdout_file()}'
         response = success_response(msg)
         ## Send the response
         self.respond_to_frontend_core(node_id, response)
@@ -172,8 +186,6 @@ class Scheduler:
         if trace_file in self.partial_program_order.banned_files:
             logging.debug(f'CommandExecComplete: {cmd_id} ignored')
             return
-        logging.debug(input_cmd)
-
         ## Gather RWset, resolve dependencies, and progress graph
         self.partial_program_order.command_execution_completed(cmd_id, exit_code, sandbox_dir)
 
@@ -185,23 +197,31 @@ class Scheduler:
         connection, input_cmd = socket_get_next_cmd(self.socket)
 
         if(input_cmd.startswith("Init")):
+            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "PartialOrderInit")
             connection.close()
             self.handle_init(input_cmd)
-            ## TODO: Read the partial order from the given file  
+            ## TODO: Read the partial order from the given file
+            log_time_delta_from_named_timestamp("Scheduler", "PartialOrderInit")
         elif (input_cmd.startswith("Daemon Start") or input_cmd == ""):
+            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "DaemonStart")
             connection.close()
             ## This happens when pa.sh first connects to daemon to see if it is on
             logging.debug(f'PaSh made first contact with scheduler server.')
+            log_time_delta_from_named_timestamp("Scheduler", "DaemonStart")
         elif (input_cmd.startswith("CommandExecComplete:")):
+            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "CommandExecComplete")
             ## We have received this message from an a runner (tracer +isolation)
             ## The runner should have already parsed RWsets and serialized them to
             ## a file.
             connection.close()
             self.handle_command_exec_complete(input_cmd)
+            log_time_delta_from_named_timestamp("Scheduler", "CommandExecComplete")
         elif (input_cmd.startswith("Wait")):
+            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "Wait")
             self.handle_wait(input_cmd, connection)
+            log_time_delta_from_named_timestamp("Scheduler", "Wait")
         elif (input_cmd.startswith("Done")):
-            
+            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "Done")
             logging.debug(f'Scheduler server received shutdown message.')
             logging.debug(f'The partial order was successfully completed.')
             if not self.partial_program_order.is_completed():
@@ -209,6 +229,7 @@ class Scheduler:
             socket_respond(connection, success_response("All finished!"))
             self.partial_program_order.log_executions()
             self.done = True
+            log_time_delta_from_named_timestamp("Scheduler", "Done")
         else:
             logging.error(error_response(f'Error: Unsupported command: {input_cmd}'))
             raise Exception(f'Error: Unsupported command: {input_cmd}')
@@ -230,10 +251,12 @@ class Scheduler:
     ## It should add some work (if possible), and then return immediately.
     ## It is called once per loop iteration, making sure that there is always work happening
     def schedule_work(self):
+        log_time_delta_from_start_and_set_named_timestamp("Scheduler", "ScheduleWork")
         self.partial_program_order.schedule_work()
 
         ## Respond to any waiting nodes that have been deemed to be unsafe
         self.check_unsafe_and_waiting()
+        log_time_delta_from_named_timestamp("Scheduler", "ScheduleWork")
 
     def run(self):
         ## The first command should be the daemon start
@@ -266,6 +289,7 @@ class Scheduler:
 
 
 def main():
+    log_time_delta_from_start("Scheduler", "Scheduler Init")
     args = init()
 
     # Format logging
@@ -284,7 +308,10 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
     # elif args.debug_level >= 3:
     #     logging.getLogger().setLevel(logging.TRACE)
-
+    
+    # Set optimization options
+    config.SANDBOX_KILLING = args.sandbox_killing
+    config.SPECULATE_IMMEDIATELY = args.speculate_immediately
     scheduler = Scheduler(config.SCHEDULER_SOCKET)
     scheduler.run()
    

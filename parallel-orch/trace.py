@@ -4,6 +4,7 @@ import os
 from typing import Tuple
 from enum import Enum
 import logging
+from copy import deepcopy
 
 
 class Ref(Enum):
@@ -44,8 +45,15 @@ class PathRef:
 
     def __str__(self):
         return f"PathRef({self.ref}, {self.path}, {'r' if self.is_read else '-'}{'w' if self.is_write else '-'}{'x' if self.is_exec else '-'} {'no follow' if self.is_nofollow else ''})"
+    
+    def __repr__(self) -> str:
+        return self.__str__()
 
     def get_resolved_path(self):
+        
+        if isinstance(self.ref, PathRef):
+            self.ref = self.ref.get_resolved_path()
+        
         # Remove dupliate prefixes
         if not self.path.startswith("/"):
             modified_path = "/" + self.path
@@ -60,6 +68,7 @@ class PathRef:
 
         return os.path.join(commonprefix, ref_without_prefix, path_without_prefix).replace("/./", "/")
 
+    
 
 class PathRefKey:
 
@@ -78,6 +87,9 @@ class PathRefKey:
 
     def __str__(self):
         return f"Key({self.lhs_ref}@{self.env})"
+    
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
 class ExpectResult():
@@ -88,6 +100,15 @@ class ExpectResult():
 
     def __str__(self, ref, result):
         return f"ExpectResult({self.ref}, {self.result})"
+
+
+class PipeRef:
+    
+    def __init__(self, lhs_ref, env):
+        self.ref = PathRefKey(env, lhs_ref)
+        
+    def __str__(self):
+        return f"PipeRef({self.lhs_ref})"
 
 
 def log_resolved_trace_items(resolved_dict):
@@ -116,6 +137,9 @@ def is_no_command_prefix(line):
 
 def is_new_path_ref(trace_item):
     return "PathRef" in trace_item
+
+def is_pipe_ref(trace_item):
+    return "PipeRef" in trace_item
 
 
 def get_path_ref_id(trace_item):
@@ -174,9 +198,9 @@ def is_launch(line):
 
 
 def parse_launch_command(trace_item):
-    assignment_prefix = trace_item.split(", ")[0].split(
+    assignment_prefix = trace_item.split("], ")[0].split(
         "([Command ")[1].rstrip("]").strip()
-    assignment_suffix = ", ".join(trace_item.split(", ")[1:]).strip()
+    assignment_suffix = ", ".join(trace_item.split("], ")[1:]).strip()
     assignment_string = assignment_suffix[1:-2].split(",")
     assignments = [(x.split("=")) for x in assignment_string]
     return assignment_prefix, assignments
@@ -210,6 +234,8 @@ def is_expect_result(trace_item):
 def parse_expect_result(trace_item):
     return trace_item.lstrip("ExpectResult(").split(")")[0].split(", ")
 
+def parse_pipe_ref(trace_item):
+    return trace_item.split("] = ")[0].lstrip("[").split(", ")
 
 def parse_launch(refs_dict, keys_order, env, line) -> None:
     assignment_prefix, assignments = parse_launch_command(
@@ -219,7 +245,6 @@ def parse_launch(refs_dict, keys_order, env, line) -> None:
         rhs_ref = PathRefKey(env, assignment[1].strip())
         refs_dict[lhs_ref] = refs_dict[rhs_ref]
         keys_order.append(lhs_ref)
-
 
 def add_ref_to_refs_dict(refs_dict, keys_order, lhs_ref, ref):
     refs_dict[lhs_ref] = ref
@@ -256,13 +281,25 @@ def parse_new_path_ref(refs_dict, keys_order, env, line):
     refs_dict[lhs_ref] = path_ref
     keys_order.append(lhs_ref)
 
-
 def parse_expect_result_item(expect_result_dict, env, line):
     line = remove_command_prefix(line).strip()
     path_ref_id, result = parse_expect_result(line)
     lhs_ref = PathRefKey(env, path_ref_id)
     expect_result_dict[lhs_ref] = ExpectResult(lhs_ref, result)
-
+    
+def parse_pipe_ref_item(refs_dict, keys_order, env, line):
+    line = remove_command_prefix(line).strip()
+    # lhs_ref, rhs_ref = parse_pipe_ref(line)
+    # Warning HACK: This is a hack to get the correct lhs_ref
+    # we are probably ok with this because it.
+    rhs_ref, lhs_ref = parse_pipe_ref(line)
+    lhs_key = PathRefKey(env, lhs_ref)
+    lhs_key_rev = PathRefKey(env, rhs_ref)
+    pipe_ref = PipeRef(rhs_ref, env)
+    pipe_ref_rev = PipeRef(lhs_ref, env)
+    refs_dict[lhs_key] = pipe_ref.ref
+    refs_dict[lhs_key_rev] = pipe_ref_rev.ref
+    keys_order.append(lhs_key)
 
 def parse_rw_sets(trace_object) -> None:
     # logging.trace("".join(trace_object))
@@ -284,6 +321,9 @@ def parse_rw_sets(trace_object) -> None:
         # Parses PathRef(...)
         elif is_new_path_ref(line):
             parse_new_path_ref(refs_dict, keys_order, env, line)
+        # Parses PipeRef
+        elif is_pipe_ref(line):
+            parse_pipe_ref_item(refs_dict, keys_order, env, line)
         # Parses ExpectResult(...)
         elif is_expect_result(line):
             parse_expect_result_item(expect_result_dict, env, line)
@@ -308,19 +348,25 @@ def replace_path_ref_terminal_nodes(refs_dict: dict):
     refs_dict_new = {}
     for i, ref in refs_dict.items():
         if isinstance(ref, PathRef):
+            
             # HACK: This is hard-coded stdout
             if ref.path == "" and ref.is_nofollow:
                 continue
             else:
-                if ref.ref not in refs_dict:
+                # If ref of ref is string, it means that we reached a terminal node.
+                if isinstance(ref.ref, str):
+                    pass
+                elif ref.ref not in refs_dict:
                     key = PathRefKey("No Command", "r1")
                     ref.ref = refs_dict[key].value
                 else:
+                    
                     if isinstance(refs_dict[ref.ref], Ref):
-                        ref.ref = refs_dict[ref.ref].value
+                        ref.ref = deepcopy(str(refs_dict[ref.ref].value))
                     else:
-                        ref.ref = os.getcwd()
-                refs_dict_new[i] = ref
+                        ref.ref = deepcopy(refs_dict[ref.ref])
+                assert(i not in refs_dict_new)
+                refs_dict_new[i] = deepcopy(ref)
     return refs_dict_new
 
 
@@ -406,3 +452,22 @@ def parse_exit_code(trace_object) -> int:
     for line in reversed(trace_object):
         if "Exit(" in line:
             return int(line.split("Exit(")[1].rstrip(")\n"))
+
+# Trace can be called as a script with the trace file to analyze as an argument
+def main():
+    logging.basicConfig(level=logging.DEBUG)
+    trace_file = sys.argv[1]
+    with open(trace_file, "r") as f:
+        trace_object = f.readlines()
+    read_set, write_set = parse_and_gather_cmd_rw_sets(trace_object)
+    print("Read set:")
+    for r in read_set:
+        print(r)
+    print("Write set:")
+    for w in write_set:
+        print(w)
+    print("Exit code:")
+    print(parse_exit_code(trace_object))
+    
+if __name__ == "__main__":
+    main()

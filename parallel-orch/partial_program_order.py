@@ -283,6 +283,8 @@ class PartialProgramOrder:
         self.latest_envs = {}
         self.initial_env_file = initial_env_file
         self.waiting_for_frontend = set()
+        ## In case we spot a dependency meaning a node must execute after another node, it will appear here
+        ## Contains the nodes to execute only after the key node finishes execution
         self.run_after = defaultdict(set)
         self.pending_to_execute = set()
         self.to_be_resolved_prev = {}
@@ -367,10 +369,17 @@ class PartialProgramOrder:
         most_recent_env_node = node_id
         while self.get_new_env_file_for_node(most_recent_env_node) is None:
             predecessor = self.get_prev(most_recent_env_node)
+            
+            ## This will trigger when we move to full Partial Orders
+            assert len(predecessor) <= 1
+            
+            ## If there are no predecessors for a node it means we are at the source
+            ## so there is no point to search further back
             if len(predecessor) == 0:
-                return None
+                break
             else:
                 most_recent_env_node = predecessor[0]
+
         return self.get_new_env_file_for_node(most_recent_env_node)
 
     ## This returns all previous nodes of a sub partial order

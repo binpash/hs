@@ -1,6 +1,7 @@
 import os
 import subprocess
 import logging
+import time
 
 
 ## TODO: Figure out how logging here plays out together with the log() in PaSh
@@ -27,17 +28,23 @@ else:
 
 
 ## Ensure that PASH_TMP_PREFIX is set by pa.sh
-assert(not os.getenv('PASH_SPEC_TMP_PREFIX') is None)
+# assert(not os.getenv('PASH_SPEC_TMP_PREFIX') is None)
 PASH_SPEC_TMP_PREFIX = os.getenv('PASH_SPEC_TMP_PREFIX')
 
 SOCKET_BUF_SIZE = 8192
 
 SCHEDULER_SOCKET = os.getenv('PASH_SPEC_SCHEDULER_SOCKET')
 
-MAX_KILL_ATTEMPTS = 10  # Define a maximum number of kill attempts for each process in the partial program order
-
 INSIGNIFICANT_VARS = {'PWD', 'OLDPWD', 'SHLVL', 'PASH_SPEC_TMP_PREFIX', 'PASH_SPEC_SCHEDULER_SOCKET', 'PASH_SPEC_TOP',
                       'PASH_TOP', 'PASH_TOP_LEVEL','RANDOM', 'LOGNAME', 'MACHTYPE', 'MOTD_SHOWN', 'OPTERR', 'OPTIND',
                       'PPID', 'PROMPT_COMMAND', 'PS4', 'SHELL', 'SHELLOPTS', 'SHLVL', 'TERM', 'UID', 'USER', 'XDG_SESSION_ID'}
 
-SIGNIFICANT_VARS = {'foo', 'bar', 'baz'}
+SIGNIFICANT_VARS = {'foo', 'bar', 'baz', 'file1', 'file2', 'file3', 'file4', 'file5', 'LC_ALL', 'nchars', 'filename'}
+
+START_TIME = time.time()
+
+named_timestamps = {}
+
+sandbox_killing = False
+all_node_env_resolution = False
+speculate_immidiately = False

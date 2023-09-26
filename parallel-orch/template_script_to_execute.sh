@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# TODO: There is a bug here and parsing of RW dependencies doesn't really work
-#       when we add the following line.
-# echo 'declare -p > "$OUTPUT_VARIABLE_FILE"' >> ./Rikerfile
-
 touch "$TEMPDIR/Rikerfile"
 
 ## We source the latest env file
@@ -14,7 +10,7 @@ echo "source $LATEST_ENV_FILE" > "$TEMPDIR/Rikerfile"
 echo $CMD_STRING >> "$TEMPDIR/Rikerfile"
 
 ## Add command to export Riker's environment variables after run is complete to a file
-echo "source $RUNTIME_DIR/pash_declare_vars.sh $RIKER_ENV_FILE" >> "$TEMPDIR/Rikerfile"
+echo "source $RUNTIME_DIR/pash_declare_vars.sh $POST_EXEC_ENV" >> "$TEMPDIR/Rikerfile"
 
 if [ $speculate_flag -eq 1 ]; then
     rkr_cmd="rkr"

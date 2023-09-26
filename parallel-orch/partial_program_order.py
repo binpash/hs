@@ -283,6 +283,8 @@ class PartialProgramOrder:
         self.latest_envs = {}
         self.initial_env_file = initial_env_file
         self.waiting_for_frontend = set()
+        ## In case we spot a dependency meaning a node must execute after another node, it will appear here
+        ## Contains the nodes to execute only after the key node finishes execution
         self.run_after = defaultdict(set)
         self.pending_to_execute = set()
         self.to_be_resolved_prev = {}
@@ -367,10 +369,17 @@ class PartialProgramOrder:
         most_recent_env_node = node_id
         while self.get_new_env_file_for_node(most_recent_env_node) is None:
             predecessor = self.get_prev(most_recent_env_node)
+            
+            ## This will trigger when we move to full Partial Orders
+            assert len(predecessor) <= 1
+            
+            ## If there are no predecessors for a node it means we are at the source
+            ## so there is no point to search further back
             if len(predecessor) == 0:
-                return None
+                break
             else:
                 most_recent_env_node = predecessor[0]
+
         return self.get_new_env_file_for_node(most_recent_env_node)
 
     ## This returns all previous nodes of a sub partial order
@@ -409,7 +418,7 @@ class PartialProgramOrder:
         self.init_workset()
         logging.debug(f'Initialized workset')
         self.populate_to_be_resolved_dict()
-        if config.speculate_immidiately:
+        if config.SPECULATE_IMMEDIATELY:
             self.init_latest_env_files()
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.to_be_resolved)
@@ -616,8 +625,8 @@ class PartialProgramOrder:
     def add_to_speculated(self, node_id: NodeId):
         self.speculated = self.speculated.union([node_id])
 
-    def is_first_node_when_env_is_uninitialized(self, speculate_immidiately):
-        if not speculate_immidiately:
+    def is_first_node_when_env_is_uninitialized(self, speculate_immediately):
+        if not speculate_immediately:
             starting_env_node = self.get_source_nodes()
             ## We may have a loop node at the start
             ## In that case, we roll back to the initial env
@@ -693,40 +702,6 @@ class PartialProgramOrder:
                 logging.critical(proc)
         else:
             logging.debug("All processes were successfully terminated.")
-        
-    def resolve_dependencies_early(self, node_id=None):
-        to_check = {node for node in self.waiting_for_frontend if node not in self.speculated}
-        if node_id:
-            to_check.add(node_id)
-        node_id_has_dependency = False
-        for second_cmd_id in to_check:
-            ## reverse sort breaks because it does not guarantee that the new env has arrived
-            for first_cmd_id in sorted(self.to_be_resolved[second_cmd_id], reverse=True):
-                if self.rw_sets.get(first_cmd_id) is not None:
-                    if self.has_forward_dependency(first_cmd_id, second_cmd_id):                       
-                        # if second_cmd_id not in self.workset and self.check_if_to_be_resolved_entry_would_change(second_cmd_id):
-                        node_id_has_dependency = True
-                        self.waiting_for_frontend.discard(second_cmd_id)
-                        self.run_after[first_cmd_id].add(second_cmd_id)
-                        self.pending_to_execute.add(second_cmd_id)
-                        # self.workset.append(second_cmd_id)
-                        logging.debug(f"Early resolution: Rerunning node {second_cmd_id} after {first_cmd_id} because of a dependency")
-                        log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution", second_cmd_id)
-                        break
-        # if node_id_has_dependency == True:
-        self.populate_to_be_resolved_dict()
-        for node in self.pending_to_execute:
-            prev_to_be_resoved = self.to_be_resolved_prev.get(node)
-            if prev_to_be_resoved is None:
-                return
-            elif set(self.to_be_resolved[node]) == set(prev_to_be_resoved):
-                # Not caring about this dependency because env has not yet changed
-                logging.debug()
-                self.pending_to_execute.remove(node)
-                for k, v in self.run_after.items():
-                    if node in v:
-                        self.run_after[k].remove(node)
-        return
 
     def resolve_commands_that_can_be_resolved_and_push_frontier(self):
         # This may be obsolete since we only resolve one node at a time
@@ -750,28 +725,66 @@ class PartialProgramOrder:
         else:
             logging.debug(f" > Nodes to be committed this round: {to_commit}")
             logging.trace(f"Commit|"+",".join(str(node_id) for node_id in to_commit))
-            if config.sandbox_killing:
+            if config.SANDBOX_KILLING:
                 logging.info("Sandbox killing")
                 self.__kill_all_currently_executing_and_schedule_restart(to_commit)
             log_time_delta_from_named_timestamp("PartialOrder", "ProcKilling")
             self.commit_cmd_workspaces(to_commit)
 
+    def check_dependencies(self, cmds_to_check, get_first_cmd_ids_fn, update_state_due_to_a_dependency_fn):
+        for second_cmd_id in cmds_to_check:
+            for first_cmd_id in get_first_cmd_ids_fn(second_cmd_id):
+                
+                if self.rw_sets.get(first_cmd_id) is not None and self.has_forward_dependency(first_cmd_id, second_cmd_id):
+                    update_state_due_to_a_dependency_fn(first_cmd_id, second_cmd_id)
+
+    # Internal function, modified the run_after dict and the pending_to_execute set
+    def __populate_run_after_dict(self):
+        for node in self.pending_to_execute.copy():
+            prev_to_be_resolved = self.to_be_resolved_prev.get(node)
+            if prev_to_be_resolved is None:
+                return
+            # Check if env has changed since last comparison
+            elif set(self.to_be_resolved[node]) == set(prev_to_be_resolved):
+                # Not caring about this dependency because env has not yet changed
+                self.pending_to_execute.remove(node)
+                for k, v in self.run_after.items():
+                    if node in v:
+                        self.run_after[k].remove(node)
+
+    ## Spots dependencies and updates the state.
+    ## Safe to call everywhere
+    def resolve_dependencies_early(self, node_id=None):
+        def get_first_cmd_ids(second_cmd_id):
+            return sorted(self.to_be_resolved[second_cmd_id], reverse=True)
+
+        def update_state_due_to_a_dependency(first_cmd_id, second_cmd_id):
+            self.waiting_for_frontend.discard(second_cmd_id)
+            self.run_after[first_cmd_id].add(second_cmd_id)
+            self.pending_to_execute.add(second_cmd_id)
+            logging.debug(f"Early resolution: Rerunning node {second_cmd_id} after {first_cmd_id} because of a dependency")
+            log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution", second_cmd_id)
+
+        to_check = {node for node in self.waiting_for_frontend if node not in self.speculated}
+        if node_id is not None:
+            to_check.add(node_id)
+        self.check_dependencies(to_check, get_first_cmd_ids, update_state_due_to_a_dependency)
+        self.populate_to_be_resolved_dict()
+        self.__populate_run_after_dict()
 
     def resolve_dependencies(self, cmds_to_resolve):
-        # Init stuff
+        def get_first_cmd_ids(second_cmd_id):
+            return sorted([cmd_id for cmd_id in self.to_be_resolved[second_cmd_id] if cmd_id not in self.stopped])
+
+        def update_state_due_to_a_dependency(first_cmd_id, second_cmd_id):
+            logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
+            new_workset.add(second_cmd_id)
+        
         new_workset = set()
-        for second_cmd_id in sorted(cmds_to_resolve):
-            first_cmd_ids = sorted([cmd_id for cmd_id in self.to_be_resolved[second_cmd_id] if cmd_id not in self.stopped])
-            for first_cmd_id in first_cmd_ids:
-                if second_cmd_id not in new_workset:
-                    ## We only check for forward dependencies if the first node is not a loop (abstract) node
-                    if self.is_loop_node(first_cmd_id):
-                        logging.debug(f' > Skipping dependency check with node {first_cmd_id} because it is a loop node')
-                        continue
-                    if self.has_forward_dependency(first_cmd_id, second_cmd_id):
-                        logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
-                        new_workset.add(second_cmd_id)
+        self.check_dependencies(sorted(cmds_to_resolve), get_first_cmd_ids, update_state_due_to_a_dependency)
+        
         return new_workset
+
 
     ## Resolve all the forward dependencies and update the workset
     ## Forward dependency is when a command's output is the same
@@ -1264,7 +1277,7 @@ class PartialProgramOrder:
 
     ## TODO: Eventually, in the future, let's add here some form of limit
     def schedule_work(self, limit=0):
-        if self.is_first_node_when_env_is_uninitialized(config.speculate_immidiately):
+        if self.is_first_node_when_env_is_uninitialized(config.SPECULATE_IMMEDIATELY):
             logging.debug("Not scheduling work yet, waiting for first Wait")
             return
         # self.log_partial_program_order_info()

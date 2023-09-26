@@ -28,7 +28,6 @@ else:
 
 
 ## Ensure that PASH_TMP_PREFIX is set by pa.sh
-# assert(not os.getenv('PASH_SPEC_TMP_PREFIX') is None)
 PASH_SPEC_TMP_PREFIX = os.getenv('PASH_SPEC_TMP_PREFIX')
 
 SOCKET_BUF_SIZE = 8192
@@ -43,8 +42,8 @@ SIGNIFICANT_VARS = {'foo', 'bar', 'baz', 'file1', 'file2', 'file3', 'file4', 'fi
 
 START_TIME = time.time()
 
-named_timestamps = {}
+NAMED_TIMESTAMPS = {}
 
-sandbox_killing = False
-all_node_env_resolution = False
-speculate_immidiately = False
+SANDBOX_KILLING = False
+ALL_NODE_ENV_RESOLUTION = False
+SPECULATE_IMMEDIATELY = False

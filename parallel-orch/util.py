@@ -103,12 +103,12 @@ def log_time_delta_from_start(module: str, action: str, node=None):
 def set_named_timestamp(action: str, node=None, key=None):
     if key is None:
         key = f"{action}{',' + str(node) if node is not None else ''}"
-    config.named_timestamps[key] = time.time()
+    config.NAMED_TIMESTAMPS[key] = time.time()
     
 def invalidate_named_timestamp(action: str, node=None, key=None):
     if key is None:
         key = f"{action}{',' + str(node) if node is not None else ''}"
-    del config.named_timestamps[key]
+    del config.NAMED_TIMESTAMPS[key]
     
 def log_time_delta_from_start_and_set_named_timestamp(module: str, action: str, node=None, key=None):
     try:
@@ -121,7 +121,7 @@ def log_time_delta_from_named_timestamp(module: str, action: str, node=None, key
     try:
         if key is None:
             key = f"{action}{',' + str(node) if node is not None else ''}"
-        logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}|Step time:{to_milliseconds_str(time.time() - config.named_timestamps[key])}")
+        logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}|Step time:{to_milliseconds_str(time.time() - config.NAMED_TIMESTAMPS[key])}")
         if invalidate:
             invalidate_named_timestamp(action, node, key)
     except KeyError:

@@ -2,7 +2,7 @@
 
 ### Overview
 
-`hs` is an out-of-order shell designed to execute script commands in a speculative parallel manner. It achieves this by tracing the script's execution, and if an error arises due to speculative execution, the script re-executes the necessary parts to ensure correct outcomes. The project aims to boost the parallel execution of shell scripts, reducing their runtime and enhancing efficiency.
+`hs` is a system for executing shell scripts out of order. It achieves this by tracing the script's execution, and if an error arises due to speculative execution, the script re-executes the necessary parts to ensure correct outcomes. The project aims to boost the parallel execution of shell scripts, reducing their runtime and enhancing efficiency.
 
 ### Structure
 

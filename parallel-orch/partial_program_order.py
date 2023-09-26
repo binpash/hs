@@ -702,40 +702,6 @@ class PartialProgramOrder:
                 logging.critical(proc)
         else:
             logging.debug("All processes were successfully terminated.")
-        
-    def resolve_dependencies_early(self, node_id=None):
-        to_check = {node for node in self.waiting_for_frontend if node not in self.speculated}
-        if node_id:
-            to_check.add(node_id)
-        node_id_has_dependency = False
-        for second_cmd_id in to_check:
-            ## reverse sort breaks because it does not guarantee that the new env has arrived
-            for first_cmd_id in sorted(self.to_be_resolved[second_cmd_id], reverse=True):
-                if self.rw_sets.get(first_cmd_id) is not None:
-                    if self.has_forward_dependency(first_cmd_id, second_cmd_id):                       
-                        # if second_cmd_id not in self.workset and self.check_if_to_be_resolved_entry_would_change(second_cmd_id):
-                        node_id_has_dependency = True
-                        self.waiting_for_frontend.discard(second_cmd_id)
-                        self.run_after[first_cmd_id].add(second_cmd_id)
-                        self.pending_to_execute.add(second_cmd_id)
-                        # self.workset.append(second_cmd_id)
-                        logging.debug(f"Early resolution: Rerunning node {second_cmd_id} after {first_cmd_id} because of a dependency")
-                        log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution", second_cmd_id)
-                        break
-        # if node_id_has_dependency == True:
-        self.populate_to_be_resolved_dict()
-        for node in self.pending_to_execute:
-            prev_to_be_resoved = self.to_be_resolved_prev.get(node)
-            if prev_to_be_resoved is None:
-                return
-            elif set(self.to_be_resolved[node]) == set(prev_to_be_resoved):
-                # Not caring about this dependency because env has not yet changed
-                logging.debug()
-                self.pending_to_execute.remove(node)
-                for k, v in self.run_after.items():
-                    if node in v:
-                        self.run_after[k].remove(node)
-        return
 
     def resolve_commands_that_can_be_resolved_and_push_frontier(self):
         # This may be obsolete since we only resolve one node at a time
@@ -765,22 +731,60 @@ class PartialProgramOrder:
             log_time_delta_from_named_timestamp("PartialOrder", "ProcKilling")
             self.commit_cmd_workspaces(to_commit)
 
+    def check_dependencies(self, cmds_to_check, get_first_cmd_ids_fn, update_state_due_to_a_dependency_fn):
+        for second_cmd_id in cmds_to_check:
+            for first_cmd_id in get_first_cmd_ids_fn(second_cmd_id):
+                
+                if self.rw_sets.get(first_cmd_id) is not None and self.has_forward_dependency(first_cmd_id, second_cmd_id):
+                    update_state_due_to_a_dependency_fn(first_cmd_id, second_cmd_id)
+
+    # Internal function, modified the run_after dict and the pending_to_execute set
+    def __populate_run_after_dict(self):
+        for node in self.pending_to_execute.copy():
+            prev_to_be_resolved = self.to_be_resolved_prev.get(node)
+            if prev_to_be_resolved is None:
+                return
+            # Check if env has changed since last comparison
+            elif set(self.to_be_resolved[node]) == set(prev_to_be_resolved):
+                # Not caring about this dependency because env has not yet changed
+                self.pending_to_execute.remove(node)
+                for k, v in self.run_after.items():
+                    if node in v:
+                        self.run_after[k].remove(node)
+
+    ## Spots dependencies and updates the state.
+    ## Safe to call everywhere
+    def resolve_dependencies_early(self, node_id=None):
+        def get_first_cmd_ids(second_cmd_id):
+            return sorted(self.to_be_resolved[second_cmd_id], reverse=True)
+
+        def update_state_due_to_a_dependency(first_cmd_id, second_cmd_id):
+            self.waiting_for_frontend.discard(second_cmd_id)
+            self.run_after[first_cmd_id].add(second_cmd_id)
+            self.pending_to_execute.add(second_cmd_id)
+            logging.debug(f"Early resolution: Rerunning node {second_cmd_id} after {first_cmd_id} because of a dependency")
+            log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution", second_cmd_id)
+
+        to_check = {node for node in self.waiting_for_frontend if node not in self.speculated}
+        if node_id is not None:
+            to_check.add(node_id)
+        self.check_dependencies(to_check, get_first_cmd_ids, update_state_due_to_a_dependency)
+        self.populate_to_be_resolved_dict()
+        self.__populate_run_after_dict()
 
     def resolve_dependencies(self, cmds_to_resolve):
-        # Init stuff
+        def get_first_cmd_ids(second_cmd_id):
+            return sorted([cmd_id for cmd_id in self.to_be_resolved[second_cmd_id] if cmd_id not in self.stopped])
+
+        def update_state_due_to_a_dependency(first_cmd_id, second_cmd_id):
+            logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
+            new_workset.add(second_cmd_id)
+        
         new_workset = set()
-        for second_cmd_id in sorted(cmds_to_resolve):
-            first_cmd_ids = sorted([cmd_id for cmd_id in self.to_be_resolved[second_cmd_id] if cmd_id not in self.stopped])
-            for first_cmd_id in first_cmd_ids:
-                if second_cmd_id not in new_workset:
-                    ## We only check for forward dependencies if the first node is not a loop (abstract) node
-                    if self.is_loop_node(first_cmd_id):
-                        logging.debug(f' > Skipping dependency check with node {first_cmd_id} because it is a loop node')
-                        continue
-                    if self.has_forward_dependency(first_cmd_id, second_cmd_id):
-                        logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
-                        new_workset.add(second_cmd_id)
+        self.check_dependencies(sorted(cmds_to_resolve), get_first_cmd_ids, update_state_due_to_a_dependency)
+        
         return new_workset
+
 
     ## Resolve all the forward dependencies and update the workset
     ## Forward dependency is when a command's output is the same

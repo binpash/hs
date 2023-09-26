@@ -29,7 +29,11 @@ def parse_args():
     parser.add_argument("--sandbox-killing",
                         action="store_true",
                         default=False,
-                        help="Kill any running overlay instances before commiting to the lower layer")
+                    help="Kill any running overlay instances before commiting to the lower layer")
+    parser.add_argument("--speculate-immediately",
+                    action="store_true",
+                    default=False,
+                    help="Speculate immediately instead of waiting for the first Wait message.")
     
     args, unknown_args = parser.parse_known_args()
     return args
@@ -162,7 +166,7 @@ class Scheduler:
         ## Get the completed node info
         node = self.partial_program_order.get_node(node_id)
         completed_node_info = node.get_completed_node_info()
-        msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_post_exec_env()} {completed_node_info.get_stdout_file()}'
+        msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_post_execution_env_file()} {completed_node_info.get_stdout_file()}'
         response = success_response(msg)
         ## Send the response
         self.respond_to_frontend_core(node_id, response)
@@ -307,7 +311,6 @@ def main():
     
     # Set optimization options
     config.SANDBOX_KILLING = args.sandbox_killing
-    config.ALL_NODE_ENV_RESOLUTION = args.env_check_all_nodes_on_wait
     config.SPECULATE_IMMEDIATELY = args.speculate_immediately
     scheduler = Scheduler(config.SCHEDULER_SOCKET)
     scheduler.run()

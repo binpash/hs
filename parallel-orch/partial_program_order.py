@@ -15,17 +15,17 @@ from shasta.ast_node import AstNode, CommandNode, PipeNode
 
 
 class CompletedNodeInfo:
-    def __init__(self, exit_code, post_exec_env, stdout_file, sandbox_dir):
+    def __init__(self, exit_code, post_execution_env_file, stdout_file, sandbox_dir):
         self.exit_code = exit_code
-        self.post_exec_env = post_exec_env
+        self.post_execution_env_file = post_execution_env_file
         self.stdout_file = stdout_file
         self.sandbox_dir = sandbox_dir
 
     def get_exit_code(self):
         return self.exit_code
 
-    def get_post_exec_env(self):
-        return self.post_exec_env
+    def get_post_execution_env_file(self):
+        return self.post_execution_env_file
 
     def get_stdout_file(self):
         return self.stdout_file
@@ -34,7 +34,7 @@ class CompletedNodeInfo:
         return self.sandbox_dir
 
     def __str__(self):
-        return f'CompletedNodeInfo(ec:{self.get_exit_code()}, env:{self.get_post_exec_env()}, stdout:{self.get_stdout_file()}, sandbox:{self.get_sandbox_dir()})'
+        return f'CompletedNodeInfo(ec:{self.get_exit_code()}, env:{self.get_post_execution_env_file()}, stdout:{self.get_stdout_file()}, sandbox:{self.get_sandbox_dir()})'
 
 ## This class is used for both loop contexts and loop iters
 ## The indices go from inner to outer
@@ -690,7 +690,7 @@ class PartialProgramOrder:
 
     def __kill_node(self, cmd_id: "NodeId"):
         logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
-        proc_to_kill, trace_file, _stdout, _stderr, _post_exec_env = self.commands_currently_executing.pop(cmd_id)
+        proc_to_kill, trace_file, _stdout, _stderr, _post_execution_env_file = self.commands_currently_executing.pop(cmd_id)
         # Add the trace file to the banned file list so we know to ignore the CommandExecComplete response
         self.banned_files.add(trace_file)
 
@@ -1399,7 +1399,7 @@ class PartialProgramOrder:
             ## Save the completed node info. Note that if the node doesn't commit
             ##  this information will be invalid and rewritten the next time execution
             ##  is completed for this node.
-            completed_node_info = CompletedNodeInfo(cmd_exit_code, post_exec_env, stdout, sandbox_dir)
+            completed_node_info = CompletedNodeInfo(cmd_exit_code, post_execution_env_file, stdout, sandbox_dir)
             self.nodes[node_id].set_completed_info(completed_node_info)
             
             ## We no longer add failed commands to the stopped set, 

@@ -4,7 +4,6 @@ import os
 from typing import Tuple
 from enum import Enum
 import logging
-from copy import deepcopy
 
 
 class Ref(Enum):
@@ -45,15 +44,8 @@ class PathRef:
 
     def __str__(self):
         return f"PathRef({self.ref}, {self.path}, {'r' if self.is_read else '-'}{'w' if self.is_write else '-'}{'x' if self.is_exec else '-'} {'no follow' if self.is_nofollow else ''})"
-    
-    def __repr__(self) -> str:
-        return self.__str__()
 
     def get_resolved_path(self):
-        
-        if isinstance(self.ref, PathRef):
-            self.ref = self.ref.get_resolved_path()
-        
         # Remove dupliate prefixes
         if not self.path.startswith("/"):
             modified_path = "/" + self.path
@@ -68,7 +60,6 @@ class PathRef:
 
         return os.path.join(commonprefix, ref_without_prefix, path_without_prefix).replace("/./", "/")
 
-    
 
 class PathRefKey:
 
@@ -198,9 +189,9 @@ def is_launch(line):
 
 
 def parse_launch_command(trace_item):
-    assignment_prefix = trace_item.split("], ")[0].split(
+    assignment_prefix = trace_item.split(", ")[0].split(
         "([Command ")[1].rstrip("]").strip()
-    assignment_suffix = ", ".join(trace_item.split("], ")[1:]).strip()
+    assignment_suffix = ", ".join(trace_item.split(", ")[1:]).strip()
     assignment_string = assignment_suffix[1:-2].split(",")
     assignments = [(x.split("=")) for x in assignment_string]
     return assignment_prefix, assignments
@@ -348,25 +339,19 @@ def replace_path_ref_terminal_nodes(refs_dict: dict):
     refs_dict_new = {}
     for i, ref in refs_dict.items():
         if isinstance(ref, PathRef):
-            
             # HACK: This is hard-coded stdout
             if ref.path == "" and ref.is_nofollow:
                 continue
             else:
-                # If ref of ref is string, it means that we reached a terminal node.
-                if isinstance(ref.ref, str):
-                    pass
-                elif ref.ref not in refs_dict:
+                if ref.ref not in refs_dict:
                     key = PathRefKey("No Command", "r1")
                     ref.ref = refs_dict[key].value
                 else:
-                    
                     if isinstance(refs_dict[ref.ref], Ref):
-                        ref.ref = deepcopy(str(refs_dict[ref.ref].value))
+                        ref.ref = refs_dict[ref.ref].value
                     else:
-                        ref.ref = deepcopy(refs_dict[ref.ref])
-                assert(i not in refs_dict_new)
-                refs_dict_new[i] = deepcopy(ref)
+                        ref.ref = os.getcwd()
+                refs_dict_new[i] = ref
     return refs_dict_new
 
 
@@ -452,22 +437,3 @@ def parse_exit_code(trace_object) -> int:
     for line in reversed(trace_object):
         if "Exit(" in line:
             return int(line.split("Exit(")[1].rstrip(")\n"))
-
-# Trace can be called as a script with the trace file to analyze as an argument
-def main():
-    logging.basicConfig(level=logging.DEBUG)
-    trace_file = sys.argv[1]
-    with open(trace_file, "r") as f:
-        trace_object = f.readlines()
-    read_set, write_set = parse_and_gather_cmd_rw_sets(trace_object)
-    print("Read set:")
-    for r in read_set:
-        print(r)
-    print("Write set:")
-    for w in write_set:
-        print(w)
-    print("Exit code:")
-    print(parse_exit_code(trace_object))
-    
-if __name__ == "__main__":
-    main()

@@ -5,9 +5,8 @@ import socket
 import subprocess
 import tempfile
 import time
+import difflib
 import re
-import psutil
-import signal
 
 def ptempfile():
     fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX)
@@ -59,6 +58,46 @@ def socket_respond(connection: socket.socket, message: str):
     connection.sendall(bytes_message)
     connection.close()
 
+# Check if the process with the given PID is alive.
+def is_process_alive(pid) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    else:
+        return True
+
+# Get all child process PIDs of a process
+def get_child_processes(parent_pid) -> int:
+    try:
+        output = subprocess.check_output(['pgrep', '-P', str(parent_pid)])
+        return [int(pid) for pid in output.decode('utf-8').split()]
+    except subprocess.CalledProcessError:
+        # No child processes were found
+        return []
+
+# Note: Check this function as it does not seem the right way to kill a proc.
+# SIGKILL should be sent once and for all.
+# Kills the process with the provided PID.
+# Returns True if the process was successfully killed, False otherwise.
+def kill_process(pid: int) -> bool:
+    kill_attempts = 0
+    while is_process_alive(pid) and kill_attempts < config.MAX_KILL_ATTEMPTS:
+        try:
+            # Send SIGKILL signal for a forceful kill
+            subprocess.check_call(['kill', '-9', str(pid)])
+            time.sleep(0.005)  # Sleep for 5 milliseconds before checking again
+        except subprocess.CalledProcessError:
+            logging.debug(f"Failed to kill PID {pid}.")
+        kill_attempts += 1
+    
+    if kill_attempts >= config.MAX_KILL_ATTEMPTS:
+        logging.warning(f"Gave up killing PID {pid} after {config.MAX_KILL_ATTEMPTS} attempts.")
+        return False
+    
+    return True
+
+
 def parse_env_string_to_dict(content):
     # Parse scalar string vars
     scalar_vars_string = re.findall(r'declare (?:-x|--)? (\w+)="([^"]*)"', content, re.DOTALL)
@@ -96,76 +135,3 @@ def compare_env_strings(file1_content, file2_content):
     dict1 = parse_env_string_to_dict(file1_content)
     dict2 = parse_env_string_to_dict(file2_content)
     return compare_dicts(dict1, dict2)
-
-def log_time_delta_from_start(module: str, action: str, node=None):
-    logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time From start:{to_milliseconds_str(time.time() - config.START_TIME)}")
-
-def set_named_timestamp(action: str, node=None, key=None):
-    if key is None:
-        key = f"{action}{',' + str(node) if node is not None else ''}"
-    config.named_timestamps[key] = time.time()
-    
-def invalidate_named_timestamp(action: str, node=None, key=None):
-    if key is None:
-        key = f"{action}{',' + str(node) if node is not None else ''}"
-    del config.named_timestamps[key]
-    
-def log_time_delta_from_start_and_set_named_timestamp(module: str, action: str, node=None, key=None):
-    try:
-        set_named_timestamp(action, node, key)
-        logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}")
-    except KeyError:
-        logging.error(f"Named timestamp {key} already exists")
-    
-def log_time_delta_from_named_timestamp(module: str, action: str, node=None, key=None, invalidate=True):
-    try:
-        if key is None:
-            key = f"{action}{',' + str(node) if node is not None else ''}"
-        logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}|Step time:{to_milliseconds_str(time.time() - config.named_timestamps[key])}")
-        if invalidate:
-            invalidate_named_timestamp(action, node, key)
-    except KeyError:
-        logging.error(f"Named timestamp {key} does not exist")
-
-def to_milliseconds_str(seconds: float) -> str:
-    return f"{seconds * 1000:.3f}ms"
-
-
-
-def get_all_child_processes(pid):
-    try:
-        parent = psutil.Process(pid)
-    except psutil.NoSuchProcess:
-        return []
-    
-    children = parent.children(recursive=True)
-    parent_of_parent = parent.parent()
-    logging.critical("PARENT_PROCESS: " + str(parent_of_parent))
-    logging.critical("MAIN_PROCESS: " + str(parent))
-    all_processes = [parent] + children
-    for process in all_processes:
-        logging.critical("PROCESS: " + str(process))
-    return all_processes
-
-
-def kill_process_tree(pid, sig=signal.SIGTERM):
-    processes = get_all_child_processes(pid)
-    for proc in processes:
-        try:
-            os.kill(proc.pid, sig)
-        except (psutil.NoSuchProcess):
-            pass
-        except (PermissionError):
-            logging.critical("NO PERMISSION")
-        except (ProcessLookupError):
-            logging.critical("PROCESS LOOKUP ERROR")
-
-    # Check if processes are still alive
-    alive_processes = []
-    for proc in processes:
-        try:
-            if proc.is_running():
-                alive_processes.append(f"{proc}-({proc.status()})")
-        except:
-            pass
-    return alive_processes

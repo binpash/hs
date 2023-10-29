@@ -234,14 +234,13 @@ def parse_line(l, ctx):
 
 
 def main(fname):
-    with open(fname) as f:
-        s = f.read()
     ctx = Context()
     ctx.set_dir(os.getcwd())
-    for l in s.split('\n'):
-        record = parse_line(l, ctx)
-        if record:
-            print(record)
+    with open(fname) as f:
+        for l in f:
+            record = parse_line(l, ctx)
+            if record:
+                print(record)
 
 if __name__ == '__main__':
     main(sys.argv[1])

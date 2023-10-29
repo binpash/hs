@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <syscall.h>
 
 #define TMPDIR "/tmp/hs_tracer_test"
 
@@ -19,7 +20,7 @@ int main(void)
 	ret = chdir(TMPDIR);
 	if (ret < 0)
 		exit(1);
-	fd = open("a", O_RDONLY);
+	fd = syscall(SYS_open, "a", O_RDONLY);
 	if (fd < 0)
 		exit(1);
 	close(fd);

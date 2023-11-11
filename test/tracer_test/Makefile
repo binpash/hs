@@ -1,4 +1,4 @@
-objs = chdir pid fork symlink
+objs = chdir pid fork symlink getcwd retval mkdir
 
 CFLAGS=-O2
 

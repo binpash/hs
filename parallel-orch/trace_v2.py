@@ -1,13 +1,25 @@
 import re
 import os.path
 import sys
+from typing import Tuple
 from dataclasses import dataclass
 
 # Global TODOs:
 # handle pwd, such that open and stat can work
 
+@dataclass
+class ExitStatus:
+    exitcode: int
+    
 def parse_info(l):
-    return 0
+    if "exited" in l:
+        start = len("+++ exited with ")
+        end = -len(" +++")
+        return ExitStatus(int(l[start:end]))
+    elif 'killed' in l:
+        return ExitStatus(-1)
+    else:
+        raise ValueError
 
 @dataclass
 class RFile:
@@ -59,7 +71,7 @@ r_first_path_set = set(['execve', 'stat', 'lstat', 'access', 'statfs'])
 w_first_path_set = set(['mkdir'])
 r_fd_path_set = set(['fstatat', 'newfstatat'])
 w_fd_path_set = set(['unlinkat', 'utimensat'])
-ignore_set = set(['getpid'])
+ignore_set = set(['getpid', 'getcwd'])
 
 def parse_string(s):
     s = s.strip()
@@ -198,7 +210,7 @@ def parse_syscall(pid, syscall, args, ret, ctx):
 
 def strip_pid(l):
     if l[0].isdigit():
-        pair = l.split(' ', maxsplit=1)
+        pair = l.split(maxsplit=1)
         return int(pair[0]), pair[1]
     else:
         raise ValueError('expect pid')
@@ -212,12 +224,12 @@ def handle_info(l):
         return False, None
 
 def parse_line(l, ctx):
+    pid, l = strip_pid(l)
     is_info, info = handle_info(l)
     if is_info:
         return info
     if not len(l):
         return None
-    pid, l = strip_pid(l)
     if "<unfinished" in l:
         ctx.push_half_line(pid, l)
         return None
@@ -232,6 +244,30 @@ def parse_line(l, ctx):
     args = l[lparen+1:rparen]
     return parse_syscall(pid, syscall, args, ret, ctx)
 
+def parse_exit_code(trace_object) -> int:
+    if len(trace_object) < 1:
+        return None
+    l = trace_object[0]
+    first_pid, _ = strip_pid(l)
+    for l in trace_object:
+        pid, tmpl = strip_pid(l)
+        is_info, info = handle_info(tmpl)
+        if is_info and pid == first_pid and isinstance(info, ExitStatus):
+            return info.exitcode
+    raise ValueError("No exitcode")
+
+def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
+    ctx = Context()
+    ctx.set_dir(os.getcwd())
+    read_set = set()
+    write_set = set()
+    for l in trace_object:
+        record = parse_line(l, ctx)
+        if type(record) is RFile:
+            read_set.add(record.fname)
+        elif type(record) is WFile:
+            write_set.add(record.fname)
+    return read_set, write_set
 
 def main(fname):
     ctx = Context()

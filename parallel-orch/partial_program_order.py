@@ -7,6 +7,7 @@ import analysis
 import config
 import executor
 import trace
+import trace_v2
 from util import *
 import util
 from collections import defaultdict
@@ -1394,7 +1395,7 @@ class PartialProgramOrder:
             self.stopped.add(node_id)
         else:
             trace_object = executor.read_trace(sandbox_dir, trace_file)
-            cmd_exit_code = trace.parse_exit_code(trace_object)
+            cmd_exit_code = trace_v2.parse_exit_code(trace_object)
 
             ## Save the completed node info. Note that if the node doesn't commit
             ##  this information will be invalid and rewritten the next time execution
@@ -1405,7 +1406,7 @@ class PartialProgramOrder:
             ## We no longer add failed commands to the stopped set, 
             ## because this leads to more repetitions than needed
             ## and does not allow us to properly speculate commands
-            read_set, write_set = trace.parse_and_gather_cmd_rw_sets(trace_object)
+            read_set, write_set = trace_v2.parse_and_gather_cmd_rw_sets(trace_object)
             rw_set = RWSet(read_set, write_set)
             self.update_rw_set(node_id, rw_set)
 

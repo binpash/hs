@@ -34,6 +34,6 @@
 # echo 'second riker run done' 1>&2
 source $LATEST_ENV_FILE
 eval $(echo "strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $TRACE_FILE $CMD_STRING")
-
+exit_code=$?
 
 (exit $exit_code)

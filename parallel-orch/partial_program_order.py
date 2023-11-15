@@ -1368,6 +1368,7 @@ class PartialProgramOrder:
                 for node in run_after_nodes:
                     if node not in self.get_currently_executing():
                         logging.debug(f"Running node {node} after execution of {node_id}")
+                        self.waiting_for_frontend.discard(node)
                         self.workset.append(node)
                         self.pending_to_execute.discard(node)
                         self.set_latest_env_file_for_node(node, self.get_new_env_file_for_node(node_id))

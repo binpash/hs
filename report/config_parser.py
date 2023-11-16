@@ -1,5 +1,3 @@
-# config_parser.py
-
 import json
 import os
 

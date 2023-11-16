@@ -1,3 +1,4 @@
+import csv
 from command_executor import CommandExecutor
 from result_analyzer import ResultAnalyzer
 from report_generator import ReportGenerator
@@ -51,6 +52,9 @@ class BenchmarkRunner:
         ReportGenerator.print_results(benchmark.name, bash_time, orch_time, diff_lines, verbose=self.args.verbose)
         if not self.args.no_logs:
             ReportGenerator.save_log_data(orch_log, os.environ.get('REPORT_OUTPUT_DIR'), f"{benchmark.name}_log.log")
+        
+        ResultAnalyzer.analyze_node_execution_times(orch_log, benchmark.name, os.environ.get('REPORT_OUTPUT_DIR'), self.args.verbose)
+
 
     def generate_reports(self):
             # Generate CSV report if required
@@ -75,3 +79,7 @@ class BenchmarkRunner:
             activities = self.activities.get(benchmark.name, [])
             if activities:
                 benchmark_plots.plot_gantt(activities, os.environ.get('REPORT_OUTPUT_DIR'), f"{benchmark.name}_gantt", simple=self.args.full_gantt)
+
+    
+
+    

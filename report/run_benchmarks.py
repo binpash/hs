@@ -23,6 +23,7 @@ def parse_args():
     parser.add_argument('--csv-output', action='store_true', help="Generate and save results in CSV format.")
     parser.add_argument('--verbose', action='store_true', help="Enable verbose output.")
     parser.add_argument('--full-gantt', action='store_false', help="Generate a full Gantt chart for each benchmark.")
+    parser.add_argument('--config-file', type=str, default='benchmark_config.json', help="Path to the benchmark configuration file. Default is 'benchmark_config.json'.")
     
     return parser.parse_args()
 
@@ -37,16 +38,42 @@ def set_environment_variables():
     os.environ['PASH_SPEC_TOP'] = os.path.join(os.environ['ORCH_TOP'])
     os.environ['ORCH_COMMAND'] = os.path.join(os.environ['PASH_SPEC_TOP'], 'pash-spec.sh')
     os.environ['REPORT_OUTPUT_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'output')
+    add_kaggle_to_path()
+
+def add_kaggle_to_path():
+    try:
+        result = subprocess.run(['find', os.path.expanduser('~'), '-name', 'kaggle'], capture_output=True, text=True, check=True)
+        find_output = result.stdout.strip().split('\n')
+
+        # Find the most likely path (assuming it's in some 'bin' directory)
+        kaggle_path = next((path for path in find_output if 'bin' in path), None)
+
+        if kaggle_path:
+            # Extract the directory from the full path
+            kaggle_dir = os.path.dirname(kaggle_path)
+
+            # Add the directory to the PATH
+            os.environ['PATH'] += os.pathsep + kaggle_dir
+            print(f"Added {kaggle_dir} to PATH")
+        else:
+            print("Kaggle executable not found")
+    except subprocess.CalledProcessError as e:
+        print("Error finding kaggle command:", e)
+
+
 
 def main():
     
     set_environment_variables()
     args = parse_args()
-    
+
+    # Use the config file path from arguments
+    config_file_path = os.path.join(os.environ['WORKING_DIR'], args.config_file)
+
     # Parse benchmark configurations
-    config_parser = ConfigParser(os.path.join(os.environ['WORKING_DIR'], 'benchmark_config.json'))
+    config_parser = ConfigParser(os.path.join(os.environ['WORKING_DIR'], config_file_path))
     config_parser.parse_config()
-    
+
     Path(os.environ['RESOURCE_DIR']).mkdir(parents=True, exist_ok=True)
     Path(os.environ['REPORT_OUTPUT_DIR']).mkdir(parents=True, exist_ok=True)
     

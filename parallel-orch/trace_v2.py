@@ -1,4 +1,5 @@
 import re
+import logging
 import os.path
 import sys
 from typing import Tuple
@@ -270,7 +271,8 @@ def parse_line(l, ctx):
     lparen = l.find('(')
     equals = l.rfind('=')
     rparen = l[:equals].rfind(')')
-    assert lparen >= 0 and equals >= 0 and rparen >= 0
+    if not (lparen >= 0 and equals >= 0 and rparen >= 0):
+        return None
     syscall = l[:lparen]
     ret = l[equals+1:]
     args = l[lparen+1:rparen]
@@ -294,7 +296,11 @@ def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
     read_set = set()
     write_set = set()
     for l in trace_object:
-        record = parse_line(l, ctx)
+        try:
+            record = parse_line(l, ctx)
+        except Exception:
+            logging.debug(l)
+            raise ValueError("error while parsing trace")
         if type(record) is RFile and record.fname != '/dev/tty':
             read_set.add(record.fname)
         elif type(record) is WFile and record.fname != '/dev/tty':

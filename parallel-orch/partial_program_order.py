@@ -30,7 +30,7 @@ class CompletedNodeInfo:
 
     def get_stdout_file(self):
         return self.stdout_file
-    
+
     def get_sandbox_dir(self):
         return self.sandbox_dir
 
@@ -61,7 +61,7 @@ class LoopStack:
 
     def pop_outer(self):
         return self.loops.pop()
-    
+
     def add_inner(self, loop_iter_id: int):
         self.loops.insert(0, loop_iter_id)
 
@@ -92,16 +92,16 @@ class LoopStack:
 class NodeId:
     def __init__(self, id: int, loop_iters=None):
         self.id = id
-        
+
         if loop_iters is None:
             self.loop_iters = LoopStack()
         else:
             assert(isinstance(loop_iters, LoopStack))
             self.loop_iters = loop_iters
-    
+
     def has_iters(self):
         return not self.loop_iters.is_empty()
-    
+
     def get_iters(self):
         return copy.deepcopy(self.loop_iters)
 
@@ -135,17 +135,17 @@ class NodeId:
         # Not strictly necessary, but to avoid having both x==y and x!=y
         # True at the same time
         return not(self == other)
-    
+
     ## TODO: Define this correctly if it is to be used for something other than dictionary indexing
     def __lt__(self, obj):
         return (str(self) < str(obj))
-  
+
     def __gt__(self, obj):
         return (str(self) > str(obj))
-  
+
     # def __le__(self, obj):
     #     return ((self.b) <= (obj.b))
-  
+
     # def __ge__(self, obj):
     #     return ((self.b) >= (obj.b))
 
@@ -191,10 +191,10 @@ class Node:
 
     def get_cmd_no_redir(self) -> str:
         return self.cmd_no_redir
-    
+
     def get_loop_context(self) -> LoopStack:
         return self.loop_context
-    
+
     def in_loop(self) -> bool:
         return not self.loop_context.is_empty()
 
@@ -211,10 +211,9 @@ class Node:
     ##         a node is committed.
     def set_completed_info(self, completed_node_info: CompletedNodeInfo):
         self.completed_node_info = completed_node_info
-    
+
     def get_completed_node_info(self) -> CompletedNodeInfo:
         return self.completed_node_info
-
 
 class RWSet:
 
@@ -258,7 +257,7 @@ class PartialProgramOrder:
         ## A dictionary from cmd_ids that are currently executing that contains their trace_files
         self.commands_currently_executing = {}
         ## A dictionary that contains information about completed nodes
-        ## from cmd_id -> CompletedNodeInfo 
+        ## from cmd_id -> CompletedNodeInfo
         ## Note: this dictionary does not contain information
         ## TODO: Delete this
         self.completed_node_info = {}
@@ -290,7 +289,7 @@ class PartialProgramOrder:
         self.pending_to_execute = set()
         self.to_be_resolved_prev = {}
         self.prechecked_env = set()
-            
+
     def __str__(self):
         return f"NODES: {len(self.nodes.keys())} | ADJACENCY: {self.adjacency}"
 
@@ -334,11 +333,11 @@ class PartialProgramOrder:
             if len(prev_ids_set) == 0 or \
                 not prev_ids_set.issubset(node_set):
                 source_nodes.append(node_id)
-        
+
         ## KK 2024-05-03: I don't see how we can get multiple sources with the current structure
         assert(len(source_nodes) == 1)
         return source_nodes
-    
+
     def get_sub_po_sink_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
         # assert(self.is_closed_sub_partial_order(node_ids))
         sink_nodes = list()
@@ -349,31 +348,31 @@ class PartialProgramOrder:
             if len(next_ids_set) == 0 or \
                 not next_ids_set.issubset(node_set):
                 sink_nodes.append(node_id)
-        
+
         ## KK 2024-05-03: I don't see how we can get multiple sink with the current structure
         assert(len(sink_nodes) == 1)
         return sink_nodes
-    
+
     def set_new_env_file_for_node(self, node_id: NodeId, new_env_file: str):
         self.new_envs[node_id] = new_env_file
-        
+
     def get_new_env_file_for_node(self, node_id: NodeId) -> str:
         return self.new_envs.get(node_id)
-    
+
     def set_latest_env_file_for_node(self, node_id: NodeId, latest_env_file: str):
         self.latest_envs[node_id] = latest_env_file
-        
+
     def get_latest_env_file_for_node(self, node_id: NodeId) -> str:
         return self.latest_envs.get(node_id)
-    
+
     def get_most_recent_possible_new_env_for_node(self, node_id) -> str:
         most_recent_env_node = node_id
         while self.get_new_env_file_for_node(most_recent_env_node) is None:
             predecessor = self.get_prev(most_recent_env_node)
-            
+
             ## This will trigger when we move to full Partial Orders
             assert len(predecessor) <= 1
-            
+
             ## If there are no predecessors for a node it means we are at the source
             ## so there is no point to search further back
             if len(predecessor) == 0:
@@ -391,7 +390,7 @@ class PartialProgramOrder:
         for node_id in node_ids:
             prev_ids_set = set(self.get_prev(node_id))
             prev_nodes = prev_nodes.union(prev_ids_set - node_set)
-        
+
         ## KK 2024-05-03: I don't see how we can get multiple sources with the current structure
         assert(len(prev_nodes) <= 1)
         return list(prev_nodes)
@@ -424,9 +423,9 @@ class PartialProgramOrder:
         logging.debug(f'To be resolved sets per node:')
         logging.debug(self.to_be_resolved)
         logging.info(f'Initialized the partial order!')
-        self.log_partial_program_order_info()
+        # self.log_partial_program_order_info()
         assert(self.valid())
-        
+
 
     def init_latest_env_files(self, node=None):
         if node is None:
@@ -449,7 +448,7 @@ class PartialProgramOrder:
 
     def get_unsafe(self) -> set:
         return copy.deepcopy(self.unsafe)
-    
+
     ## Only return the stopped that are not unsafe
     def get_stopped_safe(self) -> set:
         return copy.deepcopy(self.stopped.difference(self.unsafe))
@@ -478,7 +477,7 @@ class PartialProgramOrder:
     ## TODO: Call valid and add assertiosn for loops here.
     def valid(self):
         logging.debug("Checking partial order validity...")
-        self.log_partial_program_order_info()
+        # self.log_partial_program_order_info()
         valid1 = self.loop_nodes_valid()
         ## TODO: Add a check that for x, y : NodeIds, x < y iff x is a predecessor to x
         ##       This is necessary due to the `hypothetical_before` method.
@@ -500,7 +499,7 @@ class PartialProgramOrder:
                          self.get_workset() + \
                          list(self.stopped) + \
                          list(self.commands_currently_executing.keys())
-        loop_nodes_in_forbidden_sets = [node_id for node_id in forbidden_sets 
+        loop_nodes_in_forbidden_sets = [node_id for node_id in forbidden_sets
                                 if self.is_loop_node(node_id)]
         return len(loop_nodes_in_forbidden_sets) == 0
 
@@ -519,9 +518,9 @@ class PartialProgramOrder:
     def get_all_non_committed(self) -> "list[NodeId]":
         all_node_ids = self.nodes.keys()
         non_committed_node_ids = [node_id for node_id in all_node_ids
-                                  if not self.is_committed(node_id)]  
+                                  if not self.is_committed(node_id)]
         return non_committed_node_ids
-    
+
     ## This adds a node to the committed set and saves important information
     def commit_node(self, node_id: NodeId):
         logging.debug(f" > Commiting node {node_id}")
@@ -535,7 +534,7 @@ class PartialProgramOrder:
     def filter_standard_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
         return [node_id for node_id in node_ids
                 if not self.is_loop_node(node_id)]
-    
+
     def filter_loop_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
         return [node_id for node_id in node_ids
                 if self.is_loop_node(node_id)]
@@ -565,15 +564,15 @@ class PartialProgramOrder:
 
     def get_prev(self, node_id:NodeId) -> "list[NodeId]":
         return self.inverse_adjacency[node_id][:]
-        
+
     def add_edge(self, from_id: NodeId, to_id: NodeId):
         ## KK 2023-05-04 Is it a problem that we append? Maybe we should make that a set
         self.adjacency[from_id].append(to_id)
         self.inverse_adjacency[to_id].append(from_id)
-        
+
     def remove_edge(self, from_id: NodeId, to_id: NodeId):
         self.adjacency[from_id].remove(to_id)
-        self.inverse_adjacency[to_id].remove(from_id)        
+        self.inverse_adjacency[to_id].remove(from_id)
 
     def get_transitive_closure(self, target_node_ids:"list[NodeId]") -> "list[NodeId]":
         all_next_transitive = set(target_node_ids)
@@ -585,7 +584,7 @@ class PartialProgramOrder:
             all_next_transitive = all_next_transitive.union(successors)
             next_work.extend(new_next)
         return list(all_next_transitive)
-    
+
     def get_inverse_transitive_closure(self, target_node_ids:"list[NodeId]") -> "list[NodeId]":
         all_prev_transitive = set(target_node_ids)
         next_work = target_node_ids.copy()
@@ -607,13 +606,13 @@ class PartialProgramOrder:
             all_next_transitive = all_next_transitive.union(successors)
             next_work.extend(new_next)
         return list(all_next_transitive)
-    
+
     def update_rw_set(self, node_id, rw_set):
         self.rw_sets[node_id] = rw_set
 
     def get_rw_set(self, node_id) -> RWSet:
         return self.rw_sets[node_id]
-    
+
     def get_rw_sets(self) -> dict:
         return self.rw_sets
 
@@ -635,7 +634,7 @@ class PartialProgramOrder:
                 logging.debug("Initializing latest env and speculating")
                 return True
         return False
-    
+
     # Check if the specific command can be resolved.
     # KK 2023-05-04 I am not even sure what this function does and why is it useful.
     def cmd_can_be_resolved(self, node_id: int) -> bool:
@@ -669,7 +668,7 @@ class PartialProgramOrder:
         ## Otherwise we can return
         logging.debug(f' >> Able to resolve {node_id}')
         return True
-    
+
     def __kill_all_currently_executing_and_schedule_restart(self, start=None):
         nodes_to_kill = self.get_currently_executing()
         if start is not None:
@@ -679,7 +678,7 @@ class PartialProgramOrder:
             most_recent_new_env = self.get_most_recent_possible_new_env_for_node(cmd_id)
             self.prechecked_env.discard(cmd_id)
             if most_recent_new_env is not None:
-                
+
                 self.set_latest_env_file_for_node(cmd_id, most_recent_new_env)
             self.workset.remove(cmd_id)
             log_time_delta_from_named_timestamp("PartialOrder", "RunNode", cmd_id)
@@ -691,7 +690,7 @@ class PartialProgramOrder:
 
     def __kill_node(self, cmd_id: "NodeId"):
         logging.debug(f'Killing and restarting node {cmd_id} because some workspaces have to be committed')
-        proc_to_kill, trace_file, _stdout, _stderr, _post_execution_env_file = self.commands_currently_executing.pop(cmd_id)
+        proc_to_kill, trace_file, _stdout, _stderr, _post_execution_env_file, _ = self.commands_currently_executing.pop(cmd_id)
         # Add the trace file to the banned file list so we know to ignore the CommandExecComplete response
         self.banned_files.add(trace_file)
 
@@ -720,7 +719,7 @@ class PartialProgramOrder:
             log_time_delta_from_named_timestamp("PartialOrder", "ResolveDependencies", cmd)
             log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolution", cmd, key=f"PostExecResolution-{cmd}")
             log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "ProcKilling")
-        
+
         if len(to_commit) == 0:
             logging.debug(" > No nodes to be committed this round")
         else:
@@ -735,7 +734,7 @@ class PartialProgramOrder:
     def check_dependencies(self, cmds_to_check, get_first_cmd_ids_fn, update_state_due_to_a_dependency_fn):
         for second_cmd_id in cmds_to_check:
             for first_cmd_id in get_first_cmd_ids_fn(second_cmd_id):
-                
+
                 if self.rw_sets.get(first_cmd_id) is not None and self.has_forward_dependency(first_cmd_id, second_cmd_id):
                     update_state_due_to_a_dependency_fn(first_cmd_id, second_cmd_id)
 
@@ -780,10 +779,10 @@ class PartialProgramOrder:
         def update_state_due_to_a_dependency(first_cmd_id, second_cmd_id):
             logging.debug(f' > Command {second_cmd_id} was added to the workset, due to a forward dependency with {first_cmd_id}')
             new_workset.add(second_cmd_id)
-        
+
         new_workset = set()
         self.check_dependencies(sorted(cmds_to_resolve), get_first_cmd_ids, update_state_due_to_a_dependency)
-        
+
         return new_workset
 
 
@@ -791,14 +790,14 @@ class PartialProgramOrder:
     ## Forward dependency is when a command's output is the same
     ## as the input of a following command
     def __resolve_dependencies_continuous_and_move_frontier(self, cmds_to_resolve):
-        self.log_partial_program_order_info()
+        # self.log_partial_program_order_info()
         for cmd in cmds_to_resolve:
             log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "ResolveDependencies", cmd)
-        
+
         logging.debug(f"Commands to be checked for dependencies: {sorted(cmds_to_resolve)}")
         logging.debug(" --- Starting dependency resolution --- ")
         new_workset = self.resolve_dependencies(cmds_to_resolve)
-        
+
         logging.debug(" > Modifying workset accordingly")
         # New workset contains previous unresolved commands and resolved commands with dependencies that have not been stopped
         workset_old = self.workset.copy()
@@ -823,8 +822,8 @@ class PartialProgramOrder:
     ## Therefore it does not just check edges, but rather computes if it would be before
     ##  based on ids and loop iterations.
     ##
-    ## 1. Check if the loop ids of the two abstract parents of both nodes differ 
-    ##     thus showing that one is before the other 
+    ## 1. Check if the loop ids of the two abstract parents of both nodes differ
+    ##     thus showing that one is before the other
     ## 2. If all loop ids are the same, now we can actually compare iterations.
     ##     If a node is in the same loop ids but in a later iteration then it is later.
     ## 3. If all iterations are the same too, then we just compare node ids
@@ -853,7 +852,7 @@ class PartialProgramOrder:
             ## We need to keep going
             i += 1
 
-        ## If we reach this, we know that both nodes are in the same loops up to i 
+        ## If we reach this, we know that both nodes are in the same loops up to i
         ##  so we now compare iterations and node identifiers.
 
         iters1 = nid1.get_iters()
@@ -900,7 +899,7 @@ class PartialProgramOrder:
             all_non_committed_loop_nodes = self.filter_loop_nodes(all_non_committed)
             non_committed_loop_nodes_that_would_be_predecessors = [n_id for n_id in all_non_committed_loop_nodes
                                                                    if self.hypothetical_before(n_id, node_id)]
-            
+
             new_committed_nodes = non_committed_loop_nodes_that_would_be_predecessors
 
         else:
@@ -915,7 +914,7 @@ class PartialProgramOrder:
                                                     if not self.is_committed(node_id) and
                                                     self.is_loop_node(node_id)]
             logging.debug(f'Non committed loop nodes that are predecessors to {node_id} are: {non_committed_loop_nodes_in_inverse_tc}')
-            
+
             new_committed_nodes = non_committed_loop_nodes_in_inverse_tc
 
         ## And "close them"
@@ -924,7 +923,7 @@ class PartialProgramOrder:
         logging.debug(f'Adding following loop nodes to committed: {new_committed_nodes}')
         for node_id in new_committed_nodes:
             self.commit_node(node_id)
-        
+
         ## Since we committed some nodes, let's make sure that we also push the frontier
         ## TODO: Can we do this in a less hacky method? By using a well-defined commit_node_and_push_frontier method?
         if len(new_committed_nodes) > 0:
@@ -942,26 +941,26 @@ class PartialProgramOrder:
 
         ## TODO: Add some form of validity assertion after we are done with this.
         ##       Just to make sure that we haven't violated the continuity of the committed set.
-        
+
         ## We check if something can be resolved and stepped forward here
         ## KK 2023-05-10 This seems to work for all tests (so it might be idempotent
         ##                since in many tests there is nothing new to resolve after a wait)
         self.resolve_commands_that_can_be_resolved_and_push_frontier()
 
     ## When the frontend sends a wait for a node, it means that execution in the frontend has
-    ## already surpassed all nodes prior to it. This is particularly important for loops, 
+    ## already surpassed all nodes prior to it. This is particularly important for loops,
     ## since we can't always statically predict how many iterations they will do, so the only
     ## definitive way to know that they are done is to receive a wait for a node after them.
     def wait_received(self, node_id: NodeId):
         ## Whenever we receive a wait for a node, we always need to check and "commit" all prior loop nodes
         ##   since we know that they won't have any more iterations (the JIT frontend has already passed them).
-        
+
         ## We first have to push and progress the PO due to the wait and then unroll
         ## KK 2023-05-22 Currently this checks whether a still nonexistent node is
-        ##               would be a successor of existing nodes to commit some of 
+        ##               would be a successor of existing nodes to commit some of
         ##               them if needed. Unfortunately, to make this check for a non-existent
-        ##               node is very complex and not elegant. 
-        ## TODO: Could we swap unrolling and progressing so that we always 
+        ##               node is very complex and not elegant.
+        ## TODO: Could we swap unrolling and progressing so that we always
         ##        check if a node can be progressed by checking edges?
         log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "ProgressingPoDueToWait", node_id)
         self.progress_po_due_to_wait(node_id)
@@ -975,7 +974,7 @@ class PartialProgramOrder:
             ##       For now we are being conservative and that is why it only happens here
             ## TODO: Move this to the scheduler.schedule_work() (if we have a loop node waiting for response and we are not unrolled, unroll to create work)
             self.maybe_unroll(node_id)
-        
+
         assert(self.valid())
 
     def find_outer_loop_sub_partial_order(self, loop_id: int, nodes_subset: "list[NodeId]") -> "list[NodeId]":
@@ -996,13 +995,13 @@ class PartialProgramOrder:
     def unroll_single_loop(self, loop_id: int, nodes_subset: "list[NodeId]"):
         logging.info(f'Unrolling loop with id: {loop_id}')
         all_loop_node_ids = self.find_outer_loop_sub_partial_order(loop_id, nodes_subset)
-        
+
         ## We don't want to unroll already committed nodes
         loop_node_ids = [nid for nid in all_loop_node_ids
                          if not self.is_committed(nid)]
 
         logging.debug(f'Node ids for loop: {loop_id} are: {loop_node_ids}')
-        
+
         ## Create the new nodes and remap adjacencies accordingly
         node_mappings = {}
         for node_id in loop_node_ids:
@@ -1028,7 +1027,7 @@ class PartialProgramOrder:
 
         for node_id, new_node_id in node_mappings.items():
             old_prev_ids = self.get_prev(node_id)
-            ## Modify all id to be in the new set except for the 
+            ## Modify all id to be in the new set except for the
             new_prev_ids = PartialProgramOrder.map_using_mapping(old_prev_ids, node_mappings)
             self.inverse_adjacency[new_node_id] = new_prev_ids
             for new_prev_id in new_prev_ids:
@@ -1091,7 +1090,7 @@ class PartialProgramOrder:
             ## Update all new nodes that we have added
             all_new_node_ids.update(new_node_ids)
 
-            ## Re-set the relevant node ids to only the new nodes (if we unrolled a big loop once, 
+            ## Re-set the relevant node ids to only the new nodes (if we unrolled a big loop once,
             ##  we just want to look at those new unrolled nodes for the next unrolling).
             relevant_node_ids = new_node_ids
 
@@ -1103,7 +1102,7 @@ class PartialProgramOrder:
             if not self.is_loop_node(new_node_id):
                 self.workset.append(new_node_id)
                 ## GL: 08-24-2023: This might not the best way to treat this as we need
-                ## to update the env half way through the loop. 
+                ## to update the env half way through the loop.
                 ## For now, we just copy the env from the parent loop node
                 non_iter_id = new_node_id.get_non_iter_id()
                 logging.debug(f"Copying latest env from loop context to loop node: {non_iter_id} -> {new_node_id}")
@@ -1140,7 +1139,7 @@ class PartialProgramOrder:
 
         ## TODO: This needs to change when we modify unrolling to happen speculatively too
         ## TODO: This needs to properly add the node to frontier and to resolve dictionary
-        
+
         # GL 2023-05-22: __frontier_commit_and_push() should be called here instead of step_forward()
         # Although without it the test cases pass
         self.frontier.append(new_first_node_id)
@@ -1212,7 +1211,7 @@ class PartialProgramOrder:
 
             ## Update the frontier to the new frontier
             self.frontier = new_frontier
-    
+
 
     ## For a file - dir forward dependency to exist,
     ## we need the succeding command to attempt to read anything that is a subpath of the
@@ -1230,13 +1229,13 @@ class PartialProgramOrder:
                     logging.debug(f' > File forward dependency found C1:({dir}) C2:({other_path})')
                     return True
         return False
-    
+
     def is_subpath(self, dir, other_path):
         other_path.startswith(os.path.abspath(dir)+os.sep)
 
     def has_forward_dependency(self, first_id, second_id):
         first_write_set = set(self.rw_sets[first_id].get_write_set())
-        second_read_set = set(self.rw_sets[second_id].get_read_set())
+        second_read_set = set(self.rw_sets[second_id].get_read_set()).union(set(self.rw_sets[second_id].get_write_set()))
         logging.debug(f'Checking dependencies between {first_id} and {second_id}')
         if not first_write_set.isdisjoint(second_read_set):
             logging.debug(f' > Forward dependency found {first_write_set.intersection(second_read_set)}')
@@ -1247,14 +1246,14 @@ class PartialProgramOrder:
         else:
             logging.debug(f' > No dependencies')
             return False
-        
+
     def get_all_next_non_committed_nodes(self) -> "list[NodeId]":
         next_non_committed_nodes = []
         for cmd_id in self.get_all_non_committed():
             if cmd_id in self.workset and self.is_next_non_committed_node(cmd_id):
                 next_non_committed_nodes.append(cmd_id)
         return next_non_committed_nodes
-    
+
     def is_next_non_committed_node(self, node_id: NodeId) -> bool:
         # We want the predecessor to be committed and the current node to not be committed
         for prev_node in self.get_prev(node_id):
@@ -1288,10 +1287,13 @@ class PartialProgramOrder:
         ## GL 2023-07-05 populate_to_be_resolved_dict() is OK to call anywhere,
         ##            __frontier_commit_and_push() is not safe to call here
         self.populate_to_be_resolved_dict()
-        
+
         ## TODO: Move loop unrolling here for speculation too
 
+        conflicted_nodes = self.nodes_with_uncommited_conflict()
         for cmd_id in self.get_workset():
+            if cmd_id in conflicted_nodes:
+                continue
             # We only need to schedule non-committed and non-executing nodes
             if not (cmd_id in self.get_committed() or \
                cmd_id in self.commands_currently_executing):
@@ -1323,7 +1325,7 @@ class PartialProgramOrder:
         logging.debug(f'Speculating command: {node_id} {self.get_node(node_id)}')
         ## TODO: Since these (this and the function above)
         ##       are relevant for the report maker,
-        ##       add them in some library (e.g., trace_for_report) 
+        ##       add them in some library (e.g., trace_for_report)
         ##       so that we don't accidentally delete them.
         logging.debug(f"ExecutingSandboxAdd|{node_id}")
         self.execute_cmd_core(node_id, speculate=True)
@@ -1335,7 +1337,7 @@ class PartialProgramOrder:
         is_safe = analysis.safe_to_execute(node.asts, variables)
         if not is_safe:
             logging.debug(f'Command: "{node}" is not safe to execute, sending to the original shell to execute...')
-            
+
             ## Keep some state around to determine that this command is not safe to execute.
             self.stopped.add(node_id)
             self.unsafe.add(node_id)
@@ -1354,11 +1356,44 @@ class PartialProgramOrder:
         else:
             execute_func = executor.async_run_and_trace_command_return_trace
 
-        proc, trace_file, stdout, stderr, post_execution_env_file = execute_func(cmd, node_id, env_file_to_execute_with)
-        self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, post_execution_env_file)
+        proc, trace_file, stdout, stderr, post_execution_env_file, sandbox_dir = execute_func(cmd, node_id, env_file_to_execute_with)
+        self.commands_currently_executing[node_id] = (proc, trace_file, stdout, stderr, post_execution_env_file, sandbox_dir)
         logging.debug(f" >>>>> Command {node_id} - {proc.pid} just started executing - {post_execution_env_file}")
+
+    def nodes_with_uncommited_conflict(self):
+        uncommited_run_after = [node_id for node_id in self.run_after if node_id not in self.committed]
+        total_conflicts = set()
+        for node_id in uncommited_run_after:
+            conflicts = self.run_after[node_id]
+            total_conflicts.update(conflicts)
+        return total_conflicts
         
-    # This method attempts to add to workset (rerun) 
+    def kill_and_stop(self, node_id: NodeId):
+        proc, _, _, _, _, _ = self.commands_currently_executing.pop(node_id)
+        util.kill_process_tree(proc.pid, sig=signal.SIGTERM)
+
+    def early_stop_using_dep(self):
+        for node_id, info_tuple in self.commands_currently_executing.items():
+            trace_file = info_tuple[1]
+            sandbox_dir = info_tuple[5]
+            try:
+                trace_object = executor.read_trace(sandbox_dir, trace_file)
+            except FileNotFoundError:
+                continue
+            logging.info(f'going forward')
+            read_set, write_set = trace_v2.parse_and_gather_cmd_rw_sets(trace_object)
+            rw_set = RWSet(read_set, write_set)
+            self.update_rw_set(node_id, rw_set)
+        for node_id in self.commands_currently_executing:
+            self.resolve_dependencies_early(node_id)
+        self.log_partial_program_order_info()
+        conflicts = self.nodes_with_uncommited_conflict()
+        to_be_killed = [node_id for node_id in self.commands_currently_executing if node_id in conflicts]
+        logging.info(f'>>>>>>>>>>>>>>>>> to be killed: {to_be_killed}')
+        for node_id in to_be_killed:
+            self.kill_and_stop(node_id)
+
+    # This method attempts to add to workset (rerun)
     # any command that found to have a dependency through early resolution
     def attempt_rerun_pending_nodes(self):
         restarted_nodes = set()
@@ -1377,17 +1412,22 @@ class PartialProgramOrder:
                         new_run_after_nodes.discard(node)
             self.run_after[node_id] = new_run_after_nodes
         return restarted_nodes
+
+    def set_sandbox(self, node_id, sandbox_dir):
+        self.sandbox_dirs[node_id] = sandbox_dir
     
     def command_execution_completed(self, node_id: NodeId, riker_exit_code:int, sandbox_dir: str):
         log_time_delta_from_named_timestamp("PartialOrder", "RunNode", node_id)
         log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "PostExecResolution", node_id, key=f"PostExecResolution-{node_id}")
-        
+
         logging.debug(f" --- Node {node_id}, just finished execution ---")
         self.sandbox_dirs[node_id] = sandbox_dir
         ## TODO: Store variable file somewhere so that we can return when wait
-
-        _proc, trace_file, stdout, stderr, post_execution_env_file = self.commands_currently_executing.pop(node_id)
-
+        if not node_id in self.commands_currently_executing:
+            return
+        _proc, trace_file, stdout, stderr, post_execution_env_file, sandbox_dir = self.commands_currently_executing.pop(node_id)
+        if not sandbox_dir == self.sandbox_dirs[node_id]:
+            return
         logging.trace(f"ExecutingRemove|{node_id}")
         # Handle stopped by riker due to network access
         if int(riker_exit_code) == 159:
@@ -1403,8 +1443,8 @@ class PartialProgramOrder:
             ##  is completed for this node.
             completed_node_info = CompletedNodeInfo(cmd_exit_code, post_execution_env_file, stdout, sandbox_dir)
             self.nodes[node_id].set_completed_info(completed_node_info)
-            
-            ## We no longer add failed commands to the stopped set, 
+
+            ## We no longer add failed commands to the stopped set,
             ## because this leads to more repetitions than needed
             ## and does not allow us to properly speculate commands
             read_set, write_set = trace_v2.parse_and_gather_cmd_rw_sets(trace_object)
@@ -1416,26 +1456,24 @@ class PartialProgramOrder:
             if node_id in self.workset:
                 self.workset.remove(node_id)
                 logging.debug(f"WorksetRemove|{node_id}")
-            # If no commands can be resolved this round, 
+            # If no commands can be resolved this round,
             # do nothing and wait until a new command finishes executing
             logging.debug("No resolvable nodes were found in this round, nothing will change...")
             return
-        
-        
+
+
         log_time_delta_from_named_timestamp("PartialOrder", "PostExecResolutionECCheck", node_id, key=f"PostExecResolution-{node_id}", invalidate=False)
-        # Remove from workset and add it again later if necessary
-        self.workset.remove(node_id)
         log_time_delta_from_start_and_set_named_timestamp("PartialOrder", "PostExecResolutionFrontendWait", node_id)
-        
+
         ## Here we check if the most recent env has been received. If not, we cannot resolve anything just yet.
         if self.get_new_env_file_for_node(node_id) is None:
             logging.debug(f"Node {node_id} has not received its latest env from runtime yet. Waiting...")
             self.waiting_for_frontend.add(node_id)
-            
+
             # We will however attempt to resolve dependencies early
             self.resolve_dependencies_early(node_id)
             restarted_cmds = self.attempt_rerun_pending_nodes()
-            self.log_partial_program_order_info()
+            # self.log_partial_program_order_info()
         ## Here we continue with the normal execution flow
         else:
             logging.debug(f"Node {node_id} has already received its latest env from runtime. Examining differences...")
@@ -1444,11 +1482,11 @@ class PartialProgramOrder:
     #TODO: Remove ths in the future - we need a more robust approach to check for env diffs.
     def exclude_insignificant_diffs(self, env_diff_dict):
         return {k: v for k, v in env_diff_dict.items() if k not in config.INSIGNIFICANT_VARS}
-    
+
     #TODO: Remove ths in the future - we need a more robust approach to check for env diffs.
     def include_only_significant_vars(self, env_diff_dict):
         return {k: v for k, v in env_diff_dict.items() if k in config.SIGNIFICANT_VARS}
-    
+
     def significant_diff_in_env_dicts(self, only_in_new, only_in_latest, different_in_both):
         # Exclude insignificant differences
         only_in_new_sig = self.include_only_significant_vars(only_in_new)
@@ -1464,7 +1502,7 @@ class PartialProgramOrder:
         else:
             logging.debug("No significant differences found:")
             return False
-        
+
     def update_env_and_restart_nodes(self, node_id: NodeId):
         logging.debug(f"Significant differences found between new and latest env files for {node_id}.")
         logging.debug(f"Assigning node {node_id} new env (Wait) as the new latest env and re-executing.")
@@ -1483,13 +1521,13 @@ class PartialProgramOrder:
             self.prechecked_env.discard(waiting_for_frontend_node)
             assert(self.get_new_env_file_for_node(node_id) is not None)
             assert(self.get_latest_env_file_for_node(waiting_for_frontend_node) is not None)
-        self.log_partial_program_order_info()
+        # self.log_partial_program_order_info()
         logging.debug("-")
         self.waiting_for_frontend = new_waiting_for_frontend
         self.populate_to_be_resolved_dict()
 
     def resolve_most_recent_envs_check_only_wait_node_early(self, node_id: NodeId, restarted_cmds=None):
-        if node_id not in self.prechecked_env and self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
+        if node_id not in self.prechecked_env and self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id),
                                                                     self.get_latest_env_file_for_node(node_id)):
             self.update_env_and_restart_nodes(node_id)
         else:
@@ -1498,7 +1536,7 @@ class PartialProgramOrder:
     def resolve_most_recent_envs_and_continue_command_execution_check_only_wait_node(self, node_id: NodeId, restarted_cmds=None):
         logging.debug(f"Node {node_id} received its latest env from runtime, continuing resolution.")
         self.waiting_for_frontend.discard(node_id)
-        if node_id not in self.prechecked_env and self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id), 
+        if node_id not in self.prechecked_env and self.new_and_latest_env_files_have_significant_differences(self.get_new_env_file_for_node(node_id),
                                                                     self.get_latest_env_file_for_node(node_id)):
             self.update_env_and_restart_nodes(node_id)
         else:
@@ -1509,7 +1547,7 @@ class PartialProgramOrder:
             self.resolve_dependencies_early(node_id)
             restarted_cmds = self.attempt_rerun_pending_nodes()
             logging.debug(f"Restarted after successful env resolution {restarted_cmds}")
-            self.log_partial_program_order_info()
+            # self.log_partial_program_order_info()
             self.resolve_commands_that_can_be_resolved_and_push_frontier()
             assert(self.valid())
 
@@ -1528,10 +1566,10 @@ class PartialProgramOrder:
             return False
         logging.debug(f"Comparing new and latest env files: {new_env_file} {latest_env_file}")
         assert(latest_env_file is not None)
-        
+
         new_env = executor.read_env_file(new_env_file)
         latest_env = executor.read_env_file(latest_env_file)
-        
+
         only_in_new, only_in_latest, different_in_both = util.compare_env_strings(new_env, latest_env)
 
         return self.significant_diff_in_env_dicts(only_in_new, only_in_latest, different_in_both)
@@ -1557,7 +1595,7 @@ class PartialProgramOrder:
     def log_rw_sets(self):
         logging.debug("====== RW Sets " + "=" * 65)
         for node_id, rw_set in self.rw_sets.items():
-            logging.debug(f"ID:{node_id} | R.size:{len(rw_set.get_read_set()) if rw_set is not None else None} | W:{rw_set.get_write_set() if rw_set is not None else None}")
+            logging.debug(f"ID:{node_id} | R:{[f for f in rw_set.get_read_set() if 'output_' in f] if rw_set else None} | W:{rw_set.get_write_set() if rw_set is not None else None}")
 
     def log_partial_program_order_info(self):
         logging.debug(f"=" * 80)
@@ -1660,7 +1698,7 @@ def parse_loop_contexts(lines):
 def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder:
     with open(file_path) as f:
         raw_lines = f.readlines()
-    
+
     ## Filter comments and remove new lines
     lines = [line.rstrip() for line in raw_lines
              if not line.startswith("#")]
@@ -1692,15 +1730,15 @@ def parse_partial_program_order_from_file(file_path: str) -> PartialProgramOrder
         file_path = f'{cmds_directory}/{i}'
         cmd, asts = parse_cmd_from_file(file_path)
         loop_ctx = loop_contexts[i]
-        nodes[NodeId(i)] = Node(NodeId(i), cmd, 
-                                asts=asts, 
+        nodes[NodeId(i)] = Node(NodeId(i), cmd,
+                                asts=asts,
                                 loop_context=LoopStack(loop_ctx))
 
     edges = {NodeId(i) : [] for i in range(number_of_nodes)}
     for edge_line in edge_lines:
         from_id, to_id = parse_edge_line(edge_line)
         edges[NodeId(from_id)].append(NodeId(to_id))
-    
+
     logging.trace(f"Nodes|{','.join([str(node) for node in nodes])}")
     logging.trace(f"Edges|{edges}")
     return PartialProgramOrder(nodes, edges, initial_env_file)

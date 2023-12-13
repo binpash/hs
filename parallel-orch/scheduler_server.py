@@ -34,7 +34,7 @@ def parse_args():
                     action="store_true",
                     default=False,
                     help="Speculate immediately instead of waiting for the first Wait message.")
-    
+
     args, unknown_args = parser.parse_known_args()
     return args
 
@@ -135,7 +135,7 @@ class Scheduler:
             self.waiting_for_response[node_id] = connection
 
 
-    def __parse_command_exec_complete(self, input_cmd: str) -> "tuple[int, int]":
+    def __parse_command_exec_x(self, input_cmd: str) -> "tuple[int, int]":
         try:
             components = input_cmd.rstrip().split("|")
             command_id = parse_node_id(components[0].split(":")[1])
@@ -179,10 +179,15 @@ class Scheduler:
         socket_respond(connection, response)
         connection.close()
 
+    def handle_command_exec_start(self, input_cmd):
+        assert(input_cmd.startswith("CommandExecStart:"))
+        cmd_id, exit_code, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
+        self.partial_program_order.set_sandbox(cmd_id, sandbox_dir)
+        
     def handle_command_exec_complete(self, input_cmd: str):
         assert(input_cmd.startswith("CommandExecComplete:"))
         ## Read the node id from the command argument
-        cmd_id, exit_code, sandbox_dir, trace_file = self.__parse_command_exec_complete(input_cmd)
+        cmd_id, exit_code, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
         if trace_file in self.partial_program_order.banned_files:
             logging.debug(f'CommandExecComplete: {cmd_id} ignored')
             return
@@ -230,6 +235,9 @@ class Scheduler:
             self.partial_program_order.log_executions()
             self.done = True
             log_time_delta_from_named_timestamp("Scheduler", "Done")
+        elif input_cmd.startswith("CommandExecStart:"):
+            #TODO: add logging stuff
+            self.handle_command_exec_start(input_cmd)
         else:
             logging.error(error_response(f'Error: Unsupported command: {input_cmd}'))
             raise Exception(f'Error: Unsupported command: {input_cmd}')
@@ -267,12 +275,16 @@ class Scheduler:
         
 
         while not self.done:
+            # TODO: wrap this around something probably
+            self.partial_program_order.early_stop_using_dep()
+
             ## Schedule some work (if we are already at capacity this will return immediately)
             self.schedule_work()
             ## Process a single request
             self.process_next_cmd()
             # If workset is empty we should end.
             # TODO: ec checks fail for now
+
         self.socket.close()
         self.shutdown()
 
@@ -284,7 +296,7 @@ class Scheduler:
         
     def terminate_pending_commands(self):
         for _node_id, cmd_info in self.partial_program_order.commands_currently_executing.items():
-            proc, _trace_file, _stdout, _stderr, _variable_file = cmd_info
+            proc, _trace_file, _stdout, _stderr, _variable_file, _ = cmd_info
             proc.terminate()
 
 

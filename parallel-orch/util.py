@@ -15,6 +15,13 @@ def ptempfile():
     os.close(fd)
     return name
 
+def create_sandbox():
+    os.makedirs("/tmp/pash_spec/a", exist_ok=True)
+    os.makedirs("/tmp/pash_spec/b", exist_ok=True)
+    sdir = tempfile.mkdtemp(dir="/tmp/pash_spec/a", prefix="sandbox_")
+    tdir = tempfile.mkdtemp(dir="/tmp/pash_spec/b", prefix="sandbox_")
+    return sdir, tdir
+
 def init_unix_socket(socket_file: str) -> socket.socket:
     server_address = socket_file
 

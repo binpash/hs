@@ -370,6 +370,17 @@ test_command_var_assignments_2(){
     $shell $2/test_command_var_assignments_2.sh
 }
 
+test_early_stop1()
+{
+    local shell=$1
+    $shell $2/test_early_stop1.sh
+}
+
+test_early_stop2()
+{
+    local shell=$1
+    $shell $2/test_early_stop2.sh
+}
 
 ## TODO: make more loop tests with nested loops and commands after the loop
 

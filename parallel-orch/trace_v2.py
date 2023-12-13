@@ -139,8 +139,6 @@ def parse_link(pid, args, ret, ctx):
     path_a, path_b = get_path_at(pid, [0, 1], args, ctx)
     return RFile(path_a), WFile(path_b)
 
-def parse_renameat(pid, args, ret, ctx):
-    
 
 def parse_chdir(pid, args, ret, ctx):
     new_path = get_path_first_path(pid, args, ctx)

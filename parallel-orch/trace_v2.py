@@ -257,6 +257,8 @@ def handle_info(l):
         return False, None
 
 def parse_line(l, ctx):
+    if len(l) == 0:
+        return None
     pid, l = strip_pid(l)
     is_info, info = handle_info(l)
     if is_info:
@@ -279,7 +281,7 @@ def parse_line(l, ctx):
     return parse_syscall(pid, syscall, args, ret, ctx)
 
 def parse_exit_code(trace_object) -> int:
-    if len(trace_object) < 1:
+    if len(trace_object) == 0 or trace_object[0] == '':
         return None
     l = trace_object[0]
     first_pid, _ = strip_pid(l)

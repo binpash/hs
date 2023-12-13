@@ -57,7 +57,7 @@ def read_trace(sandbox_dir, trace_file):
         path = f"{sandbox_dir}/upperdir/{trace_file}"
     logging.debug(f'Reading trace from: {path}')
     with open(path) as f:
-        return f.readlines()
+        return f.read().split('\n')[:-1]
     
 def read_env_file(env_file, sandbox_dir=None):
     if sandbox_dir is None:

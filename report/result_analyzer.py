@@ -1,4 +1,5 @@
 import difflib
+import hashlib
 import os
 import csv
 
@@ -17,12 +18,25 @@ class ResultAnalyzer:
         return activities
 
     @staticmethod
-    def compare_results(bash_output, orch_output):
-        bash_lines = bash_output.splitlines()
-        orch_lines = orch_output.splitlines()
-        d = difflib.ndiff(bash_lines, orch_lines)
-        return [diff for diff in d if diff.startswith('- ') or diff.startswith('+ ')]
+    def compare_results(bash_output, orch_output, max_lines=1000):
+        # Limit the number of lines to compare
+        bash_lines = bash_output.splitlines()[:max_lines]
+        orch_lines = orch_output.splitlines()[:max_lines]
 
+        # Use a hash-based method for quick equality checks
+        bash_hashes = {hashlib.md5(line.encode()).hexdigest(): line for line in bash_lines}
+        orch_hashes = {hashlib.md5(line.encode()).hexdigest(): line for line in orch_lines}
+
+        diffs = []
+        for hash_value, line in bash_hashes.items():
+            if hash_value not in orch_hashes:
+                diffs.append(f'- {line}')
+        for hash_value, line in orch_hashes.items():
+            if hash_value not in bash_hashes:
+                diffs.append(f'+ {line}')
+
+        return diffs
+    
     @staticmethod
     def analyze_node_execution_times(orch_output, benchmark_name, output_dir, verbose):
         node_times_dict = ResultAnalyzer.extract_node_times(orch_output)

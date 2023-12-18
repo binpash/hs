@@ -24,6 +24,7 @@ def parse_args():
     parser.add_argument('--verbose', action='store_true', help="Enable verbose output.")
     parser.add_argument('--full-gantt', action='store_false', help="Generate a full Gantt chart for each benchmark.")
     parser.add_argument('--config-file', type=str, default='benchmark_config.json', help="Path to the benchmark configuration file. Default is 'benchmark_config.json'.")
+    parser.add_argument('--setup-script', type=str, default=None, help="Path to a setup script to run before running any other benchmark.")
     
     return parser.parse_args()
 

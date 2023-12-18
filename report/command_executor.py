@@ -3,6 +3,17 @@ import time
 import os
 
 class CommandExecutor:
+    
+    @staticmethod
+    def run_setup_script(script_path, working_dir=os.getcwd(), verbose=False):
+        if verbose:
+            print("Running benchmark setup script:", )
+            process = subprocess.Popen(f"bash {script_path}", cwd=working_dir, shell=True, env=os.environ)
+        else:
+            process = subprocess.Popen(f"bash {script_path}", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=working_dir, shell=True, env=os.environ)
+        process.wait()
+        return process.returncode
+    
     @staticmethod
     def run_pre_execution_command(command, working_dir=os.getcwd(), verbose=False):
         if verbose:

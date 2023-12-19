@@ -25,20 +25,24 @@ def parse_args():
     parser.add_argument('--full-gantt', action='store_false', help="Generate a full Gantt chart for each benchmark.")
     parser.add_argument('--config-file', type=str, default='benchmark_config.json', help="Path to the benchmark configuration file. Default is 'benchmark_config.json'.")
     parser.add_argument('--setup-script', type=str, default=None, help="Path to a setup script to run before running any other benchmark.")
-    
+    parser.add_argument('--subset', type=str, default=None, help="Name of a subset of benchmarks to run. Will instead download and store outputs in the dir with the specified name.")
     return parser.parse_args()
 
-
 # Sets the required environment variables for the benchmarking process.
-def set_environment_variables():
+def set_environment_variables(args):
     os.environ['ORCH_TOP'] = os.environ.get('ORCH_TOP', subprocess.check_output(['git', 'rev-parse', '--show-toplevel', '--show-superproject-working-tree']).decode('utf-8').strip())
     os.environ['WORKING_DIR'] = os.path.join(os.environ['ORCH_TOP'], 'report')
-    os.environ['TEST_SCRIPT_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'benchmarks')
-    os.environ['RESOURCE_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'resources')
+    if args.subset:
+        os.environ['TEST_SCRIPT_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'benchmarks', args.subset)
+        os.environ['RESOURCE_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'resources', args.subset)
+        os.environ['REPORT_OUTPUT_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'output', args.subset)
+    else:
+        os.environ['TEST_SCRIPT_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'benchmarks')
+        os.environ['RESOURCE_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'resources')
+        os.environ['REPORT_OUTPUT_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'output')
     os.environ['PASH_TOP'] = os.path.join(os.environ['ORCH_TOP'], 'deps', 'pash')
     os.environ['PASH_SPEC_TOP'] = os.path.join(os.environ['ORCH_TOP'])
     os.environ['ORCH_COMMAND'] = os.path.join(os.environ['PASH_SPEC_TOP'], 'pash-spec.sh')
-    os.environ['REPORT_OUTPUT_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'output')
     add_kaggle_to_path()
 
 def add_kaggle_to_path():
@@ -65,8 +69,10 @@ def add_kaggle_to_path():
 
 def main():
     
-    set_environment_variables()
     args = parse_args()
+    
+    set_environment_variables(args)
+    
 
     # Use the config file path from arguments
     config_file_path = os.path.join(os.environ['WORKING_DIR'], args.config_file)

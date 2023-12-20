@@ -33,12 +33,9 @@ class BenchmarkConfig:
     # Replaces placeholders in the string with environment variable values.
     def replace_env_var(self, string):
         if r'{{' in string and r'}}' in string:
-            print(string)
             start = string.find(r'{{')
             end = string.find(r'}}')
-            print(start, end)
             env_var = string[start + 2:end]
-            print(env_var)
             return string[:start] + os.environ.get(env_var, '') + string[end + 2:]
         return string
 

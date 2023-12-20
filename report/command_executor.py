@@ -29,7 +29,7 @@ class CommandExecutor:
         if verbose:
             print("Running (and timing) command: ", " ".join(command))
         start_time = time.time()
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_dir, shell=True)
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_dir, shell=True, env=os.environ)
         stdout, stderr = process.communicate()
         end_time = time.time()
         return end_time - start_time, stdout.decode('utf-8'), stderr.decode('utf-8')

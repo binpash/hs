@@ -9,7 +9,7 @@ export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
 
 # Directory configurations
 resource_dir="$PASH_SPEC_TOP/report/resources"
-download_dir="$resource_dir/unix50"
+download_dir="$resource_dir/unix_50"
 mkdir -p "$download_dir"
 cd "$download_dir"
 
@@ -40,10 +40,12 @@ setup_dataset() {
 
 # Function to handle argument variables
 source_var() {
-    if [[ $small_flag -eq 1 ]]; then
-        export IN_PRE=$PASH_TOP/evaluation/benchmarks/unix50/input/small
-    else
-        export IN_PRE=$PASH_TOP/evaluation/benchmarks/unix50/input
+    if [[ $gen_full_flag -eq 1 ]]; then
+        export IN_PRE=$PASH_SPEC_TOP/report/resources/unix_50/gen_full
+    elif [[ $full_flag -eq 1 ]]; then
+        export IN_PRE=$PASH_SPEC_TOP/report/resources/unix_50/input/full
+    else 
+        export IN_PRE=$PASH_SPEC_TOP/report/resources/unix_50/input
     fi
 }
 
@@ -54,13 +56,11 @@ download_data() {
 }
 
 # Parse arguments
-small_flag=0
 full_flag=0
 gen_full_flag=0
 download_flag=0
 while getopts ":sfgd" opt; do
   case $opt in
-    s) small_flag=1 ;;
     f) full_flag=1 ;;
     g) gen_full_flag=1 ;;
     d) download_flag=1 ;;
@@ -70,7 +70,6 @@ done
 
 # Conditional executions based on flags
 [[ $download_flag -eq 1 ]] && download_data
-[[ $small_flag -eq 1 ]] && setup_dataset --small
 [[ $full_flag -eq 1 ]] || [[ $gen_full_flag -eq 1 ]] && setup_dataset
 source_var
 
@@ -87,14 +86,17 @@ generate_larger_inputs() {
     fi
 
     if [[ $gen_full_flag -eq 1 ]]; then
+        mkdir -p $IN_PRE
         echo "Generating full-size inputs"
 
         for file in *.txt; do
-            new_file=$(basename $file .txt).1G.txt
-            max=$(echo "1000000000 / $(stat --printf="%s" $file)" | bc)
+            new_file=$file
+            max=$(echo "1000000 / $(stat --printf="%s" $file)" | bc)
             echo "Generating 1-G $new_file (${max}x increase)"
+            cat $file > $IN_PRE/$new_file
             for (( i = 0; i < max ; i++ )); do
-                cat $file >> $new_file
+                cat $file >> $IN_PRE/$new_file
+                # cat $file
             done
         done
     fi

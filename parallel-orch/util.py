@@ -8,6 +8,9 @@ import time
 import re
 import psutil
 import signal
+import analysis
+from node import Node, NodeId
+from partial_program_order import PartialProgramOrder
 
 def ptempfile():
     fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX)
@@ -176,3 +179,82 @@ def kill_process_tree(pid, sig=signal.SIGTERM):
         except:
             pass
     return alive_processes
+
+
+## TODO: Try to move those to PaSh and import them here
+def parse_cmd_from_file(file_path: str) -> "tuple[str,list[AstNode]]":
+    logging.debug(f'Parsing: {file_path}')
+    with open(file_path) as f:
+        cmd = f.read()
+    asts = analysis.parse_shell_to_asts(file_path)
+    return cmd, asts
+
+def parse_edge_line(line: str) -> "tuple[int, int]":
+    from_str, to_str = line.split(" -> ")
+    return (int(from_str), int(to_str))
+
+def parse_loop_context_line(line: str) -> "tuple[int, list[int]]":
+    node_id, loop_contexts_raw = line.split("-loop_ctx-")
+    if loop_contexts_raw != "":
+        loop_contexts_str = loop_contexts_raw.split(",")
+        loop_contexts = [int(loop_ctx) for loop_ctx in loop_contexts_str]
+    else:
+        loop_contexts = []
+    return int(node_id), loop_contexts
+
+def parse_loop_contexts(lines):
+    loop_contexts = {}
+    for line in lines:
+        node_id, loop_ctx = parse_loop_context_line(line)
+        loop_contexts[node_id] = loop_ctx
+    return loop_contexts
+
+
+def parse_partial_program_order_from_file(file_path: str):
+    with open(file_path) as f:
+        raw_lines = f.readlines()
+
+    ## Filter comments and remove new lines
+    lines = [line.rstrip() for line in raw_lines
+            if not line.startswith("#")]
+
+    ## The directory in which cmd_files are
+    cmds_directory = str(lines[0])
+    logging.debug(f'Cmds are stored in: {cmds_directory}')
+
+    ## The initial env file
+    initial_env_file = str(lines[1])
+
+    ## The number of nodes
+    number_of_nodes = int(lines[2])
+    logging.debug(f'Number of po cmds: {number_of_nodes}')
+
+    ## The loop context for each node
+    loop_context_start=3
+    loop_context_end=number_of_nodes+3
+    loop_context_lines = lines[loop_context_start:loop_context_end]
+    loop_contexts = parse_loop_contexts(loop_context_lines)
+    logging.debug(f'Loop contexts: {loop_contexts}')
+
+    ## The rest of the lines are edge_lines
+    edge_lines = lines[loop_context_end:]
+    logging.debug(f'Edges: {edge_lines}')
+
+    nodes = {}
+    for i in range(number_of_nodes):
+        file_path = f'{cmds_directory}/{i}'
+        cmd, asts = parse_cmd_from_file(file_path)
+        # loop_ctx = loop_contexts[i]
+        # nodes[NodeId(i)] = Node(NodeId(i), cmd,
+        #                         asts=asts,
+        #                         loop_context=LoopStack(loop_ctx))
+        nodes[NodeId(i)] = Node(NodeId(i), cmd, asts=asts)
+
+    edges = {NodeId(i) : [] for i in range(number_of_nodes)}
+    for edge_line in edge_lines:
+        from_id, to_id = parse_edge_line(edge_line)
+        edges[NodeId(from_id)].append(NodeId(to_id))
+
+    logging.info(f"Nodes|{','.join([str(node) for node in nodes])}")
+    logging.info(f"Edges|{edges}")
+    return PartialProgramOrder(nodes, edges)

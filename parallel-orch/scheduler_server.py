@@ -104,8 +104,12 @@ class Scheduler:
             # if not self.partial_program_order.is_completed():
             #     logging.debug(" |- some nodes were skipped completed.")
             util.socket_respond(connection, success_response("All finished!"))
-            self.partial_program_order.log_state()
+            self.partial_program_order.log_info()
             self.done = True
+            nodes = self.partial_program_order.nodes
+            for k, v in nodes.items():
+                logging.info(self.partial_program_order.progress_frontier())
+                logging.info(f"{k} {self.partial_program_order.get_next_frontier_nodes([k])}")
         elif input_cmd.startswith("CommandExecStart:"):
             node_id, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
             logging.info(f'Scheduler: Received command exec start message - {input_cmd}.')
@@ -127,8 +131,10 @@ class Scheduler:
         node = self.partial_program_order.get_node(node_id)
         completed_node_info = node.get_main_sandbox()
         # George: Currently I don't init the sandbox info anywhere since there is no execution
-        msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_post_execution_env_file()} {completed_node_info.get_stdout_file()}'
+        # msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_post_execution_env_file()} {completed_node_info.get_stdout_file()}'
+        msg = "0 foo bar bax qux"
         response = success_response(msg)
+        
         ## Send the response
         self.respond_to_frontend_core(node_id, response)
 

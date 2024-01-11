@@ -136,6 +136,11 @@ class Node:
         
         self.background_sandbox = None
 
+    def __str__(self):
+        return f'Node(id:{self.id}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, main_sandbox:{self.main_sandbox}, background_sandbox:{self.background_sandbox})'
+    
+    def __repr__(self):
+        return str(self)
 
     def is_initialized(self):
         return self.state == NodeState.INIT
@@ -169,10 +174,12 @@ class Node:
     ##          Transition Functions        ##
     ##                                      ##
     
-    def transition_to_ready(self):
+    def transition_from_init_to_ready(self):
         assert self.state == NodeState.INIT
         self.state = NodeState.READY
         # Initialize data structures here
+
+        # Also, probably unroll here?
 
     def transition_to_executing(self):
         assert self.state == NodeState.READY

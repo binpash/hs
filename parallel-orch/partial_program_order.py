@@ -89,10 +89,10 @@ class PartialProgramOrder:
 
     def log_state(self):
         for node in self.nodes.values():
-            logging.info(f"Node {node.id}: {node.state}")
+            logging.info(f"Node {node.id_}: {node.state}")
 
-    def schedule_work(self):
-        pass
+    def schedule_work(self, node_id: NodeId, env_file: str):
+        self.get_node(node_id).start_executing(env_file)
     
     def get_source_nodes(self) -> list:
         sources = set()
@@ -122,10 +122,7 @@ class PartialProgramOrder:
         source_nodes = self.get_source_nodes()
         # TODO: Filter out loop nodes
         # return self.filter_standard_nodes(source_nodes)
-        return source_nodes
-    
-    
-
+        return source_nodes    
 
     def get_next_frontier_nodes(self, start_nodes: "list[NodeId]") -> "set[int]":
         # TODO: filter non-loop nodes
@@ -199,4 +196,4 @@ class PartialProgramOrder:
             
     
     def adjust_to_be_resolved_dict_entry(self, node_id: NodeId):
-        
+        pass

@@ -1,3 +1,7 @@
+import executor
+from dataclasses import dataclass
+from subprocess import Popen
+from typing import Tuple
 from enum import Enum, auto
 
 class NodeState(Enum):
@@ -102,9 +106,23 @@ class NodeId:
     def parse_node_id(node_id_str: str):
         return NodeId(int(node_id_str))
 
+@dataclass
+class ExecCtxt:
+    process: Popen
+    trace_file: str
+    stdout: str
+    stderr: str
+    post_env_file: str
+    sandbox_dir: str
 
+@dataclass
+class ExecResult:
+    exit_code: int
+    proc_id: int
+    
+    
 class Node:
-    id: NodeId
+    id_: NodeId
     cmd: str
     asts: "list[AstNode]"
     state: NodeState
@@ -119,25 +137,27 @@ class Node:
     main_sandbox: Sandbox
     # This can only be set while in the frontier and the background node execution is enabled
     background_sandbox: Sandbox
-    
+    exec_ctxt: ExecCtxt
+    exec_result: ExecResult
     
     def __init__(self, node_id: NodeId, cmd: str, asts: "list[AstNode]"):
-        self.id = node_id
+        self.id_ = node_id
         self.cmd = cmd
         self.asts = asts
         # The node's state
         self.state = NodeState.INIT
         self.tracefile = None
         self.rwset = None
-        # The 
+        # The
         self.to_be_resolved_snapshot = None
         
         self.main_sandbox = None
         
         self.background_sandbox = None
+        self.exec_ctxt = None
 
     def __str__(self):
-        return f'Node(id:{self.id}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, main_sandbox:{self.main_sandbox}, background_sandbox:{self.background_sandbox})'
+        return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, main_sandbox:{self.main_sandbox}, background_sandbox:{self.background_sandbox})'
     
     def __repr__(self):
         return str(self)
@@ -169,7 +189,18 @@ class Node:
     def get_main_sandbox(self):
         return self.main_sandbox
     
-    
+
+    def start_command(self, env_file: str, speculate=False):
+        # TODO: implement speculate
+        # TODO: built-in commands
+        cmd = self.cmd
+        execute_func = executor.async_run_and_trace_command_return_trace
+        self.exec_ctxt = ExecCtxt(*execute_func(cmd, self.id_, env_file))
+
+    def execution_outcome(self) -> Tuple[int, str, str]:
+        assert self.exec_result is not None
+        return self.exec_result.exit_code, self.exec_ctxt.post_env_file, self.exec_ctxt.stdout
+        
     ##                                      ##
     ##          Transition Functions        ##
     ##                                      ##
@@ -181,11 +212,17 @@ class Node:
 
         # Also, probably unroll here?
 
-    def transition_to_executing(self):
+    def start_executing(self, env_file):
         assert self.state == NodeState.READY
+        self.start_command(env_file)
         self.state = NodeState.EXECUTING
-        # TODO
 
+    def commit_frontier_execution(self):
+        assert self.state == NodeState.EXECUTING
+        self.state = NodeState.COMMITTED
+        self.exec_result = ExecResult(self.exec_ctxt.process.pid, self.exec_ctxt.process.returncode)
+        executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        
     def transition_to_spec_executing(self):
         assert self.state == NodeState.READY
         self.state = NodeState.SPEC_EXECUTING

@@ -92,13 +92,19 @@ class Scheduler:
             connection.close()
         elif (input_cmd.startswith("CommandExecComplete:")):
             node_id, exit_code, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
-            logging.info(f'Scheduler: Received command exec complete message - {node_id}.')
             connection.close()
+            logging.info(f'Scheduler: Received command exec complete message - {node_id}.')
+            node = self.partial_program_order.get_node(node_id)
+            # TODO: condition here to do different things based on node state
+            node.commit_frontier_execution()
+            self.respond_to_pending_wait(node_id)
         elif (input_cmd.startswith("Wait")):
-            node_id, _ = self.__parse_wait(input_cmd)
+            node_id, env_file = self.__parse_wait(input_cmd)
             self.waiting_for_response[node_id] = connection
             logging.info(f'Scheduler: Received wait message - {node_id}.')
-            self.respond_to_pending_wait(node_id)
+            node = self.partial_program_order.get_node(node_id)
+            # TODO: condition here to do different things based on node state
+            self.partial_program_order.schedule_work(node_id, env_file)
             
         elif (input_cmd.startswith("Done")):
             # if not self.partial_program_order.is_completed():
@@ -130,9 +136,7 @@ class Scheduler:
         ## Get the completed node info
         node = self.partial_program_order.get_node(node_id)
         completed_node_info = node.get_main_sandbox()
-        # George: Currently I don't init the sandbox info anywhere since there is no execution
-        # msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_post_execution_env_file()} {completed_node_info.get_stdout_file()}'
-        msg = "0 foo bar bax qux"
+        msg = '{} {} {}'.format(*node.execution_outcome())
         response = success_response(msg)
         
         ## Send the response
@@ -168,7 +172,8 @@ class Scheduler:
 
 
     def schedule_work(self):
-        self.partial_program_order.schedule_work()
+        # self.partial_program_order.schedule_work()
+        pass
 
     def run(self):
         ## The first command should be the daemon start

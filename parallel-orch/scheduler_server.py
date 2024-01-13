@@ -65,7 +65,6 @@ class Scheduler:
     """
 
     def __init__(self, socket_file):
-        ## TODO: Add all the orchestrator state here (it should just be the partial order)
         self.done = False
         self.socket = util.init_unix_socket(socket_file)
         ## A map containing connections for node_ids that are waiting for a response
@@ -78,7 +77,21 @@ class Scheduler:
         logging.debug(f'Scheduler: Received partial_order_file: {partial_order_file}')
         self.partial_program_order = util.parse_partial_program_order_from_file(partial_order_file)
         self.partial_program_order.init_partial_order()
+        
+    def handle_command_exec_complete():
+        # TODO: Implement
+        pass
+    
+    def handle_command_exec_start():
+        # TODO: Implement
+        pass
+    
 
+    def handle_wait(self, input_cmd: str, connection):
+        node_id, env_file = self.__parse_wait(input_cmd)
+        self.waiting_for_response[node_id] = connection
+        logging.info(f'Scheduler: Received wait message - {node_id}.')
+        self.partial_program_order.handle_wait(node_id, env_file)
 
     def process_next_cmd(self):
         connection, input_cmd = util.socket_get_next_cmd(self.socket)
@@ -99,23 +112,11 @@ class Scheduler:
             node.commit_frontier_execution()
             self.respond_to_pending_wait(node_id)
         elif (input_cmd.startswith("Wait")):
-            node_id, env_file = self.__parse_wait(input_cmd)
-            self.waiting_for_response[node_id] = connection
-            logging.info(f'Scheduler: Received wait message - {node_id}.')
-            node = self.partial_program_order.get_node(node_id)
-            # TODO: condition here to do different things based on node state
-            self.partial_program_order.schedule_work(node_id, env_file)
-            
+            self.handle_wait(input_cmd, connection)
         elif (input_cmd.startswith("Done")):
-            # if not self.partial_program_order.is_completed():
-            #     logging.debug(" |- some nodes were skipped completed.")
             util.socket_respond(connection, success_response("All finished!"))
             self.partial_program_order.log_info()
             self.done = True
-            nodes = self.partial_program_order.nodes
-            for k, v in nodes.items():
-                logging.info(self.partial_program_order.progress_frontier())
-                logging.info(f"{k} {self.partial_program_order.get_next_frontier_nodes([k])}")
         elif input_cmd.startswith("CommandExecStart:"):
             node_id, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
             logging.info(f'Scheduler: Received command exec start message - {input_cmd}.')
@@ -135,7 +136,6 @@ class Scheduler:
         logging.debug(f'Responding to pending wait for node: {node_id}')
         ## Get the completed node info
         node = self.partial_program_order.get_node(node_id)
-        completed_node_info = node.get_main_sandbox()
         msg = '{} {} {}'.format(*node.execution_outcome())
         response = success_response(msg)
         
@@ -171,10 +171,6 @@ class Scheduler:
             raise Exception(f'Parsing failure for line: {input_cmd}')
 
 
-    def schedule_work(self):
-        # self.partial_program_order.schedule_work()
-        pass
-
     def run(self):
         ## The first command should be the daemon start
         self.process_next_cmd()
@@ -183,7 +179,6 @@ class Scheduler:
         self.process_next_cmd()
         
         while not self.done:
-            self.schedule_work()
             self.process_next_cmd()
 
         self.socket.close()

@@ -1,3 +1,4 @@
+import logging
 import executor
 from dataclasses import dataclass
 from subprocess import Popen
@@ -14,40 +15,6 @@ class NodeState(Enum):
     SPEC_EXECUTING = auto()
     UNSAFE = auto()
 
-class Sandbox:
-    def __init__(self, trace_file, exit_code, post_execution_env_file, stdout_file, sandbox_dir):
-        # These get predetermined prior to the execution
-        self.trace_file = trace_file
-        self.post_execution_env_file = post_execution_env_file
-        self.stdout_file = stdout_file
-        self.sandbox_dir = sandbox_dir
-        # These get set after execution is done
-        self.exit_code = None
-        self.proc_id = None
-        
-    def set_exit_code(self, exit_code):
-        self.exit_code = exit_code
-        
-    def set_proc_id(self, proc_id):
-        self.proc_id = proc_id
-
-    def get_exit_code(self):
-        return self.exit_code
-
-    def get_post_execution_env_file(self):
-        return self.post_execution_env_file
-
-    def get_stdout_file(self):
-        return self.stdout_file
-
-    def get_sandbox_dir(self):
-        return self.sandbox_dir
-
-    def get_trace_file(self):
-        return self.trace_file
-
-    def __str__(self):
-        return f'Sandbox(trace:{self.get_trace_file}, ec:{self.get_exit_code()}, env:{self.get_post_execution_env_file()}, stdout:{self.get_stdout_file()}, sandbox:{self.get_sandbox_dir()})'
 
 class RWSet:
 
@@ -75,15 +42,15 @@ class NodeId:
     
     #TODO: Implement iteration support
     
-    def __init__(self, id: int):
-        self.id = id
+    def __init__(self, id_: int):
+        self.id_ = id_
 
     def get_non_iter_id(self):
-        return NodeId(self.id)
+        return NodeId(self.id_)
 
     def __repr__(self):
         ## TODO: Represent it using n.
-        output = f'{self.id}'
+        output = f'{self.id_}'
         return output
 
     def __hash__(self):
@@ -91,7 +58,7 @@ class NodeId:
 
     def __eq__(self, other):
         # return self.loop_iters == other.loop_iters and self.id == other.id
-        return self.id == other.id
+        return self.id_ == other.id_
 
     def __ne__(self, other):
         return not(self == other)
@@ -112,6 +79,7 @@ class ExecCtxt:
     trace_file: str
     stdout: str
     stderr: str
+    pre_env_file: str
     post_env_file: str
     sandbox_dir: str
 
@@ -132,11 +100,11 @@ class Node:
     to_be_resolved_snapshot: "set[NodeId]"
     # Read and write sets for this node
     rwset: RWSet
-    # This contains the sandbox and execution info for a spec-executing node 
-    # (or plain executing node if frontier background node execution is not enabled)
-    main_sandbox: Sandbox
+    # The wait trace file for this node
+    wait_env_file: str
     # This can only be set while in the frontier and the background node execution is enabled
-    background_sandbox: Sandbox
+    # TODO: For now ignore this. Maybe there is a better way to do this.
+    # background_sandbox: Sandbox
     exec_ctxt: ExecCtxt
     exec_result: ExecResult
     
@@ -144,20 +112,15 @@ class Node:
         self.id_ = node_id
         self.cmd = cmd
         self.asts = asts
-        # The node's state
         self.state = NodeState.INIT
         self.tracefile = None
         self.rwset = None
-        # The
+        self.wait_env_file = None
         self.to_be_resolved_snapshot = None
-        
-        self.main_sandbox = None
-        
-        self.background_sandbox = None
         self.exec_ctxt = None
 
     def __str__(self):
-        return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, main_sandbox:{self.main_sandbox}, background_sandbox:{self.background_sandbox})'
+        return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt})'
     
     def __repr__(self):
         return str(self)
@@ -185,10 +148,6 @@ class Node:
     
     def is_unsafe(self):
         return self.state == NodeState.UNSAFE
-    
-    def get_main_sandbox(self):
-        return self.main_sandbox
-    
 
     def start_command(self, env_file: str, speculate=False):
         # TODO: implement speculate
@@ -218,24 +177,44 @@ class Node:
         self.state = NodeState.EXECUTING
 
     def commit_frontier_execution(self):
-        assert self.state == NodeState.EXECUTING
+        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         self.state = NodeState.COMMITTED
         self.exec_result = ExecResult(self.exec_ctxt.process.pid, self.exec_ctxt.process.returncode)
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
         
-    def transition_to_spec_executing(self):
+
+    def _attempt_start_command(self, env_file, speculate=False):
+        if self.wait_env_file is not None:
+            self.start_command(env_file=self.wait_env_file, speculate=speculate)
+        elif env_file is not None:
+            self.start_command(env_file=env_file, speculate=speculate)
+        else:
+            logging.error(f'Error: No valid execution env for Node {self.id_}')
+
+    def transition_from_ready_to_executing(self, env_file=None):
+        assert self.state == NodeState.READY
+        self.state = NodeState.EXECUTING
+        self._attempt_start_command(env_file)
+
+    def transition_from_ready_to_spec_executing(self, env_file=None):
         assert self.state == NodeState.READY
         self.state = NodeState.SPEC_EXECUTING
-        # TODO
+        self._attempt_start_command(env_file, speculate=True)
+
+    def transition_from_stopped_to_executing(self, env_file=None):
+        assert self.state == NodeState.READY
+        self.state = NodeState.EXECUTING
+        self._attempt_start_command(env_file)
 
     def transition_to_committed(self):
-        assert self.state in [NodeState.EXECUTING, NodeState.SPECULATED]
+        assert self.state in NodeState.SPECULATED
         self.state = NodeState.COMMITTED
         # TODO
 
-    # TODO: other transition functions
+    def transition_from_spec_executing_to_speculated(self):
+        pass
 
-
-    # Do we need this here of should we handle everything on scheduler server and ppo?
-    def handle_event(self, event_msg):
-        pass # TODO
+    def set_wait_env_file(self, env_file: str):
+        assert self.state in [NodeState.READY, NodeState.EXECUTING, NodeState.SPEC_EXECUTING, NodeState.STOP, NodeState.SPECULATED]
+        self.post_env_file = env_file
+    

@@ -20,24 +20,13 @@ class PartialProgramOrder:
         self.run_after = set()
         self.window = 0
         self.to_be_resolved = {} 
-        
-    # def init_partial_order(self):
-    #     self.init_workset()
-    #     logging.debug(f'Initialized workset')
-    #     self.populate_to_be_resolved_dict()
-    #     if config.SPECULATE_IMMEDIATELY:
-    #         self.init_latest_env_files()
-    #     logging.debug(f'To be resolved sets per node:')
-    #     logging.debug(self.to_be_resolved)
-    #     logging.info(f'Initialized the partial order!')
-    #     # self.log_partial_program_order_info()
-    #     assert(self.valid())
-    
+
     def init_partial_order(self):
         for node_id, node in self.nodes.items():
             if node.is_initialized():
                 node.transition_from_init_to_ready()
-                
+        
+        # Init frontier
         self.frontier = self.get_standard_source_nodes()
         # TODO: Implement the rest of the partial order initialization
 
@@ -80,7 +69,7 @@ class PartialProgramOrder:
     
     def get_frontier(self):
         return self.frontier
-
+    
     def log_info(self):
         logging.info(f"Nodes: {self.nodes}")
         logging.info(f"Adjacency: {self.adjacency}")
@@ -94,12 +83,6 @@ class PartialProgramOrder:
     def schedule_work(self, node_id: NodeId, env_file: str):
         self.get_node(node_id).start_executing(env_file)
     
-    def get_source_nodes(self) -> list:
-        sources = set()
-        for to_id, from_ids in self.inverse_adjacency.items():
-            if len(from_ids) == 0:
-                sources.add(to_id)
-        return list(sources)
     
     ## Returns the next non-committed normal node
     def progress_frontier(self) -> "list[NodeId]":
@@ -111,7 +94,7 @@ class PartialProgramOrder:
     def get_prev_nodes(self, node_id:NodeId) -> "list[NodeId]":
         return self.inverse_adjacency[node_id][:]
     
-    def get_source_nodes(self) -> list:
+    def get_source_nodes(self) -> "list[NodeId]":
         sources = set()
         for to_id, from_ids in self.inverse_adjacency.items():
             if len(from_ids) == 0:
@@ -185,15 +168,66 @@ class PartialProgramOrder:
         previous = self.get_all_previous(node_id)
         return set([node for node in previous if not self.nodes[node].is_committed()])
         
-    
-    def init_to_be_resolved_dict(self):
-        for node_id in self.nodes.keys():
-            self.to_be_resolved[node_id] = ...
-        
-    def init_to_be_resolved_dict(self):
-        for node_id in self.nodes.keys():
-            self.to_be_resolved[node_id] = ...
+    def adjust_to_be_resolved_dict_entry(self, node_id: NodeId):
+        node = self.nodes.get(node_id)
+        if node.is_committed():
+            self.to_be_resolved[node_id] = []
+        elif node.is_ready():
+            self.to_be_resolved[node_id] = self.get_all_previous_uncommitted(node_id)
+
+    def adjust_to_be_resolved_dict(self):
+        for node_id in self.to_be_resolved.keys():
+            self.adjust_to_be_resolved_dict_entry(node_id)
             
     
-    def adjust_to_be_resolved_dict_entry(self, node_id: NodeId):
-        pass
+    #TODO: Add partial order invariant checks
+    def valid(self):
+        return True
+    
+    def handle_wait(self, node_id: NodeId, env_file: str):
+        node = self.get_node(node_id)
+
+        # Invalid state check
+        if node.is_committed() or node.is_unsafe() or node.is_initialized():
+            logging.error(f'Error: Node {node_id} is in an invalid state: {node.state}')
+            raise Exception(f'Error: Node {node_id} is in an invalid state: {node.state}')
+        
+    
+        # For all the valid states, set the wait env file
+        # Q to @Di: Do we need to make the wait env file a node attribute 
+        # (same for most recent env file) or is it ok to just pass it around here?
+        # We might use it in the future so maybe we shouldn't drop it.
+        node.set_wait_env_file(env_file)
+                
+
+        if node.is_ready():
+            if node.id_ in self.get_frontier():
+                node.transition_from_ready_to_executing(env_file)
+            else:
+                node.transition_from_ready_to_spec_executing(env_file)
+        elif node.is_stopped():
+            if node in self.get_frontier():
+                logging.info(f'Node {node_id} is stopped and in the frontier.')
+                node.transition_from_stopped_to_executing(env_file)
+            else:
+                logging.info(f'Node {node_id} is stopped but not in the frontier.')
+        elif node.is_speculated():
+            pass
+            # TODO: handle this case
+            # Check if env conflicts exist
+            # Check fs deps
+            # If no env or fs conflicts, then commit the node
+        elif node.is_executing(): 
+            # Do nothing 
+            pass 
+        elif node.is_spec_executing():
+            # Do nothing 
+            pass
+        else:
+            logging.error(f'Error: Node {node_id} is in an invalid state: {node.state}')
+            raise Exception(f'Error: Node {node_id} is in an invalid state: {node.state}')
+
+        # TODO: think about this
+        # self.schedule_work_single_node()
+        # self.schedule_work_all_nodes()
+

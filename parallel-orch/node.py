@@ -1,5 +1,6 @@
 import logging
 import executor
+import trace_v2
 from dataclasses import dataclass
 from subprocess import Popen
 from typing import Tuple
@@ -34,6 +35,14 @@ class RWSet:
     def get_write_set(self) -> set:
         return self.write_set
 
+    def has_conflict(self, other: 'RWSet') -> bool:
+        if (self.write_set.intersection(other.read_set) or
+            self.read_set.intersection(other.write_set) or
+            self.write_set.intersection(other.write_set)):
+            return True
+        else:
+            return False
+        
     def __str__(self):
         return f"RW(R:{self.get_read_set()}, W:{self.get_write_set()})"
 
@@ -159,7 +168,8 @@ class Node:
     def execution_outcome(self) -> Tuple[int, str, str]:
         assert self.exec_result is not None
         return self.exec_result.exit_code, self.exec_ctxt.post_env_file, self.exec_ctxt.stdout
-        
+
+
     ##                                      ##
     ##          Transition Functions        ##
     ##                                      ##
@@ -171,35 +181,61 @@ class Node:
 
         # Also, probably unroll here?
 
+    def reset_to_ready(self):
+        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
+                              NodeState.SPECULATED]
+        # Probably delete them from tmpfs too
+        self.exec_ctxt = None
+        self.exec_result = None
+        self.rwset = None
+        self.state = NodeState.READY
+        
     def start_executing(self, env_file):
         assert self.state == NodeState.READY
         self.start_command(env_file)
         self.state = NodeState.EXECUTING
 
-    def commit_frontier_execution(self):
-        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
-        self.state = NodeState.COMMITTED
-        self.exec_result = ExecResult(self.exec_ctxt.process.pid, self.exec_ctxt.process.returncode)
-        executor.commit_workspace(self.exec_ctxt.sandbox_dir)
-        
-
-    def _attempt_start_command(self, env_file, speculate=False):
-        if self.wait_env_file is not None:
-            self.start_command(env_file=self.wait_env_file, speculate=speculate)
-        elif env_file is not None:
-            self.start_command(env_file=env_file, speculate=speculate)
-        else:
-            logging.error(f'Error: No valid execution env for Node {self.id_}')
-
-    def transition_from_ready_to_executing(self, env_file=None):
+    def start_spec_executing(self, env_file):
         assert self.state == NodeState.READY
-        self.state = NodeState.EXECUTING
-        self._attempt_start_command(env_file)
-
-    def transition_from_ready_to_spec_executing(self, env_file=None):
-        assert self.state == NodeState.READY
+        self.start_command(env_file, speculate=True)
         self.state = NodeState.SPEC_EXECUTING
-        self._attempt_start_command(env_file, speculate=True)
+        
+    def commit_frontier_execution(self):
+        assert self.state == NodeState.EXECUTING
+        self.exec_result = ExecResult(self.exec_ctxt.process.pid, self.exec_ctxt.process.returncode)
+        self.gather_fs_actions()
+        executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        self.state = NodeState.COMMITTED
+
+    def finish_spec_execution(self):
+        assert self.state == NodeState.SPEC_EXECUTING
+        self.exec_result = ExecResult(self.exec_ctxt.process.pid, self.exec_ctxt.process.returncode)
+        self.gather_fs_actions()
+        self.state = NodeState.SPECULATED
+
+
+    def commit_speculated(self):
+        assert self.state == NodeState.SPECULATED
+        executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        self.state = NodeState.COMMITTED
+
+    # def _attempt_start_command(self, env_file, speculate=False):
+    #     if self.wait_env_file is not None:
+    #         self.start_command(env_file=self.wait_env_file, speculate=speculate)
+    #     elif env_file is not None:
+    #         self.start_command(env_file=env_file, speculate=speculate)
+    #     else:
+    #         logging.error(f'Error: No valid execution env for Node {self.id_}')
+
+    # def transition_from_ready_to_executing(self, env_file=None):
+    #     assert self.state == NodeState.READY
+    #     self.state = NodeState.EXECUTING
+    #     self._attempt_start_command(env_file)
+
+    # def transition_from_ready_to_spec_executing(self, env_file=None):
+    #     assert self.state == NodeState.READY
+    #     self.state = NodeState.SPEC_EXECUTING
+    #     self._attempt_start_command(env_file, speculate=True)
 
     def transition_from_stopped_to_executing(self, env_file=None):
         assert self.state == NodeState.READY
@@ -214,7 +250,29 @@ class Node:
     def transition_from_spec_executing_to_speculated(self):
         pass
 
-    def set_wait_env_file(self, env_file: str):
-        assert self.state in [NodeState.READY, NodeState.EXECUTING, NodeState.SPEC_EXECUTING, NodeState.STOP, NodeState.SPECULATED]
-        self.post_env_file = env_file
+
+    def update_rw_set(self, rw_set):
+        self.rwset = rw_set
+    
+    def gather_fs_actions(self) -> RWSet:
+        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
+        sandbox_dir = self.exec_ctxt.sandbox_dir
+        trace_file = self.exec_ctxt.trace_file
+        try:
+            trace_object = executor.read_trace(sandbox_dir, trace_file)
+        except FileNotFoundError:
+            self.update_rw_set(RWSet(set(), set()))
+            return
+        read_set, write_set = trace_v2.parse_and_gather_cmd_rw_sets(trace_object)
+        rw_set = RWSet(read_set, write_set)
+        self.update_rw_set(rw_set)
+
+    def get_rw_set(self):
+        # if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
+        #     self.gather_fs_actions()
+        return self.rwset
+        
+    # def set_wait_env_file(self, env_file: str):
+    #     assert self.state in [NodeState.READY, NodeState.EXECUTING, NodeState.SPEC_EXECUTING, NodeState.STOP, NodeState.SPECULATED]
+    #     self.post_env_file = env_file
     

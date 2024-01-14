@@ -6,7 +6,6 @@ from collections import deque
 class PartialProgramOrder:
     frontier: set  # Set of nodes at the frontier
     run_after: set  # Nodes that should run after certain conditions
-    window: int  # Integer representing the window
     to_be_resolved: "dict[NodeId, list[Node]]"  # Mapping of nodes to lists of uncommitted nodes
     nodes: "dict[NodeId, Node]"
     adjacency: "dict[NodeId, list[NodeId]]"
@@ -18,14 +17,15 @@ class PartialProgramOrder:
         self.inverse_adjacency = self.init_inverse_adjacency()
         self.frontier = set()
         self.run_after = set()
-        self.window = 0
-        self.to_be_resolved = {} 
+        self.to_be_resolved = {}
 
     def init_partial_order(self):
         for node_id, node in self.nodes.items():
             if node.is_initialized():
                 node.transition_from_init_to_ready()
-        
+
+        self.init_to_be_resolved_dict()
+        logging.info(self.to_be_resolved)
         # Init frontier
         self.frontier = self.get_standard_source_nodes()
         # TODO: Implement the rest of the partial order initialization
@@ -80,9 +80,14 @@ class PartialProgramOrder:
         for node in self.nodes.values():
             logging.info(f"Node {node.id_}: {node.state}")
 
+    def get_schedulable_nodes(self) -> list[NodeId]:
+        return [node.id_ for node in self.get_ready_nodes()]
+            
     def schedule_work(self, node_id: NodeId, env_file: str):
         self.get_node(node_id).start_executing(env_file)
-    
+
+    def schedule_spec_work(self, node_id: NodeId, env_file: str):
+        self.get_node(node_id).start_spec_executing(env_file)
     
     ## Returns the next non-committed normal node
     def progress_frontier(self) -> "list[NodeId]":
@@ -140,29 +145,29 @@ class PartialProgramOrder:
         return non_committed_nodes
     
     def get_all_next(self, current_node_id: NodeId, visited=None) -> "set[NodeId]":
-        if visited is None:
-            visited = set()
-        visited.add(current_node_id)
-
-        all_next_nodes = set([current_node_id])
-        for neighbor in self.get_next_nodes(current_node_id):
-            if neighbor not in visited:
-                all_next_nodes.update(self.get_all_next(neighbor, visited))
-
-        return all_next_nodes
+        all_next = set()
+        def reachable_rec(cur, reachable):
+            if cur in reachable:
+                return
+            reachable.add(cur)
+            for n in self.get_next_nodes(cur):
+                reachable_rec(n, reachable)
+        for n in self.get_next_nodes(current_node_id):
+            reachable_rec(n, all_next)
+        return all_next
 
 
     def get_all_previous(self, current_node_id: NodeId, visited=None) -> "set[NodeId]":
-        if visited is None:
-            visited = set()
-        visited.add(current_node_id)
-
-        all_previous_nodes = set([current_node_id])
-        for neighbor in self.get_prev_nodes(current_node_id):
-            if neighbor not in visited:
-                all_previous_nodes.update(self.get_all_previous(neighbor, visited))
-
-        return all_previous_nodes
+        all_prev = set()
+        def reachable_rec(cur, reachable):
+            if cur in reachable:
+                return
+            reachable.add(cur)
+            for n in self.get_prev_nodes(cur):
+                reachable_rec(n, reachable)
+        for n in self.get_prev_nodes(current_node_id):
+            reachable_rec(n, all_prev)
+        return all_prev
     
     def get_all_previous_uncommitted(self, node_id: NodeId) -> "set[NodeId]":
         previous = self.get_all_previous(node_id)
@@ -175,14 +180,52 @@ class PartialProgramOrder:
         elif node.is_ready():
             self.to_be_resolved[node_id] = self.get_all_previous_uncommitted(node_id)
 
+    def init_to_be_resolved_dict(self):
+        for node_id in self.nodes:
+            self.adjust_to_be_resolved_dict_entry(node_id)
+
     def adjust_to_be_resolved_dict(self):
+        # TODO: this design seems to require the function to be called
+        # each time before a node entering EXECUTING or SPEC_EXECUTING
+        # to be optimal (that is, it might keep more things in the list).
+        # It's safe as is so I'm not touching it.
         for node_id in self.to_be_resolved.keys():
             self.adjust_to_be_resolved_dict_entry(node_id)
-            
-    
+
     #TODO: Add partial order invariant checks
     def valid(self):
         return True
+
+    def has_fs_deps(self, node_id: NodeId):
+        node_of_interest : Node = self.get_node(node_id)
+        for node in self.get_executing_normal_and_speculated_nodes():
+            node.gather_fs_actions()
+        for nid in self.to_be_resolved[node_id]:
+            node: Node = self.get_node(nid)
+            if node.get_rw_set().has_conflict(node_of_interest.get_rw_set()):
+                return True
+        return False
+    
+    def handle_complete(self, node_id: NodeId, has_pending_wait: bool,
+                        current_env: str):
+        node = self.get_node(node_id)
+        # TODO: complete the state matching
+        if node.is_executing():
+            node.commit_frontier_execution()
+            self.adjust_to_be_resolved_dict()
+        elif node.is_spec_executing():
+            if self.has_fs_deps(node_id):
+                node.reset_to_ready()
+                # otherwise it stays in ready state and waits to be scheduled by the scheduler
+                if has_pending_wait:
+                    node.start_executing(current_env)
+            else:
+                node.finish_spec_execution()
+                if has_pending_wait:
+                    node.commit_speculated()
+                    self.adjust_to_be_resolved_dict()
+        else:
+            assert False
     
     def handle_wait(self, node_id: NodeId, env_file: str):
         node = self.get_node(node_id)
@@ -197,14 +240,11 @@ class PartialProgramOrder:
         # Q to @Di: Do we need to make the wait env file a node attribute 
         # (same for most recent env file) or is it ok to just pass it around here?
         # We might use it in the future so maybe we shouldn't drop it.
-        node.set_wait_env_file(env_file)
-                
+        # TODO: remove this?
+        # node.set_wait_env_file(env_file)
 
         if node.is_ready():
-            if node.id_ in self.get_frontier():
-                node.transition_from_ready_to_executing(env_file)
-            else:
-                node.transition_from_ready_to_spec_executing(env_file)
+            node.start_executing(env_file)
         elif node.is_stopped():
             if node in self.get_frontier():
                 logging.info(f'Node {node_id} is stopped and in the frontier.')
@@ -212,11 +252,14 @@ class PartialProgramOrder:
             else:
                 logging.info(f'Node {node_id} is stopped but not in the frontier.')
         elif node.is_speculated():
-            pass
             # TODO: handle this case
             # Check if env conflicts exist
-            # Check fs deps
-            # If no env or fs conflicts, then commit the node
+            if self.has_fs_deps(node_id):
+                node.reset_to_ready()
+                node.start_executing(env_file)
+            else:
+                node.commit_speculated()
+                self.adjust_to_be_resolved_dict()
         elif node.is_executing(): 
             # Do nothing 
             pass 
@@ -230,4 +273,4 @@ class PartialProgramOrder:
         # TODO: think about this
         # self.schedule_work_single_node()
         # self.schedule_work_all_nodes()
-
+        

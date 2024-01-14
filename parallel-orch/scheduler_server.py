@@ -63,8 +63,11 @@ class Scheduler:
                     |   Wait -> The JIT component waits for the results of a specific command
                     |   Done -> We are done
     """
+    window: int  # Integer representing the window
+    latest_env: str # This variable should be initialized by the first wait, and always have a value since
 
     def __init__(self, socket_file):
+        self.window = 0
         self.done = False
         self.socket = util.init_unix_socket(socket_file)
         ## A map containing connections for node_ids that are waiting for a response
@@ -91,7 +94,10 @@ class Scheduler:
         node_id, env_file = self.__parse_wait(input_cmd)
         self.waiting_for_response[node_id] = connection
         logging.info(f'Scheduler: Received wait message - {node_id}.')
+        self.latest_env = env_file
         self.partial_program_order.handle_wait(node_id, env_file)
+        if self.partial_program_order.get_node(node_id).is_committed():
+            self.respond_to_pending_wait(node_id)
 
     def process_next_cmd(self):
         connection, input_cmd = util.socket_get_next_cmd(self.socket)
@@ -105,12 +111,10 @@ class Scheduler:
             connection.close()
         elif (input_cmd.startswith("CommandExecComplete:")):
             node_id, exit_code, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
-            connection.close()
             logging.info(f'Scheduler: Received command exec complete message - {node_id}.')
-            node = self.partial_program_order.get_node(node_id)
-            # TODO: condition here to do different things based on node state
-            node.commit_frontier_execution()
-            self.respond_to_pending_wait(node_id)
+            self.partial_program_order.handle_complete(node_id, node_id in self.waiting_for_response, self.latest_env)
+            if self.partial_program_order.get_node(node_id).is_committed():
+                self.respond_to_pending_wait(node_id)
         elif (input_cmd.startswith("Wait")):
             self.handle_wait(input_cmd, connection)
         elif (input_cmd.startswith("Done")):
@@ -171,6 +175,11 @@ class Scheduler:
             raise Exception(f'Parsing failure for line: {input_cmd}')
 
 
+    def schedule_work(self):
+        nodes = self.partial_program_order.get_schedulable_nodes()
+        if len(nodes):
+            self.partial_program_order.schedule_spec_work(nodes[0], self.latest_env)
+        
     def run(self):
         ## The first command should be the daemon start
         self.process_next_cmd()
@@ -180,6 +189,7 @@ class Scheduler:
         
         while not self.done:
             self.process_next_cmd()
+            self.schedule_work()
 
         self.socket.close()
         self.shutdown()

@@ -1,4 +1,5 @@
 import logging
+import re
 import executor
 import trace_v2
 from dataclasses import dataclass
@@ -177,18 +178,27 @@ class Node:
     def transition_from_init_to_ready(self):
         assert self.state == NodeState.INIT
         self.state = NodeState.READY
-        # Initialize data structures here
-
         # Also, probably unroll here?
+
+    def kill(self):
+        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
+        self.exec_ctxt.process.kill()
 
     def reset_to_ready(self):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
                               NodeState.SPECULATED]
+        
+        # Q for @Di: Should we kill the process here?
+        if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
+            self.kill()
+        
         # Probably delete them from tmpfs too
         self.exec_ctxt = None
         self.exec_result = None
         self.rwset = None
         self.state = NodeState.READY
+        
+
         
     def start_executing(self, env_file):
         assert self.state == NodeState.READY
@@ -218,24 +228,6 @@ class Node:
         assert self.state == NodeState.SPECULATED
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
-
-    # def _attempt_start_command(self, env_file, speculate=False):
-    #     if self.wait_env_file is not None:
-    #         self.start_command(env_file=self.wait_env_file, speculate=speculate)
-    #     elif env_file is not None:
-    #         self.start_command(env_file=env_file, speculate=speculate)
-    #     else:
-    #         logging.error(f'Error: No valid execution env for Node {self.id_}')
-
-    # def transition_from_ready_to_executing(self, env_file=None):
-    #     assert self.state == NodeState.READY
-    #     self.state = NodeState.EXECUTING
-    #     self._attempt_start_command(env_file)
-
-    # def transition_from_ready_to_spec_executing(self, env_file=None):
-    #     assert self.state == NodeState.READY
-    #     self.state = NodeState.SPEC_EXECUTING
-    #     self._attempt_start_command(env_file, speculate=True)
 
     def transition_from_stopped_to_executing(self, env_file=None):
         assert self.state == NodeState.READY
@@ -271,8 +263,34 @@ class Node:
         # if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
         #     self.gather_fs_actions()
         return self.rwset
+
+    def has_env_conflict_with(self, other_env) -> bool:
+        # Early return if paths are the same
+        if self.exec_ctxt.pre_env_file == other_env:
+            return False
+
+        ignore_vars = set(['RANDOM'])  
         
-    # def set_wait_env_file(self, env_file: str):
-    #     assert self.state in [NodeState.READY, NodeState.EXECUTING, NodeState.SPEC_EXECUTING, NodeState.STOP, NodeState.SPECULATED]
-    #     self.post_env_file = env_file
-    
+        re_scalar_string = re.compile(r'declare (?:-x|--)? (\w+)="([^"]*)"')
+        re_scalar_int = re.compile(r'declare -i (\w+)="(\d+)"')
+        re_array = re.compile(r'declare -a (\w+)=(\([^)]+\))')
+
+        def parse_env(content):
+            env_vars = {}
+            for line in content.splitlines():
+                if line.startswith('#') or not line.strip():
+                    continue
+                for regex in [re_scalar_string, re_scalar_int, re_array]:
+                    match = regex.match(line)
+                    if match:
+                        key, value = match.groups()
+                        if key not in ignore_vars:
+                            env_vars[key] = value
+            return env_vars
+
+        with open(self.exec_ctxt.pre_env_file, 'r') as file:
+            node_env_vars = parse_env(file.read())
+
+        with open(other_env, 'r') as file:
+            other_env_vars = parse_env(file.read())
+        return node_env_vars != other_env_vars

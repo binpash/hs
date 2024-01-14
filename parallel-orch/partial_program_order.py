@@ -169,10 +169,14 @@ class PartialProgramOrder:
             reachable_rec(n, all_prev)
         return all_prev
     
+    def get_all_next_uncommitted(self, node_id: NodeId) -> "set[NodeId]":
+        next = self.get_all_next(node_id)
+        return set([node for node in next if not self.nodes[node].is_committed()])
+    
     def get_all_previous_uncommitted(self, node_id: NodeId) -> "set[NodeId]":
         previous = self.get_all_previous(node_id)
         return set([node for node in previous if not self.nodes[node].is_committed()])
-        
+
     def adjust_to_be_resolved_dict_entry(self, node_id: NodeId):
         node = self.nodes.get(node_id)
         if node.is_committed():
@@ -234,14 +238,6 @@ class PartialProgramOrder:
         if node.is_committed() or node.is_unsafe() or node.is_initialized():
             logging.error(f'Error: Node {node_id} is in an invalid state: {node.state}')
             raise Exception(f'Error: Node {node_id} is in an invalid state: {node.state}')
-        
-    
-        # For all the valid states, set the wait env file
-        # Q to @Di: Do we need to make the wait env file a node attribute 
-        # (same for most recent env file) or is it ok to just pass it around here?
-        # We might use it in the future so maybe we shouldn't drop it.
-        # TODO: remove this?
-        # node.set_wait_env_file(env_file)
 
         if node.is_ready():
             node.start_executing(env_file)
@@ -254,23 +250,30 @@ class PartialProgramOrder:
         elif node.is_speculated():
             # TODO: handle this case
             # Check if env conflicts exist
-            if self.has_fs_deps(node_id):
+            
+            
+            if node.has_env_conflict_with(env_file) or self.has_fs_deps(node_id):
+                ## TODO: Optimization
+                ## FIXME: Currently causes AssertionError: assert(node_id in self.waiting_for_response)
+                # An env conflict means that every following node 
+                # will have the same env conflict
+                # therefore, we have to reset them all
+                # for uncommitted_node_id in self.get_all_next_uncommitted(node_id):
+                #     uncommitted_node = self.get_node(uncommitted_node_id)
+                #     uncommitted_node.reset_to_ready()
+                #     uncommitted_node.start_executing(env_file)
                 node.reset_to_ready()
                 node.start_executing(env_file)
             else:
                 node.commit_speculated()
                 self.adjust_to_be_resolved_dict()
+            
         elif node.is_executing(): 
-            # Do nothing 
-            pass 
+            # Do nothing
+            pass
         elif node.is_spec_executing():
-            # Do nothing 
+            # Do nothing
             pass
         else:
             logging.error(f'Error: Node {node_id} is in an invalid state: {node.state}')
             raise Exception(f'Error: Node {node_id} is in an invalid state: {node.state}')
-
-        # TODO: think about this
-        # self.schedule_work_single_node()
-        # self.schedule_work_all_nodes()
-        

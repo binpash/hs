@@ -105,7 +105,6 @@ class Scheduler:
         if(input_cmd.startswith("Init")):
             connection.close()
             self.handle_init(input_cmd)
-            ## TODO: Read the partial order from the given file
         elif (input_cmd.startswith("Daemon Start") or input_cmd == ""):
             logging.info(f'Scheduler: Received daemon start message.')
             connection.close()

@@ -10,6 +10,7 @@ export TMPDIR=${6?No tmp dir given}
 export EXEC_MODE=${7?No execution mode given}
 export CMD_ID=${8?No command id given}
 export POST_EXEC_ENV=${9?No Riker env file given}
+export EXECUTION_ID=${10?No execution id given}
 
 ## KK 2023-04-24: Not sure this should be run every time we run a command
 ## GL 2023-07-08: Tests seem to pass without it
@@ -41,5 +42,5 @@ out=`head -3 $SANDBOX_DIR/upperdir/$TRACE_FILE`
 ## Assumes "${PASH_SPEC_SCHEDULER_SOCKET}" is set and exported
 
 ## Pass the proper exit code
-msg="CommandExecComplete:${CMD_ID}|Exit code:${exit_code}|Sandbox dir:${SANDBOX_DIR}|Trace file:${TRACE_FILE}|Tempdir:${TEMPDIR}"
+msg="CommandExecComplete:${CMD_ID}|Exec id:${EXECUTION_ID}|Exit code:${exit_code}|Sandbox dir:${SANDBOX_DIR}|Trace file:${TRACE_FILE}|Tempdir:${TEMPDIR}"
 daemon_response=$(pash_spec_communicate_scheduler_just_send "$msg") # Blocking step, daemon will not send response until it's safe to continue

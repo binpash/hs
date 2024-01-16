@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from subprocess import Popen
 from typing import Tuple
 from enum import Enum, auto
+import util
 
 class NodeState(Enum):
     INIT = auto()
@@ -104,6 +105,8 @@ class Node:
     cmd: str
     asts: "list[AstNode]"
     state: NodeState
+    # Used for identifying the most recent valid execution
+    exec_id: int
     # Nodes to check for fs dependencies before this node can be committed
     # for this particular execution of the main sandbox.
     # No need to do the same for the background sandbox since it will always get committed.
@@ -128,6 +131,7 @@ class Node:
         self.wait_env_file = None
         self.to_be_resolved_snapshot = None
         self.exec_ctxt = None
+        self.exec_id = None
 
     def __str__(self):
         return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt})'
@@ -164,7 +168,9 @@ class Node:
         # TODO: built-in commands
         cmd = self.cmd
         execute_func = executor.async_run_and_trace_command_return_trace
-        self.exec_ctxt = ExecCtxt(*execute_func(cmd, self.id_, env_file))
+        # Set the execution id
+        self.exec_id = util.generate_id()
+        self.exec_ctxt = ExecCtxt(*execute_func(cmd, self.id_, self.exec_id, env_file))
 
     def execution_outcome(self) -> Tuple[int, str, str]:
         assert self.exec_result is not None
@@ -188,7 +194,12 @@ class Node:
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
                               NodeState.SPECULATED]
         
-        # Q for @Di: Should we kill the process here?
+        logging.info(f"Resetting node {self.id_} to ready {self.exec_id}")
+        # We reset the exec id so if we receive a message 
+        # due to a race condition, we will ignore it.
+        self.exec_id = None
+        
+        # TODO: make this more sophisticated
         if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
             self.kill()
         
@@ -197,9 +208,8 @@ class Node:
         self.exec_result = None
         self.rwset = None
         self.state = NodeState.READY
-        
 
-        
+
     def start_executing(self, env_file):
         assert self.state == NodeState.READY
         self.start_command(env_file)

@@ -80,15 +80,6 @@ class Scheduler:
         logging.debug(f'Scheduler: Received partial_order_file: {partial_order_file}')
         self.partial_program_order = util.parse_partial_program_order_from_file(partial_order_file)
         self.partial_program_order.init_partial_order()
-        
-    def handle_command_exec_complete():
-        # TODO: Implement
-        pass
-    
-    def handle_command_exec_start():
-        # TODO: Implement
-        pass
-    
 
     def handle_wait(self, input_cmd: str, connection):
         node_id, env_file = self.__parse_wait(input_cmd)
@@ -109,11 +100,15 @@ class Scheduler:
             logging.info(f'Scheduler: Received daemon start message.')
             connection.close()
         elif (input_cmd.startswith("CommandExecComplete:")):
-            node_id, exit_code, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
-            logging.info(f'Scheduler: Received command exec complete message - {node_id}.')
-            self.partial_program_order.handle_complete(node_id, node_id in self.waiting_for_response, self.latest_env)
-            if self.partial_program_order.get_node(node_id).is_committed():
-                self.respond_to_pending_wait(node_id)
+            node_id, exec_id, exit_code, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
+            if self.partial_program_order.get_node(node_id).exec_id == exec_id:
+                logging.info(f'Scheduler: Received command exec complete message - {node_id}.')
+                self.partial_program_order.handle_complete(node_id, node_id in self.waiting_for_response, self.latest_env)
+                
+                if self.partial_program_order.get_node(node_id).is_committed():
+                    self.respond_to_pending_wait(node_id)
+            else:
+                logging.info(f'Scheduler: Received command exec complete message for a killed instance, ignoring - {node_id}.')
         elif (input_cmd.startswith("Wait")):
             self.handle_wait(input_cmd, connection)
         elif (input_cmd.startswith("Done")):
@@ -121,7 +116,7 @@ class Scheduler:
             self.partial_program_order.log_info()
             self.done = True
         elif input_cmd.startswith("CommandExecStart:"):
-            node_id, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
+            node_id, exec_id, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
             logging.info(f'Scheduler: Received command exec start message - {input_cmd}.')
             # self.handle_command_exec_start(input_cmd)
         else:
@@ -166,10 +161,11 @@ class Scheduler:
         try:
             components = input_cmd.rstrip().split("|")
             command_id = NodeId.parse_node_id(components[0].split(":")[1])
-            exit_code = int(components[1].split(":")[1])
-            sandbox_dir = components[2].split(":")[1]
-            trace_file = components[3].split(":")[1]
-            return command_id, exit_code, sandbox_dir, trace_file
+            exec_id = int(components[1].split(":")[1])
+            exit_code = int(components[2].split(":")[1])
+            sandbox_dir = components[3].split(":")[1]
+            trace_file = components[4].split(":")[1]
+            return command_id, exec_id, exit_code, sandbox_dir, trace_file
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')
 

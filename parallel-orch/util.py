@@ -258,3 +258,6 @@ def parse_partial_program_order_from_file(file_path: str):
     logging.info(f"Nodes|{','.join([str(node) for node in nodes])}")
     logging.info(f"Edges|{edges}")
     return PartialProgramOrder(nodes, edges)
+
+def generate_id() -> int:
+    return int(time.time() * 1000000)

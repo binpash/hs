@@ -230,7 +230,13 @@ class PartialProgramOrder:
                     self.adjust_to_be_resolved_dict()
         else:
             assert False
-    
+
+    def reset_succeeding_nodes_and_start_exec(self, node_id: NodeId, env_file: str):
+        for uncommitted_node_id in self.get_all_next_uncommitted(node_id):
+            uncommitted_node = self.get_node(uncommitted_node_id)
+            uncommitted_node.reset_to_ready()
+            uncommitted_node.start_spec_executing(env_file)
+
     def handle_wait(self, node_id: NodeId, env_file: str):
         node = self.get_node(node_id)
 
@@ -238,6 +244,7 @@ class PartialProgramOrder:
         if node.is_committed() or node.is_unsafe() or node.is_initialized():
             logging.error(f'Error: Node {node_id} is in an invalid state: {node.state}')
             raise Exception(f'Error: Node {node_id} is in an invalid state: {node.state}')
+        
 
         if node.is_ready():
             node.start_executing(env_file)
@@ -248,32 +255,25 @@ class PartialProgramOrder:
             else:
                 logging.info(f'Node {node_id} is stopped but not in the frontier.')
         elif node.is_speculated():
-            # TODO: handle this case
             # Check if env conflicts exist
-            
-            
-            if node.has_env_conflict_with(env_file) or self.has_fs_deps(node_id):
-                ## TODO: Optimization
-                ## FIXME: Currently causes AssertionError: assert(node_id in self.waiting_for_response)
-                # An env conflict means that every following node 
-                # will have the same env conflict
-                # therefore, we have to reset them all
-                # for uncommitted_node_id in self.get_all_next_uncommitted(node_id):
-                #     uncommitted_node = self.get_node(uncommitted_node_id)
-                #     uncommitted_node.reset_to_ready()
-                #     uncommitted_node.start_executing(env_file)
+            if node.has_env_conflict_with(env_file):
+                node.reset_to_ready()
+                node.start_executing(env_file)
+                self.reset_succeeding_nodes_and_start_exec(node_id, env_file)
+            # Optimization: It would make sense to perform the checks independently,
+            # and if fs conflict, then update the run after dict.
+            elif self.has_fs_deps(node_id):
                 node.reset_to_ready()
                 node.start_executing(env_file)
             else:
                 node.commit_speculated()
                 self.adjust_to_be_resolved_dict()
-            
-        elif node.is_executing(): 
-            # Do nothing
-            pass
+        elif node.is_executing():
+            if node.has_env_conflict_with(env_file):
+                self.reset_succeeding_nodes_and_start_exec(node_id, env_file)
         elif node.is_spec_executing():
-            # Do nothing
-            pass
+            if node.has_env_conflict_with(env_file):
+                self.reset_succeeding_nodes_and_start_exec(node_id, env_file)
         else:
             logging.error(f'Error: Node {node_id} is in an invalid state: {node.state}')
             raise Exception(f'Error: Node {node_id} is in an invalid state: {node.state}')

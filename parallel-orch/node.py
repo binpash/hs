@@ -1,6 +1,8 @@
 import logging
 import executor
 import trace_v2
+import util
+import signal
 from dataclasses import dataclass
 from subprocess import Popen
 from typing import Tuple
@@ -16,6 +18,18 @@ class NodeState(Enum):
     SPEC_EXECUTING = auto()
     UNSAFE = auto()
 
+def state_pstr(state: NodeState):
+    same_length_state_str = {
+        NodeState.INIT:           '  INIT',
+        NodeState.READY:          ' READY',
+        NodeState.COMMITTED:      'COMMIT',
+        NodeState.STOP:           '  STOP',
+        NodeState.SPECULATED:     'SPEC_F',
+        NodeState.EXECUTING:      '   EXE',
+        NodeState.SPEC_EXECUTING: 'SPEC_E',
+        NodeState.UNSAFE:         'UNSAFE'
+    }
+    return same_length_state_str[state]
 
 class RWSet:
 
@@ -134,6 +148,9 @@ class Node:
     def __repr__(self):
         return str(self)
 
+    def pretty_state_repr(self):
+        return f'{state_pstr(self.state)} {self.cmd}'
+    
     def is_initialized(self):
         return self.state == NodeState.INIT
     
@@ -185,6 +202,11 @@ class Node:
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
                               NodeState.SPECULATED]
         # Probably delete them from tmpfs too
+        process = self.exec_ctxt.process
+        if process.poll() is None:
+            # Exceptions will be handled inside the call so we don't have to worry
+            util.kill_process_tree(process.pid, sig=signal.SIGKILL)
+
         self.exec_ctxt = None
         self.exec_result = None
         self.rwset = None
@@ -253,7 +275,7 @@ class Node:
 
     def update_rw_set(self, rw_set):
         self.rwset = rw_set
-    
+
     def gather_fs_actions(self) -> RWSet:
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         sandbox_dir = self.exec_ctxt.sandbox_dir

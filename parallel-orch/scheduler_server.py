@@ -172,8 +172,8 @@ class Scheduler:
 
     def schedule_work(self):
         nodes = self.partial_program_order.get_schedulable_nodes()
-        if len(nodes):
-            self.partial_program_order.schedule_spec_work(nodes[0], self.latest_env)
+        for n in nodes[:2]:
+            self.partial_program_order.schedule_spec_work(n, self.latest_env)
         
     def run(self):
         ## The first command should be the daemon start
@@ -181,11 +181,15 @@ class Scheduler:
         
         ## The second command should be the partial order init
         self.process_next_cmd()
-        
+
+        self.partial_program_order.log_state()
         while not self.done:
             self.process_next_cmd()
+            self.partial_program_order.log_state()
             self.schedule_work()
-
+            self.partial_program_order.log_state()
+            self.partial_program_order.eager_fs_killing()
+            self.partial_program_order.log_state()
         self.socket.close()
         self.shutdown()
 
@@ -196,7 +200,7 @@ class Scheduler:
         self.terminate_pending_commands()
         
     def terminate_pending_commands(self):
-        for node in self.partial_program_order.get_executing_normal_and_speculated_nodes():
+        for node in self.partial_program_order.get_executing_normal_and_spec_nodes():
             proc, _trace_file, _stdout, _stderr, _variable_file, _ = node.get_main_sandbox()
             logging.debug(f'Killing: {proc}')
             # proc.terminate()

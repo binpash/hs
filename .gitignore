@@ -1,3 +1,6 @@
 scripts/vars.sh
 *__pycache__*
 .DS_Store
+*~
+\#*\#
+.\#*

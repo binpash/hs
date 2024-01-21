@@ -232,10 +232,11 @@ class PartialProgramOrder:
             assert False
 
     def reset_succeeding_nodes_and_start_exec(self, node_id: NodeId, env_file: str):
-        for uncommitted_node_id in self.get_all_next_uncommitted(node_id):
+        for uncommitted_node_id in self.get_all_next(node_id):
             uncommitted_node = self.get_node(uncommitted_node_id)
-            uncommitted_node.reset_to_ready()
-            uncommitted_node.start_spec_executing(env_file)
+            if uncommitted_node.is_spec_executing():
+                uncommitted_node.reset_to_ready()
+            # uncommitted_node.start_spec_executing(env_file)
 
     def handle_wait(self, node_id: NodeId, env_file: str):
         node = self.get_node(node_id)

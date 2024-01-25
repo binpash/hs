@@ -1,4 +1,4 @@
-from node import NodeId, Node
+from node import NodeId, ConcreteNode
 import logging
 from collections import deque
 
@@ -20,13 +20,13 @@ class PartialProgramOrder:
     # Di: I'm going to ignore this for now and implement the feature without a local data structure
     # Later we can add this back as a caching mechanism to avoid doing RWSet
     # intersections of files all the time
-    # run_after: "dict[NodeId, list[Node]]"  # Nodes that should run after certain conditions
-    to_be_resolved: "dict[NodeId, list[Node]]"  # Mapping of nodes to lists of uncommitted nodes
-    nodes: "dict[NodeId, Node]"
+    # run_after: "dict[NodeId, list[ConcreteNode]]"  # Nodes that should run after certain conditions
+    to_be_resolved: "dict[NodeId, list[ConcreteNode]]"  # Mapping of nodes to lists of uncommitted nodes
+    nodes: "dict[NodeId, ConcreteNode]"
     adjacency: "dict[NodeId, list[NodeId]]"
     inverse_adjacency: "dict[NodeId, list[NodeId]]"
     
-    def __init__(self, nodes: "dict[NodeId, Node]", edges: "dict[NodeId, list[NodeId]]"):
+    def __init__(self, nodes: "dict[NodeId, ConcreteNode]", edges: "dict[NodeId, list[NodeId]]"):
         self.nodes = nodes
         self.adjacency = edges
         self.inverse_adjacency = self.init_inverse_adjacency()
@@ -58,7 +58,7 @@ class PartialProgramOrder:
                 inverse_adjacency[to_id].append(from_id)
         return inverse_adjacency
     
-    def get_node(self, node_id: NodeId) -> Node:
+    def get_node(self, node_id: NodeId) -> ConcreteNode:
         return self.nodes[node_id]
 
     def get_all_nodes(self):
@@ -218,9 +218,9 @@ class PartialProgramOrder:
             node.gather_fs_actions()
             
     def _has_fs_deps(self, node_id: NodeId):
-        node_of_interest : Node = self.get_node(node_id)
+        node_of_interest : ConcreteNode = self.get_node(node_id)
         for nid in self.to_be_resolved[node_id]:
-            node: Node = self.get_node(nid)
+            node: ConcreteNode = self.get_node(nid)
             if node.get_rw_set().has_conflict(node_of_interest.get_rw_set()):
                 return True
         return False
@@ -277,18 +277,18 @@ class PartialProgramOrder:
 
         # Invalid state check
         if node.is_committed() or node.is_unsafe() or node.is_initialized():
-            logging.error(f'Error: Node {node_id} is in an invalid state: {node.state}')
-            raise Exception(f'Error: Node {node_id} is in an invalid state: {node.state}')
+            logging.error(f'Error: ConcreteNode {node_id} is in an invalid state: {node.state}')
+            raise Exception(f'Error: ConcreteNode {node_id} is in an invalid state: {node.state}')
         
 
         if node.is_ready():
             node.start_executing(env_file)
         elif node.is_stopped():
             if node in self.get_frontier():
-                logging.info(f'Node {node_id} is stopped and in the frontier.')
+                logging.info(f'ConcreteNode {node_id} is stopped and in the frontier.')
                 node.transition_from_stopped_to_executing(env_file)
             else:
-                logging.info(f'Node {node_id} is stopped but not in the frontier.')
+                logging.info(f'ConcreteNode {node_id} is stopped but not in the frontier.')
         elif node.is_speculated():
             # Check if env conflicts exist
             if node.has_env_conflict_with(env_file):
@@ -310,8 +310,8 @@ class PartialProgramOrder:
             if node.has_env_conflict_with(env_file):
                 self.reset_succeeding_nodes(node_id, env_file)
         else:
-            logging.error(f'Error: Node {node_id} is in an invalid state: {node.state}')
-            raise Exception(f'Error: Node {node_id} is in an invalid state: {node.state}')
+            logging.error(f'Error: ConcreteNode {node_id} is in an invalid state: {node.state}')
+            raise Exception(f'Error: ConcreteNode {node_id} is in an invalid state: {node.state}')
         
     def eager_fs_killing(self):
         event_log("try to eagerly kill conflicted speculation")

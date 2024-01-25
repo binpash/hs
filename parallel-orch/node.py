@@ -1,3 +1,4 @@
+import copy
 import logging
 import re
 import executor
@@ -10,7 +11,7 @@ from typing import Tuple
 from enum import Enum, auto
 import util
 
-class NodeState(Enum):
+class ConcreteNodeState(Enum):
     INIT = auto()
     READY = auto()
     COMMITTED = auto()
@@ -20,16 +21,16 @@ class NodeState(Enum):
     SPEC_EXECUTING = auto()
     UNSAFE = auto()
 
-def state_pstr(state: NodeState):
+def state_pstr(state: ConcreteNodeState):
     same_length_state_str = {
-        NodeState.INIT:           '  INIT',
-        NodeState.READY:          ' READY',
-        NodeState.COMMITTED:      'COMMIT',
-        NodeState.STOP:           '  STOP',
-        NodeState.SPECULATED:     'SPEC_F',
-        NodeState.EXECUTING:      '   EXE',
-        NodeState.SPEC_EXECUTING: 'SPEC_E',
-        NodeState.UNSAFE:         'UNSAFE'
+        ConcreteNodeState.INIT:           '  INIT',
+        ConcreteNodeState.READY:          ' READY',
+        ConcreteNodeState.COMMITTED:      'COMMIT',
+        ConcreteNodeState.STOP:           '  STOP',
+        ConcreteNodeState.SPECULATED:     'SPEC_F',
+        ConcreteNodeState.EXECUTING:      '   EXE',
+        ConcreteNodeState.SPEC_EXECUTING: 'SPEC_E',
+        ConcreteNodeState.UNSAFE:         'UNSAFE'
     }
     return same_length_state_str[state]
 
@@ -67,41 +68,121 @@ class RWSet:
     def __str__(self):
         return f"RW(R:{self.get_read_set()}, W:{self.get_write_set()})"
 
+## This class is used for both loop contexts and loop iters
+## The indices go from inner to outer
+class LoopStack:
+    def __init__(self, loop_contexts_or_iters=None):
+        if loop_contexts_or_iters is None:
+            self.loops = []
+        else:
+            self.loops = loop_contexts_or_iters
+
+    def is_empty(self):
+        return len(self.loops) == 0
+
+    def __len__(self):
+        return len(self.loops)
+
+    ## Generates a new loop stack with the same length but 0s as values
+    def new_zeroed_loop_stack(self):
+        return [0 for i in self.loops]
+
+    def get_outer(self):
+        return self.loops[-1]
+
+    def pop_outer(self):
+        return self.loops.pop()
+    
+    def add_inner(self, loop_iter_id: int):
+        self.loops.insert(0, loop_iter_id)
+
+    def outer_to_inner(self):
+        return self.loops[::-1]
+
+    def index(self, loop_iter_id: int) -> int:
+        return self.loops.index(loop_iter_id)
+
+    def get(self, index: int):
+        return self.loops[index]
+
+    def __repr__(self):
+        ## TODO: Represent it using 'it', 'it0', 'it1', etc
+        ##       or -(iters)- in front of it.
+        output = "-".join([str(it) for it in self.loops])
+        return output
+
+    def __eq__(self, other):
+        if not len(self.loops) == len(other.loops):
+            return False
+        for i in range(len(self.loops)):
+            if not self.loops[i] == other.loops[i]:
+                return False
+        return True
 
 class NodeId:
     
-    #TODO: Implement iteration support
+    def __init__(self, id: int, loop_iters=None):
+        self.id = id
+        
+        if loop_iters is None:
+            self.loop_iters = LoopStack()
+        else:
+            assert(isinstance(loop_iters, LoopStack))
+            self.loop_iters = loop_iters
+
+    def has_iters(self):
+        return not self.loop_iters.is_empty()
     
-    def __init__(self, id_: int):
-        self.id_ = id_
+    def get_iters(self):
+        return copy.deepcopy(self.loop_iters)
 
     def get_non_iter_id(self):
-        return NodeId(self.id_)
+        return NodeId(self.id)
+
+    ## Returns a new NodeId
+    def generate_new_node_id_with_another_iter(self, new_iter: int):
+        ## This node already contains iterations for the outer loops potentially
+        ##  so we just need to add another inner iteration
+        new_iters = copy.deepcopy(self.loop_iters)
+        new_iters.add_inner(new_iter)
+        
+        new_node_id = NodeId(self.id, new_iters)
+        return new_node_id
 
     def __repr__(self):
         ## TODO: Represent it using n.
-        output = f'{self.id_}'
+        output = f'{self.id}'
+        if not self.loop_iters.is_empty():
+            output += f'+{self.loop_iters}'
         return output
 
     def __hash__(self):
         return hash(str(self))
 
     def __eq__(self, other):
-        # return self.loop_iters == other.loop_iters and self.id == other.id
-        return self.id_ == other.id_
+        return self.loop_iters == other.loop_iters and self.id == other.id
 
     def __ne__(self, other):
+        # Not strictly necessary, but to avoid having both x==y and x!=y
+        # True at the same time
         return not(self == other)
-
+    
+    ## TODO: Define this correctly if it is to be used for something other than dictionary indexing
     def __lt__(self, obj):
         return (str(self) < str(obj))
-
+  
     def __gt__(self, obj):
         return (str(self) > str(obj))
 
     @staticmethod
     def parse_node_id(node_id_str: str):
-        return NodeId(int(node_id_str))
+        if "+" in node_id_str:
+            node_id_int, iters_str = node_id_str.split("+")
+            iters = [int(it) for it in iters_str.split("-")]
+            return NodeId(int(node_id_int), LoopStack(iters))
+        else:
+            return NodeId(int(node_id_str), LoopStack())
+
 
 @dataclass
 class ExecCtxt:
@@ -117,13 +198,24 @@ class ExecCtxt:
 class ExecResult:
     exit_code: int
     proc_id: int
-    
-    
+
+
 class Node:
     id_: NodeId
     cmd: str
     asts: "list[AstNode]"
-    state: NodeState
+    # The wait trace file for this node
+    wait_env_file: str
+    
+    def __init__(self, node_id: NodeId, cmd: str, asts: "list[AstNode]"):
+        self.id_ = node_id
+        self.cmd = cmd
+        self.asts = asts
+        self.wait_env_file = None
+    
+# Extends parent node
+class ConcreteNode(Node):
+    state: ConcreteNodeState
     # Used for identifying the most recent valid execution
     exec_id: int
     # Nodes to check for fs dependencies before this node can be committed
@@ -132,28 +224,25 @@ class Node:
     to_be_resolved_snapshot: "set[NodeId]"
     # Read and write sets for this node
     rwset: RWSet
-    # The wait trace file for this node
-    wait_env_file: str
     # This can only be set while in the frontier and the background node execution is enabled
     # TODO: For now ignore this. Maybe there is a better way to do this.
     # background_sandbox: Sandbox
     exec_ctxt: ExecCtxt
     exec_result: ExecResult
+    loop_contexts: LoopStack
     
-    def __init__(self, node_id: NodeId, cmd: str, asts: "list[AstNode]"):
-        self.id_ = node_id
-        self.cmd = cmd
-        self.asts = asts
-        self.state = NodeState.INIT
-        self.tracefile = None
-        self.rwset = None
-        self.wait_env_file = None
-        self.to_be_resolved_snapshot = None
-        self.exec_ctxt = None
+    def __init__(self, node_id: NodeId, cmd: str, asts: "list[AstNode]", loop_context=None):
+        super().__init__(node_id, cmd, asts)
+        self.state = ConcreteNodeState.INIT
         self.exec_id = None
+        self.to_be_resolved_snapshot = set()
+        self.rwset = RWSet(set(), set())
+        self.exec_ctxt = None
+        self.exec_result = None
+        self.loop_context = loop_context
 
     def __str__(self):
-        return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt})'
+        return f'ConcreteNode(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt})'
     
     def __repr__(self):
         return str(self)
@@ -162,28 +251,28 @@ class Node:
         return f'{state_pstr(self.state)} {self.cmd}'
     
     def is_initialized(self):
-        return self.state == NodeState.INIT
+        return self.state == ConcreteNodeState.INIT
     
     def is_ready(self):
-        return self.state == NodeState.READY
+        return self.state == ConcreteNodeState.READY
     
     def is_committed(self):
-        return self.state == NodeState.COMMITTED
+        return self.state == ConcreteNodeState.COMMITTED
     
     def is_stopped(self):
-        return self.state == NodeState.STOP
+        return self.state == ConcreteNodeState.STOP
     
     def is_speculated(self):
-        return self.state == NodeState.SPECULATED
+        return self.state == ConcreteNodeState.SPECULATED
 
     def is_executing(self):
-        return self.state == NodeState.EXECUTING
+        return self.state == ConcreteNodeState.EXECUTING
     
     def is_spec_executing(self):
-        return self.state == NodeState.SPEC_EXECUTING
+        return self.state == ConcreteNodeState.SPEC_EXECUTING
     
     def is_unsafe(self):
-        return self.state == NodeState.UNSAFE
+        return self.state == ConcreteNodeState.UNSAFE
 
     def start_command(self, env_file: str, speculate=False):
         # TODO: implement speculate
@@ -204,17 +293,17 @@ class Node:
     ##                                      ##
     
     def transition_from_init_to_ready(self):
-        assert self.state == NodeState.INIT
-        self.state = NodeState.READY
+        assert self.state == ConcreteNodeState.INIT
+        self.state = ConcreteNodeState.READY
         # Also, probably unroll here?
 
     def kill(self):
-        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
+        assert self.state in [ConcreteNodeState.EXECUTING, ConcreteNodeState.SPEC_EXECUTING]
         self.exec_ctxt.process.kill()
 
     def reset_to_ready(self):
-        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
-                              NodeState.SPECULATED]
+        assert self.state in [ConcreteNodeState.EXECUTING, ConcreteNodeState.SPEC_EXECUTING,
+                              ConcreteNodeState.SPECULATED]
         
         logging.info(f"Resetting node {self.id_} to ready {self.exec_id}")
         # We reset the exec id so if we receive a message 
@@ -222,7 +311,7 @@ class Node:
         self.exec_id = None
         
         # TODO: make this more sophisticated
-        if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
+        if self.state in [ConcreteNodeState.EXECUTING, ConcreteNodeState.SPEC_EXECUTING]:
             self.kill()
         
         # Probably delete them from tmpfs too
@@ -233,46 +322,46 @@ class Node:
 
         self.exec_ctxt = None
         self.exec_result = None
-        self.state = NodeState.READY
+        self.state = ConcreteNodeState.READY
 
 
     def start_executing(self, env_file):
-        assert self.state == NodeState.READY
+        assert self.state == ConcreteNodeState.READY
         self.start_command(env_file)
-        self.state = NodeState.EXECUTING
+        self.state = ConcreteNodeState.EXECUTING
 
     def start_spec_executing(self, env_file):
-        assert self.state == NodeState.READY
+        assert self.state == ConcreteNodeState.READY
         self.start_command(env_file, speculate=True)
-        self.state = NodeState.SPEC_EXECUTING
+        self.state = ConcreteNodeState.SPEC_EXECUTING
         
     def commit_frontier_execution(self):
-        assert self.state == NodeState.EXECUTING
+        assert self.state == ConcreteNodeState.EXECUTING
         self.exec_result = ExecResult(self.exec_ctxt.process.pid, self.exec_ctxt.process.returncode)
         self.gather_fs_actions()
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
-        self.state = NodeState.COMMITTED
+        self.state = ConcreteNodeState.COMMITTED
 
     def finish_spec_execution(self):
-        assert self.state == NodeState.SPEC_EXECUTING
+        assert self.state == ConcreteNodeState.SPEC_EXECUTING
         self.exec_result = ExecResult(self.exec_ctxt.process.pid, self.exec_ctxt.process.returncode)
         self.gather_fs_actions()
-        self.state = NodeState.SPECULATED
+        self.state = ConcreteNodeState.SPECULATED
 
 
     def commit_speculated(self):
-        assert self.state == NodeState.SPECULATED
+        assert self.state == ConcreteNodeState.SPECULATED
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
-        self.state = NodeState.COMMITTED
+        self.state = ConcreteNodeState.COMMITTED
 
     def transition_from_stopped_to_executing(self, env_file=None):
-        assert self.state == NodeState.READY
-        self.state = NodeState.EXECUTING
+        assert self.state == ConcreteNodeState.READY
+        self.state = ConcreteNodeState.EXECUTING
         self._attempt_start_command(env_file)
 
     def transition_to_committed(self):
-        assert self.state in NodeState.SPECULATED
-        self.state = NodeState.COMMITTED
+        assert self.state in ConcreteNodeState.SPECULATED
+        self.state = ConcreteNodeState.COMMITTED
         # TODO
 
     def transition_from_spec_executing_to_speculated(self):
@@ -283,7 +372,7 @@ class Node:
         self.rwset = rw_set
 
     def gather_fs_actions(self) -> RWSet:
-        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
+        assert self.state in [ConcreteNodeState.EXECUTING, ConcreteNodeState.SPEC_EXECUTING]
         sandbox_dir = self.exec_ctxt.sandbox_dir
         trace_file = self.exec_ctxt.trace_file
         try:
@@ -296,7 +385,7 @@ class Node:
         self.update_rw_set(rw_set)
 
     def get_rw_set(self):
-        # if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
+        # if self.state in [ConcreteNodeState.EXECUTING, ConcreteNodeState.SPEC_EXECUTING]:
         #     self.gather_fs_actions()
         return self.rwset
 

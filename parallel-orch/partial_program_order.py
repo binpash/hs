@@ -28,16 +28,20 @@ class PartialProgramOrder:
     inverse_adjacency: "dict[NodeId, list[NodeId]]"
     
     def __init__(self, nodes: "dict[NodeId, ConcreteNode]", edges: "dict[NodeId, list[NodeId]]"):
-        self.nodes = nodes
-        self.adjacency = edges
-        self.abstract_nodes = None
-        self.abstract_adjacency = None
-        self.inverse_adjacency = self.init_inverse_adjacency()
+        self.nodes = {}
+        self.adjacency = {}
+        self.abstract_nodes = nodes
+        self.abstract_adjacency = edges
+        self.abstract_inverse_adjacency = self.init_abstract_inverse_adjacency()
+        self.inverse_adjacency = self.abstract_inverse_adjacency
+        # self.inverse_adjacency = self.init_inverse_adjacency()
         self.frontier = set()
         # self.run_after = {}
         self.to_be_resolved = {}
 
     def init_partial_order(self):
+        
+        self.abstract_to_concrete_all_plain_nodes()
         for node_id, node in self.nodes.items():
             if node.is_initialized():
                 node.transition_from_init_to_ready()
@@ -48,18 +52,20 @@ class PartialProgramOrder:
         self.frontier = self.get_standard_source_nodes()
         # TODO: Implement the rest of the partial order initialization
 
+
+
     def commit_node(self, node):
         # Logic to handle committing a node
         node.transition_to_committed()
         # Maybe update dependencies here 
         # etc.
 
-    def init_inverse_adjacency(self):
-        inverse_adjacency = {i: [] for i in self.nodes.keys()}
-        for from_id, to_ids in self.adjacency.items():
+    def init_abstract_inverse_adjacency(self):
+        abstract_inverse_adjacency = {i: [] for i in self.abstract_nodes.keys()}
+        for from_id, to_ids in self.abstract_adjacency.items():
             for to_id in to_ids:
-                inverse_adjacency[to_id].append(from_id)
-        return inverse_adjacency
+                abstract_inverse_adjacency[to_id].append(from_id)
+        return abstract_inverse_adjacency
     
     def get_node(self, node_id: NodeId) -> ConcreteNode:
         return self.nodes[node_id]
@@ -341,12 +347,16 @@ class PartialProgramOrder:
         for abstract_node_id in self.abstract_nodes.keys():
             # This is a plain node. Condition will change if we add if branches
             if not self.is_abstract_loop_node(abstract_node_id):
-                self.abstract_to_concrete_plain(abstract_node_id, abstract_node)
+                self.abstract_to_concrete_plain(abstract_node_id)
 
     def abstract_to_concrete_plain(self, abstract_node_id: NodeId):
-        if not self.exists_as_concrete_node():
-            self.nodes[abstract_node_id] = self.abstract_nodes.get(abstract_node_id)
-
+        if not self.exists_as_concrete_node(abstract_node_id):
+            abstract_node = self.abstract_nodes.get(abstract_node_id)
+            self.nodes[abstract_node_id] = ConcreteNode(abstract_node.id_, 
+                                                        abstract_node.cmd, 
+                                                        abstract_node.asts, 
+                                                        abstract_node.loop_contexts)
+            self.adjacency[abstract_node_id] = self.abstract_adjacency.get(abstract_node_id)
     def abstract_to_concrete_loop(self, abstract_node_id: NodeId):
         if not self.exists_as_concrete_node(abstract_node_id):
             self.unroll_loop_to_concrete_nodes(abstract_node_id)

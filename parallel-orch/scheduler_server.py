@@ -3,7 +3,8 @@ import logging
 import signal
 import util
 import config
-from partial_program_order import PartialProgramOrder, NodeId
+from partial_program_order import NodeId
+from node import LoopStack
 
 ##
 ## A scheduler server
@@ -146,13 +147,11 @@ class Scheduler:
             raw_node_id_int = int(node_id_component.split(":")[1].rstrip())
             loop_counters_str = loop_iter_counter_component.split(":")[1].rstrip()
             pash_runtime_vars_file_str = pash_runtime_vars_file_component.split(":")[1].rstrip()
-            # TODO Implement loops correctly
-            # if loop_counters_str == "None":
-            #     node_id = NodeId(raw_node_id_int), pash_runtime_vars_file_str
-            # else:
-            #     loop_counters = [int(cnt) for cnt in loop_counters_str.split("-")]
-            #     node_id = NodeId(raw_node_id_int, LoopStack(loop_counters)), pash_runtime_vars_file_str      
-            node_id = NodeId(raw_node_id_int), pash_runtime_vars_file_str     
+            if loop_counters_str == "None":
+                node_id = NodeId(raw_node_id_int), pash_runtime_vars_file_str
+            else:
+                loop_counters = [int(cnt) for cnt in loop_counters_str.split("-")]
+                node_id = NodeId(raw_node_id_int, LoopStack(loop_counters)), pash_runtime_vars_file_str           
             return node_id
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')

@@ -216,7 +216,7 @@ class AbstractNode:
         self.loop_contexts = loop_contexts
         
     def is_in_loop(self):
-        return self.loop_contexts is not None
+        return not self.loop_contexts.is_empty()
         
     #TODO: Implement this
     def is_in_branch(self):

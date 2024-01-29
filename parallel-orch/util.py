@@ -9,7 +9,7 @@ import re
 import psutil
 import signal
 import analysis
-from node import ConcreteNode, NodeId, LoopStack
+from node import AbstractNode, ConcreteNode, NodeId, LoopStack
 from partial_program_order import PartialProgramOrder
 
 def ptempfile():
@@ -245,7 +245,7 @@ def parse_partial_program_order_from_file(file_path: str):
         file_path = f'{cmds_directory}/{i}'
         cmd, asts = parse_cmd_from_file(file_path)
         loop_ctx = loop_contexts[i]
-        nodes[NodeId(i)] = ConcreteNode(NodeId(i), cmd, 
+        nodes[NodeId(i)] = AbstractNode(NodeId(i), cmd, 
                                 asts=asts, 
                                 loop_contexts=LoopStack(loop_ctx))
 

@@ -155,6 +155,9 @@ class NodeId:
         if not self.loop_iters.is_empty():
             output += f'+{self.loop_iters}'
         return output
+    
+    def __str__(self):
+        return self.__repr__()
 
     def __hash__(self):
         return hash(str(self))
@@ -200,21 +203,33 @@ class ExecResult:
     proc_id: int
 
 
-class Node:
+class AbstractNode:
+    id_: NodeId
+    cmd: str
+    asts: "list[AstNode]"
+    loop_contexts: LoopStack
+    
+    def __init__(self, node_id: NodeId, cmd: str, asts: "list[AstNode]", loop_contexts=None):
+        self.id_ = node_id
+        self.cmd = cmd
+        self.asts = asts
+        self.loop_contexts = loop_contexts
+        
+    def is_in_loop(self):
+        return self.loop_contexts is not None
+        
+    #TODO: Implement this
+    def is_in_branch(self):
+        pass
+    
+
+# Extends parent node
+class ConcreteNode:
     id_: NodeId
     cmd: str
     asts: "list[AstNode]"
     # The wait trace file for this node
     wait_env_file: str
-    
-    def __init__(self, node_id: NodeId, cmd: str, asts: "list[AstNode]"):
-        self.id_ = node_id
-        self.cmd = cmd
-        self.asts = asts
-        self.wait_env_file = None
-    
-# Extends parent node
-class ConcreteNode(Node):
     state: ConcreteNodeState
     # Used for identifying the most recent valid execution
     exec_id: int
@@ -231,18 +246,21 @@ class ConcreteNode(Node):
     exec_result: ExecResult
     loop_contexts: LoopStack
     
-    def __init__(self, node_id: NodeId, cmd: str, asts: "list[AstNode]", loop_context=None):
-        super().__init__(node_id, cmd, asts)
+    def __init__(self, node_id: NodeId, cmd: str, asts: "list[AstNode]", loop_contexts=None):
+        self.id_ = node_id
+        self.cmd = cmd
+        self.asts = asts
+        self.wait_env_file = None
         self.state = ConcreteNodeState.INIT
         self.exec_id = None
         self.to_be_resolved_snapshot = set()
         self.rwset = RWSet(set(), set())
         self.exec_ctxt = None
         self.exec_result = None
-        self.loop_context = loop_context
+        self.loop_contexts = loop_contexts
 
     def __str__(self):
-        return f'ConcreteNode(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt})'
+        return f'ConcreteNode(id:{self.id_}, loop_ctxt:{self.loop_contexts}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt})'
     
     def __repr__(self):
         return str(self)

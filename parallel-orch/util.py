@@ -247,7 +247,7 @@ def parse_partial_program_order_from_file(file_path: str):
         loop_ctx = loop_contexts[i]
         nodes[NodeId(i)] = ConcreteNode(NodeId(i), cmd, 
                                 asts=asts, 
-                                loop_context=LoopStack(loop_ctx))
+                                loop_contexts=LoopStack(loop_ctx))
 
     edges = {NodeId(i) : [] for i in range(number_of_nodes)}
     for edge_line in edge_lines:

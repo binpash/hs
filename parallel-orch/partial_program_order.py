@@ -25,23 +25,23 @@ class PartialProgramOrder:
     to_be_resolved: "dict[NodeId, list[ConcreteNode]]"  # Mapping of nodes to lists of uncommitted nodes
     nodes: "dict[NodeId, ConcreteNode]"
     adjacency: "dict[NodeId, list[NodeId]]"
+    abstract_adjacency: "dict[NodeId, list[NodeId]]"
     inverse_adjacency: "dict[NodeId, list[NodeId]]"
     
     def __init__(self, nodes: "dict[NodeId, ConcreteNode]", edges: "dict[NodeId, list[NodeId]]"):
-        self.nodes = {}
-        self.adjacency = {}
         self.abstract_nodes = nodes
         self.abstract_adjacency = edges
         self.abstract_inverse_adjacency = self.init_abstract_inverse_adjacency()
-        self.inverse_adjacency = self.abstract_inverse_adjacency
-        # self.inverse_adjacency = self.init_inverse_adjacency()
+        self.nodes = {}
+        self.adjacency = {}
+        self.inverse_adjacency = {}
         self.frontier = set()
         # self.run_after = {}
         self.to_be_resolved = {}
 
     def init_partial_order(self):
         
-        self.abstract_to_concrete_all_plain_nodes()
+        self.concretize_abstract_plain_nodes_until_loops()
         for node_id, node in self.nodes.items():
             if node.is_initialized():
                 node.transition_from_init_to_ready()
@@ -342,76 +342,55 @@ class PartialProgramOrder:
     def filter_abstract_loop_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
         return [node_id for node_id in node_ids
                 if self.is_abstract_loop_node(node_id)]
-    
-    def abstract_to_concrete_all_plain_nodes(self):
-        for abstract_node_id in self.abstract_nodes.keys():
-            # This is a plain node. Condition will change if we add if branches
-            if not self.is_abstract_loop_node(abstract_node_id):
-                self.abstract_to_concrete_plain(abstract_node_id)
-
-    def abstract_to_concrete_plain(self, abstract_node_id: NodeId):
-        if not self.exists_as_concrete_node(abstract_node_id):
-            abstract_node = self.abstract_nodes.get(abstract_node_id)
-            self.nodes[abstract_node_id] = ConcreteNode(abstract_node.id_, 
-                                                        abstract_node.cmd, 
-                                                        abstract_node.asts, 
-                                                        abstract_node.loop_contexts)
-            self.adjacency[abstract_node_id] = self.abstract_adjacency.get(abstract_node_id)
-    def abstract_to_concrete_loop(self, abstract_node_id: NodeId):
-        if not self.exists_as_concrete_node(abstract_node_id):
-            self.unroll_loop_to_concrete_nodes(abstract_node_id)
-            ## The node_id must be part of the PO after unrolling, otherwise we did something wrong
-            assert(self.exists_as_concrete_node(abstract_node_id))
-
-    def get_transitive_closure(self, target_node_ids:"list[NodeId]") -> "list[NodeId]":
-        all_next_transitive = set(target_node_ids)
-        next_work = target_node_ids.copy()
-        while len(next_work) > 0:
-            node_id = next_work.pop()
-            successors = set(self.get_next_nodes(node_id))
-            new_next = successors - all_next_transitive
-            all_next_transitive = all_next_transitive.union(successors)
-            next_work.extend(new_next)
-        return list(all_next_transitive)
-
-    ## This returns the minimum w.r.t. to the PO of a bunch of node_ids.
-    ## In a real partial order, this could be many,
-    def get_min(self, node_ids: "list[NodeId]") -> "list[NodeId]":
-        potential_minima = set(copy.deepcopy(node_ids))
-        for node_id in node_ids:
-            tc = self.get_transitive_closure([node_id])
-            ## Remove the node itself from its transitive closure
-            tc.remove(node_id)
-            ## If a node is found in the tc of another node, then
-            ##  it is not a minimum
-            for nid in tc:
-                potential_minima.discard(nid)
-        ## KK 2023-05-22 This will be removed at some point but I keep it here
-        ##    for now for easier bug finding.
-        # logging.debug(f"Potential minima: {potential_minima}")
-        assert(len(potential_minima) == 1)
-        return list(potential_minima)
 
 
-    def unroll_loop_to_concrete_nodes(self, target_concrete_node_id: NodeId):
-        raw_node_id = target_concrete_node_id.get_non_iter_id()
-        assert(self.is_abstract_loop_node(raw_node_id))
+    def concretize_abstract_plain_nodes_until_loops(self):
+        for abstract_node_id, abstract_node in self.abstract_nodes.items():
+            # TODO: add extra condition when we add if branches
+            if self.is_abstract_loop_node(abstract_node_id):
+                # TODO: Here we want to check whether the abstract node has been committed
+                # If committed, we don't have to stop here but move on
+                # TODO: Would it make sense to add a committed/uncommitted state 
+                # just for abstract nodes?
+                return
 
-        all_non_committed = self.get_uncommitted_nodes()
-        all_non_committed_loop_nodes = self.filter_abstract_loop_nodes(all_non_committed)
-        logging.debug(f'All non committed loop nodes: {all_non_committed_loop_nodes}')
-        source_node_ids = self.get_min(all_non_committed_loop_nodes)
-        ## Note: This assertion might not hold once we have actual partial orders
-        assert(len(source_node_ids) == 1)
-        node_id = source_node_ids[0]
-        logging.debug(f'Closest non-committed loop node successor with raw_id {raw_node_id} is: {node_id}')
-        loop_contexts = self.get_node_loop_context(node_id)
+            if not self.exists_as_concrete_node(abstract_node_id):
+                abstract_node = self.abstract_nodes.get(abstract_node_id)
+                self.nodes[abstract_node_id] = ConcreteNode(abstract_node.id_, 
+                                                            abstract_node.cmd, 
+                                                            abstract_node.asts, 
+                                                            abstract_node.loop_contexts)
+                # FIXME: This might not be correct. 
+                # When stopping adding nodes in the PO due to loop nodes,
+                # we might want to make the last inserted adjacency empty
+                # and fix it once we add the future nodes.
+                self.init_concrete_adjacency_entry(abstract_node_id)
+                self.init_concrete_inverse_adjacency_entry(abstract_node_id)
 
-
-        ## Unroll all loops that this node is in
-        # new_first_node_id = self.unroll_loops(loop_contexts)
-
-        #TODO: Modify frontier accordingly
+    # Adds adjacency entry but completely ignores loop nodes
+    # Might not make sense since we already ignore loop nodes earlier
+    # in concretize_abstract_plain_nodes_until_loops()
+    def init_concrete_adjacency_entry(self, node_id: NodeId):
+        new_adjacency = self._get_concrete_adjacency(node_id, self.abstract_adjacency)
+        self.adjacency[node_id] = new_adjacency
         
-        ## At the end of unrolling the target node must be part of the PO
-        assert(self.is_node_id(target_concrete_node_id))
+    def init_concrete_inverse_adjacency_entry(self, node_id: NodeId):
+        new_inverse_adjacency = self._get_concrete_adjacency(node_id, self.abstract_inverse_adjacency)
+        self.inverse_adjacency[node_id] = new_inverse_adjacency
+
+    def _get_concrete_adjacency(self, node_id: NodeId, adjacency):
+        to_check = adjacency[node_id].copy()
+        new_adjacency = []
+        visited = set()
+        while to_check:
+            current_node = to_check.pop()
+            if current_node in visited:
+                continue
+            
+            visited.add(current_node)
+            if self.is_abstract_loop_node(current_node):
+                for neighbor in adjacency[current_node]:
+                    to_check.append(neighbor)
+            else:
+                new_adjacency.append(current_node)
+        return new_adjacency

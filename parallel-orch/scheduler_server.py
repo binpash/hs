@@ -87,6 +87,9 @@ class Scheduler:
         self.waiting_for_response[node_id] = connection
         logging.info(f'Scheduler: Received wait message - {node_id}.')
         self.latest_env = env_file
+        
+        self.partial_program_order.maybe_unroll_loop_node(node_id)
+        
         self.partial_program_order.handle_wait(node_id, env_file)
         if self.partial_program_order.get_node(node_id).is_committed():
             self.respond_to_pending_wait(node_id)

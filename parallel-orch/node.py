@@ -209,18 +209,29 @@ class AbstractNode:
     asts: "list[AstNode]"
     loop_contexts: LoopStack
     
-    def __init__(self, node_id: NodeId, cmd: str, asts: "list[AstNode]", loop_contexts=None):
+    def __init__(self, node_id: NodeId, cmd: str, asts: "list[AstNode]", loop_contexts: LoopStack=None):
         self.id_ = node_id
         self.cmd = cmd
         self.asts = asts
         self.loop_contexts = loop_contexts
+        ## Keep track of how many iterations of this loop node we have unrolled
+        if not loop_contexts.is_empty():
+            self.current_iters = loop_contexts.new_zeroed_loop_stack()
         
-    def is_in_loop(self):
+    def is_loop(self):
         return not self.loop_contexts.is_empty()
         
     #TODO: Implement this
     def is_in_branch(self):
         pass
+    
+    ## KK 2023-05-17 Does this generate the correct iteration even in nested loops?
+    def get_next_iter(self, loop_id: int) -> int:
+        assert(self.is_loop())
+        assert(self.loop_contexts.get_outer() == loop_id)
+        loop_id_index_in_loop_context_stack = self.loop_contexts.index(loop_id)
+        self.current_iters[loop_id_index_in_loop_context_stack] += 1
+        return self.current_iters[loop_id_index_in_loop_context_stack]
     
 
 # Extends parent node
@@ -258,6 +269,9 @@ class ConcreteNode:
         self.exec_ctxt = None
         self.exec_result = None
         self.loop_contexts = loop_contexts
+
+    def is_loop(self):
+        return not self.loop_contexts.is_empty()
 
     def __str__(self):
         return f'ConcreteNode(id:{self.id_}, loop_ctxt:{self.loop_contexts}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt})'

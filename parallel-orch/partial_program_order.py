@@ -1,5 +1,5 @@
 import copy
-from node import NodeId, ConcreteNode, AbstractNode
+from node import LoopStack, NodeId, ConcreteNode, AbstractNode
 import logging
 from collections import deque
 
@@ -337,7 +337,7 @@ class PartialProgramOrder:
         return node_id in self.nodes
     
     def is_abstract_loop_node(self, node_id: NodeId):
-        return self.abstract_nodes.get(node_id).is_in_loop()
+        return self.abstract_nodes.get(node_id).is_loop()
     
     def filter_abstract_loop_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
         return [node_id for node_id in node_ids
@@ -394,3 +394,177 @@ class PartialProgramOrder:
             else:
                 new_adjacency.append(current_node)
         return new_adjacency
+
+    def maybe_unroll_loop_node(self, node_id: NodeId) -> NodeId:
+        ## Only unrolls this node if it doesn't already exist in the PO
+        if not node_id in self.nodes:
+            self.unroll_loop_node(node_id)
+        ## The node_id must be part of the PO after unrolling, otherwise we did something wrong
+        assert(node_id in self.nodes)
+        
+    def is_concrete_loop_node(self, node_id: NodeId):
+        return self.nodes[node_id].is_loop()
+        
+    def filter_concrete_loop_nodes(self, node_ids: "list[NodeId]") -> "list[NodeId]":
+        return [node_id for node_id in node_ids if self.is_abstract_loop_node(node_id)]
+
+    def get_abstract_node_loop_context(self, node_id: NodeId):
+        return self.abstract_nodes[node_id].loop_contexts
+
+    ## This unrolls a loop given a target concrete node id
+    def unroll_loop_node(self, target_concrete_node_id: NodeId):
+        raw_node_id = target_concrete_node_id.get_non_iter_id()
+        assert(self.is_abstract_loop_node(raw_node_id))
+        loop_contexts = self.get_abstract_node_loop_context(raw_node_id)
+        logging.debug(f'Closest non-committed loop node to unroll with raw_id {raw_node_id} is: {target_concrete_node_id}, and loop contexts: {loop_contexts}')
+        ## Unroll all loops that this node is in
+        new_first_node_id = self.unroll_loops(loop_contexts)
+
+        ## At the end of unrolling the target node must be part of the PO
+        assert(self.is_node_id(target_concrete_node_id))
+
+    ## This unrolls a sequence of loops by unrolling each loop outside-in
+    def unroll_loops(self, loop_contexts: LoopStack) -> NodeId:
+        logging.debug(f'Unrolling the following loops: {loop_contexts}')
+
+        ## All new node_ids
+        all_new_node_ids = set()
+        relevant_node_ids = list(self.abstract_nodes.keys())
+        for loop_ctx in loop_contexts.outer_to_inner():
+            new_first_node_id, new_node_ids = self.unroll_single_loop(loop_ctx, relevant_node_ids)
+            logging.debug(f'New node ids after unrolling: {new_node_ids}')
+            ## Update all new nodes that we have added
+            all_new_node_ids.update(new_node_ids)
+
+            ## Re-set the relevant node ids to only the new nodes (if we unrolled a big loop once, 
+            ##  we just want to look at those new unrolled nodes for the next unrolling).
+            relevant_node_ids = new_node_ids
+
+            logging.debug(f' >>> Edges after unrolling    : {self.adjacency}')
+            logging.debug(f' >>> Inv Edges after unrolling: {self.inverse_adjacency}')
+
+        ## Add all new standard nodes to the workset (since they have to be tracked)
+        for new_node_id in all_new_node_ids:
+            if not self.is_loop_node(new_node_id):
+                self.workset.append(new_node_id)
+                ## GL: 08-24-2023: This might not the best way to treat this as we need
+                ## to update the env half way through the loop. 
+                ## For now, we just copy the env from the parent loop node
+                non_iter_id = new_node_id.get_non_iter_id()
+                logging.debug(f"Copying latest env from loop context to loop node: {non_iter_id} -> {new_node_id}")
+                self.latest_envs[new_node_id] = self.latest_envs[non_iter_id]
+
+        ## KK 2023-05-22 Do we need to correctly populate the resolved set of next commands
+        ##               after unrolling the loop.
+
+        return new_first_node_id
+
+    def find_outer_loop_sub_partial_order(self, loop_id: int, nodes_subset: "list[NodeId]") -> "list[NodeId]":
+        loop_node_ids = []
+        for node_id in nodes_subset:
+            loop_context = self.get_abstract_node_loop_context(node_id)
+            ## Note: this only checks for the nodes that have this loop id as their outer loop
+            if not loop_context.is_empty() and loop_id == loop_context.get_outer():
+                loop_node_ids.append(node_id)
+        ## TODO: Assert that this is closed w.r.t. partial order
+        return loop_node_ids
+
+    ## This creates a new node_id and then creates a mapping from the node and iteration id to this node id
+    ## TODO: Currently doesn't work with nested loops
+    def create_node_id_with_one_less_loop_from_loop_node(self, node_id: NodeId, loop_id: int) -> NodeId:
+        node = self.get_node(node_id)
+        logging.debug(f' >>> Node: {node}')
+        logging.debug(f' >>> its loops: {node.loop_context} --- {node.current_iters}')
+
+        new_iter = node.get_next_iter(loop_id)
+        ## Creates a new node id where we have appended the new iter
+        new_node_id = node_id.generate_new_node_id_with_another_iter(new_iter)
+        logging.debug(f' >>> new node_id with another iter: {new_node_id}')
+        return new_node_id
+
+    ## This function unrolls a single loop, by first finding all its nodes (they must be contiguous) and then creating new versions of them
+    ## that are concretized. Its second argument describes which subset of all partial order nodes we want to look at.
+    ## That is necessary because when unrolling nested loops, we might end up in a situation where we have unrolled the
+    ## outer loop, but some of the newly created nodes might still be loop nodes (so we might have loop nodes for the same loop in multiple locations).
+    def unroll_single_loop(self, loop_id: int, nodes_subset: "list[NodeId]"):
+        logging.info(f'Unrolling loop with id: {loop_id}')
+        loop_node_ids = self.find_outer_loop_sub_partial_order(loop_id, nodes_subset)
+        
+        logging.debug(f'Node ids for loop: {loop_id} are: {loop_node_ids}')
+        
+        ## GL: OK UP TO HERE
+        
+        ## Create the new nodes and remap adjacencies accordingly
+        node_mappings = {}
+        for node_id in loop_node_ids:
+            node = self.get_node(node_id)
+            new_loop_node_id = self.create_node_id_with_one_less_loop_from_loop_node(node_id, loop_id)
+            node_mappings[node_id] = new_loop_node_id
+            ## The new node has one less loop context than the previous one
+            node_loop_contexts = node.get_loop_context()
+            logging.debug(f'Node: {node_id} loop_contexts: {node_loop_contexts}')
+            assert(node_loop_contexts.get_outer() == loop_id)
+            new_node_loop_contexts = copy.deepcopy(node_loop_contexts)
+            new_node_loop_contexts.pop_outer()
+
+            ## Create the new node
+            self.nodes[new_loop_node_id] = Node(new_loop_node_id, node.cmd, node.asts, new_node_loop_contexts)
+            self.executions[new_loop_node_id] = 0
+        logging.debug(f'New loop ids: {node_mappings}')
+
+        ## Create the new adjacencies, by mapping adjacencies in the node set to the new node ids
+        ## and leaving outside adjacencies as they are
+        for _, new_node_id in node_mappings.items():
+            self.adjacency[new_node_id] = []
+
+        for node_id, new_node_id in node_mappings.items():
+            old_prev_ids = self.get_prev(node_id)
+            ## Modify all id to be in the new set except for the 
+            new_prev_ids = PartialProgramOrder.map_using_mapping(old_prev_ids, node_mappings)
+            self.inverse_adjacency[new_node_id] = new_prev_ids
+            for new_prev_id in new_prev_ids:
+                self.adjacency[new_prev_id].append(new_node_id)
+
+        ## TODO: The rest of the code here makes assumptions about the shape of the partial order
+
+        ## Modify the previous node of the loop nodes
+        new_nodes_sinks = self.get_sub_po_sink_nodes(list(node_mappings.values()))
+        assert(len(new_nodes_sinks) == 1)
+        new_nodes_sink = new_nodes_sinks[0]
+        logging.debug(f'The sink of the new iteration for loop: {loop_id} is {new_nodes_sink}')
+
+        old_nodes_sources = self.get_sub_po_source_nodes(list(node_mappings.keys()))
+        assert(len(old_nodes_sources) == 1)
+        old_nodes_source = old_nodes_sources[0]
+
+        old_next_node_ids = self.get_next(new_nodes_sink)
+        assert(len(old_next_node_ids) <= 1)
+
+        previous_ids = self.get_sub_po_prev_nodes(loop_node_ids)
+        assert(len(previous_ids) <= 1)
+
+        ## Add a new edge between the new_sink (concrete iter) and the old_source (loop po)
+        self.add_edge(new_nodes_sink, old_nodes_source)
+
+        ## Remove the old previous edge of the old_source if it exists
+        if len(previous_ids) == 1:
+            previous_id = previous_ids[0]
+            logging.debug(f'Previous node id for loop: {loop_id} is {previous_id}')
+            self.remove_edge(from_id=previous_id,
+                             to_id=old_nodes_source)
+
+
+        ## Return the new first node and all node mappings
+        return node_mappings[old_nodes_source], node_mappings.values()
+
+    ## Static method that just maps using a node mapping dictionary or leaves them as
+    ## they are if not
+    def map_using_mapping(node_ids: "list[NodeId]", mapping) -> "list[NodeId]":
+        new_node_ids = []
+        for node_id in node_ids:
+            if node_id in mapping:
+                new_id = copy.deepcopy(mapping[node_id])
+            else:
+                new_id = copy.deepcopy(node_id)
+            new_node_ids.append(new_id)
+        return new_node_ids

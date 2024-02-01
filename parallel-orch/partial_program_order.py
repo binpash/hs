@@ -472,7 +472,7 @@ class PartialProgramOrder:
     ## This creates a new node_id and then creates a mapping from the node and iteration id to this node id
     ## TODO: Currently doesn't work with nested loops
     def create_node_id_with_one_less_loop_from_loop_node(self, node_id: NodeId, loop_id: int) -> NodeId:
-        node = self.get_node(node_id)
+        node: AbstractNode = self.abstract_nodes.get(node_id)
         logging.debug(f' >>> Node: {node}')
         logging.debug(f' >>> its loops: {node.loop_context} --- {node.current_iters}')
 

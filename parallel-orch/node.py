@@ -63,15 +63,15 @@ class RWSet:
         return self.write_set.intersection(other.read_set).union(
             self.read_set.intersection(other.write_set)).union(
                 self.write_set.intersection(other.write_set))
-        
+
     def __str__(self):
         return f"RW(R:{self.get_read_set()}, W:{self.get_write_set()})"
 
 
 class NodeId:
-    
+
     #TODO: Implement iteration support
-    
+
     def __init__(self, id_: int):
         self.id_ = id_
 
@@ -103,6 +103,27 @@ class NodeId:
     def parse_node_id(node_id_str: str):
         return NodeId(int(node_id_str))
 
+class AbstractNode:
+    def __init__(self, node_id: NodeId):
+        self.node_id = node_id
+
+class HSBasicBlock:
+    def __init__(self, nodes):
+        self.nodes = nodes
+
+class HSProg:
+    abstract_nodes: "dict[NodeId, AbstractNode]"
+    adjacency: "dict[NodeId, list[NodeId]]"
+    inverse_adjacency: "dict[NodeId, list[NodeId]]"
+    def __init__(self, abstract_nodes: dict[NodeId, AbstractNode],
+                 edges: dict[NodeId, list[NodeId]]):
+        self.abstract_nodes = abstract_nodes
+        self.adjacency = edges
+        self.inverse_adjacency = util.invert_graph(abstract_nodes, edges)
+
+
+
+
 @dataclass
 class ExecCtxt:
     process: Popen
@@ -117,12 +138,15 @@ class ExecCtxt:
 class ExecResult:
     exit_code: int
     proc_id: int
-    
-    
+
+@dataclass
 class Node:
     id_: NodeId
     cmd: str
     asts: "list[AstNode]"
+
+class ConcreteNode:
+    abstract_node: AbstractNode
     state: NodeState
     # Used for identifying the most recent valid execution
     exec_id: int
@@ -139,11 +163,9 @@ class Node:
     # background_sandbox: Sandbox
     exec_ctxt: ExecCtxt
     exec_result: ExecResult
-    
-    def __init__(self, node_id: NodeId, cmd: str, asts: "list[AstNode]"):
-        self.id_ = node_id
-        self.cmd = cmd
-        self.asts = asts
+
+    def __init__(self, node: Node):
+        self.abstract_node = node
         self.state = NodeState.INIT
         self.tracefile = None
         self.rwset = None
@@ -154,34 +176,46 @@ class Node:
 
     def __str__(self):
         return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt})'
-    
+
     def __repr__(self):
         return str(self)
 
+    @property
+    def id_(self):
+        return self.abstract_node.id_
+
+    @property
+    def cmd(self):
+        return self.abstract_node.cmd
+
+    @property
+    def asts(self):
+        return self.abstract_node.asts
+
     def pretty_state_repr(self):
         return f'{state_pstr(self.state)} {self.cmd}'
-    
+
     def is_initialized(self):
         return self.state == NodeState.INIT
-    
+
     def is_ready(self):
         return self.state == NodeState.READY
-    
+
     def is_committed(self):
         return self.state == NodeState.COMMITTED
-    
+
     def is_stopped(self):
         return self.state == NodeState.STOP
-    
+
     def is_speculated(self):
         return self.state == NodeState.SPECULATED
 
     def is_executing(self):
         return self.state == NodeState.EXECUTING
-    
+
     def is_spec_executing(self):
         return self.state == NodeState.SPEC_EXECUTING
-    
+
     def is_unsafe(self):
         return self.state == NodeState.UNSAFE
 
@@ -202,7 +236,7 @@ class Node:
     ##                                      ##
     ##          Transition Functions        ##
     ##                                      ##
-    
+
     def transition_from_init_to_ready(self):
         assert self.state == NodeState.INIT
         self.state = NodeState.READY
@@ -215,16 +249,16 @@ class Node:
     def reset_to_ready(self):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
                               NodeState.SPECULATED]
-        
+
         logging.info(f"Resetting node {self.id_} to ready {self.exec_id}")
-        # We reset the exec id so if we receive a message 
+        # We reset the exec id so if we receive a message
         # due to a race condition, we will ignore it.
         self.exec_id = None
-        
+
         # TODO: make this more sophisticated
         if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
             self.kill()
-        
+
         # Probably delete them from tmpfs too
         process = self.exec_ctxt.process
         if process.poll() is None:
@@ -245,7 +279,7 @@ class Node:
         assert self.state == NodeState.READY
         self.start_command(env_file, speculate=True)
         self.state = NodeState.SPEC_EXECUTING
-        
+
     def commit_frontier_execution(self):
         assert self.state == NodeState.EXECUTING
         self.exec_result = ExecResult(self.exec_ctxt.process.pid, self.exec_ctxt.process.returncode)
@@ -305,8 +339,8 @@ class Node:
         if self.exec_ctxt.pre_env_file == other_env:
             return False
 
-        ignore_vars = set(['RANDOM'])  
-        
+        ignore_vars = set(['RANDOM'])
+
         re_scalar_string = re.compile(r'declare (?:-x|--)? (\w+)="([^"]*)"')
         re_scalar_int = re.compile(r'declare -i (\w+)="(\d+)"')
         re_array = re.compile(r'declare -a (\w+)=(\([^)]+\))')

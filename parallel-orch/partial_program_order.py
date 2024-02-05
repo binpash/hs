@@ -1,10 +1,9 @@
-from node import NodeId, Node
+from node import NodeId, Node, ConcreteNode, HSProg
 import logging
 from collections import deque
 
 PROG_LOG = '[PROG_LOG] '
 EVENT_LOG = '[EVENT_LOG] '
-DEBUG_LOG = '[DEBUG_LOG] '
 
 def event_log(s):
     logging.info(EVENT_LOG + s)
@@ -12,9 +11,6 @@ def event_log(s):
 def progress_log(s):
     logging.info(PROG_LOG + s)
 
-def debug_log(s):
-    logging.debug(DEBUG_LOG + s)
-    
 class PartialProgramOrder:
     frontier: set  # Set of nodes at the frontier
     # Di: I'm going to ignore this for now and implement the feature without a local data structure
@@ -22,20 +18,18 @@ class PartialProgramOrder:
     # intersections of files all the time
     # run_after: "dict[NodeId, list[Node]]"  # Nodes that should run after certain conditions
     to_be_resolved: "dict[NodeId, list[Node]]"  # Mapping of nodes to lists of uncommitted nodes
-    nodes: "dict[NodeId, Node]"
-    adjacency: "dict[NodeId, list[NodeId]]"
-    inverse_adjacency: "dict[NodeId, list[NodeId]]"
-    
-    def __init__(self, nodes: "dict[NodeId, Node]", edges: "dict[NodeId, list[NodeId]]"):
-        self.nodes = nodes
-        self.adjacency = edges
-        self.inverse_adjacency = self.init_inverse_adjacency()
+    concrete_nodes: "dict[NodeId, Node]"
+
+    def __init__(self, abstract_nodes: "dict[NodeId, Node]", edges: "dict[NodeId, list[NodeId]]"):
+        self.hsprog = HSProg(abstract_nodes, edges)
+        self.concrete_nodes = {node_id: ConcreteNode(ab_node) for node_id, ab_node
+                               in abstract_nodes.items()}
         self.frontier = set()
         # self.run_after = {}
         self.to_be_resolved = {}
 
     def init_partial_order(self):
-        for node_id, node in self.nodes.items():
+        for node_id, node in self.concrete_nodes.items():
             if node.is_initialized():
                 node.transition_from_init_to_ready()
 
@@ -45,63 +39,68 @@ class PartialProgramOrder:
         self.frontier = self.get_standard_source_nodes()
         # TODO: Implement the rest of the partial order initialization
 
+    @property
+    def abstract_nodes(self):
+        return self.hsprog.abstract_nodes
+
+    @property
+    def adjacency(self):
+        return self.hsprog.adjacency
+
+    @property
+    def inverse_adjacency(self):
+        return self.hsprog.inverse_adjacency
+        
     def commit_node(self, node):
         # Logic to handle committing a node
         node.transition_to_committed()
-        # Maybe update dependencies here 
+        # Maybe update dependencies here
         # etc.
 
-    def init_inverse_adjacency(self):
-        inverse_adjacency = {i: [] for i in self.nodes.keys()}
-        for from_id, to_ids in self.adjacency.items():
-            for to_id in to_ids:
-                inverse_adjacency[to_id].append(from_id)
-        return inverse_adjacency
-    
     def get_node(self, node_id: NodeId) -> Node:
-        return self.nodes[node_id]
+        return self.concrete_nodes[node_id]
 
     def get_all_nodes(self):
-        return [node for node in self.nodes.values()]
-    
+        return [node for node in self.concrete_nodes.values()]
+
     def get_committed_nodes(self):
-        return [node for node in self.nodes.values() if node.is_committed()]
-    
+        return [node for node in self.concrete_nodes.values() if node.is_committed()]
+
     def get_ready_nodes(self):
-        return [node for node in self.nodes.values() if node.is_ready()]
-    
+        return [node for node in self.concrete_nodes.values() if node.is_ready()]
+
     def get_executing_nodes(self):
-        return [node for node in self.nodes.values() if node.is_executing()]
-    
+        return [node for node in self.concrete_nodes.values() if node.is_executing()]
+
     def get_spec_executing_nodes(self):
-        return [node for node in self.nodes.values() if node.is_spec_executing()]
-    
+        return [node for node in self.concrete_nodes.values() if node.is_spec_executing()]
+
     def get_executing_normal_and_spec_nodes(self):
-        return [node for node in self.nodes.values() if node.is_executing() or node.is_spec_executing()]
-    
+        return [node for node in self.concrete_nodes.values() if node.is_executing() or node.is_spec_executing()]
+
     def get_speculated_nodes(self):
-        return [node for node in self.nodes.values() if node.is_speculated()]
-    
+        return [node for node in self.concrete_nodes.values() if node.is_speculated()]
+
     def get_uncommitted_nodes(self):
-        return [node for node in self.nodes.values() if not node.is_committed()]
-    
+        return [node for node in self.concrete_nodes.values() if not node.is_committed()]
+
     def get_frontier(self):
         return self.frontier
-    
+
     def log_info(self):
-        logging.info(f"Nodes: {self.nodes}")
+        logging.info(f"Nodes: {self.concrete_nodes}")
         logging.info(f"Adjacency: {self.adjacency}")
         logging.info(f"Inverse adjacency: {self.inverse_adjacency}")
         self.log_state()
 
     def log_state(self):
-        for node in self.nodes.values():
+        for node in self.concrete_nodes.values():
             progress_log(node.pretty_state_repr())
         progress_log('')
 
     def get_schedulable_nodes(self) -> list[NodeId]:
         return [node.id_ for node in self.get_ready_nodes()]
-            
+
     ## Returns the next non-committed normal node
     def progress_frontier(self) -> "list[NodeId]":
         return self.get_next_frontier_nodes(self.get_frontier())
@@ -111,19 +110,19 @@ class PartialProgramOrder:
 
     def get_prev_nodes(self, node_id:NodeId) -> "list[NodeId]":
         return self.inverse_adjacency[node_id][:]
-    
+
     def get_source_nodes(self) -> "list[NodeId]":
         sources = set()
         for to_id, from_ids in self.inverse_adjacency.items():
             if len(from_ids) == 0:
                 sources.add(to_id)
         return list(sources)
-    
+
     def get_standard_source_nodes(self) -> list:
         source_nodes = self.get_source_nodes()
         # TODO: Filter out loop nodes
         # return self.filter_standard_nodes(source_nodes)
-        return source_nodes    
+        return source_nodes
 
     def get_next_frontier_nodes(self, start_nodes: "list[NodeId]") -> "set[int]":
         # TODO: filter non-loop nodes
@@ -138,7 +137,7 @@ class PartialProgramOrder:
                 continue
 
             visited.add(current_node_id)
-            current_node = self.nodes.get(current_node_id)
+            current_node = self.concrete_nodes.get(current_node_id)
 
             if not current_node.is_committed():
                 if first_non_committed_depth is None:
@@ -156,7 +155,7 @@ class PartialProgramOrder:
                         to_visit.append((neighbor, depth + 1))  # Increase depth for neighbors
 
         return non_committed_nodes
-    
+
     def get_all_next(self, current_node_id: NodeId, visited=None) -> "set[NodeId]":
         all_next = set()
         def reachable_rec(cur, reachable):
@@ -181,24 +180,24 @@ class PartialProgramOrder:
         for n in self.get_prev_nodes(current_node_id):
             reachable_rec(n, all_prev)
         return all_prev
-    
+
     def get_all_next_uncommitted(self, node_id: NodeId) -> "set[NodeId]":
         next = self.get_all_next(node_id)
-        return set([node for node in next if not self.nodes[node].is_committed()])
-    
+        return set([node for node in next if not self.concrete_nodes[node].is_committed()])
+
     def get_all_previous_uncommitted(self, node_id: NodeId) -> "set[NodeId]":
         previous = self.get_all_previous(node_id)
-        return set([node for node in previous if not self.nodes[node].is_committed()])
+        return set([node for node in previous if not self.concrete_nodes[node].is_committed()])
 
     def adjust_to_be_resolved_dict_entry(self, node_id: NodeId):
-        node = self.nodes.get(node_id)
+        node = self.concrete_nodes.get(node_id)
         if node.is_committed():
             self.to_be_resolved[node_id] = []
         elif node.is_ready():
             self.to_be_resolved[node_id] = self.get_all_previous_uncommitted(node_id)
 
     def init_to_be_resolved_dict(self):
-        for node_id in self.nodes:
+        for node_id in self.concrete_nodes:
             self.adjust_to_be_resolved_dict_entry(node_id)
 
     def adjust_to_be_resolved_dict(self):
@@ -216,7 +215,7 @@ class PartialProgramOrder:
     def fetch_fs_actions(self):
         for node in self.get_executing_normal_and_spec_nodes():
             node.gather_fs_actions()
-            
+
     def _has_fs_deps(self, node_id: NodeId):
         node_of_interest : Node = self.get_node(node_id)
         for nid in self.to_be_resolved[node_id]:
@@ -230,9 +229,9 @@ class PartialProgramOrder:
     def has_fs_deps(self, node_id:NodeId):
         self.fetch_fs_actions()
         self._has_fs_deps(node_id)
-    
+
     ### external handler events ###
-    
+
     def schedule_work(self, node_id: NodeId, env_file: str):
         event_log("schedule_work")
         self.get_node(node_id).start_executing(env_file)
@@ -241,7 +240,7 @@ class PartialProgramOrder:
         event_log("schedule_spec")
         self.adjust_to_be_resolved_dict_entry(node_id)
         self.get_node(node_id).start_spec_executing(env_file)
-    
+
     def handle_complete(self, node_id: NodeId, has_pending_wait: bool,
                         current_env: str):
         event_log(f"handle_complete {node_id}")
@@ -279,7 +278,7 @@ class PartialProgramOrder:
         if node.is_committed() or node.is_unsafe() or node.is_initialized():
             logging.error(f'Error: Node {node_id} is in an invalid state: {node.state}')
             raise Exception(f'Error: Node {node_id} is in an invalid state: {node.state}')
-        
+
 
         if node.is_ready():
             node.start_executing(env_file)
@@ -312,7 +311,7 @@ class PartialProgramOrder:
         else:
             logging.error(f'Error: Node {node_id} is in an invalid state: {node.state}')
             raise Exception(f'Error: Node {node_id} is in an invalid state: {node.state}')
-        
+
     def eager_fs_killing(self):
         event_log("try to eagerly kill conflicted speculation")
         to_be_killed = []

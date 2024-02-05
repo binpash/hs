@@ -12,6 +12,11 @@ import analysis
 from node import Node, NodeId
 from partial_program_order import PartialProgramOrder
 
+DEBUG_LOG = '[DEBUG_LOG] '
+
+def debug_log(s):
+    logging.debug(DEBUG_LOG + s)
+
 def ptempfile():
     fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX)
     ## TODO: Get a name without opening the fd too if possible
@@ -42,11 +47,11 @@ def init_unix_socket(socket_file: str) -> socket.socket:
     logging.debug("SocketManager: Created socket")
 
     sock.bind(server_address)
-    logging.debug("SocketManager: Successfully bound to socket")    
+    logging.debug("SocketManager: Successfully bound to socket")
 
     ## TODO: Check if we need to configure the backlog
-    sock.listen()    
-    logging.debug("SocketManager: Listenting on socket")    
+    sock.listen()
+    logging.debug("SocketManager: Listenting on socket")
 
     return sock
 
@@ -61,7 +66,7 @@ def socket_get_next_cmd(sock: socket.socket) -> "tuple[socket.socket, str]" :
     ##
     ## We need to ensure that we read a command at once or the command was empty (only relevant in the first invocation)
     assert(str_data.endswith("\n") or str_data == "")
-    
+
     return (connection, str_data)
 
 def socket_respond(connection: socket.socket, message: str):
@@ -83,7 +88,7 @@ def parse_env_string_to_dict(content):
     result = {key: value for key, value in scalar_vars_string}
     result.update({key: int(value) for key, value in scalar_vars_int})
     result.update({key: value for key, value in array_vars})
-    
+
     return result
 
 def compare_dicts(dict1, dict2):
@@ -114,19 +119,19 @@ def set_named_timestamp(action: str, node=None, key=None):
     if key is None:
         key = f"{action}{',' + str(node) if node is not None else ''}"
     config.NAMED_TIMESTAMPS[key] = time.time()
-    
+
 def invalidate_named_timestamp(action: str, node=None, key=None):
     if key is None:
         key = f"{action}{',' + str(node) if node is not None else ''}"
     del config.NAMED_TIMESTAMPS[key]
-    
+
 def log_time_delta_from_start_and_set_named_timestamp(module: str, action: str, node=None, key=None):
     try:
         set_named_timestamp(action, node, key)
         logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}")
     except KeyError:
         logging.error(f"Named timestamp {key} already exists")
-    
+
 def log_time_delta_from_named_timestamp(module: str, action: str, node=None, key=None, invalidate=True):
     try:
         if key is None:
@@ -147,7 +152,7 @@ def get_all_child_processes(pid):
         parent = psutil.Process(pid)
     except psutil.NoSuchProcess:
         return []
-    
+
     children = parent.children(recursive=True)
     parent_of_parent = parent.parent()
     logging.critical("PARENT_PROCESS: " + str(parent_of_parent))
@@ -240,7 +245,7 @@ def parse_partial_program_order_from_file(file_path: str):
     edge_lines = lines[loop_context_end:]
     logging.debug(f'Edges: {edge_lines}')
 
-    nodes = {}
+    ab_nodes = {}
     for i in range(number_of_nodes):
         file_path = f'{cmds_directory}/{i}'
         cmd, asts = parse_cmd_from_file(file_path)
@@ -248,16 +253,25 @@ def parse_partial_program_order_from_file(file_path: str):
         # nodes[NodeId(i)] = Node(NodeId(i), cmd,
         #                         asts=asts,
         #                         loop_context=LoopStack(loop_ctx))
-        nodes[NodeId(i)] = Node(NodeId(i), cmd, asts=asts)
+        ab_nodes[NodeId(i)] = Node(NodeId(i), cmd, asts=asts)
 
     edges = {NodeId(i) : [] for i in range(number_of_nodes)}
     for edge_line in edge_lines:
         from_id, to_id = parse_edge_line(edge_line)
         edges[NodeId(from_id)].append(NodeId(to_id))
 
-    logging.info(f"Nodes|{','.join([str(node) for node in nodes])}")
+    logging.info(f"Nodes|{','.join([str(node) for node in ab_nodes])}")
     logging.info(f"Edges|{edges}")
-    return PartialProgramOrder(nodes, edges)
+    return PartialProgramOrder(ab_nodes, edges)
 
 def generate_id() -> int:
     return int(time.time() * 1000000)
+
+# nodes is iterable of node
+# edges is dict[node, list[node]]
+def invert_graph(nodes, edges):
+    graph = {n: [] for n in nodes}
+    for from_id, to_ids in edges.items():
+        for to_id in to_ids:
+            graph[to_id].append(from_id)
+    return graph

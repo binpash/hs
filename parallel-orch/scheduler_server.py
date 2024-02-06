@@ -88,8 +88,12 @@ class Scheduler:
         logging.info(f'Scheduler: Received wait message - {concrete_node_id}.')
         self.latest_env = env_file
         self.partial_program_order.handle_wait(concrete_node_id, env_file)
-        if self.partial_program_order.get_concrete_node(concrete_node_id).is_committed():
+        concrete_node = self.partial_program_order.get_concrete_node(concrete_node_id)
+        if concrete_node.is_committed():
             self.respond_to_pending_wait(concrete_node_id)
+        elif concrete_node.is_unsafe():
+            self.partial_program_order.finish_wait_unsafe(concrete_node_id)
+            self.respond_to_wait_on_unsafe(concrete_node_id)
 
     def process_next_cmd(self):
         connection, input_cmd = util.socket_get_next_cmd(self.socket)
@@ -116,11 +120,6 @@ class Scheduler:
             util.socket_respond(connection, success_response("All finished!"))
             self.partial_program_order.log_info()
             self.done = True
-        elif input_cmd.startswith("CommandExecStart:"):
-            assert False
-            node_id, exec_id, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
-            logging.info(f'Scheduler: Received command exec start message - {input_cmd}.')
-            # self.handle_command_exec_start(input_cmd)
         else:
             logging.error(error_response(f'Error: Unsupported command: {input_cmd}'))
             raise Exception(f'Error: Unsupported command: {input_cmd}')
@@ -132,7 +131,11 @@ class Scheduler:
         util.socket_respond(connection, response)
         connection.close()
 
-    def respond_to_pending_wait(self, node_id: int):
+    def respond_to_wait_on_unsafe(self, node_id: ConcreteNodeId):
+        response = unsafe_response('')
+        self.respond_to_frontend_core(node_id, response)
+        
+    def respond_to_pending_wait(self, node_id: ConcreteNodeId):
         logging.debug(f'Responding to pending wait for node: {node_id}')
         ## Get the completed node info
         node = self.partial_program_order.get_concrete_node(node_id)
@@ -142,7 +145,7 @@ class Scheduler:
         ## Send the response
         self.respond_to_frontend_core(node_id, response)
 
-    def __parse_wait(self, input_cmd: str) -> "tuple[NodeId, str]":
+    def __parse_wait(self, input_cmd: str) -> "tuple[ConcreteNodeId, str]":
         try:
             node_id_component, loop_iter_counter_component, pash_runtime_vars_file_component = input_cmd.rstrip().split("|")
             node_id = NodeId(int(node_id_component.split(":")[1].rstrip()))

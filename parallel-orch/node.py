@@ -10,6 +10,7 @@ from subprocess import Popen
 from typing import Tuple
 from enum import Enum, auto
 import util
+import analysis
 
 class NodeState(Enum):
     INIT = auto()
@@ -255,6 +256,9 @@ class ConcreteNode:
         assert self.exec_result is not None
         return self.exec_result.exit_code, self.exec_ctxt.post_env_file, self.exec_ctxt.stdout
 
+    def command_unsafe(self):
+        return not analysis.safe_to_execute(self.asts, {})
+        
 
     ##                                      ##
     ##          Transition Functions        ##
@@ -263,7 +267,12 @@ class ConcreteNode:
     def transition_from_init_to_ready(self):
         assert self.state == NodeState.INIT
         self.state = NodeState.READY
+        self.rwset = RWSet(set(), set())
         # Also, probably unroll here?
+
+    def transition_from_ready_to_unsafe(self):
+        assert self.state == NodeState.READY
+        self.state = NodeState.UNSAFE
 
     def kill(self):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
@@ -335,6 +344,9 @@ class ConcreteNode:
     def transition_from_spec_executing_to_speculated(self):
         pass
 
+    def commit_unsafe_node(self):
+        assert self.state == NodeState.UNSAFE
+        self.state = NodeState.COMMITTED
 
     def update_rw_set(self, rw_set):
         self.rwset = rw_set

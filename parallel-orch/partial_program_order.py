@@ -291,6 +291,8 @@ class PartialProgramOrder:
             new_concrete_node = ConcreteNode(new_concrete_node_id,
                                              basic_block.get_node(abstract_node_id))
             new_concrete_node.transition_from_init_to_ready()
+            if new_concrete_node.command_unsafe():
+                new_concrete_node.transition_from_ready_to_unsafe()
             self.concrete_nodes[new_concrete_node_id] = new_concrete_node
             if prev_concrete_node_id is not None:
                 self.prev_concrete_node[new_concrete_node_id] = [prev_concrete_node_id]
@@ -298,7 +300,11 @@ class PartialProgramOrder:
                 self.prev_concrete_node[new_concrete_node_id] = []
             prev_concrete_node_id = new_concrete_node_id
         assert concrete_node_id in self.concrete_nodes
-            
+
+    def finish_wait_unsafe(self, concrete_node_id: ConcreteNodeId):
+        node = self.concrete_nodes[concrete_node_id]
+        node.commit_unsafe_node()
+        
     def handle_wait(self, concrete_node_id: ConcreteNodeId, env_file: str):
         event_log(f"handle_wait {concrete_node_id}")
 
@@ -312,12 +318,14 @@ class PartialProgramOrder:
         node = self.get_concrete_node(concrete_node_id)
 
         # Invalid state check
-        if node.is_committed() or node.is_unsafe() or node.is_initialized():
+        if node.is_committed() or node.is_initialized():
             logging.error(f'Error: Node {concrete_node_id} is in an invalid state: {node.state}')
             raise Exception(f'Error: Node {concrete_node_id} is in an invalid state: {node.state}')
 
         if node.is_ready():
             node.start_executing(env_file)
+        elif node.is_unsafe():
+            pass
         elif node.is_stopped():
             if node in self.get_frontier():
                 logging.info(f'Node {concrete_node_id} is stopped and in the frontier.')

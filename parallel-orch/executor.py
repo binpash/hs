@@ -8,23 +8,23 @@ import os
 # and traces them with Riker. 
 # All commands are run inside an overlay sandbox.
 
-def async_run_and_trace_command_return_trace(command, node_id, execution_id, pre_execution_env_file, speculate_mode=False):
+def async_run_and_trace_command_return_trace(command, concrete_node_id, execution_id, pre_execution_env_file, speculate_mode=False):
     trace_file = util.ptempfile()
     stdout_file = util.ptempfile()
     stderr_file = util.ptempfile()
     post_execution_env_file = util.ptempfile()
     sandbox_dir, tmp_dir = util.create_sandbox()
-    logging.debug(f'Scheduler: Stdout file for: {node_id} is: {stdout_file}')
-    logging.debug(f'Scheduler: Stderr file for: {node_id} is: {stderr_file}')
-    logging.debug(f'Scheduler: Trace file for: {node_id}: {trace_file}')
-    process = async_run_and_trace_command_return_trace_in_sandbox(command, execution_id, trace_file, node_id, stdout_file, stderr_file, pre_execution_env_file, post_execution_env_file, sandbox_dir, tmp_dir, speculate_mode)
+    logging.debug(f'Scheduler: Stdout file for: {concrete_node_id} is: {stdout_file}')
+    logging.debug(f'Scheduler: Stderr file for: {concrete_node_id} is: {stderr_file}')
+    logging.debug(f'Scheduler: Trace file for: {concrete_node_id}: {trace_file}')
+    process = async_run_and_trace_command_return_trace_in_sandbox(command, execution_id, trace_file, concrete_node_id, stdout_file, stderr_file, pre_execution_env_file, post_execution_env_file, sandbox_dir, tmp_dir, speculate_mode)
     return process, trace_file, stdout_file, stderr_file, pre_execution_env_file, post_execution_env_file, sandbox_dir
 
-def async_run_and_trace_command_return_trace_in_sandbox_speculate(command, execution_id, node_id, pre_execution_env_file):
-    process, trace_file, stdout_file, stderr_file, post_execution_env_file, sandbox_dir = async_run_and_trace_command_return_trace(command, execution_id, node_id, pre_execution_env_file, speculate_mode=True)
+def async_run_and_trace_command_return_trace_in_sandbox_speculate(command, execution_id, concrete_node_id, pre_execution_env_file):
+    process, trace_file, stdout_file, stderr_file, post_execution_env_file, sandbox_dir = async_run_and_trace_command_return_trace(command, execution_id, concrete_node_id, pre_execution_env_file, speculate_mode=True)
     return process, trace_file, stdout_file, stderr_file, post_execution_env_file, sandbox_dir
 
-def async_run_and_trace_command_return_trace_in_sandbox(command, execution_id, trace_file, node_id, stdout_file, stderr_file, pre_execution_env_file, post_execution_env_file, sandbox_dir, tmp_dir, speculate_mode=False):
+def async_run_and_trace_command_return_trace_in_sandbox(command, execution_id, trace_file, concrete_node_id, stdout_file, stderr_file, pre_execution_env_file, post_execution_env_file, sandbox_dir, tmp_dir, speculate_mode=False):
     ## Call Riker to execute the command
     run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command.sh'
     args = ["/bin/bash", run_script, command, trace_file, stdout_file, pre_execution_env_file, sandbox_dir, tmp_dir]
@@ -32,7 +32,7 @@ def async_run_and_trace_command_return_trace_in_sandbox(command, execution_id, t
         args.append("speculate")
     else:
         args.append("standard")
-    args.append(str(node_id))
+    args.append(str(concrete_node_id))
     args.append(post_execution_env_file)
     args.append(str(execution_id))
     # Save output to temporary files to not saturate the memory

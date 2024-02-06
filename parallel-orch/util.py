@@ -9,7 +9,7 @@ import re
 import psutil
 import signal
 import analysis
-from node import Node, NodeId
+from node import Node, NodeId, LoopStack
 from partial_program_order import PartialProgramOrder
 
 DEBUG_LOG = '[DEBUG_LOG] '
@@ -214,7 +214,6 @@ def parse_loop_contexts(lines):
         loop_contexts[node_id] = loop_ctx
     return loop_contexts
 
-
 def parse_partial_program_order_from_file(file_path: str):
     with open(file_path) as f:
         raw_lines = f.readlines()
@@ -249,11 +248,10 @@ def parse_partial_program_order_from_file(file_path: str):
     for i in range(number_of_nodes):
         file_path = f'{cmds_directory}/{i}'
         cmd, asts = parse_cmd_from_file(file_path)
-        # loop_ctx = loop_contexts[i]
-        # nodes[NodeId(i)] = Node(NodeId(i), cmd,
-        #                         asts=asts,
-        #                         loop_context=LoopStack(loop_ctx))
-        ab_nodes[NodeId(i)] = Node(NodeId(i), cmd, asts=asts)
+        loop_ctx = loop_contexts[i]
+        ab_nodes[NodeId(i)] = Node(NodeId(i), cmd.strip(),
+                                   asts=asts,
+                                   loop_context=LoopStack(loop_ctx))
 
     edges = {NodeId(i) : [] for i in range(number_of_nodes)}
     for edge_line in edge_lines:

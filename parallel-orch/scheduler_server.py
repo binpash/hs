@@ -4,6 +4,7 @@ import signal
 import util
 import config
 from partial_program_order import PartialProgramOrder, NodeId
+from node import LoopStack, ConcreteNodeId
 
 ##
 ## A scheduler server
@@ -79,15 +80,15 @@ class Scheduler:
         partial_order_file = input_cmd.split(":")[1].rstrip()
         logging.debug(f'Scheduler: Received partial_order_file: {partial_order_file}')
         self.partial_program_order = util.parse_partial_program_order_from_file(partial_order_file)
-        self.partial_program_order.init_partial_order()
+        util.debug_log(str(self.partial_program_order.hsprog))
 
     def handle_wait(self, input_cmd: str, connection):
-        node_id, env_file = self.__parse_wait(input_cmd)
-        self.waiting_for_response[node_id] = connection
-        logging.info(f'Scheduler: Received wait message - {node_id}.')
+        concrete_node_id, env_file = self.__parse_wait(input_cmd)
+        self.waiting_for_response[concrete_node_id] = connection
+        logging.info(f'Scheduler: Received wait message - {concrete_node_id}.')
         self.latest_env = env_file
-        self.partial_program_order.handle_wait(node_id, env_file)
-        if self.partial_program_order.get_node(node_id).is_committed():
+        self.partial_program_order.handle_wait(concrete_node_id, env_file)
+        if self.partial_program_order.get_concrete_node(concrete_node_id).is_committed():
             self.respond_to_pending_wait(node_id)
 
     def process_next_cmd(self):
@@ -101,11 +102,11 @@ class Scheduler:
             connection.close()
         elif (input_cmd.startswith("CommandExecComplete:")):
             node_id, exec_id, exit_code, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
-            if self.partial_program_order.get_node(node_id).exec_id == exec_id:
+            if self.partial_program_order.get_concrete_node(node_id).exec_id == exec_id:
                 logging.info(f'Scheduler: Received command exec complete message - {node_id}.')
                 self.partial_program_order.handle_complete(node_id, node_id in self.waiting_for_response, self.latest_env)
                 
-                if self.partial_program_order.get_node(node_id).is_committed():
+                if self.partial_program_order.get_concrete_node(node_id).is_committed():
                     self.respond_to_pending_wait(node_id)
             else:
                 logging.info(f'Scheduler: Received command exec complete message for a killed instance, ignoring - {node_id}.')
@@ -116,6 +117,7 @@ class Scheduler:
             self.partial_program_order.log_info()
             self.done = True
         elif input_cmd.startswith("CommandExecStart:"):
+            assert False
             node_id, exec_id, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
             logging.info(f'Scheduler: Received command exec start message - {input_cmd}.')
             # self.handle_command_exec_start(input_cmd)
@@ -133,7 +135,7 @@ class Scheduler:
     def respond_to_pending_wait(self, node_id: int):
         logging.debug(f'Responding to pending wait for node: {node_id}')
         ## Get the completed node info
-        node = self.partial_program_order.get_node(node_id)
+        node = self.partial_program_order.get_concrete_node(node_id)
         msg = '{} {} {}'.format(*node.execution_outcome())
         response = success_response(msg)
         
@@ -143,24 +145,21 @@ class Scheduler:
     def __parse_wait(self, input_cmd: str) -> "tuple[NodeId, str]":
         try:
             node_id_component, loop_iter_counter_component, pash_runtime_vars_file_component = input_cmd.rstrip().split("|")
-            raw_node_id_int = int(node_id_component.split(":")[1].rstrip())
+            node_id = NodeId(int(node_id_component.split(":")[1].rstrip()))
             loop_counters_str = loop_iter_counter_component.split(":")[1].rstrip()
-            pash_runtime_vars_file_str = pash_runtime_vars_file_component.split(":")[1].rstrip()
-            # TODO Implement loops correctly
-            # if loop_counters_str == "None":
-            #     node_id = NodeId(raw_node_id_int), pash_runtime_vars_file_str
-            # else:
-            #     loop_counters = [int(cnt) for cnt in loop_counters_str.split("-")]
-            #     node_id = NodeId(raw_node_id_int, LoopStack(loop_counters)), pash_runtime_vars_file_str      
-            node_id = NodeId(raw_node_id_int), pash_runtime_vars_file_str     
-            return node_id
+            pash_env_filename = pash_runtime_vars_file_component.split(":")[1].rstrip()
+            if loop_counters_str == "None":
+                return ConcreteNodeId(node_id), pash_env_filename
+            else:
+                loop_counters = [int(cnt) for cnt in loop_counters_str.split("-")]
+                return ConcreteNodeId(node_id, loop_counters), pash_env_filename
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')
         
     def __parse_command_exec_x(self, input_cmd: str) -> "tuple[int, int]":
         try:
             components = input_cmd.rstrip().split("|")
-            command_id = NodeId.parse_node_id(components[0].split(":")[1])
+            command_id = ConcreteNodeId.parse(components[0].split(":")[1])
             exec_id = int(components[1].split(":")[1])
             exit_code = int(components[2].split(":")[1])
             sandbox_dir = components[3].split(":")[1]
@@ -171,8 +170,8 @@ class Scheduler:
 
 
     def schedule_work(self):
-        nodes = self.partial_program_order.get_schedulable_nodes()
-        for n in nodes[:2]:
+        concrete_node_ids = self.partial_program_order.get_schedulable_nodes()
+        for n in concrete_node_ids[:2]:
             self.partial_program_order.schedule_spec_work(n, self.latest_env)
         
     def run(self):

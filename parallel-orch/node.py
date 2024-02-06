@@ -1,3 +1,4 @@
+from itertools import chain
 import logging
 import re
 import executor
@@ -69,9 +70,6 @@ class RWSet:
 
 
 class NodeId:
-
-    #TODO: Implement iteration support
-
     def __init__(self, id_: int):
         self.id_ = id_
 
@@ -103,27 +101,6 @@ class NodeId:
     def parse_node_id(node_id_str: str):
         return NodeId(int(node_id_str))
 
-class AbstractNode:
-    def __init__(self, node_id: NodeId):
-        self.node_id = node_id
-
-class HSBasicBlock:
-    def __init__(self, nodes):
-        self.nodes = nodes
-
-class HSProg:
-    abstract_nodes: "dict[NodeId, AbstractNode]"
-    adjacency: "dict[NodeId, list[NodeId]]"
-    inverse_adjacency: "dict[NodeId, list[NodeId]]"
-    def __init__(self, abstract_nodes: dict[NodeId, AbstractNode],
-                 edges: dict[NodeId, list[NodeId]]):
-        self.abstract_nodes = abstract_nodes
-        self.adjacency = edges
-        self.inverse_adjacency = util.invert_graph(abstract_nodes, edges)
-
-
-
-
 @dataclass
 class ExecCtxt:
     process: Popen
@@ -139,14 +116,59 @@ class ExecResult:
     exit_code: int
     proc_id: int
 
+class LoopStack:
+    def __init__(self, loop_contexts_or_iters=None):
+        if loop_contexts_or_iters is None:
+            self.loops = []
+        else:
+            self.loops = loop_contexts_or_iters
+
+    def __repr__(self):
+        ## TODO: Represent it using 'it', 'it0', 'it1', etc
+        ##       or -(iters)- in front of it.
+        output = "-".join([str(it) for it in self.loops])
+        return output
+    def __eq__(self, other):
+        return self.loops == other.loops
+
 @dataclass
 class Node:
     id_: NodeId
     cmd: str
     asts: "list[AstNode]"
+    loop_context: LoopStack
 
+    def __init__(self, id_, cmd, asts, loop_context=None):
+        self.id_ = id_
+        self.cmd = cmd
+        self.asts = asts
+        self.loop_context = loop_context if loop_context else LoopStack()
+
+class ConcreteNodeId:
+    def __init__(self, node_id: NodeId, loop_iters = list()):
+        self.node_id = node_id
+        self.loop_iters = tuple(loop_iters)
+
+    def __repr__(self):
+        return f'cnid({self.node_id.id_})'
+        
+    def __hash__(self):
+        return hash((self.node_id, self.loop_iters))
+
+    def __eq__(self, other):
+        return self.node_id == other.node_id and self.loop_iters == other.loop_iters
+
+    def __str__(self):
+        return f'{self.node_id}@' + ''.join(['-' + str(n) for n in self.loop_iters])
+
+    @staticmethod
+    def parse(input_str):
+        node_id_str, loop_iters_str = input_str.split('@')
+        return ConcreteNodeId(NodeId(int(node_id_str)), [int(cnt) for cnt in loop_iters_str.split('-')[1:]])
+    
 class ConcreteNode:
-    abstract_node: AbstractNode
+    cnid: ConcreteNodeId
+    abstract_node: Node
     state: NodeState
     # Used for identifying the most recent valid execution
     exec_id: int
@@ -164,7 +186,8 @@ class ConcreteNode:
     exec_ctxt: ExecCtxt
     exec_result: ExecResult
 
-    def __init__(self, node: Node):
+    def __init__(self, cnid: ConcreteNodeId, node: Node):
+        self.cnid = cnid
         self.abstract_node = node
         self.state = NodeState.INIT
         self.tracefile = None
@@ -226,7 +249,7 @@ class ConcreteNode:
         execute_func = executor.async_run_and_trace_command_return_trace
         # Set the execution id
         self.exec_id = util.generate_id()
-        self.exec_ctxt = ExecCtxt(*execute_func(cmd, self.id_, self.exec_id, env_file))
+        self.exec_ctxt = ExecCtxt(*execute_func(cmd, self.cnid, self.exec_id, env_file))
 
     def execution_outcome(self) -> Tuple[int, str, str]:
         assert self.exec_result is not None
@@ -364,3 +387,109 @@ class ConcreteNode:
         with open(other_env, 'r') as file:
             other_env_vars = parse_env(file.read())
         return node_env_vars != other_env_vars
+
+    
+class HSBasicBlock:
+    def __init__(self, nodes: list[Node]):
+        if len(nodes) == 0:
+            raise ValueError('basic block size 0')
+        self.nodes = nodes
+
+    def __str__(self):
+        return ''.join([node.cmd for node in self.nodes])
+
+    @property
+    def loop_context(self):
+        return self.nodes[0].loop_context
+
+    @property
+    def node_ids(self):
+        return [node.id_ for node in self.nodes]
+
+    def get_node(self, node_id: NodeId) -> Node:
+        nodes = [node for node in self.nodes if node.id_ == node_id]
+        assert len(nodes) == 1
+        return nodes[0]
+        
+class HSProg:
+    abstract_nodes: "dict[NodeId, Node]"
+    adjacency: "dict[NodeId, list[NodeId]]"
+    inverse_adjacency: "dict[NodeId, list[NodeId]]"
+    basic_blocks: list[HSBasicBlock] = []
+    block_adjacency: "dict[int, list[int]]"
+    BB_ENTER = -1
+    BB_EXIT = -2
+
+    def __init__(self, abstract_nodes: dict[NodeId, Node],
+                 edges: dict[NodeId, list[NodeId]]):
+        self.abstract_nodes = abstract_nodes
+        self.adjacency = edges
+        self.inverse_adjacency = util.invert_graph(abstract_nodes, edges)
+        self.construct_basic_blocks()
+        util.debug_log(str(self))
+
+    def construct_basic_blocks(self):
+        node_list = []
+        block_id = LoopStack()
+        for node in self.abstract_nodes.values():
+            if node.loop_context == block_id:
+                node_list.append(node)
+            else:
+                basic_block = HSBasicBlock(node_list)
+                self.basic_blocks.append(basic_block)
+                node_list = [node]
+                block_id = node.loop_context
+        basic_block = HSBasicBlock(node_list)
+        self.basic_blocks.append(basic_block)
+        if len(self.basic_blocks) == 0:
+            raise ValueError('empty hsprog')
+
+        # TODO: the algorithm here is wrong,
+        # echo 1
+        # for i in {1..n}; do
+        #   echo 2
+        # done
+        # for i in {1..m}; do
+        #   echo 3
+        # done
+        # echo 4
+        #
+        # echo 1 can goto echo 2, echo 3, or echo 4
+        self.block_adjacency = {}
+        prev_blocks = {tuple(): self.basic_blocks[0]}
+        for bb_id, bb in enumerate(self.basic_blocks):
+            # the fallthrough edge
+            if bb_id != len(self.basic_blocks) - 1:
+                self.block_adjacency[bb_id] = [bb_id + 1]
+            else:
+                self.block_adjacency[bb_id] = [HSProg.BB_EXIT]
+                break
+
+            for next_bb_id in chain(range(bb_id + 1, len(self.basic_blocks)),
+                                    range(0, bb_id + 1)):
+                next_bb = self.basic_blocks[next_bb_id]
+                if next_bb.loop_context == bb.loop_context:
+                    self.block_adjacency[bb_id].append(next_bb_id)
+                    break
+            else:
+                raise ValueError('no jump block')
+
+    def is_start_of_block(self, node_id: NodeId):
+        for bb in self.basic_blocks:
+            bb : HSBasicBlock
+            if bb.nodes[0].id_ == node_id:
+                return True
+        return False
+
+    def find_basic_block(self, node_id: NodeId):
+        for bb in self.basic_blocks:
+            bb : HSBasicBlock
+            for node in bb.nodes:
+                if node.id_ == node_id:
+                    return bb
+        raise ValueError('no such node_id')
+    
+    def __str__(self):
+        return 'prog:\n' + '\n'.join(
+            [f'block {i}:\n' + str(bb) + f'goto block {self.block_adjacency[i]}\n' for i, bb in enumerate(self.basic_blocks)])
+    

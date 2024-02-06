@@ -362,8 +362,13 @@ class ConcreteNode:
         if self.exec_ctxt.pre_env_file == other_env:
             return False
 
-        ignore_vars = set(['RANDOM'])
-
+        ignore_vars = set(["_", 'RANDOM', "msg", "pash_runtime_final_status", "pash_previous_set_status",
+                           "pash_runtime_shell_variables_file", "from_set", "output_variable_file",
+                           "pash_loop_iter_counters", "daemon_response", "vars_file",
+                           "pash_speculative_command_id", "prev_env", "PREVIOUS_SET_STATUS",
+                           "BASH_LINENO", "response_args", "stdout_file", "pash_spec_command_id",
+                           "cmd_exit_code", "pash_set_to_add"])
+        
         re_scalar_string = re.compile(r'declare (?:-x|--)? (\w+)="([^"]*)"')
         re_scalar_int = re.compile(r'declare -i (\w+)="(\d+)"')
         re_array = re.compile(r'declare -a (\w+)=(\([^)]+\))')
@@ -386,7 +391,21 @@ class ConcreteNode:
 
         with open(other_env, 'r') as file:
             other_env_vars = parse_env(file.read())
-        return node_env_vars != other_env_vars
+        
+        conflict_exists = False
+        for key in set(node_env_vars.keys()).union(other_env_vars.keys()):
+            if key not in node_env_vars:
+                logging.critical(f"Variable {key} missing in node environment")
+                conflict_exists = True
+            elif key not in other_env_vars:
+                logging.critical(f"Variable {key} missing in other environment")
+                conflict_exists = True
+            elif node_env_vars[key] != other_env_vars[key]:
+                logging.critical(f"Variable {key} differs: node environment has {node_env_vars[key]}, other has {other_env_vars[key]}")
+                conflict_exists = True
+        
+        return conflict_exists
+
 
     
 class HSBasicBlock:

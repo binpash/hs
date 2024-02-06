@@ -89,7 +89,7 @@ class Scheduler:
         self.latest_env = env_file
         self.partial_program_order.handle_wait(concrete_node_id, env_file)
         if self.partial_program_order.get_concrete_node(concrete_node_id).is_committed():
-            self.respond_to_pending_wait(node_id)
+            self.respond_to_pending_wait(concrete_node_id)
 
     def process_next_cmd(self):
         connection, input_cmd = util.socket_get_next_cmd(self.socket)

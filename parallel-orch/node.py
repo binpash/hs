@@ -152,7 +152,7 @@ class ConcreteNodeId:
 
     def __repr__(self):
         return f'cnid({self.node_id.id_})'
-        
+
     def __hash__(self):
         return hash((self.node_id, self.loop_iters))
 
@@ -166,7 +166,7 @@ class ConcreteNodeId:
     def parse(input_str):
         node_id_str, loop_iters_str = input_str.split('@')
         return ConcreteNodeId(NodeId(int(node_id_str)), [int(cnt) for cnt in loop_iters_str.split('-')[1:]])
-    
+
 class ConcreteNode:
     cnid: ConcreteNodeId
     abstract_node: Node
@@ -258,7 +258,7 @@ class ConcreteNode:
 
     def command_unsafe(self):
         return not analysis.safe_to_execute(self.asts, {})
-        
+
 
     ##                                      ##
     ##          Transition Functions        ##
@@ -380,7 +380,7 @@ class ConcreteNode:
                            "pash_speculative_command_id", "prev_env", "PREVIOUS_SET_STATUS",
                            "BASH_LINENO", "response_args", "stdout_file", "pash_spec_command_id",
                            "cmd_exit_code", "pash_set_to_add"])
-        
+
         re_scalar_string = re.compile(r'declare (?:-x|--)? (\w+)="([^"]*)"')
         re_scalar_int = re.compile(r'declare -i (\w+)="(\d+)"')
         re_array = re.compile(r'declare -a (\w+)=(\([^)]+\))')
@@ -403,7 +403,7 @@ class ConcreteNode:
 
         with open(other_env, 'r') as file:
             other_env_vars = parse_env(file.read())
-        
+
         conflict_exists = False
         for key in set(node_env_vars.keys()).union(other_env_vars.keys()):
             if key not in node_env_vars:
@@ -415,11 +415,11 @@ class ConcreteNode:
             elif node_env_vars[key] != other_env_vars[key]:
                 logging.critical(f"Variable {key} differs: node environment has {node_env_vars[key]}, other has {other_env_vars[key]}")
                 conflict_exists = True
-        
+
         return conflict_exists
 
 
-    
+
 class HSBasicBlock:
     def __init__(self, nodes: list[Node]):
         if len(nodes) == 0:
@@ -463,7 +463,7 @@ class HSProg:
         node_list = []
         block_id = LoopStack()
         for node in self.abstract_nodes.values():
-            if (node.loop_context == block_id and 
+            if (node.loop_context == block_id and
                 not (len(node_list) >= 1 and node_list[-1].cmd == 'break')):
                 node_list.append(node)
             else:
@@ -523,8 +523,7 @@ class HSProg:
                 if node.id_ == node_id:
                     return bb
         raise ValueError('no such node_id')
-    
+
     def __str__(self):
         return 'prog:\n' + '\n'.join(
             [f'block {i}:\n' + str(bb) + f'goto block {self.block_adjacency[i]}\n' for i, bb in enumerate(self.basic_blocks)])
-    

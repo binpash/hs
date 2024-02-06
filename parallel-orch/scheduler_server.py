@@ -19,11 +19,11 @@ signal.signal(signal.SIGTERM, handler)
 def parse_args():
     parser = argparse.ArgumentParser(add_help=False)
     ## TODO: Import the arguments so that they are not duplicated here and in orch
-    parser.add_argument("-d", "--debug-level", 
-                        type=int, 
+    parser.add_argument("-d", "--debug-level",
+                        type=int,
                         default=0,
                         help="Set debugging level")
-    parser.add_argument("-f", "--log_file", 
+    parser.add_argument("-f", "--log_file",
                         type=str,
                         default=None,
                         help="Set logging output file. Default: stdout")
@@ -57,7 +57,7 @@ def error_response(string):
 class Scheduler:
     """ Schedules a partial order of commands to run out-of-order
     Flow:
-        input cmd -> 
+        input cmd ->
                     |   Daemon Start -> Receive whens tarting
                     |   Init -> Read the partial order from a file
                     |   CommandExecComplete -> A command completed its execution
@@ -109,7 +109,7 @@ class Scheduler:
             if self.partial_program_order.get_concrete_node(node_id).exec_id == exec_id:
                 logging.info(f'Scheduler: Received command exec complete message - {node_id}.')
                 self.partial_program_order.handle_complete(node_id, node_id in self.waiting_for_response, self.latest_env)
-                
+
                 if self.partial_program_order.get_concrete_node(node_id).is_committed():
                     self.respond_to_pending_wait(node_id)
             else:
@@ -134,14 +134,14 @@ class Scheduler:
     def respond_to_wait_on_unsafe(self, node_id: ConcreteNodeId):
         response = unsafe_response('')
         self.respond_to_frontend_core(node_id, response)
-        
+
     def respond_to_pending_wait(self, node_id: ConcreteNodeId):
         logging.debug(f'Responding to pending wait for node: {node_id}')
         ## Get the completed node info
         node = self.partial_program_order.get_concrete_node(node_id)
         msg = '{} {} {}'.format(*node.execution_outcome())
         response = success_response(msg)
-        
+
         ## Send the response
         self.respond_to_frontend_core(node_id, response)
 
@@ -158,7 +158,7 @@ class Scheduler:
                 return ConcreteNodeId(node_id, loop_counters), pash_env_filename
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')
-        
+
     def __parse_command_exec_x(self, input_cmd: str) -> "tuple[int, int]":
         try:
             components = input_cmd.rstrip().split("|")
@@ -176,11 +176,11 @@ class Scheduler:
         concrete_node_ids = self.partial_program_order.get_schedulable_nodes()
         for n in concrete_node_ids[:2]:
             self.partial_program_order.schedule_spec_work(n, self.latest_env)
-        
+
     def run(self):
         ## The first command should be the daemon start
         self.process_next_cmd()
-        
+
         ## The second command should be the partial order init
         self.process_next_cmd()
 
@@ -200,7 +200,7 @@ class Scheduler:
         logging.debug("PaSh-Spec scheduler is shutting down...")
         logging.debug("PaSh-Spec scheduler shut down successfully...")
         self.terminate_pending_commands()
-        
+
     def terminate_pending_commands(self):
         for node in self.partial_program_order.get_executing_normal_and_spec_nodes():
             proc, _trace_file, _stdout, _stderr, _variable_file, _ = node.get_main_sandbox()
@@ -215,8 +215,8 @@ def main():
     if args.log_file is None:
         logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s")
     else:
-        logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s", 
-                            filename=f"{os.path.abspath(args.log_file)}", 
+        logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s",
+                            filename=f"{os.path.abspath(args.log_file)}",
                             filemode="w")
 
     # Set debug level
@@ -230,7 +230,7 @@ def main():
     config.SPECULATE_IMMEDIATELY = args.speculate_immediately
     scheduler = Scheduler(config.SCHEDULER_SOCKET)
     scheduler.run()
-   
+
 
 if __name__ == "__main__":
     main()

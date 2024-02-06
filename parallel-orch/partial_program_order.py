@@ -34,17 +34,6 @@ class PartialProgramOrder:
         self.prev_concrete_node: dict[ConcreteNodeId, list[ConcreteNodeId]] = {}
         self.to_be_resolved: dict[ConcreteNodeId, list[ConcreteNodeId]] = {}
 
-    # def init_partial_order(self):
-    #     for node_id, node in self.concrete_nodes.items():
-    #         if node.is_initialized():
-    #             node.transition_from_init_to_ready()
-
-    #     self.init_to_be_resolved_dict()
-    #     logging.info(self.to_be_resolved)
-    #     # Init frontier
-    #     self.frontier = self.get_standard_source_nodes()
-    #     # TODO: Implement the rest of the partial order initialization
-
     @property
     def abstract_nodes(self):
         return self.hsprog.abstract_nodes
@@ -56,13 +45,13 @@ class PartialProgramOrder:
     @property
     def inverse_adjacency(self):
         return self.hsprog.inverse_adjacency
-        
+
     def commit_node(self, node):
         # Logic to handle committing a node
         node.transition_to_committed()
         # Maybe update dependencies here
         # etc.
-        
+
     def get_concrete_node(self, concrete_node_id: ConcreteNodeId) -> ConcreteNode:
         return self.concrete_nodes[concrete_node_id]
 
@@ -107,60 +96,8 @@ class PartialProgramOrder:
     def get_schedulable_nodes(self) -> list[ConcreteNodeId]:
         return [concrete_node_id for concrete_node_id, _ in self.get_ready_nodes()]
 
-    ## Returns the next non-committed normal node
-    def progress_frontier(self) -> "list[NodeId]":
-        return self.get_next_frontier_nodes(self.get_frontier())
-
-    def get_next_nodes(self, node_id:NodeId) -> "list[NodeId]":
-        return self.adjacency[node_id][:]
-
     def get_prev_nodes(self, concrete_node_id: ConcreteNodeId) -> "list[ConcreteNodeId]":
         return self.prev_concrete_node[concrete_node_id][:]
-
-    def get_source_nodes(self) -> "list[NodeId]":
-        sources = set()
-        for to_id, from_ids in self.inverse_adjacency.items():
-            if len(from_ids) == 0:
-                sources.add(to_id)
-        return list(sources)
-
-    def get_standard_source_nodes(self) -> list:
-        source_nodes = self.get_source_nodes()
-        # TODO: Filter out loop nodes
-        # return self.filter_standard_nodes(source_nodes)
-        return source_nodes
-
-    def get_next_frontier_nodes(self, start_nodes: "list[NodeId]") -> "set[int]":
-        # TODO: filter non-loop nodes
-        visited = set()
-        to_visit = [(node_id, 0) for node_id in start_nodes]  # Pair each start node with depth 0
-        non_committed_nodes = set()
-        first_non_committed_depth = None
-
-        while to_visit:
-            current_node_id, depth = to_visit.pop()
-            if current_node_id in visited:
-                continue
-
-            visited.add(current_node_id)
-            current_node = self.concrete_nodes.get(current_node_id)
-
-            if not current_node.is_committed():
-                if first_non_committed_depth is None:
-                    first_non_committed_depth = depth
-                elif depth > first_non_committed_depth:
-                    # Do not consider nodes deeper than the first non-committed depth
-                    continue
-
-                non_committed_nodes.add(current_node_id)
-
-            if first_non_committed_depth is None or depth < first_non_committed_depth:
-                next_nodes = self.get_next_nodes(current_node_id)  # Use the provided method to get next nodes
-                for neighbor in next_nodes:
-                    if neighbor not in visited:
-                        to_visit.append((neighbor, depth + 1))  # Increase depth for neighbors
-
-        return non_committed_nodes
 
     def get_all_next(self, current_node_id: ConcreteNodeId, visited=None) -> "set[NodeId]":
         all_next = set()
@@ -233,31 +170,31 @@ class PartialProgramOrder:
 
     # TODO: It's currently designed this way to avoid reading trace file all the time
     # When we have complex caching code for this we can make this go away
-    def has_fs_deps(self, node_id:NodeId):
+    def has_fs_deps(self, concrete_node_id: ConcreteNodeId):
         self.fetch_fs_actions()
-        self._has_fs_deps(node_id)
+        self._has_fs_deps(concrete_node_id)
 
     ### external handler events ###
 
-    def schedule_work(self, node_id: NodeId, env_file: str):
+    def schedule_work(self, concrete_node_id: ConcreteNodeId, env_file: str):
         event_log("schedule_work")
-        self.get_concrete_node(node_id).start_executing(env_file)
+        self.get_concrete_node(concrete_node_id).start_executing(env_file)
 
     def schedule_spec_work(self, concrete_node_id: ConcreteNodeId, env_file: str):
         event_log("schedule_spec")
         self.adjust_to_be_resolved_dict_entry(concrete_node_id)
         self.get_concrete_node(concrete_node_id).start_spec_executing(env_file)
 
-    def handle_complete(self, node_id: NodeId, has_pending_wait: bool,
+    def handle_complete(self, concrete_node_id: ConcreteNodeId, has_pending_wait: bool,
                         current_env: str):
-        event_log(f"handle_complete {node_id}")
-        node = self.get_concrete_node(node_id)
+        event_log(f"handle_complete {concrete_node_id}")
+        node = self.get_concrete_node(concrete_node_id)
         # TODO: complete the state matching
         if node.is_executing():
             node.commit_frontier_execution()
             self.adjust_to_be_resolved_dict()
         elif node.is_spec_executing():
-            if self.has_fs_deps(node_id):
+            if self.has_fs_deps(concrete_node_id):
                 node.reset_to_ready()
                 # otherwise it stays in ready state and waits to be scheduled by the scheduler
                 if has_pending_wait:
@@ -304,7 +241,7 @@ class PartialProgramOrder:
     def finish_wait_unsafe(self, concrete_node_id: ConcreteNodeId):
         node = self.concrete_nodes[concrete_node_id]
         node.commit_unsafe_node()
-        
+
     def handle_wait(self, concrete_node_id: ConcreteNodeId, env_file: str):
         event_log(f"handle_wait {concrete_node_id}")
 

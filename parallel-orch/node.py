@@ -415,7 +415,7 @@ class HSBasicBlock:
         self.nodes = nodes
 
     def __str__(self):
-        return ''.join([node.cmd for node in self.nodes])
+        return ''.join([node.cmd.strip() + '\n' for node in self.nodes])
 
     @property
     def loop_context(self):
@@ -429,7 +429,7 @@ class HSBasicBlock:
         nodes = [node for node in self.nodes if node.id_ == node_id]
         assert len(nodes) == 1
         return nodes[0]
-        
+
 class HSProg:
     abstract_nodes: "dict[NodeId, Node]"
     adjacency: "dict[NodeId, list[NodeId]]"
@@ -451,11 +451,15 @@ class HSProg:
         node_list = []
         block_id = LoopStack()
         for node in self.abstract_nodes.values():
-            if node.loop_context == block_id:
+            if (node.loop_context == block_id and 
+                not (len(node_list) >= 1 and node_list[-1].cmd == 'break')):
                 node_list.append(node)
             else:
-                basic_block = HSBasicBlock(node_list)
-                self.basic_blocks.append(basic_block)
+                if len(node_list) != 0:
+                    # This branch happens for conditional at the beginning
+                    # of the program
+                    basic_block = HSBasicBlock(node_list)
+                    self.basic_blocks.append(basic_block)
                 node_list = [node]
                 block_id = node.loop_context
         basic_block = HSBasicBlock(node_list)

@@ -341,9 +341,12 @@ class PartialProgramOrder:
                 self.adjust_to_be_resolved_dict()
         elif node.is_executing():
             if node.has_env_conflict_with(env_file):
+                node.reset_to_ready()
+                node.start_executing(env_file)
                 self.reset_succeeding_nodes(concrete_node_id, env_file)
         elif node.is_spec_executing():
             if node.has_env_conflict_with(env_file):
+                node.reset_to_ready()
                 self.reset_succeeding_nodes(concrete_node_id, env_file)
         else:
             logging.error(f'Error: Node {concrete_node_id} is in an invalid state: {node.state}')

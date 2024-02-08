@@ -1,0 +1,44 @@
+[
+    {
+        "name": "Dgsh 1.sh",
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/testmini.csv"],
+        "command": "{{TEST_SCRIPT_DIR}}/dgsh/1.sh",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 2.sh (no function)",
+        "command": "{{TEST_SCRIPT_DIR}}/dgsh/2_no_func.sh",
+        "working_dir": "{{RESOURCE_DIR}}/overcommitted",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 3.sh",
+        "command": "{{TEST_SCRIPT_DIR}}/dgsh/3.sh",
+        "working_dir": "{{RESOURCE_DIR}}/linux",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 5.sh",
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/larger_file.txt"],
+        "command": "{{TEST_SCRIPT_DIR}}/5.sh",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 6.sh",
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/larger_file.txt"],
+        "command": "{{TEST_SCRIPT_DIR}}/6.sh",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "7.sh",
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/larger_weblog.log"],
+        "command": "{{TEST_SCRIPT_DIR}}/7.sh",
+        "orch_args": "-d 2 --sandbox-killing"
+    },
+    {
+        "name": "8.sh",
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/larger_file.txt"],
+        "command": "{{TEST_SCRIPT_DIR}}/8_no_func.sh",
+        "orch_args": "-d 2"
+    }
+]

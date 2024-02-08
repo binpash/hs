@@ -1,0 +1,6 @@
+[{
+    "name": "bio4.sh",
+    "env": ["INPUT={{RESOURCE_DIR}}", "IN_N={{TEST_SCRIPT_DIR}}/setup/input.txt", "OUTPUT={{RESOURCE_DIR}}/out"],
+    "command": "{{TEST_SCRIPT_DIR}}/bio4.sh",
+    "orch_args": "-d 2"
+}]

@@ -217,7 +217,7 @@ class ConcreteNode:
         return self.abstract_node.asts
 
     def pretty_state_repr(self):
-        return f'{state_pstr(self.state)} {self.cmd}'
+        return f'{state_pstr(self.state)},{self.id_},{self.cmd}'
 
     def is_initialized(self):
         return self.state == NodeState.INIT

@@ -22,7 +22,6 @@ def parse_args():
     parser.add_argument('--no-logs', action='store_true', help="Do not save log files of benchmark runs.")
     parser.add_argument('--csv-output', action='store_true', help="Generate and save results in CSV format.")
     parser.add_argument('--verbose', action='store_true', help="Enable verbose output.")
-    parser.add_argument('--full-gantt', action='store_false', help="Generate a full Gantt chart for each benchmark.")
     parser.add_argument('--config-file', type=str, default=None, help="Path to the benchmark configuration file. Default is 'benchmark_config.json'.")
     parser.add_argument('--setup-script', type=str, default=None, help="Path to a setup script to run before running any other benchmark.")
     parser.add_argument('--subset', type=str, default=None, help="Name of a subset of benchmarks to run. Will instead download and store outputs in the dir with the specified name.")

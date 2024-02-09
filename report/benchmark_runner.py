@@ -42,15 +42,21 @@ class BenchmarkRunner:
         for pre_command in benchmark.pre_execution_script:
             CommandExecutor.run_pre_execution_command(pre_command, os.environ.get('RESOURCE_DIR'), self.args.verbose)
 
+        if benchmark.command_working_dir:
+            workdir = benchmark.command_working_dir
+        else:
+            workdir = os.environ.get('TEST_SCRIPT_DIR')
+        
+        
         # Execute the benchmark
         bash_time, bash_output, _ = CommandExecutor.run_command(
             benchmark.command.split(" "), 
-            os.environ.get('TEST_SCRIPT_DIR'), 
+            workdir, 
             self.args.verbose)
         orch_time, orch_output, orch_log = CommandExecutor.run_command_with_orch(
             benchmark.command.split(" "), 
             benchmark.orch_args, 
-            os.environ.get('TEST_SCRIPT_DIR'), 
+            workdir, 
             os.environ.get('ORCH_COMMAND'),
             self.args.verbose)
         
@@ -91,5 +97,4 @@ class BenchmarkRunner:
         for benchmark in self.benchmarks:
             activities = self.activities.get(benchmark.name)
             if activities:
-                print(os.environ.get('REPORT_OUTPUT_DIR'), f"{benchmark.name}_gantt")
-                benchmark_plots.plot_prog_blocks(activities, os.environ.get('REPORT_OUTPUT_DIR'), f"{benchmark.name}_gantt")
+                benchmark_plots.plot_prog_blocks(activities, os.environ.get('REPORT_OUTPUT_DIR'), f"{benchmark.name}_progress")

@@ -3,6 +3,7 @@ import os
 
 
 class BenchmarkConfig:
+    
     def __init__(self, name, env, pre_execution_script, command, orch_args):
         self.name = name
         self.env = [self.replace_env_var(e) for e in env]
@@ -66,3 +67,4 @@ class ConfigParser:
 
     def get_benchmarks(self):
         return self.benchmarks
+    

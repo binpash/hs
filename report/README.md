@@ -1,43 +1,49 @@
 # hs Benchmark Directory README
 
-Welcome to the benchmark directory of the `hs`. This directory contains the essential tools and scripts to run benchmarks, analyze logs, and generate reports.
+This is the benchmark directory of `hs`. This directory contains essential tools and scripts for running benchmarks, analyzing logs, generating reports, and visualizing results.
 
 ## Overview
 
-The benchmarking tool provides an interface to run different benchmarks, collect performance metrics, and visualize the results through plots. It supports a wide range of features including:
-- Running benchmarks with `bash` and `hs`.
-- Comparing the outputs and performance of `Bash` and `hs`.
-- Generating Gantt charts for each benchmark.
-- Producing detailed logs and CSV results.
+The benchmarking tool offers a comprehensive interface to evaluate the performance of `hs` against `bash`, supporting a range of features:
+
+- Execution of benchmarks using both `bash` and `hs`.
+- Comparison of outputs and performance metrics between `Bash` and `hs`.
+- Generation of detailed reports including Gantt charts for in-depth analysis.
+- Creation of CSV files for data analysis and bar charts for visual comparison.
+- Optional verbose output for detailed execution logs.
 
 ## Environment Variables
 
-The benchmarking tool sets up and exports a few essential environment variables for the system:
+Several environment variables are essential for the benchmarking tool's operation:
 
-- `WORKING_DIR`: The directory for the benchmarks and reports.
-- `TEST_SCRIPT_DIR`: The directory containing benchmark scripts.
-- `RESOURCE_DIR`: The directory to store resources required by benchmarks.
+- `ORCH_TOP`: The top directory of the orchestrator system.
+- `WORKING_DIR`: Directory for benchmarks and reports.
+- `TEST_SCRIPT_DIR`: Directory containing benchmark scripts.
+- `RESOURCE_DIR`: Directory for storing resources required by benchmarks.
 - `PASH_TOP`: The directory of `pash`.
 - `PASH_SPEC_TOP`: The top directory of `hs`.
 
 ## Command-Line Interface
 
-The primary command-line interface for the benchmark runner includes:
-- `--no-plots`: Do not generate plots.
-- `--no-logs`: Do not save log files.
-- `--csv-output`: Save the results in CSV format.
+The benchmark runner's command-line interface includes options for controlling the output and behavior:
+
+- `--no-plots`: Disables the generation of plot visualizations.
+- `--no-logs`: Prevents saving log files.
+- `--csv-output`: Enables saving results in CSV format.
+- `--verbose`: Enables verbose output, providing detailed logs of the benchmarking process.
+- `--full-gantt`: Generate a full Gantt chart for each benchmark.
 
 ## Benchmark Configuration
 
-Benchmarks are configured using the `benchmark_config.json` file. Each benchmark in the configuration has the following properties:
+Benchmarks are configured via `benchmark_config.json`, with each entry specifying:
 
-- `name`: The name of the benchmark.
-- `env`: A list of environment variables required by the benchmark. 
-- `pre_execution_script`: A list of commands to run before executing the benchmark. Useful for fetching data or setting up the environment.
-- `command`: The command or script to benchmark.
-- `orch_args`: Arguments to pass to the `orch` system when running the benchmark.
+- `name`: Benchmark name.
+- `env`: Environment variables required by the benchmark.
+- `pre_execution_script`: Commands for initial setup, like fetching data.
+- `command`: The benchmark command or script.
+- `orch_args`: Arguments for the `hs` system.
 
-Example:
+Example configuration:
 
 ```json
 [
@@ -53,22 +59,23 @@ Example:
 
 ## Running Benchmarks
 
-To run benchmarks:
+To execute benchmarks:
 
-1. Navigate to the directory containing the benchmark runner (`cd ./report` from the top-level directory).
-2. Execute the benchmark runner with desired arguments, e.g., `python3 benchmark_runner.py --csv-output`.
+1. Navigate to the benchmark runner directory (e.g., `cd ./report`).
+2. Run the benchmark runner with the desired arguments (e.g., `python3 main.py --csv-output`).
 
-After running, the results, including logs, plots, and CSV files (if selected), will be saved in the `report_output` directory.
+Results, including logs, plots, and CSV files, are saved in the `report_output` directory.
 
 ## Results Interpretation
 
-The results include:
+Results encompass:
+
 - Execution times for `bash` and `hs`.
-- A comparison of the execution times.
-- Validity checks for the outputs.
-- Detailed execution logs.
-- Gantt and bar charts visualizing the execution.
+- Comparative analysis of execution times.
+- Validity checks of outputs.
+- Execution logs and error messages in verbose mode.
+- Gantt charts for timeline analysis and bar charts for speculative execution analysis.
 
 ## Contributions
 
-Feel free to contribute to the benchmark suite by adding new benchmarks or improving existing ones. Ensure that any new benchmarks have the necessary configuration in the `benchmark_config.json` file. 
+Contributions to enhance or expand the benchmark suite are welcome. When adding new benchmarks, ensure to update `benchmark_config.json` accordingly.

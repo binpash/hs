@@ -1,7 +1,7 @@
-[
+[ 
     {
         "name": "Dgsh 1.sh",
-        "env": ["INPUT_FILE={{RESOURCE_DIR}}/testmini.csv"],
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/dblp.xml"],
         "command": "{{TEST_SCRIPT_DIR}}/dgsh/1.sh",
         "orch_args": "-d 2"
     },
@@ -13,8 +13,14 @@
     },
     {
         "name": "Dgsh 3.sh",
-        "command": "{{TEST_SCRIPT_DIR}}/dgsh/3.sh",
-        "working_dir": "{{RESOURCE_DIR}}/linux",
+        "command": "{{TEST_SCRIPT_DIR}}/3.sh",
+        "working_dir": "{{RESOURCE_DIR}}/linux/",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "Dgsh 4.sh",
+        "command": "{{TEST_SCRIPT_DIR}}/4.sh",
+        "working_dir": "{{RESOURCE_DIR}}/linux/",
         "orch_args": "-d 2"
     },
     {
@@ -24,8 +30,8 @@
         "orch_args": "-d 2"
     },
     {
-        "name": "Dgsh 6.sh",
-        "env": ["INPUT_FILE={{RESOURCE_DIR}}/larger_file.txt"],
+        "name": "6.sh",
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/pg100.txt"],
         "command": "{{TEST_SCRIPT_DIR}}/6.sh",
         "orch_args": "-d 2"
     },
@@ -37,8 +43,26 @@
     },
     {
         "name": "8.sh",
-        "env": ["INPUT_FILE={{RESOURCE_DIR}}/larger_file.txt"],
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/pg100.txt"],
         "command": "{{TEST_SCRIPT_DIR}}/8_no_func.sh",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "9.sh",
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/pg100.txt"],
+        "command": "{{TEST_SCRIPT_DIR}}/9.sh",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "17.sh",
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/goods_classification.csv"],
+        "command": "{{TEST_SCRIPT_DIR}}/17.sh",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "18.sh",
+        "working_dir": "{{RESOURCE_DIR}}/linux/",
+        "command": "{{TEST_SCRIPT_DIR}}/18.sh",
         "orch_args": "-d 2"
     }
 ]

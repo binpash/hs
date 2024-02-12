@@ -8,16 +8,16 @@ from dataclasses import dataclass
 # Global TODOs:
 # handle pwd, such that open and stat can work
 
-# not handled: listxattr, llistxattr, getxattr, lgetxattr, pivot_root, mount, umount2
+# not handled: listxattr, llistxattr, getxattr, pivot_root, mount, umount2
 # setxattr lsetxattr removexattr lremovexattr, fanotify_mark, renameat2, chroot, quotactl
 # handled individually openat, open, chdir, clone, rename
 # TODO: link, symlink, renameat, symlinkat
 r_first_path_set = set(['execve', 'stat', 'lstat', 'access', 'statfs',
-                        'readlink', 'execve'])
+                        'readlink', 'execve', 'getxattr', 'lgetxattr'])
 w_first_path_set = set(['mkdir', 'rmdir', 'truncate', 'creat', 'chmod', 'chown',
                         'lchown', 'utime', 'mknod', 'utimes', 'acct', 'unlink'])
 r_fd_path_set = set(['fstatat', 'newfstatat', 'statx', 'name_to_handle_at',
-                     'readlinkat', 'faccessat', 'execveat'])
+                     'readlinkat', 'faccessat', 'execveat', 'faccessat2'])
 w_fd_path_set = set(['unlinkat', 'utimensat', 'mkdirat', 'mknodat', 'fchownat', 'futimeat',
                      'unlinkat', 'linkat', 'fchmodat', 'utimensat'])
 ignore_set = set(['getpid', 'getcwd'])
@@ -89,6 +89,9 @@ def parse_string(s):
     # as a read when we handle return value anyway so it's fine
     if s == 'NULL':
         return ''
+    if not s[0] == '"' or not s[-1] == '"':
+        import pdb
+        pdb.set_trace()
     assert s[0] == '"' and s[-1] == '"'
     return bytes(s[1:-1], "utf-8").decode("unicode_escape")
 

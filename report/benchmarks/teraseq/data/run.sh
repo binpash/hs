@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Prepare references and annotations
 #

@@ -119,14 +119,16 @@ else
     tail -n +"$end_line" "$sdir"/db/"$firstsample".sqlite.transcr.sql > "$sdir"/db/sqlite.transcr.sql.tail.tmp # Temporarily get the tail to append to the main db from ultimate 6
 fi
 
+add_num=200000000 # add $RANDOM ten-milion number to the start; assume we don't have more that 10M reads per library
 for i in $samples; do
     echo "$i"
-    add_num=$(( $(od -vAn -N2 -tu2) ))0000000 # add $RANDOM ten-milion number to the start; assume we don't have more that 10M reads per library
+#    add_num=$(( $(od -vAn -N2 -tu2 /dev/random) ))0000000 # add $RANDOM ten-milion number to the start; assume we don't have more that 10M reads per library
 
     grep -P "^INSERT" "$sdir"/db/"$i".sqlite.transcr.sql | sed "s/INSERT INTO transcr VALUES(/INSERT INTO transcr VALUES($add_num/g" \
         >> "$sdir"/db/sqlite.transcr.sql # make unique id by adding ten-milions otherwise we get an error about not-unique id; keep it number makes it easier
 
     rm "$sdir"/db/"$i".sqlite.transcr.sql
+    add_num=$((add_num + 200000000))
 done
 
 cat "$sdir"/db/sqlite.transcr.sql.tail.tmp >> "$sdir"/db/sqlite.transcr.sql && rm "$sdir"/db/sqlite.transcr.sql.tail.tmp # Append the tail and remove the temp
@@ -153,15 +155,17 @@ else
     tail -n +"$end_line" "$sdir"/db/"$firstsample".sqlite.genome.sql > "$sdir"/db/sqlite.genome.sql.tail.tmp # Temporarily get the tail to append to the main db from ultimate 6
 fi
 
+add_num=800000000 # add $RANDOM ten-milion number to the start; assume we don't have more that 10M reads per library
 for i in $samples; do
     echo "$i"
-    add_num=$(( $(od -vAn -N2 -tu2) ))0000000 # add $RANDOM ten-milion number to the start; assume we don't have more that 10M reads per library
+#    add_num=$(( $(od -vAn -N2 -tu2 /dev/random) ))0000000 # add $RANDOM ten-milion number to the start; assume we don't have more that 10M reads per library
 
     # db=$i.sqlite.genome.sql # dliu unused
 
     grep -P "^INSERT" "$sdir"/db/"$i".sqlite.genome.sql | sed "s/INSERT INTO genome VALUES(/INSERT INTO genome VALUES($add_num/g" \
         >> "$sdir"/db/sqlite.genome.sql # make unique id by adding ten-milions otherwise we get an error about not-unique id; keep it number makes it easier
     rm "$sdir"/db/"$i".sqlite.genome.sql
+    add_num=$((add_num + 200000000))
 done
 
 cat "$sdir"/db/sqlite.genome.sql.tail.tmp >> "$sdir"/db/sqlite.genome.sql && rm "$sdir"/db/sqlite.genome.sql.tail.tmp # Append the tail and remove the temp

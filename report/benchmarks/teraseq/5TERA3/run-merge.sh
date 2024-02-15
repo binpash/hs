@@ -91,6 +91,12 @@ echo ">>> MERGE DB FILES <<<"
 
 samples="hsa.dRNASeq.HeLa.total.REL5.long.REL3.4 hsa.dRNASeq.HeLa.total.REL5.long.REL3.5 hsa.dRNASeq.HeLa.total.REL5.long.REL3.6"
 
+firstsample=""
+for i in $samples; do
+    firstsample="$firstsample$i"
+    break
+done
+
 ## Ttranscript table
 for i in $samples; do
     echo " Working for" "$i"
@@ -101,21 +107,21 @@ done
 
 # Merge all sql dumps
 # Use one of the samples to get the header
-line_num=$(head -100 "$sdir"/db/"${samples[0]}".sqlite.transcr.sql | grep -nP "^CREATE TABLE transcr" | cut -d":" -f1) # Get line number/size of header
-head -"${line_num}" "$sdir"/db/"${samples[0]}".sqlite.transcr.sql > "$sdir"/db/sqlite.transcr.sql # Get the header from ultimate 6
+line_num=$(head -100 "$sdir"/db/"$firstsample".sqlite.transcr.sql | grep -nP "^CREATE TABLE transcr" | cut -d":" -f1) # Get line number/size of header
+head -"${line_num}" "$sdir"/db/"$firstsample".sqlite.transcr.sql > "$sdir"/db/sqlite.transcr.sql # Get the header from ultimate 6
 
 # Check the INDEX & COMMIT of the db and in case we are missing it append it manually
-end_line=$(cat "$sdir"/db/"${samples[0]}".sqlite.transcr.sql | grep -nP "^CREATE INDEX transcr" | cut -d":" -f1) # Get line number/size of tail
+end_line=$(cat "$sdir"/db/"$firstsample".sqlite.transcr.sql | grep -nP "^CREATE INDEX transcr" | cut -d":" -f1) # Get line number/size of tail
 if [ -z "$end_line" ]; then
     printf "CREATE INDEX transcr_loc ON transcr (rname, start);\nCOMMIT;\n" > "$sdir"/db/sqlite.transcr.sql.tail.tmp # We can just add it manually
     # dliu change echo -e to printf for POSIX compliance. trailing \n added.
 else
-    tail -n +"$end_line" "$sdir"/db/"${samples[0]}".sqlite.transcr.sql > "$sdir"/db/sqlite.transcr.sql.tail.tmp # Temporarily get the tail to append to the main db from ultimate 6
+    tail -n +"$end_line" "$sdir"/db/"$firstsample".sqlite.transcr.sql > "$sdir"/db/sqlite.transcr.sql.tail.tmp # Temporarily get the tail to append to the main db from ultimate 6
 fi
 
 for i in $samples; do
     echo "$i"
-    add_num=${RANDOM}0000000 # add $RANDOM ten-milion number to the start; assume we don't have more that 10M reads per library
+    add_num=$(( $(od -vAn -N2 -tu2) ))0000000 # add $RANDOM ten-milion number to the start; assume we don't have more that 10M reads per library
 
     grep -P "^INSERT" "$sdir"/db/"$i".sqlite.transcr.sql | sed "s/INSERT INTO transcr VALUES(/INSERT INTO transcr VALUES($add_num/g" \
         >> "$sdir"/db/sqlite.transcr.sql # make unique id by adding ten-milions otherwise we get an error about not-unique id; keep it number makes it easier
@@ -135,22 +141,23 @@ done
 
 # Merge all sql dumps
 # use one of the samples to get the header
-line_num=`head -100 "$sdir"/db/${samples[0]}.sqlite.genome.sql | grep -nP "^CREATE TABLE genome" | cut -d":" -f1` # Get line number/size of header
-head -${line_num} "$sdir"/db/${samples[0]}.sqlite.genome.sql > "$sdir"/db/sqlite.genome.sql # Get the header from ultimate 6
+line_num=$(head -100 "$sdir"/db/"$firstsample".sqlite.genome.sql | grep -nP "^CREATE TABLE genome" | cut -d":" -f1) # Get line number/size of header
+head -"$line_num" "$sdir"/db/"$firstsample".sqlite.genome.sql > "$sdir"/db/sqlite.genome.sql # Get the header from ultimate 6
 
 # Check the INDEX & COMMIT of the db and in case we are missing it append it manually
-end_line=`cat "$sdir"/db/${samples[0]}.sqlite.genome.sql | grep -nP "^CREATE INDEX genome" | cut -d":" -f1` # Get line number/size of tail
+end_line=$(cat "$sdir"/db/"$firstsample".sqlite.genome.sql | grep -nP "^CREATE INDEX genome" | cut -d":" -f1) # Get line number/size of tail
 if [ -z "$end_line" ]; then
-    echo -e "CREATE INDEX genome_loc ON genome (rname, start);\nCOMMIT;" > "$sdir"/db/sqlite.genome.sql.tail.tmp # We can just add it manually
+    printf "CREATE INDEX genome_loc ON genome (rname, start);\nCOMMIT;\n" > "$sdir"/db/sqlite.genome.sql.tail.tmp # We can just add it manually
+    # dliu change echo -e to printf for POSIX compliance. trailing \n added.
 else
-    tail -n +${end_line} "$sdir"/db/${samples[0]}.sqlite.genome.sql > "$sdir"/db/sqlite.genome.sql.tail.tmp # Temporarily get the tail to append to the main db from ultimate 6
+    tail -n +"$end_line" "$sdir"/db/"$firstsample".sqlite.genome.sql > "$sdir"/db/sqlite.genome.sql.tail.tmp # Temporarily get the tail to append to the main db from ultimate 6
 fi
 
 for i in $samples; do
     echo "$i"
-    add_num=${RANDOM}0000000 # add $RANDOM ten-milion number to the start; assume we don't have more that 10M reads per library
+    add_num=$(( $(od -vAn -N2 -tu2) ))0000000 # add $RANDOM ten-milion number to the start; assume we don't have more that 10M reads per library
 
-    db=$i.sqlite.genome.sql
+    # db=$i.sqlite.genome.sql # dliu unused
 
     grep -P "^INSERT" "$sdir"/db/"$i".sqlite.genome.sql | sed "s/INSERT INTO genome VALUES(/INSERT INTO genome VALUES($add_num/g" \
         >> "$sdir"/db/sqlite.genome.sql # make unique id by adding ten-milions otherwise we get an error about not-unique id; keep it number makes it easier

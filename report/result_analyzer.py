@@ -1,21 +1,37 @@
-import difflib
+from datetime import datetime
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import hashlib
-import os
-import csv
+import numpy as np
 
 class ResultAnalyzer:
     @staticmethod
-    def parse_logs_into_activities(log_data):
-        info_lines = [line.replace("INFO:root:>|", "").split("|") for line in log_data.split("\n") if line.startswith("INFO:root:>|")]
-        activities = []
-        for line in info_lines:
-            if len(line) == 4:
-                activity = line[1]
-                end_time = float(line[2].split(":")[1].rstrip("ms"))
-                step_time = float(line[3].split(":")[1].rstrip("ms"))
-                start_time = end_time - step_time
-                activities.append((activity, start_time, step_time))
-        return activities
+    def process_results(orch_log):
+        log_lines = orch_log.split("\n")
+        prog_blocks = []
+        current_block = []
+        block_start_time = None
+
+        for line in log_lines:
+            if line.startswith("INFO|") and "[PROG_LOG]" in line:
+                parts = line.split("|")
+                time_str = parts[1]
+                log_content = parts[2].strip()
+                if log_content == "[PROG_LOG]":
+                    # Start of a new block
+                    if current_block:
+                        prog_blocks.append((block_start_time, current_block))
+                        current_block = []
+                    block_start_time = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S,%f")
+                else:
+                    # Continuing the current block
+                    state, node_id, command = log_content.replace("[PROG_LOG] ", "").split(",", 2)
+                    current_block.append((node_id.strip(), state.strip()))
+        # Append the last block if not empty
+        if current_block:
+            prog_blocks.append((block_start_time, current_block))
+
+        return prog_blocks
 
     @staticmethod
     def compare_results(bash_output, orch_output, max_lines=1000):
@@ -36,55 +52,3 @@ class ResultAnalyzer:
                 diffs.append(f'+ {line}')
 
         return diffs
-    
-    @staticmethod
-    def analyze_node_execution_times(orch_output, benchmark_name, output_dir, verbose):
-        node_times_dict = ResultAnalyzer.extract_node_times(orch_output)
-
-        if verbose:
-            ResultAnalyzer.print_node_execution_times(node_times_dict)
-
-        ResultAnalyzer.generate_node_times_csv(node_times_dict, benchmark_name, output_dir)
-
-    @staticmethod
-    def print_node_execution_times(node_times_dict):
-        print("-" * 40)
-        print("Node Execution Times:")
-        for node in sorted(node_times_dict.keys()):
-            times = node_times_dict[node]
-            num_executions = len(times)
-            time_lost = sum(times) - times[-1] if times else 0
-            times_str = ', '.join(f'{time:7.2f}ms' for time in times)
-            print(f"Node {node:2d}: Executions: {num_executions}, Time Lost: {time_lost:7.2f}ms Times = {times_str} ")
-        print("-" * 40)
-        
-    @staticmethod
-    def generate_node_times_csv(node_times_dict, benchmark_name, output_dir):
-        csv_filename = os.path.join(output_dir, f"{benchmark_name}_execution_times.csv")
-        with open(csv_filename, 'w', newline='') as csv_file:
-            writer = csv.writer(csv_file)
-            writer.writerow(["Node", "Execution Times (ms)", "Number of Executions", "Time Lost (ms)"])
-            for node in sorted(node_times_dict.keys()):
-                times = node_times_dict[node]
-                num_executions = len(times)
-                time_lost = sum(times) - times[-1] if times else 0
-                writer.writerow([node, ', '.join(str(time) for time in times), num_executions, time_lost])
-
-    @staticmethod
-    def extract_node_times(orch_output):
-        node_times_dict = {}
-
-        relevant_lines = [line.replace("INFO:root:>|PartialOrder|RunNode,", "") 
-                        for line in orch_output.split("\n") 
-                        if line.startswith("INFO:root:>|PartialOrder|RunNode,") and "Step time:" in line]
-
-        for line in relevant_lines:
-            parts = line.split("|")
-            node_id = int(parts[0])
-            time = float(parts[2].split(":")[1][:-2])  # Extract step time
-
-            if node_id not in node_times_dict:
-                node_times_dict[node_id] = []
-            node_times_dict[node_id].append(time)
-
-        return node_times_dict

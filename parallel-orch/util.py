@@ -8,12 +8,27 @@ import time
 import re
 import psutil
 import signal
+import analysis
+from node import Node, NodeId, LoopStack
+from partial_program_order import PartialProgramOrder
+
+DEBUG_LOG = '[DEBUG_LOG] '
+
+def debug_log(s):
+    logging.debug(DEBUG_LOG + s)
 
 def ptempfile():
     fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX)
     ## TODO: Get a name without opening the fd too if possible
     os.close(fd)
     return name
+
+def create_sandbox():
+    os.makedirs("/tmp/pash_spec/a", exist_ok=True)
+    os.makedirs("/tmp/pash_spec/b", exist_ok=True)
+    sdir = tempfile.mkdtemp(dir="/tmp/pash_spec/a", prefix="sandbox_")
+    tdir = tempfile.mkdtemp(dir="/tmp/pash_spec/b", prefix="sandbox_")
+    return sdir, tdir
 
 def init_unix_socket(socket_file: str) -> socket.socket:
     server_address = socket_file
@@ -32,11 +47,11 @@ def init_unix_socket(socket_file: str) -> socket.socket:
     logging.debug("SocketManager: Created socket")
 
     sock.bind(server_address)
-    logging.debug("SocketManager: Successfully bound to socket")    
+    logging.debug("SocketManager: Successfully bound to socket")
 
     ## TODO: Check if we need to configure the backlog
-    sock.listen()    
-    logging.debug("SocketManager: Listenting on socket")    
+    sock.listen()
+    logging.debug("SocketManager: Listenting on socket")
 
     return sock
 
@@ -51,7 +66,7 @@ def socket_get_next_cmd(sock: socket.socket) -> "tuple[socket.socket, str]" :
     ##
     ## We need to ensure that we read a command at once or the command was empty (only relevant in the first invocation)
     assert(str_data.endswith("\n") or str_data == "")
-    
+
     return (connection, str_data)
 
 def socket_respond(connection: socket.socket, message: str):
@@ -73,7 +88,7 @@ def parse_env_string_to_dict(content):
     result = {key: value for key, value in scalar_vars_string}
     result.update({key: int(value) for key, value in scalar_vars_int})
     result.update({key: value for key, value in array_vars})
-    
+
     return result
 
 def compare_dicts(dict1, dict2):
@@ -104,19 +119,19 @@ def set_named_timestamp(action: str, node=None, key=None):
     if key is None:
         key = f"{action}{',' + str(node) if node is not None else ''}"
     config.NAMED_TIMESTAMPS[key] = time.time()
-    
+
 def invalidate_named_timestamp(action: str, node=None, key=None):
     if key is None:
         key = f"{action}{',' + str(node) if node is not None else ''}"
     del config.NAMED_TIMESTAMPS[key]
-    
+
 def log_time_delta_from_start_and_set_named_timestamp(module: str, action: str, node=None, key=None):
     try:
         set_named_timestamp(action, node, key)
         logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}")
     except KeyError:
         logging.error(f"Named timestamp {key} already exists")
-    
+
 def log_time_delta_from_named_timestamp(module: str, action: str, node=None, key=None, invalidate=True):
     try:
         if key is None:
@@ -137,7 +152,7 @@ def get_all_child_processes(pid):
         parent = psutil.Process(pid)
     except psutil.NoSuchProcess:
         return []
-    
+
     children = parent.children(recursive=True)
     parent_of_parent = parent.parent()
     logging.critical("PARENT_PROCESS: " + str(parent_of_parent))
@@ -169,3 +184,92 @@ def kill_process_tree(pid, sig=signal.SIGTERM):
         except:
             pass
     return alive_processes
+
+
+## TODO: Try to move those to PaSh and import them here
+def parse_cmd_from_file(file_path: str) -> "tuple[str,list[AstNode]]":
+    logging.debug(f'Parsing: {file_path}')
+    with open(file_path) as f:
+        cmd = f.read()
+    asts = analysis.parse_shell_to_asts(file_path)
+    return cmd, asts
+
+def parse_edge_line(line: str) -> "tuple[int, int]":
+    from_str, to_str = line.split(" -> ")
+    return (int(from_str), int(to_str))
+
+def parse_loop_context_line(line: str) -> "tuple[int, list[int]]":
+    node_id, loop_contexts_raw = line.split("-loop_ctx-")
+    if loop_contexts_raw != "":
+        loop_contexts_str = loop_contexts_raw.split(",")
+        loop_contexts = [int(loop_ctx) for loop_ctx in loop_contexts_str]
+    else:
+        loop_contexts = []
+    return int(node_id), loop_contexts
+
+def parse_loop_contexts(lines):
+    loop_contexts = {}
+    for line in lines:
+        node_id, loop_ctx = parse_loop_context_line(line)
+        loop_contexts[node_id] = loop_ctx
+    return loop_contexts
+
+def parse_partial_program_order_from_file(file_path: str):
+    with open(file_path) as f:
+        raw_lines = f.readlines()
+
+    ## Filter comments and remove new lines
+    lines = [line.rstrip() for line in raw_lines
+            if not line.startswith("#")]
+
+    ## The directory in which cmd_files are
+    cmds_directory = str(lines[0])
+    logging.debug(f'Cmds are stored in: {cmds_directory}')
+
+    ## The initial env file
+    initial_env_file = str(lines[1])
+
+    ## The number of nodes
+    number_of_nodes = int(lines[2])
+    logging.debug(f'Number of po cmds: {number_of_nodes}')
+
+    ## The loop context for each node
+    loop_context_start=3
+    loop_context_end=number_of_nodes+3
+    loop_context_lines = lines[loop_context_start:loop_context_end]
+    loop_contexts = parse_loop_contexts(loop_context_lines)
+    logging.debug(f'Loop contexts: {loop_contexts}')
+
+    ## The rest of the lines are edge_lines
+    edge_lines = lines[loop_context_end:]
+    logging.debug(f'Edges: {edge_lines}')
+
+    ab_nodes = {}
+    for i in range(number_of_nodes):
+        file_path = f'{cmds_directory}/{i}'
+        cmd, asts = parse_cmd_from_file(file_path)
+        loop_ctx = loop_contexts[i]
+        ab_nodes[NodeId(i)] = Node(NodeId(i), cmd.strip(),
+                                   asts=asts,
+                                   loop_context=LoopStack(loop_ctx))
+
+    edges = {NodeId(i) : [] for i in range(number_of_nodes)}
+    for edge_line in edge_lines:
+        from_id, to_id = parse_edge_line(edge_line)
+        edges[NodeId(from_id)].append(NodeId(to_id))
+
+    logging.info(f"Nodes|{','.join([str(node) for node in ab_nodes])}")
+    logging.info(f"Edges|{edges}")
+    return PartialProgramOrder(ab_nodes, edges)
+
+def generate_id() -> int:
+    return int(time.time() * 1000000)
+
+# nodes is iterable of node
+# edges is dict[node, list[node]]
+def invert_graph(nodes, edges):
+    graph = {n: [] for n in nodes}
+    for from_id, to_ids in edges.items():
+        for to_id in to_ids:
+            graph[to_id].append(from_id)
+    return graph

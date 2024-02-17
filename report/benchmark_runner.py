@@ -1,48 +1,67 @@
 import csv
+from typing import List
 from command_executor import CommandExecutor
+from config_parser import BenchmarkConfig
 from result_analyzer import ResultAnalyzer
 from report_generator import ReportGenerator
 import benchmark_plots
 import os
+from pprint import pprint
 
 class BenchmarkRunner:
-    def __init__(self, benchmarks, args):
+    def __init__(self, benchmarks: "List[BenchmarkConfig]", args):
         self.benchmarks = benchmarks
         self.args = args
         self.results = []
         self.activities = {}
+        
+    def __repr__(self):
+        return (f"BenchmarkRunner(benchmarks={self.benchmarks!r}, "
+                f"args={self.args!r}, results={self.results!r})")
+        
+    def __str__(self):
+        return (f"Benchmark Runner:\n"
+                f"  Benchmarks: {self.benchmarks}\n"
+                f"  Arguments: {self.args}\n"
+                f"  Results: {self.results}")
 
 
     def run_all_benchmarks(self):
         for benchmark in self.benchmarks:
             self.run_benchmark(benchmark)
 
-    def run_benchmark(self, benchmark):
+    def run_benchmark(self, benchmark: BenchmarkConfig):
         # Setup environment and pre-execution commands
         benchmark.setup_environment()
 
         if self.args.verbose:
             # Print verbose information
             print(f"\n---------> Running benchmark: {benchmark.name} <---------\n")
-            print(f"Environment Variables: {benchmark.env}")
+            print(">", benchmark)
         
         for pre_command in benchmark.pre_execution_script:
             CommandExecutor.run_pre_execution_command(pre_command, os.environ.get('RESOURCE_DIR'), self.args.verbose)
 
+        if benchmark.command_working_dir:
+            workdir = benchmark.command_working_dir
+        else:
+            workdir = os.environ.get('TEST_SCRIPT_DIR')
+        
+        
         # Execute the benchmark
         bash_time, bash_output, _ = CommandExecutor.run_command(
             benchmark.command.split(" "), 
-            os.environ.get('TEST_SCRIPT_DIR'), 
+            workdir, 
             self.args.verbose)
         orch_time, orch_output, orch_log = CommandExecutor.run_command_with_orch(
             benchmark.command.split(" "), 
             benchmark.orch_args, 
-            os.environ.get('TEST_SCRIPT_DIR'), 
+            workdir, 
             os.environ.get('ORCH_COMMAND'),
             self.args.verbose)
         
-        activities = ResultAnalyzer.parse_logs_into_activities(orch_log)
-        self.activities[benchmark.name] = activities
+        prog_blocks = ResultAnalyzer.process_results(orch_log)
+        # pprint(prog_blocks)
 
         # Analyze and compare results
         diff_lines = ResultAnalyzer.compare_results(bash_output, orch_output)
@@ -52,8 +71,8 @@ class BenchmarkRunner:
         ReportGenerator.print_results(benchmark.name, bash_time, orch_time, diff_lines, verbose=self.args.verbose)
         if not self.args.no_logs:
             ReportGenerator.save_log_data(orch_log, os.environ.get('REPORT_OUTPUT_DIR'), f"{benchmark.name}_log.log")
-        
-        ResultAnalyzer.analyze_node_execution_times(orch_log, benchmark.name, os.environ.get('REPORT_OUTPUT_DIR'), self.args.verbose)
+            
+        self.activities[benchmark.name] = prog_blocks
 
 
     def generate_reports(self):
@@ -76,10 +95,6 @@ class BenchmarkRunner:
 
         # Plot Gantt charts for each benchmark
         for benchmark in self.benchmarks:
-            activities = self.activities.get(benchmark.name, [])
+            activities = self.activities.get(benchmark.name)
             if activities:
-                benchmark_plots.plot_gantt(activities, os.environ.get('REPORT_OUTPUT_DIR'), f"{benchmark.name}_gantt", simple=self.args.full_gantt)
-
-    
-
-    
+                benchmark_plots.plot_prog_blocks(activities, os.environ.get('REPORT_OUTPUT_DIR'), f"{benchmark.name}_progress")

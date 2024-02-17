@@ -1,9 +1,10 @@
 import argparse
 import logging
 import signal
-from util import *
+import util
 import config
-from partial_program_order import parse_partial_program_order_from_file, LoopStack, NodeId, parse_node_id
+from partial_program_order import PartialProgramOrder, NodeId
+from node import LoopStack, ConcreteNodeId
 
 ##
 ## A scheduler server
@@ -18,11 +19,11 @@ signal.signal(signal.SIGTERM, handler)
 def parse_args():
     parser = argparse.ArgumentParser(add_help=False)
     ## TODO: Import the arguments so that they are not duplicated here and in orch
-    parser.add_argument("-d", "--debug-level", 
-                        type=int, 
+    parser.add_argument("-d", "--debug-level",
+                        type=int,
                         default=0,
                         help="Set debugging level")
-    parser.add_argument("-f", "--log_file", 
+    parser.add_argument("-f", "--log_file",
                         type=str,
                         default=None,
                         help="Set logging output file. Default: stdout")
@@ -34,7 +35,7 @@ def parse_args():
                     action="store_true",
                     default=False,
                     help="Speculate immediately instead of waiting for the first Wait message.")
-    
+
     args, unknown_args = parser.parse_known_args()
     return args
 
@@ -56,18 +57,20 @@ def error_response(string):
 class Scheduler:
     """ Schedules a partial order of commands to run out-of-order
     Flow:
-        input cmd -> 
+        input cmd ->
                     |   Daemon Start -> Receive whens tarting
                     |   Init -> Read the partial order from a file
                     |   CommandExecComplete -> A command completed its execution
                     |   Wait -> The JIT component waits for the results of a specific command
                     |   Done -> We are done
     """
+    window: int  # Integer representing the window
+    latest_env: str # This variable should be initialized by the first wait, and always have a value since
 
     def __init__(self, socket_file):
-        ## TODO: Add all the orchestrator state here (it should just be the partial order)
+        self.window = 0
         self.done = False
-        self.socket = init_unix_socket(socket_file)
+        self.socket = util.init_unix_socket(socket_file)
         ## A map containing connections for node_ids that are waiting for a response
         self.waiting_for_response = {}
         self.partial_program_order = None
@@ -76,203 +79,119 @@ class Scheduler:
         assert(input_cmd.startswith("Init"))
         partial_order_file = input_cmd.split(":")[1].rstrip()
         logging.debug(f'Scheduler: Received partial_order_file: {partial_order_file}')
-        self.partial_program_order = parse_partial_program_order_from_file(partial_order_file)
-        self.partial_program_order.init_partial_order()
-
-    def __parse_wait(self, input_cmd: str) -> "tuple[NodeId, str]":
-        try:
-            node_id_component, loop_iter_counter_component, pash_runtime_vars_file_component = input_cmd.rstrip().split("|")
-            raw_node_id_int = int(node_id_component.split(":")[1].rstrip())
-            loop_counters_str = loop_iter_counter_component.split(":")[1].rstrip()
-            pash_runtime_vars_file_str = pash_runtime_vars_file_component.split(":")[1].rstrip()
-            if loop_counters_str == "None":
-                node_id = NodeId(raw_node_id_int), pash_runtime_vars_file_str
-            else:
-                loop_counters = [int(cnt) for cnt in loop_counters_str.split("-")]
-                node_id = NodeId(raw_node_id_int, LoopStack(loop_counters)), pash_runtime_vars_file_str           
-            return node_id
-        except:
-            raise Exception(f'Parsing failure for line: {input_cmd}')
+        self.partial_program_order = util.parse_partial_program_order_from_file(partial_order_file)
+        util.debug_log(str(self.partial_program_order.hsprog))
 
     def handle_wait(self, input_cmd: str, connection):
-        assert(input_cmd.startswith("Wait"))
-        ## We have received this message by the JIT, which waits for a node_id to
-        ## finish execution.
-        node_id, pash_runtime_vars_file_str = self.__parse_wait(input_cmd)        
-        logging.debug(f'Scheduler: Received wait for node_id: {node_id}|New env file: {pash_runtime_vars_file_str}')
+        concrete_node_id, env_file = self.__parse_wait(input_cmd)
+        self.waiting_for_response[concrete_node_id] = connection
+        logging.info(f'Scheduler: Received wait message - {concrete_node_id}.')
+        self.latest_env = env_file
+        self.partial_program_order.handle_wait(concrete_node_id, env_file)
+        concrete_node = self.partial_program_order.get_concrete_node(concrete_node_id)
+        if concrete_node.is_committed():
+            self.respond_to_pending_wait(concrete_node_id)
+        elif concrete_node.is_unsafe():
+            self.partial_program_order.finish_wait_unsafe(concrete_node_id)
+            self.respond_to_wait_on_unsafe(concrete_node_id)
 
-        ## Set the new env file for the node
-        self.partial_program_order.set_new_env_file_for_node(node_id, pash_runtime_vars_file_str)
-        
-        if self.partial_program_order.is_first_node_when_env_is_uninitialized(config.SPECULATE_IMMEDIATELY):
-            logging.debug("Initializing latest env and speculating")
-            self.partial_program_order.init_latest_env_files(node_id)
-        
-        ## Attempt to rerun all pending nodes
-        self.partial_program_order.attempt_rerun_pending_nodes()
+    def process_next_cmd(self):
+        connection, input_cmd = util.socket_get_next_cmd(self.socket)
 
-        ## Inform the partial order that we received a wait for a node so that it can push loops
-        ## forward and so on.
-        self.partial_program_order.maybe_unroll(node_id)
-        
-        # Moved this below wait_received, in order to support unrolled loop nodes
-        self.partial_program_order.maybe_resolve_most_recent_envs_and_continue_resolution(node_id)
-        
-        self.partial_program_order.wait_received(node_id)
+        if(input_cmd.startswith("Init")):
+            connection.close()
+            self.handle_init(input_cmd)
+        elif (input_cmd.startswith("Daemon Start") or input_cmd == ""):
+            logging.info(f'Scheduler: Received daemon start message.')
+            connection.close()
+        elif (input_cmd.startswith("CommandExecComplete:")):
+            node_id, exec_id, exit_code, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
+            if self.partial_program_order.get_concrete_node(node_id).exec_id == exec_id:
+                logging.info(f'Scheduler: Received command exec complete message - {node_id}.')
+                self.partial_program_order.handle_complete(node_id, node_id in self.waiting_for_response, self.latest_env)
 
-        ## If the node_id is already committed, just return its exit code
-        if node_id in self.partial_program_order.get_committed():
-            logging.debug(f'Node: {node_id} found in committed, responding immediately!')
-            self.waiting_for_response[node_id] = connection
-            self.respond_to_pending_wait(node_id)
-        elif node_id in self.partial_program_order.get_unsafe():
-            logging.debug(f'Node: {node_id} found in unsafe, it must be executed in the original shell!')
-            self.waiting_for_response[node_id] = connection
-            self.respond_unsafe_to_pending_wait(node_id)
+                if self.partial_program_order.get_concrete_node(node_id).is_committed():
+                    self.respond_to_pending_wait(node_id)
+            else:
+                logging.info(f'Scheduler: Received command exec complete message for a killed instance, ignoring - {node_id}.')
+        elif (input_cmd.startswith("Wait")):
+            self.handle_wait(input_cmd, connection)
+        elif (input_cmd.startswith("Done")):
+            util.socket_respond(connection, success_response("All finished!"))
+            self.partial_program_order.log_info()
+            self.done = True
         else:
-            ## Command has not executed yet, so we need to wait for it
-            logging.debug(f'Node: {node_id} has not finished execution, waiting for response...')
-            self.waiting_for_response[node_id] = connection
-
-
-    def __parse_command_exec_complete(self, input_cmd: str) -> "tuple[int, int]":
-        try:
-            components = input_cmd.rstrip().split("|")
-            command_id = parse_node_id(components[0].split(":")[1])
-            exit_code = int(components[1].split(":")[1])
-            sandbox_dir = components[2].split(":")[1]
-            trace_file = components[3].split(":")[1]
-            return command_id, exit_code, sandbox_dir, trace_file
-        except:
-            raise Exception(f'Parsing failure for line: {input_cmd}')
-
-    def respond_unsafe_to_pending_wait(self, node_id: int):
-        assert(node_id in self.partial_program_order.get_unsafe())
-
-        ## First remove node_id from unsafe and stopped and add to committed
-        ##  since it will be executed immediately in the original shell
-        self.partial_program_order.remove_from_unsafe(node_id)
-        self.partial_program_order.commit_node(node_id)
-
-        response = unsafe_response("")
-
-        ## Send the response
-        self.respond_to_frontend_core(node_id, response)
-
-
-    ## TODO: send riker env here
-    def respond_to_pending_wait(self, node_id: int):
-        logging.debug(f'Responding to pending wait for node: {node_id}')
-        ## Get the completed node info
-        node = self.partial_program_order.get_node(node_id)
-        completed_node_info = node.get_completed_node_info()
-        msg = f'{completed_node_info.get_exit_code()} {completed_node_info.get_post_execution_env_file()} {completed_node_info.get_stdout_file()}'
-        response = success_response(msg)
-        ## Send the response
-        self.respond_to_frontend_core(node_id, response)
-
+            logging.error(error_response(f'Error: Unsupported command: {input_cmd}'))
+            raise Exception(f'Error: Unsupported command: {input_cmd}')
 
     def respond_to_frontend_core(self, node_id: NodeId, response: str):
         assert(node_id in self.waiting_for_response)
         ## Get the connection that we need to respond to
         connection = self.waiting_for_response.pop(node_id)
-        socket_respond(connection, response)
+        util.socket_respond(connection, response)
         connection.close()
 
-    def handle_command_exec_complete(self, input_cmd: str):
-        assert(input_cmd.startswith("CommandExecComplete:"))
-        ## Read the node id from the command argument
-        cmd_id, exit_code, sandbox_dir, trace_file = self.__parse_command_exec_complete(input_cmd)
-        if trace_file in self.partial_program_order.banned_files:
-            logging.debug(f'CommandExecComplete: {cmd_id} ignored')
-            return
-        ## Gather RWset, resolve dependencies, and progress graph
-        self.partial_program_order.command_execution_completed(cmd_id, exit_code, sandbox_dir)
+    def respond_to_wait_on_unsafe(self, node_id: ConcreteNodeId):
+        response = unsafe_response('')
+        self.respond_to_frontend_core(node_id, response)
 
-        ## If there is a connection waiting for this node_id, respond to it
-        if cmd_id in self.waiting_for_response and cmd_id in self.partial_program_order.get_committed():
-            self.respond_to_pending_wait(cmd_id)
+    def respond_to_pending_wait(self, node_id: ConcreteNodeId):
+        logging.debug(f'Responding to pending wait for node: {node_id}')
+        ## Get the completed node info
+        node = self.partial_program_order.get_concrete_node(node_id)
+        msg = '{} {} {}'.format(*node.execution_outcome())
+        response = success_response(msg)
 
-    def process_next_cmd(self):
-        connection, input_cmd = socket_get_next_cmd(self.socket)
+        ## Send the response
+        self.respond_to_frontend_core(node_id, response)
 
-        if(input_cmd.startswith("Init")):
-            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "PartialOrderInit")
-            connection.close()
-            self.handle_init(input_cmd)
-            ## TODO: Read the partial order from the given file
-            log_time_delta_from_named_timestamp("Scheduler", "PartialOrderInit")
-        elif (input_cmd.startswith("Daemon Start") or input_cmd == ""):
-            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "DaemonStart")
-            connection.close()
-            ## This happens when pa.sh first connects to daemon to see if it is on
-            logging.debug(f'PaSh made first contact with scheduler server.')
-            log_time_delta_from_named_timestamp("Scheduler", "DaemonStart")
-        elif (input_cmd.startswith("CommandExecComplete:")):
-            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "CommandExecComplete")
-            ## We have received this message from an a runner (tracer +isolation)
-            ## The runner should have already parsed RWsets and serialized them to
-            ## a file.
-            connection.close()
-            self.handle_command_exec_complete(input_cmd)
-            log_time_delta_from_named_timestamp("Scheduler", "CommandExecComplete")
-        elif (input_cmd.startswith("Wait")):
-            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "Wait")
-            self.handle_wait(input_cmd, connection)
-            log_time_delta_from_named_timestamp("Scheduler", "Wait")
-        elif (input_cmd.startswith("Done")):
-            log_time_delta_from_start_and_set_named_timestamp("Scheduler", "Done")
-            logging.debug(f'Scheduler server received shutdown message.')
-            logging.debug(f'The partial order was successfully completed.')
-            if not self.partial_program_order.is_completed():
-                logging.debug(" |- some nodes were skipped completed.")
-            socket_respond(connection, success_response("All finished!"))
-            self.partial_program_order.log_executions()
-            self.done = True
-            log_time_delta_from_named_timestamp("Scheduler", "Done")
-        else:
-            logging.error(error_response(f'Error: Unsupported command: {input_cmd}'))
-            raise Exception(f'Error: Unsupported command: {input_cmd}')
+    def __parse_wait(self, input_cmd: str) -> "tuple[ConcreteNodeId, str]":
+        try:
+            node_id_component, loop_iter_counter_component, pash_runtime_vars_file_component = input_cmd.rstrip().split("|")
+            node_id = NodeId(int(node_id_component.split(":")[1].rstrip()))
+            loop_counters_str = loop_iter_counter_component.split(":")[1].rstrip()
+            pash_env_filename = pash_runtime_vars_file_component.split(":")[1].rstrip()
+            if loop_counters_str == "None":
+                return ConcreteNodeId(node_id), pash_env_filename
+            else:
+                loop_counters = [int(cnt) for cnt in loop_counters_str.split("-")]
+                return ConcreteNodeId(node_id, loop_counters), pash_env_filename
+        except:
+            raise Exception(f'Parsing failure for line: {input_cmd}')
 
-    def check_unsafe_and_waiting(self):
-        ## If a command is waiting and also deemed to be unsafe, we need to respond
-        waiting_for_response = set(self.waiting_for_response.keys())
-        unsafe = set(self.partial_program_order.get_unsafe())
-        unsafe_and_waiting = unsafe.intersection(waiting_for_response)
-        if len(unsafe_and_waiting) > 0:
-            assert(len(unsafe_and_waiting) == 1)
-            logging.debug(f'Unsafe and waiting for response nodes: {unsafe_and_waiting}')
-            logging.debug(f'Sending responses to them: {unsafe_and_waiting}')
-            unsafe_and_waiting_id = list(unsafe_and_waiting)[0]
-            self.respond_unsafe_to_pending_wait(unsafe_and_waiting_id)
+    def __parse_command_exec_x(self, input_cmd: str) -> "tuple[int, int]":
+        try:
+            components = input_cmd.rstrip().split("|")
+            command_id = ConcreteNodeId.parse(components[0].split(":")[1])
+            exec_id = int(components[1].split(":")[1])
+            exit_code = int(components[2].split(":")[1])
+            sandbox_dir = components[3].split(":")[1]
+            trace_file = components[4].split(":")[1]
+            return command_id, exec_id, exit_code, sandbox_dir, trace_file
+        except:
+            raise Exception(f'Parsing failure for line: {input_cmd}')
 
-    ## This function schedules commands for execution until our capacity is reached
-    ##
-    ## It should add some work (if possible), and then return immediately.
-    ## It is called once per loop iteration, making sure that there is always work happening
+
     def schedule_work(self):
-        log_time_delta_from_start_and_set_named_timestamp("Scheduler", "ScheduleWork")
-        self.partial_program_order.schedule_work()
-
-        ## Respond to any waiting nodes that have been deemed to be unsafe
-        self.check_unsafe_and_waiting()
-        log_time_delta_from_named_timestamp("Scheduler", "ScheduleWork")
+        concrete_node_ids = self.partial_program_order.get_schedulable_nodes()
+        for n in concrete_node_ids[:2]:
+            self.partial_program_order.schedule_spec_work(n, self.latest_env)
 
     def run(self):
         ## The first command should be the daemon start
         self.process_next_cmd()
-        
+
         ## The second command should be the partial order init
         self.process_next_cmd()
-        
 
+        self.partial_program_order.log_state()
         while not self.done:
-            ## Schedule some work (if we are already at capacity this will return immediately)
-            self.schedule_work()
-            ## Process a single request
             self.process_next_cmd()
-            # If workset is empty we should end.
-            # TODO: ec checks fail for now
+            self.partial_program_order.log_state()
+            self.schedule_work()
+            self.partial_program_order.log_state()
+            self.partial_program_order.eager_fs_killing()
+            self.partial_program_order.log_state()
         self.socket.close()
         self.shutdown()
 
@@ -281,15 +200,14 @@ class Scheduler:
         logging.debug("PaSh-Spec scheduler is shutting down...")
         logging.debug("PaSh-Spec scheduler shut down successfully...")
         self.terminate_pending_commands()
-        
-    def terminate_pending_commands(self):
-        for _node_id, cmd_info in self.partial_program_order.commands_currently_executing.items():
-            proc, _trace_file, _stdout, _stderr, _variable_file = cmd_info
-            proc.terminate()
 
+    def terminate_pending_commands(self):
+        for node in self.partial_program_order.get_executing_normal_and_spec_nodes():
+            proc, _trace_file, _stdout, _stderr, _variable_file, _ = node.get_main_sandbox()
+            logging.debug(f'Killing: {proc}')
+            # proc.terminate()
 
 def main():
-    log_time_delta_from_start("Scheduler", "Scheduler Init")
     args = init()
 
     # Format logging
@@ -297,8 +215,8 @@ def main():
     if args.log_file is None:
         logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s")
     else:
-        logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s", 
-                            filename=f"{os.path.abspath(args.log_file)}", 
+        logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s",
+                            filename=f"{os.path.abspath(args.log_file)}",
                             filemode="w")
 
     # Set debug level
@@ -306,15 +224,13 @@ def main():
         logging.getLogger().setLevel(logging.INFO)
     elif args.debug_level >= 2:
         logging.getLogger().setLevel(logging.DEBUG)
-    # elif args.debug_level >= 3:
-    #     logging.getLogger().setLevel(logging.TRACE)
-    
+
     # Set optimization options
     config.SANDBOX_KILLING = args.sandbox_killing
     config.SPECULATE_IMMEDIATELY = args.speculate_immediately
     scheduler = Scheduler(config.SCHEDULER_SOCKET)
     scheduler.run()
-   
+
 
 if __name__ == "__main__":
     main()

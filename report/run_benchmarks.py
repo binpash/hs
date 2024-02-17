@@ -13,7 +13,7 @@ def print_startup_info(args):
         print(f"    {arg + ':':13s} {value}")
 
     print("> Environment Variables:")
-    for env_var in ['ORCH_TOP', 'WORKING_DIR', 'TEST_SCRIPT_DIR', 'RESOURCE_DIR', 'PASH_TOP', 'PASH_SPEC_TOP']:
+    for env_var in ['ORCH_TOP', 'WORKING_DIR', 'TEST_SCRIPT_DIR', 'RESOURCE_DIR', 'REPORT_OUTPUT_DIR', 'PASH_TOP', 'PASH_SPEC_TOP', 'ORCH_COMMAND']:
         print(f"    {env_var + ':':17s} {os.environ.get(env_var)}")
 
 def parse_args():
@@ -22,10 +22,10 @@ def parse_args():
     parser.add_argument('--no-logs', action='store_true', help="Do not save log files of benchmark runs.")
     parser.add_argument('--csv-output', action='store_true', help="Generate and save results in CSV format.")
     parser.add_argument('--verbose', action='store_true', help="Enable verbose output.")
-    parser.add_argument('--full-gantt', action='store_false', help="Generate a full Gantt chart for each benchmark.")
-    parser.add_argument('--config-file', type=str, default='benchmark_config.json', help="Path to the benchmark configuration file. Default is 'benchmark_config.json'.")
+    parser.add_argument('--config-file', type=str, default=None, help="Path to the benchmark configuration file. Default is 'benchmark_config.json'.")
     parser.add_argument('--setup-script', type=str, default=None, help="Path to a setup script to run before running any other benchmark.")
     parser.add_argument('--subset', type=str, default=None, help="Name of a subset of benchmarks to run. Will instead download and store outputs in the dir with the specified name.")
+    parser.add_argument('--no-setup', action='store_true', help="Do not run any setup script before running benchmarks. Assumes subset is also set.")
     return parser.parse_args()
 
 # Sets the required environment variables for the benchmarking process.
@@ -72,11 +72,16 @@ def main():
     args = parse_args()
     
     set_environment_variables(args)
-    
 
-    # Use the config file path from arguments
-    config_file_path = os.path.join(os.environ['WORKING_DIR'], args.config_file)
-
+    if args.config_file is not None:
+        if args.verbose:
+            print(f"Config File: {args.config_file}")
+        config_file_path = os.path.join(os.environ['WORKING_DIR'], args.config_file)
+    elif args.subset:
+        config_file_path = os.path.join(os.environ['TEST_SCRIPT_DIR'], "setup", "config.json")
+    else:
+        config_file_path = os.path.join(os.environ['WORKING_DIR'], "benchmark_config.json")
+        
     # Parse benchmark configurations
     config_parser = ConfigParser(os.path.join(os.environ['WORKING_DIR'], config_file_path))
     config_parser.parse_config()
@@ -86,6 +91,21 @@ def main():
     
     if args.verbose:
         print_startup_info(args)
+        print(config_parser)
+
+    
+    if args.setup_script:
+        if args.verbose:
+            print(f"Running setup script: {args.setup_script}")
+        subprocess.run(['bash', args.setup_script])
+    elif args.subset and not args.no_setup:
+        setup_script = os.path.join(os.environ['TEST_SCRIPT_DIR'], "setup", 'setup.sh')
+        if os.path.exists(setup_script):
+            if args.verbose:
+                print(f"Running setup script: {args.setup_script}")
+            subprocess.run(['bash', setup_script])
+        elif args.verbose:
+                print(f"No setup script found in {os.environ['TEST_SCRIPT_DIR']}, ignoring")
     
     # Initialize and run the BenchmarkRunner
     runner = BenchmarkRunner(config_parser.get_benchmarks(), args)

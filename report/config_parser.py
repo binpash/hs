@@ -3,10 +3,12 @@ import os
 
 
 class BenchmarkConfig:
-    def __init__(self, name, env, pre_execution_script, command, orch_args):
+    
+    def __init__(self, name, env, pre_execution_script, command_working_dir, command, orch_args):
         self.name = name
         self.env = [self.replace_env_var(e) for e in env]
         self.pre_execution_script = [self.replace_env_var(script) for script in pre_execution_script]
+        self.command_working_dir = self.replace_env_var(command_working_dir)
         self.command = self.replace_env_var(command)
         self.orch_args = self.replace_env_var(orch_args)
         
@@ -21,6 +23,7 @@ class BenchmarkConfig:
         return (f"Benchmark '{self.name}':\n"
                 f"  Environment Variables: {env_str}\n"
                 f"  Pre-execution Script: {pre_exec_str}\n"
+                f"  Command Working Directory: {self.command_working_dir}\n"
                 f"  Command: {self.command}\n"
                 f"  Orchestrator Arguments: {self.orch_args}")
 
@@ -59,6 +62,7 @@ class ConfigParser:
                     name=config.get('name'),
                     env=config.get('env', []),
                     pre_execution_script=config.get('pre_execution_script', []),
+                    command_working_dir=config.get('working_dir', ""),
                     command=config.get('command'),
                     orch_args=config.get('orch_args', "")
                 )
@@ -66,3 +70,4 @@ class ConfigParser:
 
     def get_benchmarks(self):
         return self.benchmarks
+    

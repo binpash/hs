@@ -31,6 +31,10 @@ jobs:
       if: github.event.pull_request.draft == false
       steps:
       - uses: actions/checkout@v2 
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.11'
       - name: Running Correctness Tests
         run: |
           cd ..

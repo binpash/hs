@@ -33,20 +33,20 @@ echo ">>> MERGE GENOME BAMS <<<"
 
 inbam="reads.1.sanitize.toGenome.sorted.bam"
 
-samtools merge -@ $threads "$sdir"/align/$inbam \
+samtools merge -c -p -@ $threads "$sdir"/align/$inbam \
     hsa.dRNASeq.HeLa.total.REL5.long.REL3.4/align/$inbam \
     hsa.dRNASeq.HeLa.total.REL5.long.REL3.5/align/$inbam \
-    hsa.dRNASeq.HeLa.total.REL5.long.REL3.6/align/$inbam
+    hsa.dRNASeq.HeLa.total.REL5.long.REL3.6/align/$inbam # dliu -c -p to prevent random suffixes
 samtools index "$sdir"/align/$inbam # dliu remove &
 
 echo ">>> MERGE TRANSCRIPTOME BAMS <<<"
 
 inbam="reads.1.sanitize.noribo.toTranscriptome.sorted.bam"
 
-samtools merge -@ $threads "$sdir"/align/$inbam \
+samtools merge -c -p -@ $threads "$sdir"/align/$inbam \
     hsa.dRNASeq.HeLa.total.REL5.long.REL3.4/align/$inbam \
     hsa.dRNASeq.HeLa.total.REL5.long.REL3.5/align/$inbam \
-    hsa.dRNASeq.HeLa.total.REL5.long.REL3.6/align/$inbam
+    hsa.dRNASeq.HeLa.total.REL5.long.REL3.6/align/$inbam # dliu -c -p to prevent random suffixes
 samtools index "$sdir"/align/$inbam # dliu remove &
 # dliu remove wait
 

@@ -233,9 +233,14 @@ def parse_partial_program_order_from_file(file_path: str):
     number_of_nodes = int(lines[2])
     logging.debug(f'Number of po cmds: {number_of_nodes}')
 
+    basic_blocks_start = lines.index('Basic blocks:') + 1
+    basic_blocks_end = lines.index('Basic block edges:')
+    basic_block_edges_start = basic_blocks_end + 1
+    basic_block_edges_end = lines.index('Loop context:')
+
     ## The loop context for each node
-    loop_context_start=3
-    loop_context_end=number_of_nodes+3
+    loop_context_start = basic_block_edges_end + 1
+    loop_context_end = number_of_nodes + loop_context_start
     loop_context_lines = lines[loop_context_start:loop_context_end]
     loop_contexts = parse_loop_contexts(loop_context_lines)
     logging.debug(f'Loop contexts: {loop_contexts}')

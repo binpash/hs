@@ -3,7 +3,7 @@ import logging
 import util
 from collections import deque
 
-PROG_LOG = '[PROG_LOG] '
+PROG_LOG =  '[PROG_LOG] '
 EVENT_LOG = '[EVENT_LOG] '
 
 def event_log(s):
@@ -25,6 +25,7 @@ class PartialProgramOrder:
     # it needs to be rerun
     to_be_resolved: "dict[NodeId, list[Node]]"
     concrete_nodes: "dict[NodeId, Node]"
+    temp_new_env: "tuple[NodeId, str]"
 
     def __init__(self, abstract_nodes: "dict[NodeId, Node]", edges: "dict[NodeId, list[NodeId]]"):
         self.hsprog = HSProg(abstract_nodes, edges)
@@ -33,6 +34,7 @@ class PartialProgramOrder:
         # self.run_after = {}
         self.prev_concrete_node: dict[ConcreteNodeId, list[ConcreteNodeId]] = {}
         self.to_be_resolved: dict[ConcreteNodeId, list[ConcreteNodeId]] = {}
+        self.temp_new_env = None
 
     @property
     def abstract_nodes(self):
@@ -259,6 +261,9 @@ class PartialProgramOrder:
             logging.error(f'Error: Node {concrete_node_id} is in an invalid state: {node.state}')
             raise Exception(f'Error: Node {concrete_node_id} is in an invalid state: {node.state}')
 
+        # Set the temp_new_env in case we have to restart an eagerly killed node
+        self.temp_new_env = (concrete_node_id, env_file)
+        
         if node.is_ready():
             node.start_executing(env_file)
         elif node.is_unsafe():
@@ -299,7 +304,7 @@ class PartialProgramOrder:
 
     def eager_fs_killing(self):
         event_log("try to eagerly kill conflicted speculation")
-        to_be_killed = []
+        to_be_killed: "list[ConcreteNode]" = []
         self.fetch_fs_actions()
         for node in self.get_all_nodes():
             if ((node.is_speculated() or node.is_spec_executing())
@@ -307,3 +312,6 @@ class PartialProgramOrder:
                 to_be_killed.append(node)
         for node in to_be_killed:
             node.reset_to_ready()
+            # If we don't restart the node with pending wait here, the scheduler will hang
+            if node.cnid==self.temp_new_env[0]:
+                node.start_executing(self.temp_new_env[1])

@@ -304,6 +304,7 @@ class ConcreteNode:
 
     def start_executing(self, env_file):
         assert self.state == NodeState.READY
+        util.log_time_delta_from_start_and_set_named_timestamp("Node", "EXE", self.cnid)
         self.start_command(env_file)
         self.state = NodeState.EXECUTING
 

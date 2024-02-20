@@ -188,6 +188,7 @@ class PartialProgramOrder:
     def handle_complete(self, concrete_node_id: ConcreteNodeId, has_pending_wait: bool,
                         current_env: str):
         event_log(f"handle_complete {concrete_node_id}")
+        util.log_time_delta_from_named_timestamp("Node", "EXE", concrete_node_id)
         node = self.get_concrete_node(concrete_node_id)
         # TODO: complete the state matching
         if node.is_executing():

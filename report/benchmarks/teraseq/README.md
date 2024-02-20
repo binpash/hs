@@ -17,3 +17,7 @@ Manual:
 9. Compute hash: (bash-hashes.log)
 10. Verify: `./verification.sh`
 11. Clean up all files (including downloads): `./cleanup.sh -a`
+
+# Building Docker Container
+`cd ../../..`
+`docker build -t ezri/teraseq-hs . -f report/benchmarks/teraseq/Dockerfile.hs`

@@ -13,7 +13,7 @@ WORKDIR /srv/hs
 COPY . .
 SHELL ["/bin/bash", "-c"]
 RUN apt update
-RUN apt install -y vim sudo git python3 python3.11-venv strace wget make python3-cram file graphviz libtool python3-matplotlib libcap2-bin mergerfs
+RUN apt install -y vim sudo git python3 python3-venv strace wget make python3-cram file graphviz libtool python3-matplotlib libcap2-bin mergerfs
 RUN git config --global --add safe.directory /srv
 RUN python3 -m venv .venv
 RUN source .venv/bin/activate

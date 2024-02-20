@@ -279,6 +279,7 @@ class ConcreteNode:
         self.exec_ctxt.process.kill()
 
     def reset_to_ready(self):
+        util.perf_log_start("Node", "Reset to Ready", self.cnid)
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
                               NodeState.SPECULATED]
 
@@ -289,6 +290,7 @@ class ConcreteNode:
 
         # TODO: make this more sophisticated
         if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
+            util.perf_log("Node", "EXE", self.cnid, optional_message="Killed")
             self.kill()
 
         # Probably delete them from tmpfs too
@@ -300,16 +302,19 @@ class ConcreteNode:
         self.exec_ctxt = None
         self.exec_result = None
         self.state = NodeState.READY
+        
+        util.perf_log("Node", "Reset to Ready", self.cnid)
 
 
     def start_executing(self, env_file):
         assert self.state == NodeState.READY
-        util.log_time_delta_from_start_and_set_named_timestamp("Node", "EXE", self.cnid)
+        util.perf_log_start("Node", "EXE", self.cnid)
         self.start_command(env_file)
         self.state = NodeState.EXECUTING
 
     def start_spec_executing(self, env_file):
         assert self.state == NodeState.READY
+        util.perf_log_start("Node", "EXE", self.cnid)
         self.start_command(env_file, speculate=True)
         self.state = NodeState.SPEC_EXECUTING
 
@@ -317,7 +322,11 @@ class ConcreteNode:
         assert self.state == NodeState.EXECUTING
         self.exec_result = ExecResult(self.exec_ctxt.process.pid, self.exec_ctxt.process.returncode)
         self.gather_fs_actions()
+        
+        util.perf_log_start("Node", "Commit", self.cnid)
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        util.perf_log("Node", "Commit", self.cnid)
+        
         self.state = NodeState.COMMITTED
 
     def finish_spec_execution(self):
@@ -329,7 +338,11 @@ class ConcreteNode:
 
     def commit_speculated(self):
         assert self.state == NodeState.SPECULATED
+        
+        util.perf_log_start("Node", "Commit", self.cnid)
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        util.perf_log("Node", "Commit", self.cnid)
+        
         self.state = NodeState.COMMITTED
 
     def transition_from_stopped_to_executing(self, env_file=None):
@@ -371,6 +384,7 @@ class ConcreteNode:
         return self.rwset
 
     def has_env_conflict_with(self, other_env) -> bool:
+        util.perf_log_start("Node", "Env Dependency Resolution", self.cnid)
         # Early return if paths are the same
         if self.exec_ctxt.pre_env_file == other_env:
             return False
@@ -417,6 +431,7 @@ class ConcreteNode:
                 logging.critical(f"Variable {key} differs: node environment has {node_env_vars[key]}, other has {other_env_vars[key]}")
                 conflict_exists = True
 
+        util.perf_log("Node", "Env Dependency Resolution", self.cnid)
         return conflict_exists
 
 

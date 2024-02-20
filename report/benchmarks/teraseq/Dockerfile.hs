@@ -1,4 +1,4 @@
-FROM ghcr.io/ezrizhu/teraseq:latest
+FROM ezri/teraseq20
 # Init Teraseq
 VOLUME ["/root/TERA-Seq_manuscript/samples"]
 WORKDIR /root/TERA-Seq_manuscript

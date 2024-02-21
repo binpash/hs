@@ -1,0 +1,38 @@
+[
+  {
+    "name": "5TERA",
+    "command": "{{TEST_SCRIPT_DIR}}/teraseq/5TERA.sh"
+  },
+  {
+    "name": "5TERA-short",
+    "command": "{{TEST_SCRIPT_DIR}}/teraseq/5TERA-short.sh"
+  },
+  {
+    "name": "5TERA3",
+    "command": "{{TEST_SCRIPT_DIR}}/teraseq/5TERA3.sh"
+  },
+  {
+    "name": "TERA3",
+    "command": "{{TEST_SCRIPT_DIR}}/teraseq/TERA3.sh"
+  },
+  {
+    "name": "Akron5Seq",
+    "command": "{{TEST_SCRIPT_DIR}}/teraseq/Akron5Seq.sh"
+  },
+  {
+    "name": "dRNASeq",
+    "command": "{{TEST_SCRIPT_DIR}}/teraseq/dRNASeq.sh"
+  },
+  {
+    "name": "RNASeq",
+    "command": "{{TEST_SCRIPT_DIR}}/teraseq/RNASeq.sh"
+  },
+  {
+    "name": "RiboSeq",
+    "command": "{{TEST_SCRIPT_DIR}}/teraseq/RiboSeq.sh"
+  },
+  {
+    "name": "mouse_SIRV",
+    "command": "{{TEST_SCRIPT_DIR}}/teraseq/mouse_SIRV.sh"
+  }
+]

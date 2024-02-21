@@ -87,6 +87,12 @@ class BenchmarkRunner:
             same_results = len(diff_lines) != 0
             self.results.append((benchmark.name, bash_time, orch_time, 'Yes' if same_results else 'No', diff_lines))
 
+        # Run cleanup commands if specified
+        for cleanup_command in benchmark.cleanup_commands:
+            CommandExecutor.run_post_execution_command(cleanup_command, 
+                                                        workdir, 
+                                                        self.args.verbose)
+
         prog_blocks = ResultAnalyzer.process_results(orch_log)
         # Print results and optionally save logs
         ReportGenerator.print_results(benchmark.name, bash_time, orch_time, same_results, diff_lines, verbose=self.args.verbose)

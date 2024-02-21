@@ -48,4 +48,23 @@ class CommandExecutor:
         stdout, stderr = process.communicate()
         end_time = time.time()
         return end_time - start_time, stdout.decode('utf-8'), stderr.decode('utf-8')
+    
+    @staticmethod
+    def run_post_execution_diff_script(script_path, working_dir=os.getcwd(), verbose=False):
+        if verbose:
+            print("Running custom diff script:", script_path)
+        process = subprocess.Popen(f"bash {script_path}", stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_dir, shell=True, env=os.environ)
+        stdout, stderr = process.communicate()
+        return process.returncode, stdout.decode('utf-8').split('\n'), stderr.decode('utf-8').split('\n')
+    
+    @staticmethod
+    def run_post_execution_command(command, working_dir=os.getcwd(), verbose=False):
+        if verbose:
+            print("Running post-execution command:", command)
+            process = subprocess.Popen(command, cwd=working_dir, shell=True)
+        else:
+            process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=working_dir, shell=True)
+        process.wait()
+        return process.returncode
+    
 

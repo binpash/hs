@@ -16,7 +16,7 @@ class ReportGenerator:
         return percent_diff, round(times_diff, 2)
 
     @staticmethod
-    def print_results(benchmark_name, bash_time, orch_time, diff_lines, verbose=False):
+    def print_results(benchmark_name, bash_time, orch_time, same_results, diff_lines, verbose=False):
         percent_diff, times_diff = ReportGenerator.calculate_time_differences(bash_time, orch_time)
 
         speed_comparison = "hs is faster" if bash_time > orch_time else "hs is slower"
@@ -25,7 +25,7 @@ class ReportGenerator:
             print(f"Results for benchmark: {benchmark_name}")
             print(f"Bash Execution Time: {bash_time:.02f}s")
             print(f"hs Execution Time: {orch_time:.02f}s")
-            print(f"Valid: {'Yes' if len(diff_lines) == 0 else 'No - see below'}")
+            print(f"Valid: {'Yes' if same_results else 'No - see below'}")
             for line in diff_lines:
                 print(line)
             comparison_result = f"{speed_comparison} than Bash ({times_diff}x {'faster' if bash_time > orch_time else 'slower'})"

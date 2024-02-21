@@ -11,5 +11,6 @@ RNASeq/
 
 .dockerignore
 Dockerfile
+Dockerfile.hs
 
 README.md

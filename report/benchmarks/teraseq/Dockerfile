@@ -1,4 +1,5 @@
-FROM ghcr.io/ezrizhu/teraseq:latest
+#FROM ghcr.io/ezrizhu/teraseq:latest
+FROM ezri/teraseq20
 VOLUME ["/root/TERA-Seq_manuscript/samples"]
 WORKDIR /root/TERA-Seq_manuscript
 COPY . .

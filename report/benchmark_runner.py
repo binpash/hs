@@ -1,4 +1,3 @@
-import csv
 from typing import List
 from command_executor import CommandExecutor
 from config_parser import BenchmarkConfig
@@ -6,7 +5,6 @@ from result_analyzer import ResultAnalyzer
 from report_generator import ReportGenerator
 import benchmark_plots
 import os
-from pprint import pprint
 
 class BenchmarkRunner:
     def __init__(self, benchmarks: "List[BenchmarkConfig]", args):
@@ -39,7 +37,7 @@ class BenchmarkRunner:
             print(f"\n---------> Running benchmark: {benchmark.name} <---------\n")
             print(">", benchmark)
         
-        for pre_command in benchmark.pre_execution_script:
+        for pre_command in benchmark.pre_execution_commands:
             CommandExecutor.run_pre_execution_command(pre_command, os.environ.get('RESOURCE_DIR'), self.args.verbose)
 
         if benchmark.command_working_dir:
@@ -48,11 +46,19 @@ class BenchmarkRunner:
             workdir = os.environ.get('TEST_SCRIPT_DIR')
         
         
-        # Execute the benchmark
+        # Execute the benchmark with bash
         bash_time, bash_output, _ = CommandExecutor.run_command(
             benchmark.command.split(" "), 
             workdir, 
             self.args.verbose)
+        
+        # Run post-bash-execution commands
+        for post_bash_command in benchmark.post_bash_commands:
+            CommandExecutor.run_post_execution_command(post_bash_command, 
+                                                        workdir, 
+                                                        self.args.verbose)
+    
+        # Execute the benchmark with the hs-orchestrator
         orch_time, orch_output, orch_log = CommandExecutor.run_command_with_orch(
             benchmark.command.split(" "), 
             benchmark.orch_args, 
@@ -60,17 +66,32 @@ class BenchmarkRunner:
             os.environ.get('ORCH_COMMAND'),
             self.args.verbose)
         
-        prog_blocks = ResultAnalyzer.process_results(orch_log)
-        # pprint(prog_blocks)
-
+        # Run post-hs-execution commands
+        for post_hs_command in benchmark.post_hs_commands:
+            CommandExecutor.run_post_execution_command(post_hs_command, 
+                                                        workdir, 
+                                                        self.args.verbose)
+    
         # Analyze and compare results
-        diff_lines = ResultAnalyzer.compare_results(bash_output, orch_output)
-        self.results.append((benchmark.name, bash_time, orch_time, 'Yes' if len(diff_lines) == 0 else 'No', diff_lines))
+        if benchmark.custom_diff_script:
+            # Run the custom diff script. The script should return 0 if the outputs are the same, and 1 otherwise.
+            # The script may also print the diff output to stdout.
+            diff_exit_code, diff_lines, _ = CommandExecutor.run_post_execution_diff_script(
+                benchmark.custom_diff_script,
+                workdir,
+                self.args.verbose)
+            same_results = diff_exit_code == 0
+            self.results.append((benchmark.name, bash_time, orch_time, 'Yes' if same_results else 'No', diff_lines))
+        else:
+            diff_lines = ResultAnalyzer.compare_results(bash_output, orch_output)
+            same_results = len(diff_lines) != 0
+            self.results.append((benchmark.name, bash_time, orch_time, 'Yes' if same_results else 'No', diff_lines))
 
+        prog_blocks = ResultAnalyzer.process_results(orch_log)
         # Print results and optionally save logs
-        ReportGenerator.print_results(benchmark.name, bash_time, orch_time, diff_lines, verbose=self.args.verbose)
+        ReportGenerator.print_results(benchmark.name, bash_time, orch_time, same_results, diff_lines, verbose=self.args.verbose)
         if not self.args.no_logs:
-            ReportGenerator.save_log_data(orch_log, os.environ.get('REPORT_OUTPUT_DIR'), f"{benchmark.name}_log.log")
+            ReportGenerator.save_log_data(orch_log, os.environ.get('REPORT_OUTPUT_DIR'), f"{benchmark.name}.log")
             
         self.activities[benchmark.name] = prog_blocks
 

@@ -4,25 +4,36 @@ import os
 
 class BenchmarkConfig:
     
-    def __init__(self, name, env, pre_execution_script, command_working_dir, command, orch_args):
+    def __init__(self, name, env, pre_execution_commands, post_bash_commands, post_hs_commands, custom_diff_script, command_working_dir, command, orch_args):
         self.name = name
         self.env = [self.replace_env_var(e) for e in env]
-        self.pre_execution_script = [self.replace_env_var(script) for script in pre_execution_script]
+        self.pre_execution_commands = [self.replace_env_var(script) for script in pre_execution_commands]
+        self.post_bash_commands = [self.replace_env_var(script) for script in post_bash_commands]
+        self.post_hs_commands = [self.replace_env_var(script) for script in post_hs_commands]
+        self.custom_diff_script = self.replace_env_var(custom_diff_script)
         self.command_working_dir = self.replace_env_var(command_working_dir)
         self.command = self.replace_env_var(command)
         self.orch_args = self.replace_env_var(orch_args)
         
     def __repr__(self):
         return (f"BenchmarkConfig(name={self.name!r}, env={self.env!r}, "
-                f"pre_execution_script={self.pre_execution_script!r}, "
-                f"command={self.command!r}, orch_args={self.orch_args!r})")
+                f"pre_execution_commands={self.pre_execution_commands!r}, "
+                f"post_bash_commands={self.post_bash_commands!r}, "
+                f"post_hs_commands={self.post_hs_commands!r}, "
+                f"custom_diff_script={self.custom_diff_script!r}, "
+                f"command_working_dir={self.command_working_dir!r}, "
+                f"command={self.command!r}, orch_args={self.orch_args!r}, "
+                f"orch_args={self.orch_args!r})")
 
     def __str__(self):
         env_str = ', '.join(self.env) if self.env else 'None'
-        pre_exec_str = ', '.join(self.pre_execution_script) if self.pre_execution_script else 'None'
+        pre_exec_str = ', '.join(self.pre_execution_commands) if self.pre_execution_commands else 'None'
         return (f"Benchmark '{self.name}':\n"
                 f"  Environment Variables: {env_str}\n"
-                f"  Pre-execution Script: {pre_exec_str}\n"
+                f"  Pre-execution Commands: {pre_exec_str}\n"
+                f"  Post-bash-execution Commands: {self.post_bash_commands}\n"
+                f"  Post-hs-execution Commands: {self.post_hs_commands}\n"
+                f"  Custom-diff Script: {self.custom_diff_script}\n"
                 f"  Command Working Directory: {self.command_working_dir}\n"
                 f"  Command: {self.command}\n"
                 f"  Orchestrator Arguments: {self.orch_args}")
@@ -61,7 +72,10 @@ class ConfigParser:
                 benchmark = BenchmarkConfig(
                     name=config.get('name'),
                     env=config.get('env', []),
-                    pre_execution_script=config.get('pre_execution_script', []),
+                    pre_execution_commands=config.get('pre_execution_commands', []),
+                    post_bash_commands=config.get('post_bash_commands', []),
+                    post_hs_commands=config.get('post_hs_commands', []),
+                    custom_diff_script=config.get('custom_diff_script', ""),
                     command_working_dir=config.get('working_dir', ""),
                     command=config.get('command'),
                     orch_args=config.get('orch_args', "")

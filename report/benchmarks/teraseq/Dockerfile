@@ -2,7 +2,7 @@ FROM ezri/teraseq20
 VOLUME ["/root/TERA-Seq_manuscript/samples"]
 WORKDIR /root/TERA-Seq_manuscript
 COPY . .
-UN mv -f ./activate.d/* /root/miniconda3/envs/teraseq/etc/conda/activate.d
+RUN mv -f ./activate.d/* /root/miniconda3/envs/teraseq/etc/conda/activate.d
 RUN mv -f ./deactivate.d/* /root/miniconda3/envs/teraseq/etc/conda/deactivate.d
 WORKDIR /root/TERA-Seq_manuscript/data
 RUN ./run.sh

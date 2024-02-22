@@ -1,4 +1,5 @@
 from itertools import chain
+from enum import Enum, auto
 import logging
 import re
 import executor
@@ -137,13 +138,13 @@ class Node:
     id_: NodeId
     cmd: str
     asts: "list[AstNode]"
-    loop_context: LoopStack
+    basic_block_id: int
 
-    def __init__(self, id_, cmd, asts, loop_context=None):
+    def __init__(self, id_, cmd, asts, basic_block_id):
         self.id_ = id_
         self.cmd = cmd
         self.asts = asts
-        self.loop_context = loop_context if loop_context else LoopStack()
+        self.basic_block_id = basic_block_id
 
 class ConcreteNodeId:
     def __init__(self, node_id: NodeId, loop_iters = list()):
@@ -162,6 +163,18 @@ class ConcreteNodeId:
     def __str__(self):
         return f'{self.node_id}@' + ''.join(['-' + str(n) for n in self.loop_iters])
 
+    def do_action(self, next_abstract_id: NodeId, edge_type: 'CFGEdgeType'):
+        loop_iters_list = list(self.loop_iters)
+        if edge_type == CFGEdgeType.LOOP_BACK:
+            loop_iters_list[0] += 1
+        elif edge_type == CFGEdgeType.LOOP_SKIP:
+            loop_iters_list.pop(0)
+        elif edge_type == CFGEdgeType.LOOP_BEGIN:
+            loop_iters_list.insert(0, 1)
+        elif edge_type == CFGEdgeType.LOOP_END:
+            loop_iters_list.pop(0)
+        return ConcreteNodeId(next_abstract_id, loop_iters_list)
+    
     @staticmethod
     def parse(input_str):
         node_id_str, loop_iters_str = input_str.split('@')
@@ -217,7 +230,7 @@ class ConcreteNode:
         return self.abstract_node.asts
 
     def pretty_state_repr(self):
-        return f'{state_pstr(self.state)},{self.id_},{self.cmd}'
+        return f'{state_pstr(self.state)} {self.cmd} --- {self.cnid}'
 
     def is_initialized(self):
         return self.state == NodeState.INIT
@@ -419,11 +432,19 @@ class ConcreteNode:
         return conflict_exists
 
 
+class CFGEdgeType(Enum):
+    IF_TAKEN = auto()
+    ELSE_TAKEN = auto()
+    LOOP_TAKEN = auto()
+    LOOP_SKIP = auto()
+    LOOP_BACK = auto()
+    LOOP_BEGIN = auto()
+    LOOP_END = auto()
+    OTHER = auto()
 
 class HSBasicBlock:
-    def __init__(self, nodes: list[Node]):
-        if len(nodes) == 0:
-            raise ValueError('basic block size 0')
+    def __init__(self, bb_id: int, nodes: list[Node]):
+        self.bb_id = bb_id
         self.nodes = nodes
 
     def __str__(self):
@@ -443,79 +464,28 @@ class HSBasicBlock:
         return nodes[0]
 
 class HSProg:
-    abstract_nodes: "dict[NodeId, Node]"
-    adjacency: "dict[NodeId, list[NodeId]]"
-    inverse_adjacency: "dict[NodeId, list[NodeId]]"
     basic_blocks: list[HSBasicBlock] = []
-    block_adjacency: "dict[int, list[int]]"
-    BB_ENTER = -1
-    BB_EXIT = -2
+    block_adjacency: "dict[int, dict[int, CFGEdgeType]]"
 
-    def __init__(self, abstract_nodes: dict[NodeId, Node],
-                 edges: dict[NodeId, list[NodeId]]):
-        self.abstract_nodes = abstract_nodes
-        self.adjacency = edges
-        self.inverse_adjacency = util.invert_graph(abstract_nodes, edges)
-        self.construct_basic_blocks()
-        util.debug_log(str(self))
-
-    def construct_basic_blocks(self):
-        node_list = []
-        block_id = LoopStack()
-        for node in self.abstract_nodes.values():
-            if (node.loop_context == block_id and
-                not (len(node_list) >= 1 and node_list[-1].cmd == 'break')):
-                node_list.append(node)
-            else:
-                if len(node_list) != 0:
-                    # This branch happens for conditional at the beginning
-                    # of the program
-                    basic_block = HSBasicBlock(node_list)
-                    self.basic_blocks.append(basic_block)
-                node_list = [node]
-                block_id = node.loop_context
-        basic_block = HSBasicBlock(node_list)
-        self.basic_blocks.append(basic_block)
-        if len(self.basic_blocks) == 0:
-            raise ValueError('empty hsprog')
-
-        # TODO: the algorithm here is wrong,
-        # echo 1
-        # for i in {1..n}; do
-        #   echo 2
-        # done
-        # for i in {1..m}; do
-        #   echo 3
-        # done
-        # echo 4
-        #
-        # echo 1 can goto echo 2, echo 3, or echo 4
+    def __init__(self, basic_blocks: list, block_edges: list[tuple]):
+        self.basic_blocks = [HSBasicBlock(i, []) for i, bb in enumerate(basic_blocks)]
         self.block_adjacency = {}
-        prev_blocks = {tuple(): self.basic_blocks[0]}
-        for bb_id, bb in enumerate(self.basic_blocks):
-            # the fallthrough edge
-            if bb_id != len(self.basic_blocks) - 1:
-                self.block_adjacency[bb_id] = [bb_id + 1]
-            else:
-                self.block_adjacency[bb_id] = [HSProg.BB_EXIT]
-                break
-
-            for next_bb_id in chain(range(bb_id + 1, len(self.basic_blocks)),
-                                    range(0, bb_id + 1)):
-                next_bb = self.basic_blocks[next_bb_id]
-                if next_bb.loop_context == bb.loop_context:
-                    self.block_adjacency[bb_id].append(next_bb_id)
-                    break
-            else:
-                raise ValueError('no jump block')
+        for bb_id in range(len(basic_blocks)):
+            self.block_adjacency[bb_id] = {}
+            
+        for from_bb, to_bb, edge_type in block_edges:
+            self.block_adjacency[from_bb][to_bb] = CFGEdgeType[edge_type]
 
     def is_start_of_block(self, node_id: NodeId):
         for bb in self.basic_blocks:
             bb : HSBasicBlock
-            if bb.nodes[0].id_ == node_id:
+            if len(bb.nodes) and bb.nodes[0].id_ == node_id:
                 return True
         return False
 
+    def append_node_to(self, bb_id, node: Node):
+        self.basic_blocks[bb_id].nodes.append(node)
+    
     def find_basic_block(self, node_id: NodeId):
         for bb in self.basic_blocks:
             bb : HSBasicBlock
@@ -524,6 +494,33 @@ class HSProg:
                     return bb
         raise ValueError('no such node_id')
 
+    def is_last_block(self, bb: HSBasicBlock):
+        bb_id = self.basic_blocks.index(bb)
+        if len(self.block_adjacency[bb_id]) == 0:
+            return True
+        else:
+            return False
+    
+    def guess_next_block(self, bb: HSBasicBlock):
+        bb_id = self.basic_blocks.index(bb)
+        pick_dict = {}
+        for next_bb_id, edge_type in self.block_adjacency[bb_id].items():
+            pick_dict[edge_type] = next_bb_id
+        for edge_type in [CFGEdgeType.LOOP_END, CFGEdgeType.LOOP_TAKEN, CFGEdgeType.LOOP_SKIP,
+                          CFGEdgeType.LOOP_BACK, CFGEdgeType.LOOP_BEGIN,
+                          CFGEdgeType.IF_TAKEN, CFGEdgeType.ELSE_TAKEN,
+                          CFGEdgeType.OTHER]:
+            if edge_type in pick_dict:
+                return edge_type, self.basic_blocks[pick_dict[edge_type]]
+        assert False
+    
+    def find_node(self, node_id):
+        for bb in self.basic_blocks:
+            for node in bb.nodes:
+                if node.id_ == node_id:
+                    return node
+        raise ValueError('no such node_id')
+    
     def __str__(self):
         return 'prog:\n' + '\n'.join(
             [f'block {i}:\n' + str(bb) + f'goto block {self.block_adjacency[i]}\n' for i, bb in enumerate(self.basic_blocks)])

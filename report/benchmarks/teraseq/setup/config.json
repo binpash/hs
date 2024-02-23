@@ -1,38 +1,122 @@
 [
   {
     "name": "5TERA",
-    "command": "{{TEST_SCRIPT_DIR}}/teraseq/5TERA.sh"
+    "working_dir": "/root/TERA-Seq_manuscript/5TERA",
+    "command": "./run.sh",
+    "post_bash_commands": [
+    	"./hash_result.sh > bash_hashes.txt"
+    ],
+    "post_hs_commands": {
+        "./hash_result.sh > hs_hashes.txt"
+    ],
+    "custom_diff_script": "./verify.sh"
   },
   {
     "name": "5TERA-short",
-    "command": "{{TEST_SCRIPT_DIR}}/teraseq/5TERA-short.sh"
+    "working_dir": "/root/TERA-Seq_manuscript/5TERA-short",
+    "command": "./run.sh",
+    "post_bash_commands": [
+    	"./hash_result.sh > bash_hashes.txt"
+    ],
+    "post_hs_commands": {
+        "./hash_result.sh > hs_hashes.txt"
+    ],
+    "custom_diff_script": "./verify.sh"
   },
   {
     "name": "5TERA3",
-    "command": "{{TEST_SCRIPT_DIR}}/teraseq/5TERA3.sh"
+    "working_dir": "/root/TERA-Seq_manuscript/5TERA3",
+    "command": "./run.sh",
+    "post_bash_commands": [
+    	"./hash_result.sh > bash_hashes.txt"
+    ],
+    "post_hs_commands": {
+        "./hash_result.sh > hs_hashes.txt"
+    ],
+    "custom_diff_script": "./verify.sh"
+  },
+  {
+    "name": "5TERA3-merge",
+    "working_dir": "/root/TERA-Seq_manuscript/5TERA3",
+    "command": "./run_merge.sh",
+    "post_bash_commands": [
+    	"./hash_result_merge.sh > merge_bash_hashes.txt"
+    ],
+    "post_hs_commands": {
+        "./hash_result_merge.sh > merge_hs_hashes.txt"
+    ],
+    "custom_diff_script": "./verify_merge.sh"
   },
   {
     "name": "TERA3",
-    "command": "{{TEST_SCRIPT_DIR}}/teraseq/TERA3.sh"
+    "working_dir": "/root/TERA-Seq_manuscript/TERA3",
+    "command": "./run.sh",
+    "post_bash_commands": [
+    	"./hash_result.sh > bash_hashes.txt"
+    ],
+    "post_hs_commands": {
+        "./hash_result.sh > hs_hashes.txt"
+    ],
+    "custom_diff_script": "./verify.sh"
   },
   {
     "name": "Akron5Seq",
-    "command": "{{TEST_SCRIPT_DIR}}/teraseq/Akron5Seq.sh"
+    "working_dir": "/root/TERA-Seq_manuscript/Akron5Seq",
+    "command": "./run.sh",
+    "post_bash_commands": [
+    	"./hash_result.sh > bash_hashes.txt"
+    ],
+    "post_hs_commands": {
+        "./hash_result.sh > hs_hashes.txt"
+    ],
+    "custom_diff_script": "./verify.sh"
   },
   {
     "name": "dRNASeq",
-    "command": "{{TEST_SCRIPT_DIR}}/teraseq/dRNASeq.sh"
+    "working_dir": "/root/TERA-Seq_manuscript/dRNASeq",
+    "command": "./run.sh",
+    "post_bash_commands": [
+    	"./hash_result.sh > bash_hashes.txt"
+    ],
+    "post_hs_commands": {
+        "./hash_result.sh > hs_hashes.txt"
+    ],
+    "custom_diff_script": "./verify.sh"
   },
   {
     "name": "RNASeq",
-    "command": "{{TEST_SCRIPT_DIR}}/teraseq/RNASeq.sh"
+    "working_dir": "/root/TERA-Seq_manuscript/RNASeq",
+    "command": "./run.sh",
+    "post_bash_commands": [
+    	"./hash_result.sh > bash_hashes.txt"
+    ],
+    "post_hs_commands": {
+        "./hash_result.sh > hs_hashes.txt"
+    ],
+    "custom_diff_script": "./verify.sh"
   },
   {
     "name": "RiboSeq",
-    "command": "{{TEST_SCRIPT_DIR}}/teraseq/RiboSeq.sh"
+    "working_dir": "/root/TERA-Seq_manuscript/RiboSeq",
+    "command": "./run.sh",
+    "post_bash_commands": [
+    	"./hash_result.sh > bash_hashes.txt"
+    ],
+    "post_hs_commands": {
+        "./hash_result.sh > hs_hashes.txt"
+    ],
+    "custom_diff_script": "./verify.sh"
   },
   {
     "name": "mouse_SIRV",
-    "command": "{{TEST_SCRIPT_DIR}}/teraseq/mouse_SIRV.sh"
+    "working_dir": "/root/TERA-Seq_manuscript/mouse_SIRV",
+    "command": "./run.sh",
+    "post_bash_commands": [
+    	"./hash_result.sh > bash_hashes.txt"
+    ],
+    "post_hs_commands": {
+        "./hash_result.sh > hs_hashes.txt"
+    ],
+    "custom_diff_script": "./verify.sh"
   }
 ]

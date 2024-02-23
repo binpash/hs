@@ -3,9 +3,7 @@
 source ../PARAMS.sh
 
 samples=(
-    "hsa.dRNASeq.HeLa.total.REL5.long.REL3.4"
-    "hsa.dRNASeq.HeLa.total.REL5.long.REL3.5"
-    "hsa.dRNASeq.HeLa.total.REL5.long.REL3.6"
+    "hsa.dRNASeq.HeLa.total.REL5.long.REL3.X"
 )
 
 for f in "${samples[@]}"; do

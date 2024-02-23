@@ -1,4 +1,4 @@
-FROM teraseq-data
+FROM ezri/teraseq20-data
 RUN mkdir -p /srv/hs
 WORKDIR /srv/hs
 COPY . .
@@ -11,10 +11,10 @@ ENV PASH_SPEC_TOP=/srv/hs
 ENV PASH_TOP=/srv/hs/deps/pash
 RUN git submodule update --init --recursive
 WORKDIR /srv/hs/deps/pash
-RUN conda install -y -c anaconda python=3.8
+RUN conda install -y -c anaconda python=3.11
+RUN apt install -y vim strace make python3-cram file graphviz libtool python3-matplotlib libcap2-bin mergerfs lsb-release
 RUN scripts/distro-deps.sh
 RUN scripts/setup-pash.sh
-RUN apt install -y vim strace make python3-cram file graphviz libtool python3-matplotlib libcap2-bin mergerfs
 WORKDIR /srv/hs/deps/try
 RUN ./setup.sh
 WORKDIR /srv/hs

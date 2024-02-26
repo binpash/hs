@@ -115,7 +115,7 @@ class PartialProgramOrder:
         progress_log('')
         progress_log('canon: ' + ' '.join([str(cnid) for cnid in self.canon_exec_order]))
         progress_log('spec:  ' + ' '.join([str(cnid) for cnid in self.spec_exec_order]))
-        
+
 
     def make_new_spec_node(self, prev_node: ConcreteNodeId):
         bb = self.hsprog.find_basic_block(prev_node.node_id)
@@ -152,7 +152,7 @@ class PartialProgramOrder:
             if new_concrete_node.command_unsafe():
                 new_concrete_node.transition_from_ready_to_unsafe()
         return next_concrete_id
-        
+
     def get_schedulable_nodes(self, window=2) -> list[ConcreteNodeId]:
         assert len(self.canon_exec_order) > 0
         if len(self.spec_exec_order) == 0:
@@ -169,7 +169,7 @@ class PartialProgramOrder:
         self.log_state()
         return [cnid for cnid in self.spec_exec_order[:window]
                 if self.concrete_nodes[cnid].is_ready()]
-    
+
     # def get_prev_nodes(self, concrete_node_id: ConcreteNodeId) -> "list[ConcreteNodeId]":
     #     return self.exec_order[concrete_node_id][:]
 
@@ -302,28 +302,6 @@ class PartialProgramOrder:
         #         uncommitted_node.reset_to_ready()
         #     # uncommitted_node.start_spec_executing(env_file)
 
-    # def adding_new_basic_block(self, concrete_node_id: ConcreteNodeId):
-    #     basic_block = self.hsprog.find_basic_block(concrete_node_id.node_id)
-    #     if len(self.concrete_nodes) != 0:
-    #         prev_concrete_node_id = next(reversed(self.concrete_nodes))
-    #     else:
-    #         prev_concrete_node_id = None
-    #     loop_iters = concrete_node_id.loop_iters
-    #     for abstract_node_id in basic_block.node_ids:
-    #         new_concrete_node_id = ConcreteNodeId(abstract_node_id, loop_iters)
-    #         new_concrete_node = ConcreteNode(new_concrete_node_id,
-    #                                          basic_block.get_node(abstract_node_id))
-    #         new_concrete_node.transition_from_init_to_ready()
-    #         if new_concrete_node.command_unsafe():
-    #             new_concrete_node.transition_from_ready_to_unsafe()
-    #         self.concrete_nodes[new_concrete_node_id] = new_concrete_node
-    #         if prev_concrete_node_id is not None:
-    #             self.exec_order[new_concrete_node_id] = [prev_concrete_node_id]
-    #         else:
-    #             self.exec_order[new_concrete_node_id] = []
-    #         prev_concrete_node_id = new_concrete_node_id
-    #     assert concrete_node_id in self.concrete_nodes
-
     def finish_wait_unsafe(self, concrete_node_id: ConcreteNodeId):
         node = self.concrete_nodes[concrete_node_id]
         node.commit_unsafe_node()
@@ -343,11 +321,11 @@ class PartialProgramOrder:
             new_concrete_node = ConcreteNode(concrete_node_id, abstract_node)
             new_concrete_node.transition_from_init_to_ready()
             if new_concrete_node.command_unsafe():
-                new_concrete_node.transition_from_ready_to_unsafe()            
+                new_concrete_node.transition_from_ready_to_unsafe()
             self.concrete_nodes[concrete_node_id] = new_concrete_node
 
         self.canon_exec_order.append(concrete_node_id)
-        
+
         node = self.get_concrete_node(concrete_node_id)
         # Invalid state check
         if node.is_committed() or node.is_initialized():

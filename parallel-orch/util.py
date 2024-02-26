@@ -253,7 +253,7 @@ def parse_partial_program_order_from_file(file_path: str):
     hs_prog = HSProg(list(range(block_num_max+1)), basic_block_edges)
 
     # TODO: rewrite loop_context functions to bb_id functions
-    
+
     ## The loop context for each node
     loop_context_start = basic_block_edges_end + 1
     loop_context_end = number_of_nodes + loop_context_start

@@ -174,7 +174,7 @@ class ConcreteNodeId:
         elif edge_type == CFGEdgeType.LOOP_END:
             loop_iters_list.pop(0)
         return ConcreteNodeId(next_abstract_id, loop_iters_list)
-    
+
     @staticmethod
     def parse(input_str):
         node_id_str, loop_iters_str = input_str.split('@')
@@ -472,7 +472,7 @@ class HSProg:
         self.block_adjacency = {}
         for bb_id in range(len(basic_blocks)):
             self.block_adjacency[bb_id] = {}
-            
+
         for from_bb, to_bb, edge_type in block_edges:
             self.block_adjacency[from_bb][to_bb] = CFGEdgeType[edge_type]
 
@@ -485,7 +485,7 @@ class HSProg:
 
     def append_node_to(self, bb_id, node: Node):
         self.basic_blocks[bb_id].nodes.append(node)
-    
+
     def find_basic_block(self, node_id: NodeId):
         for bb in self.basic_blocks:
             bb : HSBasicBlock
@@ -500,7 +500,7 @@ class HSProg:
             return True
         else:
             return False
-    
+
     def guess_next_block(self, bb: HSBasicBlock):
         bb_id = self.basic_blocks.index(bb)
         pick_dict = {}
@@ -513,14 +513,14 @@ class HSProg:
             if edge_type in pick_dict:
                 return edge_type, self.basic_blocks[pick_dict[edge_type]]
         assert False
-    
+
     def find_node(self, node_id):
         for bb in self.basic_blocks:
             for node in bb.nodes:
                 if node.id_ == node_id:
                     return node
         raise ValueError('no such node_id')
-    
+
     def __str__(self):
         return 'prog:\n' + '\n'.join(
             [f'block {i}:\n' + str(bb) + f'goto block {self.block_adjacency[i]}\n' for i, bb in enumerate(self.basic_blocks)])

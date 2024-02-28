@@ -335,7 +335,7 @@ class PartialProgramOrder:
                 node.reset_to_ready()
                 node.start_executing(env_file)
         elif node.is_spec_executing():
-            # if node.has_env_conflict_with(env_file):
+            if node.has_env_conflict_with(env_file):
                 node.reset_to_ready()
                 node.start_executing(env_file)
         else:

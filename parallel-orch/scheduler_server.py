@@ -76,11 +76,15 @@ class Scheduler:
         self.partial_program_order = None
 
     def handle_init(self, input_cmd: str):
+        util.perf_log_start("Scheduler", "Init")
+        
         assert(input_cmd.startswith("Init"))
         partial_order_file = input_cmd.split(":")[1].rstrip()
         logging.debug(f'Scheduler: Received partial_order_file: {partial_order_file}')
         self.partial_program_order = util.parse_partial_program_order_from_file(partial_order_file)
         util.debug_log(str(self.partial_program_order.hsprog))
+        
+        util.perf_log("Scheduler", "Init")
 
     def handle_wait(self, input_cmd: str, connection):
         concrete_node_id, env_file = self.__parse_wait(input_cmd)

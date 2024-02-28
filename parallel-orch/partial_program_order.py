@@ -159,15 +159,19 @@ class PartialProgramOrder:
         return True
 
     def fetch_fs_actions(self):
+        util.perf_log_start("PPO", "Fetch FS Actions")
         for node in self.get_executing_normal_and_spec_nodes():
             node.gather_fs_actions()
+        util.perf_log("PPO", "Fetch FS Actions")
 
     def _has_fs_deps(self, concrete_node_id: ConcreteNodeId):
+        util.perf_log_start("PPO", "FS Dep Checking", concrete_node_id)
         node_of_interest : ConcreteNode = self.get_concrete_node(concrete_node_id)
         for nid in self.to_be_resolved[concrete_node_id]:
             node: ConcreteNode = self.get_concrete_node(nid)
             if node.get_rw_set().has_conflict(node_of_interest.get_rw_set()):
                 return True
+        util.perf_log("PPO", "FS Dep Checking", concrete_node_id)
         return False
 
     # TODO: It's currently designed this way to avoid reading trace file all the time
@@ -190,6 +194,7 @@ class PartialProgramOrder:
     def handle_complete(self, concrete_node_id: ConcreteNodeId, has_pending_wait: bool,
                         current_env: str):
         event_log(f"handle_complete {concrete_node_id}")
+        util.perf_log("Node", "EXE", concrete_node_id)
         node = self.get_concrete_node(concrete_node_id)
         # TODO: complete the state matching
         if node.is_executing():
@@ -219,6 +224,9 @@ class PartialProgramOrder:
         #     # uncommitted_node.start_spec_executing(env_file)
 
     def adding_new_basic_block(self, concrete_node_id: ConcreteNodeId):
+        
+        util.perf_log_start("PPO", "Adding New Basic Block", concrete_node_id)
+        
         basic_block = self.hsprog.find_basic_block(concrete_node_id.node_id)
         if len(self.concrete_nodes) != 0:
             prev_concrete_node_id = next(reversed(self.concrete_nodes))
@@ -239,6 +247,9 @@ class PartialProgramOrder:
                 self.prev_concrete_node[new_concrete_node_id] = []
             prev_concrete_node_id = new_concrete_node_id
         assert concrete_node_id in self.concrete_nodes
+        
+        util.perf_log("PPO", "Adding New Basic Block", concrete_node_id)
+        
 
     def finish_wait_unsafe(self, concrete_node_id: ConcreteNodeId):
         node = self.concrete_nodes[concrete_node_id]

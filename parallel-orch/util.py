@@ -2,7 +2,6 @@ import config
 import logging
 import os
 import socket
-import subprocess
 import tempfile
 import time
 import re
@@ -13,6 +12,7 @@ from node import Node, NodeId, LoopStack
 from partial_program_order import PartialProgramOrder
 
 DEBUG_LOG = '[DEBUG_LOG] '
+PERFORMANCE_LOG = '[PERFORMANCE_LOG] '
 
 def debug_log(s):
     logging.debug(DEBUG_LOG + s)
@@ -112,40 +112,40 @@ def compare_env_strings(file1_content, file2_content):
     dict2 = parse_env_string_to_dict(file2_content)
     return compare_dicts(dict1, dict2)
 
-def log_time_delta_from_start(module: str, action: str, node=None):
-    logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time From start:{to_milliseconds_str(time.time() - config.START_TIME)}")
+# Generate a key for the named timestamp.
+# If a custom key is set, it overrides all other arguments. Otherwise, use a combination of all non-None arguments.
+def get_timestamp_key(module: str, action: str, node=None):
+    parts = [module, action] + ([str(node)] if node is not None else [])
+    return '|'.join(parts)
 
-def set_named_timestamp(action: str, node=None, key=None):
-    if key is None:
-        key = f"{action}{',' + str(node) if node is not None else ''}"
-    config.NAMED_TIMESTAMPS[key] = time.time()
-
-def invalidate_named_timestamp(action: str, node=None, key=None):
-    if key is None:
-        key = f"{action}{',' + str(node) if node is not None else ''}"
-    del config.NAMED_TIMESTAMPS[key]
-
-def log_time_delta_from_start_and_set_named_timestamp(module: str, action: str, node=None, key=None):
-    try:
-        set_named_timestamp(action, node, key)
-        logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}")
-    except KeyError:
-        logging.error(f"Named timestamp {key} already exists")
-
-def log_time_delta_from_named_timestamp(module: str, action: str, node=None, key=None, invalidate=True):
-    try:
-        if key is None:
-            key = f"{action}{',' + str(node) if node is not None else ''}"
-        logging.info(f">|{module}|{action}{',' + str(node) if node is not None else ''}|Time from start:{to_milliseconds_str(time.time() - config.START_TIME)}|Step time:{to_milliseconds_str(time.time() - config.NAMED_TIMESTAMPS[key])}")
-        if invalidate:
-            invalidate_named_timestamp(action, node, key)
-    except KeyError:
-        logging.error(f"Named timestamp {key} does not exist")
-
+# Convert seconds to a formatted milliseconds string.
 def to_milliseconds_str(seconds: float) -> str:
     return f"{seconds * 1000:.3f}ms"
 
+# Log the time delta from the start for a given module and action.
+def perf_log_start_only(module: str, action: str, node=None, optional_message=None):
+    key = get_timestamp_key(module, action, node)
+    logging.info("%s %s||Time From start:%s||%s", PERFORMANCE_LOG, key, to_milliseconds_str(time.time() - config.START_TIME), optional_message if optional_message is not None else "")
 
+# Set a named timestamp.
+def set_named_timestamp(module: str, action: str, node=None):
+    key = get_timestamp_key(module, action, node)
+    config.NAMED_TIMESTAMPS[key] = time.time()
+
+# Log the time delta from the start and set a named timestamp.
+def perf_log_start(module: str, action: str, node=None, optional_message=None):
+    key = get_timestamp_key(module, action, node)
+    set_named_timestamp(module, action, node)
+    logging.info("%s %s||Time from start:%s||%s", PERFORMANCE_LOG, key, to_milliseconds_str(time.time() - config.START_TIME), optional_message if optional_message is not None else "")
+
+# Log the time delta from a named timestamp.
+def perf_log(module: str, action: str, node=None, optional_message=None):
+    key = get_timestamp_key(module, action, node)
+    try:
+        step_time = time.time() - config.NAMED_TIMESTAMPS[key]
+        logging.info("%s %s||Time from start:%s||Step time:%s||%s", PERFORMANCE_LOG, key, to_milliseconds_str(time.time() - config.START_TIME), to_milliseconds_str(step_time), optional_message if optional_message is not None else "")
+    except KeyError:
+        logging.error("Named timestamp %s does not exist", key)
 
 def get_all_child_processes(pid):
     try:

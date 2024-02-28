@@ -9,7 +9,7 @@ import re
 import psutil
 import signal
 import analysis
-from node import Node, NodeId, LoopStack
+from node import Node, NodeId, LoopStack, HSProg, HSBasicBlock
 from partial_program_order import PartialProgramOrder
 
 DEBUG_LOG = '[DEBUG_LOG] '
@@ -233,9 +233,30 @@ def parse_partial_program_order_from_file(file_path: str):
     number_of_nodes = int(lines[2])
     logging.debug(f'Number of po cmds: {number_of_nodes}')
 
+    basic_blocks_start = lines.index('Basic blocks:') + 1
+    basic_blocks_end = lines.index('Basic block edges:')
+    basic_block_edges_start = basic_blocks_end + 1
+    basic_block_edges_end = lines.index('Loop context:')
+
+    block_num_max = 0
+    basic_block_edges = []
+    for line in lines[basic_block_edges_start:basic_block_edges_end]:
+        from_block, remain = line.split(' -> ')
+        to_block, edge_type = remain.split(':')
+        from_block, to_block = int(from_block), int(to_block)
+        edge_type = edge_type.strip()
+        if from_block > block_num_max:
+            block_num_max = from_block
+        if to_block > block_num_max:
+            block_num_max = to_block
+        basic_block_edges.append((from_block, to_block, edge_type))
+    hs_prog = HSProg(list(range(block_num_max+1)), basic_block_edges)
+
+    # TODO: rewrite loop_context functions to bb_id functions
+
     ## The loop context for each node
-    loop_context_start=3
-    loop_context_end=number_of_nodes+3
+    loop_context_start = basic_block_edges_end + 1
+    loop_context_end = number_of_nodes + loop_context_start
     loop_context_lines = lines[loop_context_start:loop_context_end]
     loop_contexts = parse_loop_contexts(loop_context_lines)
     logging.debug(f'Loop contexts: {loop_contexts}')
@@ -251,8 +272,9 @@ def parse_partial_program_order_from_file(file_path: str):
         loop_ctx = loop_contexts[i]
         ab_nodes[NodeId(i)] = Node(NodeId(i), cmd.strip(),
                                    asts=asts,
-                                   loop_context=LoopStack(loop_ctx))
-
+                                   basic_block_id=loop_ctx[0])
+        hs_prog.append_node_to(loop_ctx[0], ab_nodes[NodeId(i)])
+    debug_log(str(hs_prog))
     edges = {NodeId(i) : [] for i in range(number_of_nodes)}
     for edge_line in edge_lines:
         from_id, to_id = parse_edge_line(edge_line)
@@ -260,7 +282,7 @@ def parse_partial_program_order_from_file(file_path: str):
 
     logging.info(f"Nodes|{','.join([str(node) for node in ab_nodes])}")
     logging.info(f"Edges|{edges}")
-    return PartialProgramOrder(ab_nodes, edges)
+    return PartialProgramOrder(ab_nodes, edges, hs_prog)
 
 def generate_id() -> int:
     return int(time.time() * 1000000)

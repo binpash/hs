@@ -92,6 +92,7 @@ class Scheduler:
         if concrete_node.is_committed():
             self.respond_to_pending_wait(concrete_node_id)
         elif concrete_node.is_unsafe():
+            util.debug_log(f'unsafe {concrete_node_id}')
             self.partial_program_order.finish_wait_unsafe(concrete_node_id)
             self.respond_to_wait_on_unsafe(concrete_node_id)
 

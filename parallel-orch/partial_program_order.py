@@ -14,32 +14,6 @@ def progress_log(s):
     logging.info(PROG_LOG + s)
 
 
-class ConcreteTree:
-    def __init__(self):
-        self.nodes = set()
-        self.edges = {}
-        self.reverse_edges = {}
-
-    def add_node(self, node):
-        self.nodes.add(node)
-
-    def add_edge(self, from_node, to_node):
-        assert from_node in self.nodes and to_node in self.nodes
-        if label is None:
-            label = CFGEdgeType.OTHER
-        if not from_node in self.edges:
-            self.edges[from_node] = set()
-        if not to_node in self.reverse_edges:
-            self.reverse_edges[to_node] = set()
-        self.edges[from_node].add(to_node)
-        self.reverse_edges[from_node].add(to_node)
-
-    def has_node(self, node):
-        return node in self.nodes
-
-    def has_edge(self, from_node, to_node):
-        return self.has_node(from_node) and to_node in self.edges[from_node]
-
 class PartialProgramOrder:
     frontier: set  # Set of nodes at the frontier
     # Di: I'm going to ignore this for now and implement the feature without a local data structure
@@ -60,7 +34,6 @@ class PartialProgramOrder:
         self.concrete_nodes: dict[ConcreteNodeId, ConcreteNode] = {}
         self.frontier = set()
         # self.run_after = {}
-        # self.exec_order = ConcreteTree()
         # Nodes that we have received "wait" for
         self.canon_exec_order: list[ConcreteNodeId] = list()
         # Nodes that we think should happen, and haven't received "wait" for

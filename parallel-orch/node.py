@@ -292,7 +292,7 @@ class ConcreteNode:
         self.exec_ctxt.process.kill()
 
     def try_reset_to_ready(self):
-        if self.state in [NodeState.READY]:
+        if self.state in [NodeState.READY, NodeState.UNSAFE]:
             return
         else:
             self.reset_to_ready()

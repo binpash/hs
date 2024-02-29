@@ -288,7 +288,7 @@ class PartialProgramOrder:
             self.spec_exec_order.pop(0)
         else:
             for cnid in self.spec_exec_order:
-                self.concrete_nodes[cnid].reset_to_ready()
+                self.concrete_nodes[cnid].try_reset_to_ready()
             self.spec_exec_order = []
 
         if not concrete_node_id in self.concrete_nodes:

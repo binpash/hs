@@ -1,4 +1,4 @@
-FROM ezri/teraseq20-data
+FROM teraseq20-data
 RUN mkdir -p /srv/hs
 WORKDIR /srv/hs
 COPY . .

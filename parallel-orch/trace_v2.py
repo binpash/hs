@@ -100,6 +100,7 @@ def between(s, d1, d2):
     return s.find(d1) + len(d1), s.rfind(d2)
 
 def is_absolute(path):
+    assert len(path)
     return path[0] == '/'
 
 def is_ret_err(ret: str):
@@ -124,10 +125,16 @@ def get_path_first_path(pid, args, ctx):
     return convert_absolute(ctx.get_dir(pid), a)
 
 def parse_r_first_path(pid, args, ret, ctx):
-    return RFile(get_path_first_path(pid, args, ctx))
+    try:
+        return RFile(get_path_first_path(pid, args, ctx))
+    except AssertionError:
+        return []
 
 def parse_w_first_path(pid, args, ret, ctx):
-    path = get_path_first_path(pid, args, ctx)
+    try:
+        path = get_path_first_path(pid, args, ctx)
+    except AssertionError:
+        return []
     if is_ret_err(ret):
         return RFile(path)
     else:
@@ -255,7 +262,7 @@ def parse_syscall(pid, syscall, args, ret, ctx):
     elif syscall == 'clone':
         return parse_clone(pid, args, ret, ctx)
     elif syscall in ignore_set:
-        return None
+        return []
     else:
         raise ValueError('Unclassified syscall ' + syscall)
 
@@ -276,23 +283,23 @@ def handle_info(l):
 
 def parse_line(l, ctx):
     if len(l) == 0:
-        return None
+        return []
     pid, l = strip_pid(l)
     is_info, info = handle_info(l)
     if is_info:
         return info
     if not len(l):
-        return None
+        return []
     if "<unfinished" in l:
         ctx.push_half_line(pid, l)
-        return None
+        return []
     elif "resumed>" in l:
         l = ctx.pop_complete_line(pid, l)
     lparen = l.find('(')
     equals = l.rfind('=')
     rparen = l[:equals].rfind(')')
     if not (lparen >= 0 and equals >= 0 and rparen >= 0):
-        return None
+        return []
     syscall = l[:lparen]
     ret = l[equals+1:]
     args = l[lparen+1:rparen]

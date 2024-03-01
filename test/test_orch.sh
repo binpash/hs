@@ -309,6 +309,12 @@ test_stdout()
     $shell $2/test_stdout.sh
 }
 
+test_if()
+{
+    local shell=$1
+    $shell $2/test_if.sh
+}
+
 test_loop()
 {
     local shell=$1
@@ -417,6 +423,7 @@ if [ "$#" -eq 0 ]; then
     run_test test9_2 # "1 1 1 1 1 1 1 1 1 1 1 1 1" # 13
     run_test test9_3 # "1 1 1 1 1 1 1 1 2 2 1 1 1" # 15
     run_test test_stdout #"1 1 1 1 1 1" # 6
+    run_test test_if
     run_test test_loop
     run_test test_break
     run_test test_network_access_1 #"1 2 2"

@@ -333,14 +333,16 @@ class ConcreteNode:
 
     def commit_frontier_execution(self):
         assert self.state == NodeState.EXECUTING
-        self.exec_result = ExecResult(self.exec_ctxt.process.pid, self.exec_ctxt.process.returncode)
+        self.exec_ctxt.process.wait()
+        self.exec_result = ExecResult(self.exec_ctxt.process.returncode, self.exec_ctxt.process.pid)
         self.gather_fs_actions()
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
 
     def finish_spec_execution(self):
         assert self.state == NodeState.SPEC_EXECUTING
-        self.exec_result = ExecResult(self.exec_ctxt.process.pid, self.exec_ctxt.process.returncode)
+        self.exec_ctxt.process.wait()
+        self.exec_result = ExecResult(self.exec_ctxt.process.returncode, self.exec_ctxt.process.pid)
         self.gather_fs_actions()
         self.state = NodeState.SPECULATED
 

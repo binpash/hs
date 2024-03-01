@@ -42,5 +42,6 @@ out=`head -3 $SANDBOX_DIR/upperdir/$TRACE_FILE`
 ## Assumes "${PASH_SPEC_SCHEDULER_SOCKET}" is set and exported
 
 ## Pass the proper exit code
-msg="CommandExecComplete:${CMD_ID}|Exec id:${EXECUTION_ID}|Exit code:${exit_code}|Sandbox dir:${SANDBOX_DIR}|Trace file:${TRACE_FILE}|Tempdir:${TEMPDIR}"
+msg="CommandExecComplete:${CMD_ID}|Exec id:${EXECUTION_ID}|Sandbox dir:${SANDBOX_DIR}|Trace file:${TRACE_FILE}|Tempdir:${TEMPDIR}"
 daemon_response=$(pash_spec_communicate_scheduler_just_send "$msg") # Blocking step, daemon will not send response until it's safe to continue
+(exit $exit_code)

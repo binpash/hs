@@ -92,7 +92,8 @@ def safe_to_execute(asts: "list[AstNode]", variables: dict) -> bool:
 
 BASH_PRIMITIVES = ["break", 
                    "continue", 
-                   "return"]
+                   "return",
+                   "export"]
 
 
 safe_cases = {

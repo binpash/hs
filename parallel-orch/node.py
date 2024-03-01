@@ -296,7 +296,7 @@ class ConcreteNode:
             return
         else:
             self.reset_to_ready()
-        
+
     def reset_to_ready(self):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
                               NodeState.SPECULATED]
@@ -333,17 +333,18 @@ class ConcreteNode:
 
     def commit_frontier_execution(self):
         assert self.state == NodeState.EXECUTING
-        self.exec_result = ExecResult(self.exec_ctxt.process.pid, self.exec_ctxt.process.returncode)
-        self.gather_fs_actions()
+        exit_code = self.gather_traced_info()
+        self.exec_result = ExecResult(exit_code, self.exec_ctxt.process.pid)
+        util.debug_log(f'exit_code {self.exec_result.exit_code}')
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
 
     def finish_spec_execution(self):
         assert self.state == NodeState.SPEC_EXECUTING
-        self.exec_result = ExecResult(self.exec_ctxt.process.pid, self.exec_ctxt.process.returncode)
-        self.gather_fs_actions()
+        exit_code = self.gather_traced_info()
+        self.exec_result = ExecResult(exit_code, self.exec_ctxt.process.pid)
+        util.debug_log(f'exit_code {self.exec_result.exit_code}')
         self.state = NodeState.SPECULATED
-
 
     def commit_speculated(self):
         assert self.state == NodeState.SPECULATED
@@ -370,7 +371,7 @@ class ConcreteNode:
     def update_rw_set(self, rw_set):
         self.rwset = rw_set
 
-    def gather_fs_actions(self) -> RWSet:
+    def gather_traced_info(self) -> int:
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         sandbox_dir = self.exec_ctxt.sandbox_dir
         trace_file = self.exec_ctxt.trace_file
@@ -379,9 +380,11 @@ class ConcreteNode:
         except FileNotFoundError:
             self.update_rw_set(RWSet(set(), set()))
             return
-        read_set, write_set = trace_v2.parse_and_gather_cmd_rw_sets(trace_object)
+        read_set, write_set, exit_code = trace_v2.parse_trace_info(trace_object)
         rw_set = RWSet(read_set, write_set)
         self.update_rw_set(rw_set)
+        return exit_code
+
 
     def get_rw_set(self):
         # if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
@@ -406,7 +409,7 @@ class ConcreteNode:
             "TRY_COMMAND", "SRANDOM", "speculate_flag", "EXECUTION_ID",
             "EPOCHREALTIME", "OLDPWD"
         ])
-        
+
 
         re_scalar_string = re.compile(r'declare (?:-x|--)? (\w+)="([^"]*)"')
         re_scalar_int = re.compile(r'declare -i (\w+)="(\d+)"')
@@ -432,7 +435,7 @@ class ConcreteNode:
             other_env_vars = parse_env(file.read())
 
         logging.debug(f"Comparing env files {self.exec_ctxt.pre_env_file} and {other_env}")
-        
+
         conflict_exists = False
         for key in set(node_env_vars.keys()).union(other_env_vars.keys()):
             if key not in node_env_vars:

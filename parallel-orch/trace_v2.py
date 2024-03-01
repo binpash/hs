@@ -337,6 +337,35 @@ def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
                 write_set.add(record.fname)
     return read_set, write_set
 
+def parse_trace_info(trace_object):
+    if len(trace_object) == 0 or trace_object[0] == '':
+        exit_code = None
+    ctx = Context()
+    ctx.set_dir(os.getcwd())
+    read_set = set()
+    write_set = set()
+    l = trace_object[0]
+    first_pid, _ = strip_pid(l)
+    for l in trace_object:
+        pid, tmpl = strip_pid(l)
+        is_info, info = handle_info(tmpl)
+        if is_info and pid == first_pid and isinstance(info, ExitStatus):
+            exit_code = info.exitcode
+            continue
+        try:
+            records = parse_line(l, ctx)
+        except Exception:
+            logging.debug(l)
+            raise ValueError("error while parsing trace")
+        if not isinstance(records, list):
+            records = [records]
+        for record in records:
+            if type(record) is RFile and record.fname != '/dev/tty':
+                read_set.add(record.fname)
+            elif type(record) is WFile and record.fname != '/dev/tty':
+                write_set.add(record.fname)
+    return read_set, write_set, exit_code
+
 def main(fname):
     ctx = Context()
     ctx.set_dir(os.getcwd())

@@ -106,7 +106,8 @@ class Scheduler:
             logging.info(f'Scheduler: Received daemon start message.')
             connection.close()
         elif (input_cmd.startswith("CommandExecComplete:")):
-            node_id, exec_id, exit_code, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
+            node_id, exec_id, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
+            connection.close()
             if self.partial_program_order.get_concrete_node(node_id).exec_id == exec_id:
                 logging.info(f'Scheduler: Received command exec complete message - {node_id}.')
                 self.partial_program_order.handle_complete(node_id, node_id in self.waiting_for_response, self.latest_env)
@@ -141,6 +142,7 @@ class Scheduler:
         ## Get the completed node info
         node = self.partial_program_order.get_concrete_node(node_id)
         msg = '{} {} {}'.format(*node.execution_outcome())
+        util.debug_log(f'outcome for node {node_id} is {node.execution_outcome()}')
         response = success_response(msg)
 
         ## Send the response
@@ -165,10 +167,9 @@ class Scheduler:
             components = input_cmd.rstrip().split("|")
             command_id = ConcreteNodeId.parse(components[0].split(":")[1])
             exec_id = int(components[1].split(":")[1])
-            exit_code = int(components[2].split(":")[1])
-            sandbox_dir = components[3].split(":")[1]
-            trace_file = components[4].split(":")[1]
-            return command_id, exec_id, exit_code, sandbox_dir, trace_file
+            sandbox_dir = components[2].split(":")[1]
+            trace_file = components[3].split(":")[1]
+            return command_id, exec_id, sandbox_dir, trace_file
         except:
             raise Exception(f'Parsing failure for line: {input_cmd}')
 

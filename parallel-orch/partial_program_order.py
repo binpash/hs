@@ -218,7 +218,7 @@ class PartialProgramOrder:
 
     def fetch_fs_actions(self):
         for node in self.get_executing_normal_and_spec_nodes():
-            node.gather_fs_actions()
+            node.gather_traced_info()
 
     def _has_fs_deps(self, concrete_node_id: ConcreteNodeId):
         node_of_interest : ConcreteNode = self.get_concrete_node(concrete_node_id)

@@ -406,7 +406,7 @@ class ConcreteNode:
             "CMD_ID", "STDOUT_FILE", "DIRSTACK", "SECONDS", "TMPDIR",
             "UPDATED_DIRS_AND_MOUNTS", "EPOCHSECONDS", "LATEST_ENV_FILE",
             "TRY_COMMAND", "SRANDOM", "speculate_flag", "EXECUTION_ID",
-            "EPOCHREALTIME", "OLDPWD"
+            "EPOCHREALTIME", "OLDPWD", "exit_code",
         ])
         
 

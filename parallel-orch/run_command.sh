@@ -34,7 +34,6 @@ fi
 
 bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh" > "${STDOUT_FILE}"
 exit_code=$?
-
 ## Only used for debugging
 # ls -R "${SANDBOX_DIR}/upperdir" 1>&2
 out=`head -3 $SANDBOX_DIR/upperdir/$TRACE_FILE`

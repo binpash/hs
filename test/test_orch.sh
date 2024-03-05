@@ -366,6 +366,12 @@ test_local_vars_3()
     $shell $2/test_local_vars_3.sh
 }
 
+test_local_vars_4()
+{
+    local shell=$1
+    $shell $2/test_local_vars_4.sh
+}
+
 test_command_var_assignments_1(){
     local shell=$1
     $shell $2/test_command_var_assignments_1.sh

@@ -416,6 +416,7 @@ class ConcreteNode:
 
         def parse_env(content):
             env_vars = {}
+            remaining_lines = []
             for line in content.splitlines():
                 if line.startswith('#') or not line.strip():
                     continue
@@ -425,6 +426,12 @@ class ConcreteNode:
                         key, value = match.groups()
                         if key not in ignore_vars:
                             env_vars[key] = value
+                        break
+                else:
+                    remaining_lines.append(line)
+            # we want a key that's not reused in other variables
+            FUNCTION_KEY = 42
+            env_vars[FUNCTION_KEY] = ''.join(remaining_lines)
             return env_vars
 
         with open(self.exec_ctxt.pre_env_file, 'r') as file:

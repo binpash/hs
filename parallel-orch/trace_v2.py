@@ -2,6 +2,7 @@ import re
 import logging
 import os.path
 import sys
+import util
 from typing import Tuple
 from dataclasses import dataclass
 
@@ -44,12 +45,42 @@ class RFile:
     def __init__(self, fname):
         self.fname = os.path.normpath(fname)
 
+    def closure(self):
+        all_files = [self]
+        if not self.fname.startswith('/'):
+            return all_files
+        current_name = self.fname
+        i = 0
+        while current_name != '/':
+            dir, _ = os.path.split(current_name)
+            all_files.append(RFile(dir))
+            current_name = dir
+            i += 1
+            if i > 15:
+                util.debug_log(f"{self.fname}")
+        return all_files
+        
 @dataclass
 class WFile:
     fname: str
     def __init__(self, fname):
         self.fname = os.path.normpath(fname)
 
+    def closure(self):
+        all_files = [self]
+        current_name = self.fname
+        if not self.fname.startswith('/'):
+            return all_files
+        i = 0
+        while current_name != '/':
+            dir, _ = os.path.split(current_name)
+            all_files.append(RFile(dir))
+            current_name = dir
+            i += 1
+            if i > 15:
+                util.debug_log(f"{current_name}")
+        return all_files
+        
 class Context:
     def __init__(self):
         self.line_dict = {}
@@ -235,6 +266,7 @@ def parse_clone(pid, args, ret, ctx):
     flags = flags[len('flags='):]
     if has_clone_fs(flags):
         ctx.do_clone(pid, child)
+    return []
 
 def parse_symlinkat(pid, args, ret):
     a0, rest = args.split(sep=',', maxsplit=1)
@@ -328,9 +360,12 @@ def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
         except Exception:
             logging.debug(l)
             raise ValueError("error while parsing trace")
+        if records is None or isinstance(records, ExitStatus):
+            continue
         if not isinstance(records, list):
             records = [records]
-        for record in records:
+        all_records = [r for record in records for r in record.closure()]
+        for record in all_records:
             if type(record) is RFile and record.fname != '/dev/tty':
                 read_set.add(record.fname)
             elif type(record) is WFile and record.fname != '/dev/tty':

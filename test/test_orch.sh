@@ -309,6 +309,18 @@ test_stdout()
     $shell $2/test_stdout.sh
 }
 
+test_comments()
+{
+    local shell=$1
+    $shell "$2/test_comments.sh"
+}
+
+test_function()
+{
+    local shell=$1
+    $shell "$2/test_function.sh"
+}
+
 test_if()
 {
     local shell=$1

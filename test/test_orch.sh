@@ -435,7 +435,7 @@ if [ "$#" -gt 0 ]; then
                 declare -a repetitions=()
 
                 # Check if the next argument is numeric for the execution time limit
-                if [[ "$1" =~ ^[0-9]+$ ]]; then
+                if [[ "$1" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
                     execution_time_limit=$1
                     shift # Move past the execution time limit
                 fi
@@ -461,6 +461,7 @@ else
     run_test test_local_vars_3
     run_test test_command_var_assignments_1
     run_test test_command_var_assignments_2
+    run_test test_timed_execution 3
     run_test test1_1 # "1 2 3 1" # 7
     run_test test1_2 #"1 2 2 1" # 6
     run_test test1_3 #"1 2 2 1" # 6

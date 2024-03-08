@@ -422,6 +422,12 @@ test_timed_execution()
     $shell $2/test_timed_execution.sh
 }
 
+test_timed_loop()
+{
+    local shell=$1
+    $shell $2/test_timed_loop.sh
+}
+
 ## TODO: make more loop tests with nested loops and commands after the loop
 
 # Arg parsing

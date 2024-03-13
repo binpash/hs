@@ -139,8 +139,9 @@ class Node:
     cmd: str
     asts: "list[AstNode]"
     basic_block_id: int
+    assignment: bool
 
-    def __init__(self, id_, cmd, asts, basic_block_id):
+    def __init__(self, id_, cmd, asts, basic_block_id, var_assignment=False):
         self.id_ = id_
         self.cmd = cmd
         self.asts = asts
@@ -549,3 +550,58 @@ class HSProg:
     def __str__(self):
         return 'prog:\n' + '\n'.join(
             [f'block {i}:\n' + str(bb) + f'goto block {self.block_adjacency[i]}\n' for i, bb in enumerate(self.basic_blocks)])
+
+@dataclass
+class AssignmentNodeId:
+    id_: int
+    
+    def __init__(self, id_: NodeId):
+        self.id_ = id_
+
+    def __hash__(self):
+        return hash(str(self))
+    
+    def __eq__(self, other):
+        return self.id_ == other.id_
+    
+    def __str__(self):
+        return f'{self.id_}$'
+    
+    def __repr__(self):
+        return f"aid({self.id_})"
+
+    @staticmethod
+    def parse_assignment_node_id(input_str: str):
+        input_str = input_str.strip('@')
+        return AssignmentNodeId(NodeId(int(input_str)))
+
+    @staticmethod
+    def parse(input_str):
+        node_id_str, loop_iters_str = input_str.split('@')
+        return ConcreteNodeId(NodeId(int(node_id_str)), [int(cnt) for cnt in loop_iters_str.split('-')[1:]])
+
+## A specialized form of Node representing var assignments.
+class ConcreteAssignmentNode:
+    def __init__(self, aid: ConcreteNodeId, node: Node):
+        self.aid = aid
+        self.abstract_node = node
+        self.state = NodeState.INIT
+        self.wait_env_file = None
+        self.to_be_resolved_snapshot = None
+        self.pre_exec_env = None
+        self.post_exec_env = None
+        
+    def get_pre_exec_env(self):
+        return self.pre_exec_env
+        
+    def get_post_exec_env(self):
+        return self.post_exec_env
+
+    def set_pre_exec_env(self, pre_exec_env: str):
+        self.pre_exec_env = pre_exec_env
+
+    def set_post_exec_env(self, post_exec_env: str):
+        self.post_exec_env = post_exec_env
+        
+    def __repr__(self):
+        return f'ConcreteAssignmentNode(aid:{self.aid}, assignment:{self.assignment}, state:{self.state}, pre_exec_env:{self.pre_exec_env}, post_exec_env:{self.post_exec_env}, wait_env_file:{self.wait_env_file}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, abstract_node:{self.abstract_node})'

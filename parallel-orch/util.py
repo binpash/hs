@@ -9,7 +9,7 @@ import re
 import psutil
 import signal
 import analysis
-from node import Node, NodeId, LoopStack, HSProg, HSBasicBlock
+from node import AssignmentNodeId, Node, NodeId, LoopStack, HSProg, HSBasicBlock
 from partial_program_order import PartialProgramOrder
 
 DEBUG_LOG = '[DEBUG_LOG] '
@@ -215,7 +215,7 @@ def parse_loop_contexts(lines):
     return loop_contexts
 
 def parse_var_assignment_lines(lines: "list[str]") -> list[int]:
-    return [int(line.split("-var")[0]) for line in lines]
+    return {int(line.split("-var")[0]) for line in lines}
     
 def parse_partial_program_order_from_file(file_path: str):
     with open(file_path) as f:
@@ -261,6 +261,7 @@ def parse_partial_program_order_from_file(file_path: str):
     loop_context_start = basic_block_edges_end + 1
     loop_context_end = number_of_nodes + loop_context_start
     loop_context_lines = lines[loop_context_start:loop_context_end]
+    logging.critical(f'Loop context lines: {loop_context_lines}')
     loop_contexts = parse_loop_contexts(loop_context_lines)
     logging.debug(f'Loop contexts: {loop_contexts}')
     
@@ -280,10 +281,16 @@ def parse_partial_program_order_from_file(file_path: str):
         file_path = f'{cmds_directory}/{i}'
         cmd, asts = parse_cmd_from_file(file_path)
         loop_ctx = loop_contexts[i]
+        if i in var_assignments:
+            var_assignment=True
+        else:
+            var_assignment=False
         ab_nodes[NodeId(i)] = Node(NodeId(i), cmd.strip(),
-                                   asts=asts,
-                                   basic_block_id=loop_ctx[0])
+                                asts=asts,
+                                basic_block_id=loop_ctx[0],
+                                var_assignment=var_assignment)
         hs_prog.append_node_to(loop_ctx[0], ab_nodes[NodeId(i)])
+
     debug_log(str(hs_prog))
     edges = {NodeId(i) : [] for i in range(number_of_nodes)}
     for edge_line in edge_lines:

@@ -214,6 +214,9 @@ def parse_loop_contexts(lines):
         loop_contexts[node_id] = loop_ctx
     return loop_contexts
 
+def parse_var_assignment_lines(lines: "list[str]") -> list[int]:
+    return [int(line.split("-var")[0]) for line in lines]
+    
 def parse_partial_program_order_from_file(file_path: str):
     with open(file_path) as f:
         raw_lines = f.readlines()
@@ -260,9 +263,16 @@ def parse_partial_program_order_from_file(file_path: str):
     loop_context_lines = lines[loop_context_start:loop_context_end]
     loop_contexts = parse_loop_contexts(loop_context_lines)
     logging.debug(f'Loop contexts: {loop_contexts}')
+    
+    var_assignment_lines = int(lines[loop_context_end])
+    var_assignment_start = loop_context_end + 1
+    var_assignment_end = var_assignment_start + var_assignment_lines
+    var_assignment_lines = lines[var_assignment_start:var_assignment_end]
+    var_assignments = parse_var_assignment_lines(var_assignment_lines)
+    logging.debug(f'Var assignments: {var_assignments}')
 
     ## The rest of the lines are edge_lines
-    edge_lines = lines[loop_context_end:]
+    edge_lines = lines[var_assignment_end:]
     logging.debug(f'Edges: {edge_lines}')
 
     ab_nodes = {}

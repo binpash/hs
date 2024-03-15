@@ -8,6 +8,14 @@ import os
 # and traces them with Riker. 
 # All commands are run inside an overlay sandbox.
 
+def run_assignment_and_return_env_file(assignment, pre_execution_env_file):
+    post_execution_env_file = util.ptempfile()
+    logging.debug(f'Running assignment: {assignment} | pre_execution_env_file: {pre_execution_env_file} | post_execution_env_file: {post_execution_env_file}')
+    run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_assignment.sh'
+    args = ["/bin/bash", run_script, assignment, pre_execution_env_file, post_execution_env_file]
+    process = subprocess.run(args)
+    return post_execution_env_file
+
 def async_run_and_trace_command_return_trace(command, concrete_node_id, execution_id, pre_execution_env_file, speculate_mode=False):
     trace_file = util.ptempfile()
     stdout_file = util.ptempfile()

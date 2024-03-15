@@ -146,6 +146,10 @@ class Node:
         self.cmd = cmd
         self.asts = asts
         self.basic_block_id = basic_block_id
+        self.assignment = var_assignment
+
+    def is_assignment(self):
+        return self.assignment
 
 class ConcreteNodeId:
     def __init__(self, node_id: NodeId, loop_iters = list()):
@@ -200,8 +204,9 @@ class ConcreteNode:
     # background_sandbox: Sandbox
     exec_ctxt: ExecCtxt
     exec_result: ExecResult
+    spec_pre_env: str
 
-    def __init__(self, cnid: ConcreteNodeId, node: Node):
+    def __init__(self, cnid: ConcreteNodeId, node: Node, spec_pre_env=None):
         self.cnid = cnid
         self.abstract_node = node
         self.state = NodeState.INIT
@@ -211,9 +216,10 @@ class ConcreteNode:
         self.to_be_resolved_snapshot = None
         self.exec_ctxt = None
         self.exec_id = None
+        self.spec_pre_env = spec_pre_env
 
     def __str__(self):
-        return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt})'
+        return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt}), spec_pre_env:{self.spec_pre_env})'
 
     def __repr__(self):
         return str(self)
@@ -328,6 +334,7 @@ class ConcreteNode:
         self.state = NodeState.EXECUTING
 
     def start_spec_executing(self, env_file):
+        # raise NotImplementedError
         assert self.state == NodeState.READY
         self.start_command(env_file, speculate=True)
         self.state = NodeState.SPEC_EXECUTING
@@ -578,16 +585,14 @@ class AssignmentNodeId:
     @staticmethod
     def parse(input_str):
         node_id_str, loop_iters_str = input_str.split('@')
-        return ConcreteNodeId(NodeId(int(node_id_str)), [int(cnt) for cnt in loop_iters_str.split('-')[1:]])
+        return AssignmentNodeId(NodeId(int(node_id_str)), [int(cnt) for cnt in loop_iters_str.split('-')[1:]])
 
 ## A specialized form of Node representing var assignments.
 class ConcreteAssignmentNode:
-    def __init__(self, aid: ConcreteNodeId, node: Node):
+    def __init__(self, aid: AssignmentNodeId, node: Node):
         self.aid = aid
         self.abstract_node = node
         self.state = NodeState.INIT
-        self.wait_env_file = None
-        self.to_be_resolved_snapshot = None
         self.pre_exec_env = None
         self.post_exec_env = None
         
@@ -604,4 +609,20 @@ class ConcreteAssignmentNode:
         self.post_exec_env = post_exec_env
         
     def __repr__(self):
-        return f'ConcreteAssignmentNode(aid:{self.aid}, assignment:{self.assignment}, state:{self.state}, pre_exec_env:{self.pre_exec_env}, post_exec_env:{self.post_exec_env}, wait_env_file:{self.wait_env_file}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, abstract_node:{self.abstract_node})'
+        return f'ConcreteAssignmentNode(aid:{self.aid}, assignment:{self.assignment}, state:{self.state}, pre_exec_env:{self.pre_exec_env}, post_exec_env:{self.post_exec_env}, abstract_node:{self.abstract_node})'
+
+    def execute_assignment(self):
+        self.post_exec_env = executor.run_assignment_and_return_env_file(self.abstract_node.cmd, self.pre_exec_env)
+
+    @staticmethod
+    def execute_assignments_and_get_most_recent_spec_pre_env(self, assignment_node_ids: "list[AssignmentNodeId]"):
+        pre_assignment_env = self.get_pre_exec_env_of_chain(assignment_node_ids)
+        prev = ConcreteAssignmentNode(assignment_node_id, self.hsprog.find_node(assignment_node_ids[0]))
+        prev.set_pre_exec_env(pre_assignment_env)
+        prev.execute_assignment()
+        for assignment_node_id in assignment_node_ids[1:]:
+            current_assignment_node = ConcreteAssignmentNode(assignment_node_id, self.hsprog.find_node(assignment_node_id))
+            current_assignment_node.set_pre_exec_env(prev.get_post_exec_env())
+            current_assignment_node.execute_assignment()
+            prev = current_assignment_node
+        return prev.get_post_exec_env()

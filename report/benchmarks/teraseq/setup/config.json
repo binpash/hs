@@ -12,7 +12,8 @@
     "post_hs_commands": [
         "./hash_result.sh > hs_hashes.txt"
     ],
-    "custom_diff_script": "./verify.sh"
+    "custom_diff_script": "./verify.sh",
+    "orch_args": "-d 2"
   },
   {
     "name": "5TERA-short",
@@ -27,7 +28,8 @@
     "post_hs_commands": [
         "./hash_result.sh > hs_hashes.txt"
     ],
-    "custom_diff_script": "./verify.sh"
+    "custom_diff_script": "./verify.sh",
+    "orch_args": "-d 2"
   },
   {
     "name": "5TERA3",
@@ -42,7 +44,8 @@
     "post_hs_commands": [
         "./hash_result.sh > hs_hashes.txt"
     ],
-    "custom_diff_script": "./verify.sh"
+    "custom_diff_script": "./verify.sh",
+    "orch_args": "-d 2"
   },
   {
     "name": "5TERA3-merge",
@@ -54,7 +57,8 @@
     "post_hs_commands": [
         "./hash_result_merge.sh > merge_hs_hashes.txt"
     ],
-    "custom_diff_script": "./verify_merge.sh"
+    "custom_diff_script": "./verify_merge.sh",
+    "orch_args": "-d 2"
   },
   {
     "name": "TERA3",
@@ -69,7 +73,8 @@
     "post_hs_commands": [
         "./hash_result.sh > hs_hashes.txt"
     ],
-    "custom_diff_script": "./verify.sh"
+    "custom_diff_script": "./verify.sh",
+    "orch_args": "-d 2"
   },
   {
     "name": "Akron5Seq",
@@ -84,7 +89,8 @@
     "post_hs_commands": [
         "./hash_result.sh > hs_hashes.txt"
     ],
-    "custom_diff_script": "./verify.sh"
+    "custom_diff_script": "./verify.sh",
+    "orch_args": "-d 2"
   },
   {
     "name": "dRNASeq",
@@ -99,7 +105,8 @@
     "post_hs_commands": [
         "./hash_result.sh > hs_hashes.txt"
     ],
-    "custom_diff_script": "./verify.sh"
+    "custom_diff_script": "./verify.sh",
+    "orch_args": "-d 2"
   },
   {
     "name": "RNASeq",
@@ -114,7 +121,8 @@
     "post_hs_commands": [
         "./hash_result.sh > hs_hashes.txt"
     ],
-    "custom_diff_script": "./verify.sh"
+    "custom_diff_script": "./verify.sh",
+    "orch_args": "-d 2"
   },
   {
     "name": "RiboSeq",
@@ -129,7 +137,8 @@
     "post_hs_commands": [
         "./hash_result.sh > hs_hashes.txt"
     ],
-    "custom_diff_script": "./verify.sh"
+    "custom_diff_script": "./verify.sh",
+    "orch_args": "-d 2"
   },
   {
     "name": "mouse_SIRV",
@@ -144,6 +153,7 @@
     "post_hs_commands": [
         "./hash_result.sh > hs_hashes.txt"
     ],
-    "custom_diff_script": "./verify.sh"
+    "custom_diff_script": "./verify.sh",
+    "orch_args": "-d 2"
   }
 ]

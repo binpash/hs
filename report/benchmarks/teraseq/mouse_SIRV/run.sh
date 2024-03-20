@@ -9,7 +9,7 @@ set -e # dliu
 
 cd /root/TERA-Seq_manuscript/samples # dliu
 
-source ../PARAMS.sh
+. ../PARAMS.sh
 
 threads=6
 assembly="mm10"
@@ -20,7 +20,7 @@ samples="mmu.dRNASeq.inclSIRV.PRJEB27590.ERR2680375.1 mmu.dRNASeq.inclSIRV.PRJEB
 
 echo ">>> SANITIZE FASTQ HEADERS <<<"
 
-source "$INSTALL"/perl-virtualenv/teraseq/bin/activate
+. "$INSTALL"/perl-virtualenv/teraseq/bin/activate
 
 for i in $samples; do
     sdir=$SAMPLE_DIR/$i
@@ -40,7 +40,7 @@ if [ -z "$CONDA_PREFIX" ]; then
     exit
 fi
 
-source "$CONDA_PREFIX"/bin/activate # Source Conda base
+. "$CONDA_PREFIX"/bin/activate # Source Conda base
 conda activate teraseq
 
 echo ">>> ALIGN READS TO RIBOSOMAL (ALL ENSEMBL + SILVA-MOUSE) <<<"
@@ -190,7 +190,7 @@ conda deactivate
 
 echo ">>> SAM TO SQLITE (TRANSCRIPTOME) <<<"
 
-source "$INSTALL"/perl-virtualenv/teraseq/bin/activate
+. "$INSTALL"/perl-virtualenv/teraseq/bin/activate
 
 for i in $samples; do
     sdir=$SAMPLE_DIR/$i

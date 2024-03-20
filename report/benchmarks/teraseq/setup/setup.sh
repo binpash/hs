@@ -21,7 +21,8 @@ tests=(
 # run all download.sh
 for t in "${tests[@]}"
 do
-	test_dir="${bench_teraseq}/samples/$t"
+	test_dir="${teraseq_root}/$t"
+	cd "$test_dir"
 	echo "Downloading for $t"
-	bash ${teraseq_root}/samples/download.sh
+	bash "${test_dir}/download.sh"
 done

@@ -1,4 +1,3 @@
-from itertools import chain
 from enum import Enum, auto
 import logging
 import re
@@ -205,8 +204,9 @@ class ConcreteNode:
     exec_ctxt: ExecCtxt
     exec_result: ExecResult
     spec_pre_env: str
+    assignments: "list[ConcreteAssignmentNode]"
 
-    def __init__(self, cnid: ConcreteNodeId, node: Node, spec_pre_env=None):
+    def __init__(self, cnid: ConcreteNodeId, node: Node, spec_pre_env=None, assignments=[]):
         self.cnid = cnid
         self.abstract_node = node
         self.state = NodeState.INIT
@@ -217,9 +217,10 @@ class ConcreteNode:
         self.exec_ctxt = None
         self.exec_id = None
         self.spec_pre_env = spec_pre_env
+        self.assignments = assignments
 
     def __str__(self):
-        return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt}), spec_pre_env:{self.spec_pre_env})'
+        return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt}, assignments: {self.assignments})'
 
     def __repr__(self):
         return str(self)
@@ -288,6 +289,7 @@ class ConcreteNode:
         assert self.state == NodeState.INIT
         self.state = NodeState.READY
         self.rwset = RWSet(set(), set())
+        # self.spec_pre_env = ConcreteAssignmentNode.execute_assignments_and_get_most_recent_spec_pre_env(assignments)
         # Also, probably unroll here?
 
     def transition_from_ready_to_unsafe(self):
@@ -304,7 +306,7 @@ class ConcreteNode:
         else:
             self.reset_to_ready()
         
-    def reset_to_ready(self):
+    def reset_to_ready(self, assignments: "list[ConcreteAssignmentNode]" = None):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
                               NodeState.SPECULATED]
 
@@ -325,8 +327,10 @@ class ConcreteNode:
 
         self.exec_ctxt = None
         self.exec_result = None
+        if assignments is not None:
+            self.assignments = assignments
         self.state = NodeState.READY
-
+        logging.critical(f"Resetting node {self.id_} assignmens: {self.assignments}")
 
     def start_executing(self, env_file):
         assert self.state == NodeState.READY
@@ -496,6 +500,15 @@ class HSBasicBlock:
         assert len(nodes) == 1
         return nodes[0]
 
+    # Returns the previous node in the basic block
+    # or None if the node is the first node in the basic block
+    def get_prev_node(self, node_id: NodeId) -> Node:
+        node_ids = self.node_ids
+        idx = node_ids.index(node_id)
+        if idx == 0:
+            return None
+        return self.nodes[idx - 1]
+
 class HSProg:
     basic_blocks: list[HSBasicBlock] = []
     block_adjacency: "dict[int, dict[int, CFGEdgeType]]"
@@ -547,6 +560,25 @@ class HSProg:
                 return edge_type, self.basic_blocks[pick_dict[edge_type]]
         assert False
 
+    def get_prev_block(self, bb: HSBasicBlock):
+        for i, next_bbs in self.block_adjacency.items():
+            if bb.bb_id in next_bbs:
+                return self.basic_blocks[i]
+        raise ValueError('no such bb')
+
+    # Returns the previous node of a given node
+    # If it is the first of a basic block, it returns the last node of the previous basic block
+    # If it is the first node of the first basic block, it returns None
+    def get_prev_node(self, node_id: NodeId):
+        for bb in self.basic_blocks:
+            if len(bb.nodes) and bb.nodes[0].id_ == node_id:
+                if bb.bb_id == 0:
+                    return None
+                return self.basic_blocks[bb.bb_id - 1].nodes[-1]
+            for i, node in enumerate(bb.nodes):
+                if node.id_ == node_id:
+                    return bb.nodes[i - 1]
+
     def find_node(self, node_id):
         for bb in self.basic_blocks:
             for node in bb.nodes:
@@ -561,9 +593,11 @@ class HSProg:
 @dataclass
 class AssignmentNodeId:
     id_: int
+    loop_iters: list[int] = None
     
-    def __init__(self, id_: NodeId):
+    def __init__(self, id_: NodeId, loop_iters: list[int] = None):
         self.id_ = id_
+        self.loop_iters = loop_iters
 
     def __hash__(self):
         return hash(str(self))
@@ -575,7 +609,7 @@ class AssignmentNodeId:
         return f'{self.id_}$'
     
     def __repr__(self):
-        return f"aid({self.id_})"
+        return f"aid({self.id_}, {self.loop_iters})"
 
     @staticmethod
     def parse_assignment_node_id(input_str: str):
@@ -586,43 +620,3 @@ class AssignmentNodeId:
     def parse(input_str):
         node_id_str, loop_iters_str = input_str.split('@')
         return AssignmentNodeId(NodeId(int(node_id_str)), [int(cnt) for cnt in loop_iters_str.split('-')[1:]])
-
-## A specialized form of Node representing var assignments.
-class ConcreteAssignmentNode:
-    def __init__(self, aid: AssignmentNodeId, node: Node):
-        self.aid = aid
-        self.abstract_node = node
-        self.state = NodeState.INIT
-        self.pre_exec_env = None
-        self.post_exec_env = None
-        
-    def get_pre_exec_env(self):
-        return self.pre_exec_env
-        
-    def get_post_exec_env(self):
-        return self.post_exec_env
-
-    def set_pre_exec_env(self, pre_exec_env: str):
-        self.pre_exec_env = pre_exec_env
-
-    def set_post_exec_env(self, post_exec_env: str):
-        self.post_exec_env = post_exec_env
-        
-    def __repr__(self):
-        return f'ConcreteAssignmentNode(aid:{self.aid}, assignment:{self.assignment}, state:{self.state}, pre_exec_env:{self.pre_exec_env}, post_exec_env:{self.post_exec_env}, abstract_node:{self.abstract_node})'
-
-    def execute_assignment(self):
-        self.post_exec_env = executor.run_assignment_and_return_env_file(self.abstract_node.cmd, self.pre_exec_env)
-
-    @staticmethod
-    def execute_assignments_and_get_most_recent_spec_pre_env(self, assignment_node_ids: "list[AssignmentNodeId]"):
-        pre_assignment_env = self.get_pre_exec_env_of_chain(assignment_node_ids)
-        prev = ConcreteAssignmentNode(assignment_node_id, self.hsprog.find_node(assignment_node_ids[0]))
-        prev.set_pre_exec_env(pre_assignment_env)
-        prev.execute_assignment()
-        for assignment_node_id in assignment_node_ids[1:]:
-            current_assignment_node = ConcreteAssignmentNode(assignment_node_id, self.hsprog.find_node(assignment_node_id))
-            current_assignment_node.set_pre_exec_env(prev.get_post_exec_env())
-            current_assignment_node.execute_assignment()
-            prev = current_assignment_node
-        return prev.get_post_exec_env()

@@ -8,11 +8,12 @@ import os
 # and traces them with Riker. 
 # All commands are run inside an overlay sandbox.
 
-def run_assignment_and_return_env_file(assignment, pre_execution_env_file):
+def run_assignment_and_return_env_file(assignment: str, pre_execution_env_file: str):
     post_execution_env_file = util.ptempfile()
     logging.debug(f'Running assignment: {assignment} | pre_execution_env_file: {pre_execution_env_file} | post_execution_env_file: {post_execution_env_file}')
     run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_assignment.sh'
     args = ["/bin/bash", run_script, assignment, pre_execution_env_file, post_execution_env_file]
+    logging.debug(args)
     process = subprocess.run(args)
     return post_execution_env_file
 

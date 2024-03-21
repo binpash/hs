@@ -201,10 +201,18 @@ class ConcreteNode:
     # This can only be set while in the frontier and the background node execution is enabled
     # TODO: For now ignore this. Maybe there is a better way to do this.
     # background_sandbox: Sandbox
+
+    # Exists when the node is in EXE or SPEC_EXE or after those states
     exec_ctxt: ExecCtxt
+
+    # Exists when the node is in COMMITED or SPEC_F
     exec_result: ExecResult
+
+    
     spec_pre_env: str
-    assignments: "list[ConcreteAssignmentNode]"
+
+    # Exists when node is in READY
+    assignments: "list[NodeId]"
 
     def __init__(self, cnid: ConcreteNodeId, node: Node, spec_pre_env=None, assignments=[]):
         self.cnid = cnid
@@ -285,10 +293,14 @@ class ConcreteNode:
     ##          Transition Functions        ##
     ##                                      ##
 
-    def transition_from_init_to_ready(self):
+    def transition_from_init_to_ready(self, assignments=None):
         assert self.state == NodeState.INIT
         self.state = NodeState.READY
         self.rwset = RWSet(set(), set())
+        if assignments is not None:
+            self.assignments = assignments
+        else:
+            self.assignments = []
         # self.spec_pre_env = ConcreteAssignmentNode.execute_assignments_and_get_most_recent_spec_pre_env(assignments)
         # Also, probably unroll here?
 
@@ -306,7 +318,7 @@ class ConcreteNode:
         else:
             self.reset_to_ready()
         
-    def reset_to_ready(self, assignments: "list[ConcreteAssignmentNode]" = None):
+    def reset_to_ready(self, assignments: "list[NodeId]" = None):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
                               NodeState.SPECULATED]
 
@@ -329,6 +341,8 @@ class ConcreteNode:
         self.exec_result = None
         if assignments is not None:
             self.assignments = assignments
+        else:
+            self.assignments = []
         self.state = NodeState.READY
         logging.critical(f"Resetting node {self.id_} assignmens: {self.assignments}")
 
@@ -418,17 +432,19 @@ class ConcreteNode:
             "CMD_ID", "STDOUT_FILE", "DIRSTACK", "SECONDS", "TMPDIR",
             "UPDATED_DIRS_AND_MOUNTS", "EPOCHSECONDS", "LATEST_ENV_FILE",
             "TRY_COMMAND", "SRANDOM", "speculate_flag", "EXECUTION_ID",
-            "EPOCHREALTIME", "OLDPWD", "exit_code",
+            "EPOCHREALTIME", "OLDPWD", "exit_code", "BASHPID", "BASH_COMMAND", "BASH_ARGV0",
+            "cmd", "BASH_ARGC", "BASH_ARGV", "BASH_SUBSHELL", "LINENO", "GROUPS", "BASH_SOURCE",
+            "PREVIOUS_SHELL_EC", "pash_previous_exit_status", "filter_vars_file"
         ])
         
 
         re_scalar_string = re.compile(r'declare (?:-x|--)? (\w+)="([^"]*)"')
         re_scalar_int = re.compile(r'declare -i (\w+)="(\d+)"')
         re_array = re.compile(r'declare -a (\w+)=(\([^)]+\))')
+        re_fn = re.compile(r'declare -fx (\w+)=(\([^)]+\))')
 
         def parse_env(content):
             env_vars = {}
-            remaining_lines = []
             for line in content.splitlines():
                 if line.startswith('#') or not line.strip():
                     continue
@@ -439,11 +455,22 @@ class ConcreteNode:
                         if key not in ignore_vars:
                             env_vars[key] = value
                         break
-                else:
-                    remaining_lines.append(line)
-            # we want a key that's not reused in other variables
-            FUNCTION_KEY = 42
-            env_vars[FUNCTION_KEY] = ''.join(remaining_lines)
+            inside_function = False
+            current_function = ''
+            function_body_lines = []
+            for line in content.splitlines():
+                if line.startswith('#') or not line.strip():
+                    continue
+                if not inside_function and not line.startswith('declare') and line.endswith('() '):
+                    inside_function = True
+                    current_function = line[:-len(' () ')]
+                elif inside_function:
+                    function_body_lines.append(line)
+                    if line == '}':
+                        inside_function = False
+                        if not current_function in ignore_vars:
+                            env_vars[current_function] = '\n'.join(function_body_lines)
+                        function_body_lines = []
             return env_vars
 
         with open(self.exec_ctxt.pre_env_file, 'r') as file:
@@ -485,7 +512,7 @@ class HSBasicBlock:
         self.nodes = nodes
 
     def __str__(self):
-        return ''.join([node.cmd.strip() + '\n' for node in self.nodes])
+        return ''.join([node.cmd.strip() + f'\t\t{node.id_}@' + '\n' for node in self.nodes])
 
     @property
     def loop_context(self):
@@ -499,15 +526,6 @@ class HSBasicBlock:
         nodes = [node for node in self.nodes if node.id_ == node_id]
         assert len(nodes) == 1
         return nodes[0]
-
-    # Returns the previous node in the basic block
-    # or None if the node is the first node in the basic block
-    def get_prev_node(self, node_id: NodeId) -> Node:
-        node_ids = self.node_ids
-        idx = node_ids.index(node_id)
-        if idx == 0:
-            return None
-        return self.nodes[idx - 1]
 
 class HSProg:
     basic_blocks: list[HSBasicBlock] = []
@@ -560,25 +578,6 @@ class HSProg:
                 return edge_type, self.basic_blocks[pick_dict[edge_type]]
         assert False
 
-    def get_prev_block(self, bb: HSBasicBlock):
-        for i, next_bbs in self.block_adjacency.items():
-            if bb.bb_id in next_bbs:
-                return self.basic_blocks[i]
-        raise ValueError('no such bb')
-
-    # Returns the previous node of a given node
-    # If it is the first of a basic block, it returns the last node of the previous basic block
-    # If it is the first node of the first basic block, it returns None
-    def get_prev_node(self, node_id: NodeId):
-        for bb in self.basic_blocks:
-            if len(bb.nodes) and bb.nodes[0].id_ == node_id:
-                if bb.bb_id == 0:
-                    return None
-                return self.basic_blocks[bb.bb_id - 1].nodes[-1]
-            for i, node in enumerate(bb.nodes):
-                if node.id_ == node_id:
-                    return bb.nodes[i - 1]
-
     def find_node(self, node_id):
         for bb in self.basic_blocks:
             for node in bb.nodes:
@@ -589,34 +588,3 @@ class HSProg:
     def __str__(self):
         return 'prog:\n' + '\n'.join(
             [f'block {i}:\n' + str(bb) + f'goto block {self.block_adjacency[i]}\n' for i, bb in enumerate(self.basic_blocks)])
-
-@dataclass
-class AssignmentNodeId:
-    id_: int
-    loop_iters: list[int] = None
-    
-    def __init__(self, id_: NodeId, loop_iters: list[int] = None):
-        self.id_ = id_
-        self.loop_iters = loop_iters
-
-    def __hash__(self):
-        return hash(str(self))
-    
-    def __eq__(self, other):
-        return self.id_ == other.id_
-    
-    def __str__(self):
-        return f'{self.id_}$'
-    
-    def __repr__(self):
-        return f"aid({self.id_}, {self.loop_iters})"
-
-    @staticmethod
-    def parse_assignment_node_id(input_str: str):
-        input_str = input_str.strip('@')
-        return AssignmentNodeId(NodeId(int(input_str)))
-
-    @staticmethod
-    def parse(input_str):
-        node_id_str, loop_iters_str = input_str.split('@')
-        return AssignmentNodeId(NodeId(int(node_id_str)), [int(cnt) for cnt in loop_iters_str.split('-')[1:]])

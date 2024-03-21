@@ -87,13 +87,17 @@ class Scheduler:
         self.waiting_for_response[concrete_node_id] = connection
         logging.info(f'Scheduler: Received wait message - {concrete_node_id}.')
         self.latest_env = env_file
-        self.partial_program_order.handle_wait(concrete_node_id, env_file)
-        concrete_node = self.partial_program_order.get_concrete_node(concrete_node_id)
-        if concrete_node.is_committed():
-            self.respond_to_pending_wait(concrete_node_id)
-        elif concrete_node.is_unsafe():
-            util.debug_log(f'unsafe {concrete_node_id}')
-            self.partial_program_order.finish_wait_unsafe(concrete_node_id)
+        if self.partial_program_order.should_handle_wait(concrete_node_id):
+            self.partial_program_order.handle_wait(concrete_node_id, env_file)
+            concrete_node = self.partial_program_order.get_concrete_node(concrete_node_id)
+            if concrete_node.is_committed():
+                self.respond_to_pending_wait(concrete_node_id)
+            elif concrete_node.is_unsafe():
+                util.debug_log(f'unsafe {concrete_node_id}')
+                self.partial_program_order.finish_wait_unsafe(concrete_node_id)
+                self.respond_to_wait_on_unsafe(concrete_node_id)
+        else:
+            util.debug_log(f'ignoring var assignment {concrete_node_id}')
             self.respond_to_wait_on_unsafe(concrete_node_id)
 
     def process_next_cmd(self):

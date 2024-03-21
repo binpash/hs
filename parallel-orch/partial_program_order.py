@@ -1,5 +1,5 @@
 from enum import Enum
-from node import AssignmentNodeId, NodeId, Node, ConcreteNodeId, ConcreteNode, HSProg, HSBasicBlock
+from node import NodeId, Node, ConcreteNodeId, ConcreteNode, HSProg, HSBasicBlock
 import logging
 import util
 from collections import deque
@@ -118,7 +118,7 @@ class PartialProgramOrder:
                 continue  # Start searching from the node after current_node_id
             if start_index_found:
                 if node.assignment:
-                    assignment_nodes.append(AssignmentNodeId(node.id_))
+                    assignment_nodes.append(node.id_)
                 else:
                     next_non_assignment_node = node
                     break
@@ -127,7 +127,6 @@ class PartialProgramOrder:
 
 
     def find_next_concrete_node_and_gather_var_assignments(self, prev_node: ConcreteNodeId, basic_block: HSBasicBlock):
-        logging.info(f"basic_block: {basic_block}, prev_node: {prev_node}")
         next_non_assignment_node, assignment_nodes = self.find_next_non_assignment_node_in_block(basic_block, prev_node)
 
         # If a non-assignment node is found, prepare its ConcreteNodeId. Otherwise, return None.
@@ -138,111 +137,86 @@ class PartialProgramOrder:
 
         return next_concrete_id, assignment_nodes
 
-    def concretize_node_and_update_spec_pre_env(self, concrete_node_id: ConcreteNodeId, assignments: "list[AssignmentNodeId]"):
-        # TODO: If node is already concrete, just update the spec_pre_env
-        # and return the node
-        # Otherwise, create a new concrete node, update spec_pre_env, and return it
-        # Early stop, if there are no other to-be-concrete nodes in the partial order
-        if concrete_node_id is None:
-            return None
+    # def make_new_spec_node_with_assignments(self, prev_node: ConcreteNodeId):
+    #     basic_block = self.hsprog.find_basic_block(prev_node.node_id)
+    #     assert type(prev_node) == ConcreteNodeId, f"Node should be concrete. Given: {type(prev_node)}"
+    #     next_concrete_id, assignment_nodes = self.find_next_concrete_node_and_gather_var_assignments(prev_node, basic_block)
+    #     # We have to look for the next basic block if we didn't find a non-assignment node in the current block.
+    #     while next_concrete_id is None:
+    #         next_basic_block, walked_edges = self.find_next_basic_block(basic_block)
+    #         if not next_basic_block:
+    #             return None, assignment_nodes
+    #         next_node = next_basic_block.nodes[0]
+    #         next_concrete_id, new_assignments, _ = self.find_next_concrete_node_and_gather_var_assignments(prev_node, next_node, next_basic_block)
+    #         assignment_nodes.extend(new_assignments)
 
-        if concrete_node_id in self.concrete_nodes:
-            concrete_node = self.concrete_nodes[concrete_node_id]
-            if not concrete_node.is_ready():
-                concrete_node.reset_to_ready(assignments)
-            elif assignments is not None:
-                concrete_node.assignments = assignments
-        else:
-            concrete_node = ConcreteNode(concrete_node_id, self.hsprog.find_node(concrete_node_id.node_id), assignments=assignments)
-            self.concrete_nodes[concrete_node_id] = concrete_node
-            concrete_node.transition_from_init_to_ready()
-            if concrete_node.command_unsafe():
-                concrete_node.transition_from_ready_to_unsafe()
-        return concrete_node
+    #     return next_concrete_id, assignment_nodes
 
-
-    def make_new_spec_node_with_assignments(self, prev_node: ConcreteNodeId):
-        basic_block = self.hsprog.find_basic_block(prev_node.node_id)
-        assert type(prev_node) == ConcreteNodeId, f"Node should be concrete. Given: {type(prev_node)}"
-        next_concrete_id, assignment_nodes = self.find_next_concrete_node_and_gather_var_assignments(prev_node, basic_block)
-        # We have to look for the next basic block if we didn't find a non-assignment node in the current block.
+    def make_new_spec_node(self, prev_node: ConcreteNodeId):
+        bb = self.hsprog.find_basic_block(prev_node.node_id)
+        next_concrete_id = None
+        assignment_node_ids = []
+        last_abstract_node_id = prev_node.node_id
+        walked_edges = []
+        seen_block_ids = set()
         while next_concrete_id is None:
-            next_basic_block, walked_edges = self.find_next_basic_block(basic_block)
-            if not next_basic_block:
-                return None, assignment_nodes
-            next_node = next_basic_block.nodes[0]
-            next_concrete_id, new_assignments, _ = self.find_next_concrete_node_and_gather_var_assignments(prev_node, next_node, next_basic_block)
-            assignment_nodes.extend(new_assignments)
-
-        return next_concrete_id, assignment_nodes
-
-    # def make_new_spec_node(self, prev_node: ConcreteNodeId):
-    #     bb = self.hsprog.find_basic_block(prev_node.node_id)
-    #     next_concrete_id = None
-    #     if bb.node_ids[-1] != prev_node.node_id:
-    #         i = bb.node_ids.index(prev_node.node_id)
-    #         next_node_id = bb.node_ids[i+1]
-    #         next_node = bb.get_node(next_node_id)
-    #         next_concrete_id = ConcreteNodeId(next_node_id, prev_node.loop_iters)
-    #     else:
-    #         walked_edges = []
-    #         seen_block_ids = set()
-    #         while True:
-    #             if self.hsprog.is_last_block(bb) or bb.bb_id in seen_block_ids:
-    #                 return None
-    #             seen_block_ids.add(bb.bb_id)
-    #             edge_type, next_bb = self.hsprog.guess_next_block(bb)
-    #             walked_edges.append(edge_type)
-    #             if len(next_bb.nodes) > 0:
-    #                 break
-    #             bb = next_bb
-    #         next_node = next_bb.nodes[0]
-    #         next_node_id = next_node.id_
-    #         for edge in walked_edges:
-    #             next_concrete_id = prev_node.do_action(next_node_id, edge)
-    #             prev_node = next_concrete_id
-    #     if (next_concrete_id in self.concrete_nodes and
-    #         not self.concrete_nodes[next_concrete_id].is_ready()):
-    #         self.concrete_nodes[next_concrete_id].reset_to_ready()
-    #     else:
-    #         new_concrete_node = ConcreteNode(next_concrete_id, next_node)
-    #         self.concrete_nodes[next_concrete_id] = new_concrete_node
-    #         new_concrete_node.transition_from_init_to_ready()
-    #         if new_concrete_node.command_unsafe():
-    #             new_concrete_node.transition_from_ready_to_unsafe()
-    #     return next_concrete_id
+            if bb.node_ids[-1] != prev_node.node_id:
+                i = bb.node_ids.index(last_abstract_node_id)
+                next_node_id = bb.node_ids[i+1]
+                next_node = bb.get_node(next_node_id)
+                if next_node.is_assignment():
+                    assignment_node_ids.append(next_node_id)
+                    last_abstract_node_id = next_node_id
+                    continue
+                next_concrete_id = ConcreteNodeId(next_node_id, prev_node.loop_iters)
+            else:
+                while True:
+                    if self.hsprog.is_last_block(bb) or bb.bb_id in seen_block_ids:
+                        return None
+                    seen_block_ids.add(bb.bb_id)
+                    edge_type, next_bb = self.hsprog.guess_next_block(bb)
+                    walked_edges.append(edge_type)
+                    bb = next_bb
+                    if len(next_bb.nodes) > 0:
+                        break
+                next_node = next_bb.nodes[0]
+                next_node_id = next_node.id_
+                if next_node.is_assignment():
+                    assignment_node_ids.append(next_node_id)
+                    last_abstract_node_id = next_node_id
+                    continue
+                for edge in walked_edges:
+                    next_concrete_id = prev_node.do_action(next_node_id, edge)
+                    prev_node = next_concrete_id
+        if (next_concrete_id in self.concrete_nodes and
+            not self.concrete_nodes[next_concrete_id].is_ready()):
+            self.concrete_nodes[next_concrete_id].reset_to_ready(assignment_node_ids)
+        else:
+            new_concrete_node = ConcreteNode(next_concrete_id, next_node)
+            self.concrete_nodes[next_concrete_id] = new_concrete_node
+            new_concrete_node.transition_from_init_to_ready(assignment_node_ids)
+            if new_concrete_node.command_unsafe():
+                new_concrete_node.transition_from_ready_to_unsafe()
+        util.debug_log(f'concrete_id: {next_concrete_id}, assignment_node_ids: {assignment_node_ids}')
+        return next_concrete_id
 
     def get_schedulable_nodes(self, window=2) -> list[ConcreteNodeId]:
-        assert len(self.canon_exec_order) > 0
+        if len(self.canon_exec_order) == 0:
+            util.debug_log('avoid scheduling node with empty canon exec order')
+            return []
         if len(self.spec_exec_order) == 0:
             prev_node = self.canon_exec_order[-1]
         else:
             prev_node = self.spec_exec_order[-1]
         while len(self.spec_exec_order) < window:
-            # GL: Currently this does not work with full CFGs
-            next_concrete_id, assignment_nodes = self.make_new_spec_node_with_assignments(prev_node)
-            concrete_node = self.concretize_node_and_update_spec_pre_env(next_concrete_id, assignment_nodes)
+            next_concrete_id = self.make_new_spec_node(prev_node)
             if next_concrete_id is None:
                 window = len(self.spec_exec_order)
             else:
                 self.spec_exec_order.append(next_concrete_id)
                 prev_node = self.spec_exec_order[-1]
-        self.log_state()
         return [cnid for cnid in self.spec_exec_order[:window]
                 if self.concrete_nodes[cnid].is_ready()]
-
-    def get_closest_concrete_predecessor(self, assignment_node_id: AssignmentNodeId):
-        # This method finds the closest concrete node predecessor of the given assignment node
-        # that has its post_exec_env set, and returns it.
-        # This is used to find the pre_exec_env of the assignment.
-        # If no such node is found, it returns None.
-        assignment_node = self.hsprog.find_node(assignment_node_id.id_)
-        prev_node = self.hsprog.get_prev_node(assignment_node.id_)
-        while prev_node is not None:
-            if ConcreteNodeId(prev_node.id_) in self.concrete_nodes:
-                return self.concrete_nodes[ConcreteNodeId(prev_node.id_)]
-            prev_node = self.hsprog.get_prev_node(prev_node.id_)
-        return None
 
     def get_pre_exec_env_of_concrete_node(self, concrete_node: ConcreteNode):
         candidate_nodes = self.get_all_hypothetical_previous(concrete_node.cnid)
@@ -270,18 +244,6 @@ class PartialProgramOrder:
     #         reachable_rec(n, all_next)
     #     return all_next
 
-
-    # def get_all_previous(self, current_node_id: ConcreteNodeId, visited=None) -> "set[NodeId]":
-    #     all_prev = set()
-    #     def reachable_rec(cur, reachable):
-    #         if cur in reachable:
-    #             return
-    #         reachable.add(cur)
-    #         for n in self.get_prev_nodes(cur):
-    #             reachable_rec(n, reachable)
-    #     for n in self.get_prev_nodes(current_node_id):
-    #         reachable_rec(n, all_prev)
-    #     return all_prev
 
     def get_all_previous(self, current_node_id: ConcreteNodeId):
         if current_node_id in self.canon_exec_order:
@@ -360,16 +322,16 @@ class PartialProgramOrder:
         event_log("schedule_work")
         self.get_concrete_node(concrete_node_id).start_executing(env_file)
 
-    def run_var_assignments_and_get_spec_pre_env(self, env, assignments: "list[AssignmentNodeId]"):
+    def run_var_assignments_and_get_spec_pre_env(self, env, assignments: "list[NodeId]"):
         for assignment in assignments:
-            assignment_node: Node = self.hsprog.find_node(assignment.id_)
+            assignment_node: Node = self.hsprog.find_node(assignment)
             env = run_assignment_and_return_env_file(assignment_node.cmd, env)
         return env
 
     def schedule_spec_work(self, concrete_node_id: ConcreteNodeId, env_file: str):
         event_log("schedule_spec")
         concrete_node = self.get_concrete_node(concrete_node_id)
-        starting_env_node, starting_env  = self.get_pre_exec_env_of_concrete_node(concrete_node)
+        starting_env_node, starting_env = self.get_pre_exec_env_of_concrete_node(concrete_node)
         spec_pre_env = self.run_var_assignments_and_get_spec_pre_env(starting_env, concrete_node.assignments)
         util.debug_log(f"concrete_node_id: {concrete_node_id}")
         self.adjust_to_be_resolved_dict_entry(concrete_node_id)
@@ -410,6 +372,13 @@ class PartialProgramOrder:
         node = self.concrete_nodes[concrete_node_id]
         node.commit_unsafe_node()
 
+    def should_handle_wait(self, concrete_node_id: ConcreteNodeId):
+        node = self.hsprog.find_node(concrete_node_id.node_id)
+        if node.is_assignment():
+            return False
+        else:
+            return True
+        
     def handle_wait(self, concrete_node_id: ConcreteNodeId, env_file: str):
         event_log(f"handle_wait {concrete_node_id}")
 

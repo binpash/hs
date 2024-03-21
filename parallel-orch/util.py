@@ -9,7 +9,7 @@ import re
 import psutil
 import signal
 import analysis
-from node import AssignmentNodeId, Node, NodeId, LoopStack, HSProg, HSBasicBlock
+from node import Node, NodeId, LoopStack, HSProg, HSBasicBlock
 from partial_program_order import PartialProgramOrder
 
 DEBUG_LOG = '[DEBUG_LOG] '
@@ -261,7 +261,6 @@ def parse_partial_program_order_from_file(file_path: str):
     loop_context_start = basic_block_edges_end + 1
     loop_context_end = number_of_nodes + loop_context_start
     loop_context_lines = lines[loop_context_start:loop_context_end]
-    logging.critical(f'Loop context lines: {loop_context_lines}')
     loop_contexts = parse_loop_contexts(loop_context_lines)
     logging.debug(f'Loop contexts: {loop_contexts}')
     

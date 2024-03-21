@@ -197,12 +197,10 @@ class PartialProgramOrder:
             new_concrete_node.transition_from_init_to_ready(assignment_node_ids)
             if new_concrete_node.command_unsafe():
                 new_concrete_node.transition_from_ready_to_unsafe()
-        util.debug_log(f'concrete_id: {next_concrete_id}, assignment_node_ids: {assignment_node_ids}')
         return next_concrete_id
 
     def get_schedulable_nodes(self, window=2) -> list[ConcreteNodeId]:
         if len(self.canon_exec_order) == 0:
-            util.debug_log('avoid scheduling node with empty canon exec order')
             return []
         if len(self.spec_exec_order) == 0:
             prev_node = self.canon_exec_order[-1]
@@ -223,8 +221,12 @@ class PartialProgramOrder:
         for prev_node in reversed(candidate_nodes):
             candidate_concrete_node = self.concrete_nodes[prev_node]
             if candidate_concrete_node.exec_ctxt is not None:
-                if candidate_concrete_node.is_committed() or candidate_concrete_node.is_speculated():
+                if candidate_concrete_node.is_committed():
                     return (candidate_concrete_node, candidate_concrete_node.exec_ctxt.post_env_file)
+                elif candidate_concrete_node.is_speculated():
+                    sandbox_dir = candidate_concrete_node.exec_ctxt.sandbox_dir
+                    post_env_path = candidate_concrete_node.exec_ctxt.post_env_file
+                    return (candidate_concrete_node, util.sandboxed_path(sandbox_dir, post_env_path))
                 else:
                     return (candidate_concrete_node, candidate_concrete_node.exec_ctxt.pre_env_file)
         return None

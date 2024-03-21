@@ -9,7 +9,7 @@ import os
 # All commands are run inside an overlay sandbox.
 
 def run_assignment_and_return_env_file(assignment: str, pre_execution_env_file: str):
-    post_execution_env_file = util.ptempfile()
+    post_execution_env_file = util.ptempfile(prefix='hs_assignment_post_env')
     logging.debug(f'Running assignment: {assignment} | pre_execution_env_file: {pre_execution_env_file} | post_execution_env_file: {post_execution_env_file}')
     run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_assignment.sh'
     args = ["/bin/bash", run_script, assignment, pre_execution_env_file, post_execution_env_file]
@@ -17,10 +17,10 @@ def run_assignment_and_return_env_file(assignment: str, pre_execution_env_file: 
     return post_execution_env_file
 
 def async_run_and_trace_command_return_trace(command, concrete_node_id, execution_id, pre_execution_env_file, speculate_mode=False):
-    trace_file = util.ptempfile()
-    stdout_file = util.ptempfile()
-    stderr_file = util.ptempfile()
-    post_execution_env_file = util.ptempfile()
+    trace_file = util.ptempfile(prefix='hs_trace')
+    stdout_file = util.ptempfile(prefix='hs_stdout')
+    stderr_file = util.ptempfile(prefix='hs_stderr')
+    post_execution_env_file = util.ptempfile(prefix='hs_post_env')
     sandbox_dir, tmp_dir = util.create_sandbox()
     logging.debug(f'Scheduler: Stdout file for: {concrete_node_id} is: {stdout_file}')
     logging.debug(f'Scheduler: Stderr file for: {concrete_node_id} is: {stderr_file}')

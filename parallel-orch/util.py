@@ -17,8 +17,8 @@ DEBUG_LOG = '[DEBUG_LOG] '
 def debug_log(s):
     logging.debug(DEBUG_LOG + s)
 
-def ptempfile():
-    fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX)
+def ptempfile(prefix=''):
+    fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX, prefix=prefix+'_')
     ## TODO: Get a name without opening the fd too if possible
     os.close(fd)
     return name
@@ -29,6 +29,10 @@ def create_sandbox():
     sdir = tempfile.mkdtemp(dir="/tmp/pash_spec/a", prefix="sandbox_")
     tdir = tempfile.mkdtemp(dir="/tmp/pash_spec/b", prefix="sandbox_")
     return sdir, tdir
+
+def sandboxed_path(sandbox_dir, path):
+    return f"{sandbox_dir}/upperdir/{path}"
+
 
 def init_unix_socket(socket_file: str) -> socket.socket:
     server_address = socket_file

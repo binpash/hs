@@ -121,9 +121,6 @@ def parse_string(s):
     # as a read when we handle return value anyway so it's fine
     if s == 'NULL':
         return ''
-    if not s[0] == '"' or not s[-1] == '"':
-        import pdb
-        pdb.set_trace()
     assert s[0] == '"' and s[-1] == '"'
     return bytes(s[1:-1], "utf-8").decode("unicode_escape")
 
@@ -216,6 +213,8 @@ def parse_openat(args, ret):
     else:
         dfd, path, flags, _ = args.split(',', maxsplit=3)
     path = parse_string(path)
+    if len(path) == 0:
+        return []
     if is_absolute(path):
         total_path = path
     else:
@@ -225,7 +224,10 @@ def parse_openat(args, ret):
     return handle_open_common(total_path, flags, ret)
 
 def parse_open(pid, args, ret, ctx):
-    total_path = get_path_first_path(pid, args, ctx)
+    try:
+        total_path = get_path_first_path(pid, args, ctx)
+    except AssertionError:
+        return []
     flags = args.split(',')[1]
     return handle_open_common(total_path, flags, ret)
     

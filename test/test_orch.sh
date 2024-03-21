@@ -334,6 +334,12 @@ test_if()
     $shell $2/test_if.sh
 }
 
+test_cd()
+{
+    local shell=$1
+    $shell $2/test_cd.sh
+}
+
 test_loop()
 {
     local shell=$1

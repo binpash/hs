@@ -6,6 +6,8 @@ RUN apt-get update && apt-get install -y git \
     automake \
     libevent-dev
 
+WORKDIR /
+
 RUN git clone https://github.com/memcached/memcached.git && \
     cd memcached && \
     git checkout c472369fed5981ba8c004d426cee62d5165c47ca && \

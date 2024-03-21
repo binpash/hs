@@ -1,15 +1,14 @@
 FROM ezri/hs
 
 RUN echo "Europe/London" > /etc/timezone \
-    dpkg-reconfigure -f noninteractive tzdata
+    dpkg-reconfigure -f noninteractive tzdata \
     apt-get update && apt-get install -y git \
     gcc \
     tcl8.6 \
     libtool \
     libtool-bin \
     libreadline-dev \
-    tcl8.6-dev \
-    vim
+    tcl8.6-dev
 
 RUN git clone https://github.com/sqlite/sqlite && \
     cd sqlite && \

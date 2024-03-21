@@ -495,6 +495,8 @@ else
     run_test test9_3 # "1 1 1 1 1 1 1 1 2 2 1 1 1" # 15
     run_test test_stdout #"1 1 1 1 1 1" # 6
     run_test test_if
+    run_test test_comments
+    run_test test_function
     run_test test_loop
     run_test test_break
     run_test test_network_access_1 #"1 2 2"

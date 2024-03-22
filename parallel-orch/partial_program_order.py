@@ -160,7 +160,7 @@ class PartialProgramOrder:
         walked_edges = []
         seen_block_ids = set()
         while next_concrete_id is None:
-            if bb.node_ids[-1] != prev_node.node_id:
+            if bb.node_ids[-1] != last_abstract_node_id:
                 i = bb.node_ids.index(last_abstract_node_id)
                 next_node_id = bb.node_ids[i+1]
                 next_node = bb.get_node(next_node_id)

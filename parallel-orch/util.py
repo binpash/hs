@@ -249,14 +249,14 @@ def parse_partial_program_order_from_file(file_path: str):
     basic_block_edges = []
     for line in lines[basic_block_edges_start:basic_block_edges_end]:
         from_block, remain = line.split(' -> ')
-        to_block, edge_type = remain.split(':')
+        to_block, edge_type, aux_info = remain.split(':')
         from_block, to_block = int(from_block), int(to_block)
         edge_type = edge_type.strip()
         if from_block > block_num_max:
             block_num_max = from_block
         if to_block > block_num_max:
             block_num_max = to_block
-        basic_block_edges.append((from_block, to_block, edge_type))
+        basic_block_edges.append((from_block, to_block, edge_type, aux_info))
     hs_prog = HSProg(list(range(block_num_max+1)), basic_block_edges)
 
     # TODO: rewrite loop_context functions to bb_id functions

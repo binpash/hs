@@ -344,7 +344,6 @@ class ConcreteNode:
         else:
             self.assignments = []
         self.state = NodeState.READY
-        logging.critical(f"Resetting node {self.id_} assignmens: {self.assignments}")
 
     def start_executing(self, env_file):
         assert self.state == NodeState.READY
@@ -512,7 +511,7 @@ class HSBasicBlock:
         self.nodes = nodes
 
     def __str__(self):
-        return ''.join([node.cmd.strip() + f'\t\t{node.id_}@' + '\n' for node in self.nodes])
+        return ''.join([node.cmd.strip() + f'  --- {node.id_}@' + '\n' for node in self.nodes])
 
     @property
     def loop_context(self):
@@ -537,8 +536,8 @@ class HSProg:
         for bb_id in range(len(basic_blocks)):
             self.block_adjacency[bb_id] = {}
 
-        for from_bb, to_bb, edge_type in block_edges:
-            self.block_adjacency[from_bb][to_bb] = CFGEdgeType[edge_type]
+        for from_bb, to_bb, edge_type, aux_info in block_edges:
+            self.block_adjacency[from_bb][to_bb] = (CFGEdgeType[edge_type], aux_info)
 
     def is_start_of_block(self, node_id: NodeId):
         for bb in self.basic_blocks:
@@ -568,7 +567,7 @@ class HSProg:
     def guess_next_block(self, bb: HSBasicBlock):
         bb_id = self.basic_blocks.index(bb)
         pick_dict = {}
-        for next_bb_id, edge_type in self.block_adjacency[bb_id].items():
+        for next_bb_id, (edge_type, aux_info) in self.block_adjacency[bb_id].items():
             pick_dict[edge_type] = next_bb_id
         for edge_type in [CFGEdgeType.LOOP_END, CFGEdgeType.LOOP_TAKEN, CFGEdgeType.LOOP_SKIP,
                           CFGEdgeType.LOOP_BACK, CFGEdgeType.LOOP_BEGIN,

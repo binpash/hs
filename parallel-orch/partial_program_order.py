@@ -1,5 +1,5 @@
 from enum import Enum
-from node import NodeId, Node, ConcreteNodeId, ConcreteNode, HSProg, HSBasicBlock
+from node import NodeId, Node, CFGEdgeType, ConcreteNodeId, ConcreteNode, HSProg, HSBasicBlock, HSLoopListContext, loop_iters_do_action, get_loop_list_from_env
 import logging
 import util
 from collections import deque
@@ -14,6 +14,14 @@ def event_log(s):
 def progress_log(s):
     logging.info(PROG_LOG + s)
 
+def simulate_loop_iter_env(env, var, loop_list_context, loop_iters):
+    loop_list = loop_list_context.get_top()
+    try:
+        val = loop_list[loop_iters[0]-1]
+    except IndexError:
+        return env
+    cmd = f'{var}={val}'
+    return run_assignment_and_return_env_file(cmd, env)
 
 class PartialProgramOrder:
     frontier: set  # Set of nodes at the frontier
@@ -30,6 +38,10 @@ class PartialProgramOrder:
     concrete_nodes: "dict[NodeId, Node]"
     temp_new_env: "tuple[NodeId, str]"
 
+    # this keeps track of the loop list context of the last
+    # committed node or loop_list assignment node
+    current_loop_list: HSLoopListContext
+    
     def __init__(self, abstract_nodes: "dict[NodeId, Node]", edges: "dict[NodeId, list[NodeId]]",
                  hs_prog: HSProg):
         self.hsprog = hs_prog
@@ -42,6 +54,7 @@ class PartialProgramOrder:
         self.spec_exec_order: list[ConcreteNodeId] = list()
         self.to_be_resolved: dict[ConcreteNodeId, list[ConcreteNodeId]] = {}
         self.temp_new_env = None
+        self.current_loop_list = HSLoopListContext()
 
     def commit_node(self, node):
         # Logic to handle committing a node
@@ -152,56 +165,141 @@ class PartialProgramOrder:
 
     #     return next_concrete_id, assignment_nodes
 
-    def make_new_spec_node(self, prev_node: ConcreteNodeId):
-        bb = self.hsprog.find_basic_block(prev_node.node_id)
+    def can_speculate_pass(self, prev_node: ConcreteNodeId):
+        abstract_node = self.hsprog.find_node(prev_node.node_id)
+        concrete_node = self.concrete_nodes[prev_node]
+        if not abstract_node.is_loop_list_change():
+            return True
+        if abstract_node.is_assignment():
+            return True
+        if concrete_node.is_speculated() or concrete_node.is_committed():
+            return True
+        return False
+    
+    def create_concrete_node(self, concrete_node_id: ConcreteNodeId, spec_pre_env: str,
+                             loop_list_context: HSLoopListContext):
+        if (concrete_node_id in self.concrete_nodes and
+            not self.concrete_nodes[concrete_node_id].is_ready()):
+            self.concrete_nodes[concrete_node_id].reset_to_ready(spec_pre_env)
+        else:
+            abstract_node = self.hsprog.find_node(concrete_node_id.node_id)
+            new_concrete_node = ConcreteNode(concrete_node_id, abstract_node, loop_list_context)
+            self.concrete_nodes[concrete_node_id] = new_concrete_node
+            new_concrete_node.transition_from_init_to_ready(spec_pre_env)
+            if new_concrete_node.command_unsafe():
+                new_concrete_node.transition_from_ready_to_unsafe()
+    
+    # def make_new_spec_node(self, prev_node: ConcreteNodeId):
+    #     bb = self.hsprog.find_basic_block(prev_node.node_id)
+    #     next_concrete_id = None
+    #     assignment_node_ids = []
+    #     last_abstract_node_id = prev_node.node_id
+    #     walked_edges = []
+    #     seen_block_ids = set()
+    #     while next_concrete_id is None:
+    #         if bb.node_ids[-1] != last_abstract_node_id:
+    #             i = bb.node_ids.index(last_abstract_node_id)
+    #             next_node_id = bb.node_ids[i+1]
+    #             next_node = bb.get_node(next_node_id)
+    #             if next_node.is_assignment():
+    #                 assignment_node_ids.append(next_node_id)
+    #                 last_abstract_node_id = next_node_id
+    #                 continue
+    #             next_concrete_id = ConcreteNodeId(next_node_id, prev_node.loop_iters)
+    #         else:
+    #             while True:
+    #                 if self.hsprog.is_last_block(bb) or bb.bb_id in seen_block_ids:
+    #                     return None
+    #                 seen_block_ids.add(bb.bb_id)
+    #                 edge_type, next_bb = self.hsprog.guess_next_block(bb)
+    #                 walked_edges.append(edge_type)
+    #                 bb = next_bb
+    #                 if len(next_bb.nodes) > 0:
+    #                     break
+    #             next_node = next_bb.nodes[0]
+    #             next_node_id = next_node.id_
+    #             if next_node.is_assignment():
+    #                 assignment_node_ids.append(next_node_id)
+    #                 last_abstract_node_id = next_node_id
+    #                 continue
+    #             for edge in walked_edges:
+    #                 next_concrete_id = prev_node.do_action(next_node_id, edge)
+    #                 prev_node = next_concrete_id
+    #     if (next_concrete_id in self.concrete_nodes and
+    #         not self.concrete_nodes[next_concrete_id].is_ready()):
+    #         self.concrete_nodes[next_concrete_id].reset_to_ready(assignment_node_ids)
+    #     else:
+    #         new_concrete_node = ConcreteNode(next_concrete_id, next_node)
+    #         self.concrete_nodes[next_concrete_id] = new_concrete_node
+    #         new_concrete_node.transition_from_init_to_ready(assignment_node_ids)
+    #         if new_concrete_node.command_unsafe():
+    #             new_concrete_node.transition_from_ready_to_unsafe()
+    #     return next_concrete_id
+
+    def make_new_spec_node(self, prev_node_id: ConcreteNodeId):
+        bb = self.hsprog.find_basic_block(prev_node_id.node_id)
+        prev_node = self.concrete_nodes[prev_node_id]
+        abstract_node = self.hsprog.find_node(prev_node_id.node_id)
+        if (abstract_node.is_loop_list_change() and not abstract_node.is_assignment()
+            and not prev_node.is_committed() and not prev_node.is_speculated()):
+            return None
+        prev_loop_list_context = prev_node.loop_list_context
+        loop_iters = prev_node_id.loop_iters
         next_concrete_id = None
-        assignment_node_ids = []
-        last_abstract_node_id = prev_node.node_id
-        walked_edges = []
-        seen_block_ids = set()
-        while next_concrete_id is None:
+        last_abstract_node_id = prev_node_id.node_id
+        if prev_node.is_committed():
+            pre_env_file = prev_node.exec_ctxt.post_env_file
+        elif prev_node.is_speculated():
+            pre_env_file = util.sandboxed_path(prev_node.exec_ctxt.sandbox_dir,
+                                               prev_node.exec_ctxt.post_env_file)
+        elif prev_node.is_executing():
+            pre_env_file = prev_node.exec_ctxt.pre_env_file
+        else:
+            pre_env_file = prev_node.spec_pre_env
+            assert pre_env_file is not None
+        print(str(self.hsprog))
+        print(f'pre_env_file before {pre_env_file}')
+        if len(open(pre_env_file).read()) == 0:
+            import pdb
+            pdb.set_trace()
+        while True:
             if bb.node_ids[-1] != last_abstract_node_id:
                 i = bb.node_ids.index(last_abstract_node_id)
                 next_node_id = bb.node_ids[i+1]
                 next_node = bb.get_node(next_node_id)
-                if next_node.is_assignment():
-                    assignment_node_ids.append(next_node_id)
-                    last_abstract_node_id = next_node_id
-                    continue
-                next_concrete_id = ConcreteNodeId(next_node_id, prev_node.loop_iters)
             else:
                 while True:
-                    if self.hsprog.is_last_block(bb) or bb.bb_id in seen_block_ids:
+                    if self.hsprog.is_last_block(bb):
                         return None
-                    seen_block_ids.add(bb.bb_id)
-                    edge_type, next_bb = self.hsprog.guess_next_block(bb)
-                    walked_edges.append(edge_type)
+                    edge_type, next_bb, aux_info = self.hsprog.guess_next_block(
+                        bb, loop_iters, prev_loop_list_context)
+                    if edge_type == CFGEdgeType.LOOP_TAKEN:
+                        pre_env_file = simulate_loop_iter_env(pre_env_file, aux_info,
+                                                              prev_loop_list_context,
+                                                              loop_iters)
+                    loop_iters = loop_iters_do_action(loop_iters, edge_type)
                     bb = next_bb
                     if len(next_bb.nodes) > 0:
                         break
-                next_node = next_bb.nodes[0]
+                next_node = bb.nodes[0]
                 next_node_id = next_node.id_
-                if next_node.is_assignment():
-                    assignment_node_ids.append(next_node_id)
-                    last_abstract_node_id = next_node_id
-                    continue
-                for edge in walked_edges:
-                    next_concrete_id = prev_node.do_action(next_node_id, edge)
-                    prev_node = next_concrete_id
-        if (next_concrete_id in self.concrete_nodes and
-            not self.concrete_nodes[next_concrete_id].is_ready()):
-            self.concrete_nodes[next_concrete_id].reset_to_ready(assignment_node_ids)
-        else:
-            new_concrete_node = ConcreteNode(next_concrete_id, next_node)
-            self.concrete_nodes[next_concrete_id] = new_concrete_node
-            new_concrete_node.transition_from_init_to_ready(assignment_node_ids)
-            if new_concrete_node.command_unsafe():
-                new_concrete_node.transition_from_ready_to_unsafe()
-        return next_concrete_id
-
-    def get_schedulable_nodes(self, window=2) -> list[ConcreteNodeId]:
+            if next_node.is_assignment():
+                pre_env_file = next_node.simulate_env(pre_env_file)
+                if next_node.is_loop_list_push():
+                    prev_loop_list_context = prev_loop_list_context.push(
+                        get_loop_list_from_env(pre_env_file))
+                elif next_node.is_loop_list_pop():
+                    prev_loop_list_context = prev_loop_list_context.pop()
+                last_abstract_node_id = next_node_id
+                continue
+            else:
+                cnid = ConcreteNodeId(next_node_id, loop_iters)
+                self.create_concrete_node(cnid, pre_env_file, prev_loop_list_context)
+                return cnid
+                        
+    def try_schedule_spec_nodes(self, window=2) -> list[ConcreteNodeId]:
         if len(self.canon_exec_order) == 0:
-            return []
+            return
         if len(self.spec_exec_order) == 0:
             prev_node = self.canon_exec_order[-1]
         else:
@@ -210,11 +308,11 @@ class PartialProgramOrder:
             next_concrete_id = self.make_new_spec_node(prev_node)
             if next_concrete_id is None:
                 window = len(self.spec_exec_order)
-            else:
-                self.spec_exec_order.append(next_concrete_id)
-                prev_node = self.spec_exec_order[-1]
-        return [cnid for cnid in self.spec_exec_order[:window]
-                if self.concrete_nodes[cnid].is_ready()]
+                break
+            self.spec_exec_order.append(next_concrete_id)
+            prev_node = self.spec_exec_order[-1]
+            if self.concrete_nodes[next_concrete_id].is_ready():
+                self.schedule_spec_work(next_concrete_id)
 
     def get_pre_exec_env_of_concrete_node(self, concrete_node: ConcreteNode):
         candidate_nodes = self.get_all_hypothetical_previous(concrete_node.cnid)
@@ -318,26 +416,25 @@ class PartialProgramOrder:
         self.fetch_fs_actions()
         self._has_fs_deps(concrete_node_id)
 
-    ### external handler events ###
+    def schedule_spec_work(self, concrete_node_id: ConcreteNodeId):
+        event_log("schedule_spec")
+        concrete_node = self.get_concrete_node(concrete_node_id)
+        starting_env_node, starting_env = self.get_pre_exec_env_of_concrete_node(concrete_node)
+        util.debug_log(f"concrete_node_id: {concrete_node_id}")
+        self.adjust_to_be_resolved_dict_entry(concrete_node_id)
+        self.get_concrete_node(concrete_node_id).start_spec_executing(concrete_node.spec_pre_env)
 
-    def schedule_work(self, concrete_node_id: ConcreteNodeId, env_file: str):
-        event_log("schedule_work")
-        self.get_concrete_node(concrete_node_id).start_executing(env_file)
-
-    def run_var_assignments_and_get_spec_pre_env(self, env, assignments: "list[NodeId]"):
+    def simulate_var_assignments(self, env, assignments: "list[NodeId]"):
         for assignment in assignments:
             assignment_node: Node = self.hsprog.find_node(assignment)
             env = run_assignment_and_return_env_file(assignment_node.cmd, env)
         return env
 
-    def schedule_spec_work(self, concrete_node_id: ConcreteNodeId, env_file: str):
-        event_log("schedule_spec")
-        concrete_node = self.get_concrete_node(concrete_node_id)
-        starting_env_node, starting_env = self.get_pre_exec_env_of_concrete_node(concrete_node)
-        spec_pre_env = self.run_var_assignments_and_get_spec_pre_env(starting_env, concrete_node.assignments)
-        util.debug_log(f"concrete_node_id: {concrete_node_id}")
-        self.adjust_to_be_resolved_dict_entry(concrete_node_id)
-        self.get_concrete_node(concrete_node_id).start_spec_executing(spec_pre_env)
+    ### external handler events ###
+
+    def schedule_work(self, concrete_node_id: ConcreteNodeId, env_file: str):
+        event_log("schedule_work")
+        self.get_concrete_node(concrete_node_id).start_executing(env_file)
 
     def handle_complete(self, concrete_node_id: ConcreteNodeId, has_pending_wait: bool,
                         current_env: str):
@@ -346,6 +443,7 @@ class PartialProgramOrder:
         # TODO: complete the state matching
         if node.is_executing():
             node.commit_frontier_execution()
+            self.current_loop_list = node.loop_list_context
             self.adjust_to_be_resolved_dict()
         elif node.is_spec_executing():
             if self.has_fs_deps(concrete_node_id):
@@ -356,6 +454,7 @@ class PartialProgramOrder:
             else:
                 node.finish_spec_execution()
                 if has_pending_wait:
+                    self.current_loop_list = node.loop_list_context
                     node.commit_speculated()
                     self.adjust_to_be_resolved_dict()
         else:
@@ -374,9 +473,15 @@ class PartialProgramOrder:
         node = self.concrete_nodes[concrete_node_id]
         node.commit_unsafe_node()
 
-    def should_handle_wait(self, concrete_node_id: ConcreteNodeId):
+    # Returns whether handle_wait should be called.
+    # This function exists because handle_wait always guarantees the creation of
+    # a concrete_node, but something needs to be handled without concrete_node
+    # (e.g. loop list assignment)
+    def pre_handle_wait(self, concrete_node_id: ConcreteNodeId, env_file: str):
         node = self.hsprog.find_node(concrete_node_id.node_id)
         if node.is_assignment():
+            if node.is_loop_list_change():
+                self.current_loop_list = node.simulate_loop_list(env_file, self.current_loop_list)
             return False
         else:
             return True
@@ -393,8 +498,8 @@ class PartialProgramOrder:
 
         if not concrete_node_id in self.concrete_nodes:
             abstract_node = self.hsprog.find_node(concrete_node_id.node_id)
-            new_concrete_node = ConcreteNode(concrete_node_id, abstract_node)
-            new_concrete_node.transition_from_init_to_ready()
+            new_concrete_node = ConcreteNode(concrete_node_id, abstract_node, self.current_loop_list)
+            new_concrete_node.transition_from_init_to_ready(env_file)
             if new_concrete_node.command_unsafe() or abstract_node.is_assignment():
                 new_concrete_node.transition_from_ready_to_unsafe()
             self.concrete_nodes[concrete_node_id] = new_concrete_node
@@ -434,6 +539,7 @@ class PartialProgramOrder:
                 node.start_executing(env_file)
             else:
                 node.commit_speculated()
+                self.current_loop_list = node.loop_list_context
                 self.adjust_to_be_resolved_dict()
         elif node.is_executing():
             if node.has_env_conflict_with(env_file):

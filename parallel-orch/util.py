@@ -82,6 +82,9 @@ def parse_env_string_to_dict(content):
     # Parse scalar string vars
     scalar_vars_string = re.findall(r'declare (?:-x|--)? (\w+)="([^"]*)"', content, re.DOTALL)
 
+    # regex magic, capturing string with quotation
+    escape_vars_string = re.findall(r"declare (?:-x|--)? (\w+)=\$'((?:\\.|[^'])*)'", content, re.DOTALL)
+
     # Parse scalar integer vars
     scalar_vars_int = re.findall(r'declare -i (\w+)="(\d+)"', content)
 
@@ -92,6 +95,8 @@ def parse_env_string_to_dict(content):
     result = {key: value for key, value in scalar_vars_string}
     result.update({key: int(value) for key, value in scalar_vars_int})
     result.update({key: value for key, value in array_vars})
+    result.update({key: value.encode('ascii').decode('unicode_escape')
+                   for key, value in escape_vars_string})
 
     return result
 
@@ -284,14 +289,12 @@ def parse_partial_program_order_from_file(file_path: str):
         file_path = f'{cmds_directory}/{i}'
         cmd, asts = parse_cmd_from_file(file_path)
         loop_ctx = loop_contexts[i]
-        if i in var_assignments:
-            var_assignment=True
-        else:
-            var_assignment=False
+        var_assignment = (i in var_assignments)
+        is_loop_list_change = cmd.startswith('HS_LOOP_LIST=') or cmd.strip() == 'unset HS_LOOP_LIST'
         ab_nodes[NodeId(i)] = Node(NodeId(i), cmd.strip(),
-                                asts=asts,
-                                basic_block_id=loop_ctx[0],
-                                var_assignment=var_assignment)
+                                   asts, loop_ctx[0],
+                                   var_assignment,
+                                   is_loop_list_change)
         hs_prog.append_node_to(loop_ctx[0], ab_nodes[NodeId(i)])
 
     debug_log(str(hs_prog))

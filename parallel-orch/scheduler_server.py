@@ -87,7 +87,7 @@ class Scheduler:
         self.waiting_for_response[concrete_node_id] = connection
         logging.info(f'Scheduler: Received wait message - {concrete_node_id}.')
         self.latest_env = env_file
-        if self.partial_program_order.should_handle_wait(concrete_node_id):
+        if self.partial_program_order.pre_handle_wait(concrete_node_id, env_file):
             self.partial_program_order.handle_wait(concrete_node_id, env_file)
             concrete_node = self.partial_program_order.get_concrete_node(concrete_node_id)
             if concrete_node.is_committed():
@@ -179,9 +179,7 @@ class Scheduler:
 
 
     def schedule_work(self):
-        concrete_node_ids = self.partial_program_order.get_schedulable_nodes()
-        for n in concrete_node_ids[:2]:
-            self.partial_program_order.schedule_spec_work(n, self.latest_env)
+        self.partial_program_order.try_schedule_spec_nodes()
 
     def run(self):
         ## The first command should be the daemon start

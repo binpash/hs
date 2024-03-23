@@ -257,8 +257,6 @@ class PartialProgramOrder:
         else:
             pre_env_file = prev_node.spec_pre_env
             assert pre_env_file is not None
-        print(str(self.hsprog))
-        print(f'pre_env_file before {pre_env_file}')
         if len(open(pre_env_file).read()) == 0:
             import pdb
             pdb.set_trace()

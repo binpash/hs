@@ -359,6 +359,8 @@ class ConcreteNode:
         return self.exec_result.exit_code, self.exec_ctxt.post_env_file, self.exec_ctxt.stdout
 
     def command_unsafe(self):
+        if len(self.asts) == 0:
+            return True
         return not analysis.safe_to_execute(self.asts, {})
 
     def update_loop_list_context(self):

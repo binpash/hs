@@ -2,7 +2,6 @@ import re
 import logging
 import os.path
 import sys
-import util
 from typing import Tuple
 from dataclasses import dataclass
 
@@ -56,8 +55,8 @@ class RFile:
             all_files.append(RFile(dir))
             current_name = dir
             i += 1
-            if i > 15:
-                util.debug_log(f"{self.fname}")
+            if i > 512:
+                assert False
         return all_files
         
 @dataclass
@@ -77,8 +76,8 @@ class WFile:
             all_files.append(RFile(dir))
             current_name = dir
             i += 1
-            if i > 15:
-                util.debug_log(f"{current_name}")
+            if i > 512:
+                assert False
         return all_files
         
 class Context:
@@ -241,6 +240,11 @@ def get_path_from_fd_path(args):
         a0 = a0[begin:end]
         return os.path.join(a0, a1)
 
+def parse_renameat(pid, args, ret, ctx):
+    path_a = get_path_from_fd_path(args)
+    path_b = get_path_from_fd_path(','.join(args.split(',')[2:]))
+    return WFile(path_a), WFile(path_b)
+
 def parse_r_fd_path(args, ret):
     return RFile(get_path_from_fd_path(args))
 
@@ -291,6 +295,8 @@ def parse_syscall(pid, syscall, args, ret, ctx):
         return parse_w_fd_path(args, ret)
     elif syscall == 'rename':
         return parse_rename(pid, args, ret, ctx)
+    elif syscall in ['renameat', 'renameat2']:
+        return parse_renameat(pid, args, ret, ctx)
     elif syscall == 'symlinkat':
         return parse_symlinkat(pid, args, ret)
     elif syscall == 'clone':

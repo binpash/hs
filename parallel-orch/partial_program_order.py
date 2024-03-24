@@ -247,7 +247,9 @@ class PartialProgramOrder:
         loop_iters = prev_node_id.loop_iters
         next_concrete_id = None
         last_abstract_node_id = prev_node_id.node_id
-        if prev_node.is_committed():
+        if prev_node.is_committed() and prev_node.command_unsafe():
+            pre_env_file = prev_node.spec_pre_env
+        elif prev_node.is_committed():
             pre_env_file = prev_node.exec_ctxt.post_env_file
         elif prev_node.is_speculated():
             pre_env_file = util.sandboxed_path(prev_node.exec_ctxt.sandbox_dir,
@@ -467,8 +469,9 @@ class PartialProgramOrder:
         #         uncommitted_node.reset_to_ready()
         #     # uncommitted_node.start_spec_executing(env_file)
 
-    def finish_wait_unsafe(self, concrete_node_id: ConcreteNodeId):
+    def finish_wait_unsafe(self, concrete_node_id: ConcreteNodeId, env: str):
         node = self.concrete_nodes[concrete_node_id]
+        node.spec_pre_env = env
         node.commit_unsafe_node()
 
     # Returns whether handle_wait should be called.

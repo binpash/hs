@@ -94,7 +94,7 @@ class Scheduler:
                 self.respond_to_pending_wait(concrete_node_id)
             elif concrete_node.is_unsafe():
                 util.debug_log(f'unsafe {concrete_node_id}')
-                self.partial_program_order.finish_wait_unsafe(concrete_node_id)
+                self.partial_program_order.finish_wait_unsafe(concrete_node_id, env_file)
                 self.respond_to_wait_on_unsafe(concrete_node_id)
         else:
             util.debug_log(f'ignoring var assignment {concrete_node_id}')

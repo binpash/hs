@@ -334,6 +334,12 @@ test_if()
     $shell $2/test_if.sh
 }
 
+test_if_2()
+{
+    local shell=$1
+    $shell $2/test_if_2.sh
+}
+
 test_cd()
 {
     local shell=$1
@@ -501,6 +507,7 @@ else
     run_test test9_3 # "1 1 1 1 1 1 1 1 2 2 1 1 1" # 15
     run_test test_stdout #"1 1 1 1 1 1" # 6
     run_test test_if
+    run_test test_if_2
     run_test test_comments
     run_test test_function
     run_test test_loop

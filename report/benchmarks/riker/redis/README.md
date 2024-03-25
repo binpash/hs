@@ -5,7 +5,7 @@
 Or build it yourself by running `docker build -t hs/redis .` from this directory.
 
 Running with HS
-`docker run --privileged --rm ghcr.io/binpash/hs/redis:latest /bin/bash -c 'cd /root/redis && make &>/dev/null &&make clean && time sh /srv/hs/pash-spec.sh /root/redis/redis_build.sh && file /root/redis/src/redis-server'`
+`docker run --privileged --rm ghcr.io/binpash/hs/redis:latest /bin/bash -c 'time /srv/hs/pash-spec.sh /root/redis/redis_build.sh && file /root/redis/src/redis-server'`
 
 ```
 real    0m24.309s

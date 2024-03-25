@@ -430,6 +430,11 @@ class PartialProgramOrder:
             env = run_assignment_and_return_env_file(assignment_node.cmd, env)
         return env
 
+    def reset_speculation(self):
+        for cnid in self.spec_exec_order:
+            self.concrete_nodes[cnid].try_reset_to_ready()
+        self.spec_exec_order = []
+    
     ### external handler events ###
 
     def schedule_work(self, concrete_node_id: ConcreteNodeId, env_file: str):
@@ -493,9 +498,7 @@ class PartialProgramOrder:
         if len(self.spec_exec_order) and concrete_node_id == self.spec_exec_order[0]:
             self.spec_exec_order.pop(0)
         else:
-            for cnid in self.spec_exec_order:
-                self.concrete_nodes[cnid].try_reset_to_ready()
-            self.spec_exec_order = []
+            self.reset_speculation()
 
         if not concrete_node_id in self.concrete_nodes:
             abstract_node = self.hsprog.find_node(concrete_node_id.node_id)
@@ -532,7 +535,7 @@ class PartialProgramOrder:
                 util.debug_log(f'prev_env: {node.exec_ctxt.pre_env_file}, real: {env_file}')
                 node.reset_to_ready()
                 node.start_executing(env_file)
-                self.reset_succeeding_nodes(concrete_node_id, env_file)
+                self.reset_speculation()
             # Optimization: It would make sense to perform the checks independently,
             # and if fs conflict, then update the run after dict.
             elif self.has_fs_deps(concrete_node_id):
@@ -546,10 +549,12 @@ class PartialProgramOrder:
             if node.has_env_conflict_with(env_file):
                 node.reset_to_ready()
                 node.start_executing(env_file)
+                self.reset_speculation()
         elif node.is_spec_executing():
             if node.has_env_conflict_with(env_file):
                 node.reset_to_ready()
                 node.start_executing(env_file)
+                self.reset_speculation()
         else:
             logging.error(f'Error: Node {concrete_node_id} is in an invalid state: {node.state}')
             raise Exception(f'Error: Node {concrete_node_id} is in an invalid state: {node.state}')

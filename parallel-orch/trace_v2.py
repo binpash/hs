@@ -179,11 +179,11 @@ def get_path_at(pid, positions, args, ctx):
 
 def parse_rename(pid, args, ret, ctx):
     path_a, path_b = get_path_at(pid, [0, 1], args, ctx)
-    return WFile(path_a), WFile(path_b)
+    return [WFile(path_a), WFile(path_b)]
 
 def parse_link(pid, args, ret, ctx):
     path_a, path_b = get_path_at(pid, [0, 1], args, ctx)
-    return RFile(path_a), WFile(path_b)
+    return [RFile(path_a), WFile(path_b)]
 
 
 def parse_chdir(pid, args, ret, ctx):

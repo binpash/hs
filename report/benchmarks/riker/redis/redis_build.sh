@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Move to the src directory
-cd src
+cd /root/redis/src
 
 # Regenerate the release.h file
 GIT_SHA1=`(git show-ref --head --hash=8 2> /dev/null || echo 00000000) | head -n1`

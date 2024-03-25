@@ -1,13 +1,16 @@
-FROM ezri/hs
+FROM ghcr.io/binpash/hs:latest
 
-RUN apt-get update && apt-get install -y git \
-    gcc \
-    make \
-    pkg-config
+RUN apt update
+RUN apt install -y git gcc make pkg-config tcl
 
-RUN git clone https://github.com/redis/redis && \
-    cd redis && \
-    git checkout d96f47cf06b1cc24b82109e0e87ac5428517525a && \
-    make .make-prerequisites
+WORKDIR /root
+RUN git clone https://github.com/redis/redis
 
-COPY redis_build.sh /redis/redis_build.sh
+WORKDIR /root/redis
+RUN git checkout d96f47cf06b1cc24b82109e0e87ac5428517525a
+RUN make .make-prerequisites
+
+COPY redis_build.sh /root/redis/redis_build.sh
+RUN chmod +x /root/redis/redis_build.sh
+
+WORKDIR /srv/hs

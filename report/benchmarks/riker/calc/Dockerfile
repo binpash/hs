@@ -1,15 +1,16 @@
-FROM ezri/hs
+FROM ghcr.io/binpash/hs:latest
 
-RUN apt-get update && apt-get install -y git \
-    gcc \
-    make \
-    libreadline-dev \
-    bsdmainutils
+RUN apt-get update
+RUN apt-get install -y git gcc-11 make libreadline-dev bsdmainutils
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 1
 
-WORKDIR /
+WORKDIR /root
+RUN git clone https://github.com/lcn2/calc.git
 
-RUN git clone https://github.com/lcn2/calc.git && \
-    cd calc && \
-    git checkout 3d33c6c6f498d4d391918d34c55fe37191db53d8
+WORKDIR /root/calc
+RUN git checkout 3d33c6c6f498d4d391918d34c55fe37191db53d8
 
-COPY calc_build.sh /calc/calc_build.sh
+COPY calc_build.sh /root/calc/calc_build.sh
+RUN chmod +x /root/calc/calc_build.sh
+
+WORKDIR /srv/hs

@@ -2,7 +2,7 @@
 
 CFLAGS="-std=gnu99 -O2 -Wall -Wextra -DLUA_COMPAT_5_3 -DLUA_USE_LINUX"
 
-cd src
+cd /root/lua-5.4.3/src
 
 gcc $CFLAGS -c `ls *.c | grep -v lua_`
 

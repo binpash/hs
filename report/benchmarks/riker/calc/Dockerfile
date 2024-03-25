@@ -12,5 +12,3 @@ RUN git checkout 3d33c6c6f498d4d391918d34c55fe37191db53d8
 
 COPY calc_build.sh /root/calc/calc_build.sh
 RUN chmod +x /root/calc/calc_build.sh
-
-WORKDIR /srv/hs

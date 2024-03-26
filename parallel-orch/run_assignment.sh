@@ -6,4 +6,6 @@ POST_EXEC_ENV=${3?No Riker env file given}
 
 source "$PASH_TOP/compiler/orchestrator_runtime/speculative/pash_spec_init_setup.sh"
 
-bash -c "source ${PRE_ENV_FILE}; ${ASSIGNMENT_STRING}; source ${RUNTIME_DIR}/pash_declare_vars.sh ${POST_EXEC_ENV}"
+RUN=$(printf 'source %s; %s\n source ${RUNTIME_DIR}/pash_declare_vars.sh %s' "${PRE_ENV_FILE}" "${ASSIGNMENT_STRING}" "${POST_EXEC_ENV}")
+
+bash -c "$RUN"

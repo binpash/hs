@@ -1,8 +1,5 @@
 from datetime import datetime
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 import hashlib
-import numpy as np
 
 class ResultAnalyzer:
     @staticmethod
@@ -11,13 +8,22 @@ class ResultAnalyzer:
         prog_blocks = []
         current_block = []
         block_start_time = None
-
+        next_line = False
+        
         for line in log_lines:
             line: str
             if line.startswith("INFO|") and "[PROG_LOG]" in line and ("[PROG_LOG] canon:" not in line and "[PROG_LOG] spec:" not in line):
+            if next_line and "---" in line:
+                node_id = line.split("---")[1].strip().strip("@")
+                current_block.append((node_id.strip(), state.strip()))
+                next_line = False
+            elif line.startswith("INFO|") and \
+            "[PROG_LOG]" in line and \
+            "] canon:" not in line and \
+            "] spec:" not in line:
                 parts = line.split("|")
                 time_str = parts[1]
-                log_content = parts[2].strip()
+                log_content = " ".join(parts[2:]).strip()
                 if log_content == "[PROG_LOG]":
                     # Start of a new block
                     if current_block:
@@ -38,6 +44,13 @@ class ResultAnalyzer:
                         # print(f"Error parsing line: {line}")
                         pass
 
+                elif "---" in line:
+                    state = log_content.replace("[PROG_LOG] ", "").strip().split()[0]
+                    node_id = log_content.split("---")[1].strip().strip("@")
+                    current_block.append((node_id.strip(), state.strip()))
+                else:
+                    state = log_content.replace("[PROG_LOG] ", "").strip().split()[0]
+                    next_line = True
         # Append the last block if not empty
         if current_block:
             prog_blocks.append((block_start_time, current_block))

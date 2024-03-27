@@ -13,7 +13,8 @@ class ResultAnalyzer:
         block_start_time = None
 
         for line in log_lines:
-            if line.startswith("INFO|") and "[PROG_LOG]" in line:
+            line: str
+            if line.startswith("INFO|") and "[PROG_LOG]" in line and ("[PROG_LOG] canon:" not in line and "[PROG_LOG] spec:" not in line):
                 parts = line.split("|")
                 time_str = parts[1]
                 log_content = parts[2].strip()
@@ -25,8 +26,18 @@ class ResultAnalyzer:
                     block_start_time = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S,%f")
                 else:
                     # Continuing the current block
-                    state, node_id, command = log_content.replace("[PROG_LOG] ", "").split(",", 2)
-                    current_block.append((node_id.strip(), state.strip()))
+                    try:
+                        state = log_content.replace("[PROG_LOG] ", "").split()[0]
+                        node_id = log_content.split("--- ", 1)[-1]
+                        # command = log_content.replace("[PROG_LOG] ", "").rsplit("--- ", 1,)[0].strip()
+                        int(node_id.strip().strip("@"))
+                        print(state)
+                        current_block.append((node_id.strip().strip("@"), state.strip()))
+
+                    except ValueError:
+                        # print(f"Error parsing line: {line}")
+                        pass
+
         # Append the last block if not empty
         if current_block:
             prog_blocks.append((block_start_time, current_block))

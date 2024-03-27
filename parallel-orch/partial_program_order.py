@@ -260,8 +260,7 @@ class PartialProgramOrder:
             pre_env_file = prev_node.spec_pre_env
             assert pre_env_file is not None
         if len(open(pre_env_file).read()) == 0:
-            import pdb
-            pdb.set_trace()
+            raise ValueError(pre_env_file)
         while True:
             if bb.node_ids[-1] != last_abstract_node_id:
                 i = bb.node_ids.index(last_abstract_node_id)

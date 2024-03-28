@@ -84,7 +84,7 @@ class BenchmarkRunner:
             self.results.append((benchmark.name, bash_time, orch_time, 'Yes' if same_results else 'No', diff_lines))
         else:
             diff_lines = ResultAnalyzer.compare_results(bash_output, orch_output)
-            same_results = len(diff_lines) != 0
+            same_results = len(diff_lines) == 0
             self.results.append((benchmark.name, bash_time, orch_time, 'Yes' if same_results else 'No', diff_lines))
 
         # Run cleanup commands if specified

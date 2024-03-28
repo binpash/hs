@@ -12,8 +12,8 @@ class ResultAnalyzer:
         
         for line in log_lines:
             line: str
-            if line.startswith("INFO|") and "[PROG_LOG]" in line and ("[PROG_LOG] canon:" not in line and "[PROG_LOG] spec:" not in line):
             if next_line and "---" in line:
+
                 node_id = line.split("---")[1].strip().strip("@")
                 current_block.append((node_id.strip(), state.strip()))
                 next_line = False
@@ -35,22 +35,13 @@ class ResultAnalyzer:
                     try:
                         state = log_content.replace("[PROG_LOG] ", "").split()[0]
                         node_id = log_content.split("--- ", 1)[-1]
-                        # command = log_content.replace("[PROG_LOG] ", "").rsplit("--- ", 1,)[0].strip()
                         int(node_id.strip().strip("@"))
-                        print(state)
                         current_block.append((node_id.strip().strip("@"), state.strip()))
+                        next_line = False
 
                     except ValueError:
-                        # print(f"Error parsing line: {line}")
-                        pass
+                        next_line = True
 
-                elif "---" in line:
-                    state = log_content.replace("[PROG_LOG] ", "").strip().split()[0]
-                    node_id = log_content.split("---")[1].strip().strip("@")
-                    current_block.append((node_id.strip(), state.strip()))
-                else:
-                    state = log_content.replace("[PROG_LOG] ", "").strip().split()[0]
-                    next_line = True
         # Append the last block if not empty
         if current_block:
             prog_blocks.append((block_start_time, current_block))

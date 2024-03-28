@@ -45,6 +45,13 @@ def is_node_safe(node: CommandNode, variables: dict) -> str:
     ## a command substitution or a primitive.
     ## If so, then we need to tell the original script to execute the command.
 
+    ## We are dealing with a var assignment
+    ## Currently if treated as unsafe, it causes test_if to fail,
+    ## so, for now, we treat them as safe.
+    ## This adds some overhead because we create an overlay for each assignment.
+    if (len(node.arguments) == 0):
+        return True
+
     ## Expand the command argument
     cmd_arg = node.arguments[0]
     exp_state = expand.ExpansionState(variables)

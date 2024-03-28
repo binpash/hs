@@ -17,8 +17,8 @@ DEBUG_LOG = '[DEBUG_LOG] '
 def debug_log(s):
     logging.debug(DEBUG_LOG + s)
 
-def ptempfile():
-    fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX)
+def ptempfile(prefix=''):
+    fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX, prefix=prefix+'_')
     ## TODO: Get a name without opening the fd too if possible
     os.close(fd)
     return name
@@ -29,6 +29,10 @@ def create_sandbox():
     sdir = tempfile.mkdtemp(dir="/tmp/pash_spec/a", prefix="sandbox_")
     tdir = tempfile.mkdtemp(dir="/tmp/pash_spec/b", prefix="sandbox_")
     return sdir, tdir
+
+def sandboxed_path(sandbox_dir, path):
+    return f"{sandbox_dir}/upperdir/{path}"
+
 
 def init_unix_socket(socket_file: str) -> socket.socket:
     server_address = socket_file
@@ -78,6 +82,9 @@ def parse_env_string_to_dict(content):
     # Parse scalar string vars
     scalar_vars_string = re.findall(r'declare (?:-x|--)? (\w+)="([^"]*)"', content, re.DOTALL)
 
+    # regex magic, capturing string with quotation
+    escape_vars_string = re.findall(r"declare (?:-x|--)? (\w+)=\$'((?:\\.|[^'])*)'", content, re.DOTALL)
+
     # Parse scalar integer vars
     scalar_vars_int = re.findall(r'declare -i (\w+)="(\d+)"', content)
 
@@ -88,6 +95,8 @@ def parse_env_string_to_dict(content):
     result = {key: value for key, value in scalar_vars_string}
     result.update({key: int(value) for key, value in scalar_vars_int})
     result.update({key: value for key, value in array_vars})
+    result.update({key: value.encode('ascii').decode('unicode_escape')
+                   for key, value in escape_vars_string})
 
     return result
 
@@ -214,6 +223,9 @@ def parse_loop_contexts(lines):
         loop_contexts[node_id] = loop_ctx
     return loop_contexts
 
+def parse_var_assignment_lines(lines: "list[str]") -> list[int]:
+    return {int(line.split("-var")[0]) for line in lines}
+    
 def parse_partial_program_order_from_file(file_path: str):
     with open(file_path) as f:
         raw_lines = f.readlines()
@@ -242,14 +254,14 @@ def parse_partial_program_order_from_file(file_path: str):
     basic_block_edges = []
     for line in lines[basic_block_edges_start:basic_block_edges_end]:
         from_block, remain = line.split(' -> ')
-        to_block, edge_type = remain.split(':')
+        to_block, edge_type, aux_info = remain.split(':')
         from_block, to_block = int(from_block), int(to_block)
         edge_type = edge_type.strip()
         if from_block > block_num_max:
             block_num_max = from_block
         if to_block > block_num_max:
             block_num_max = to_block
-        basic_block_edges.append((from_block, to_block, edge_type))
+        basic_block_edges.append((from_block, to_block, edge_type, aux_info))
     hs_prog = HSProg(list(range(block_num_max+1)), basic_block_edges)
 
     # TODO: rewrite loop_context functions to bb_id functions
@@ -260,9 +272,16 @@ def parse_partial_program_order_from_file(file_path: str):
     loop_context_lines = lines[loop_context_start:loop_context_end]
     loop_contexts = parse_loop_contexts(loop_context_lines)
     logging.debug(f'Loop contexts: {loop_contexts}')
+    
+    var_assignment_lines = int(lines[loop_context_end])
+    var_assignment_start = loop_context_end + 1
+    var_assignment_end = var_assignment_start + var_assignment_lines
+    var_assignment_lines = lines[var_assignment_start:var_assignment_end]
+    var_assignments = parse_var_assignment_lines(var_assignment_lines)
+    logging.debug(f'Var assignments: {var_assignments}')
 
     ## The rest of the lines are edge_lines
-    edge_lines = lines[loop_context_end:]
+    edge_lines = lines[var_assignment_end:]
     logging.debug(f'Edges: {edge_lines}')
 
     ab_nodes = {}
@@ -270,10 +289,14 @@ def parse_partial_program_order_from_file(file_path: str):
         file_path = f'{cmds_directory}/{i}'
         cmd, asts = parse_cmd_from_file(file_path)
         loop_ctx = loop_contexts[i]
+        var_assignment = (i in var_assignments)
+        is_loop_list_change = cmd.startswith('HS_LOOP_LIST=') or cmd.strip() == 'unset HS_LOOP_LIST'
         ab_nodes[NodeId(i)] = Node(NodeId(i), cmd.strip(),
-                                   asts=asts,
-                                   basic_block_id=loop_ctx[0])
+                                   asts, loop_ctx[0],
+                                   var_assignment,
+                                   is_loop_list_change)
         hs_prog.append_node_to(loop_ctx[0], ab_nodes[NodeId(i)])
+
     debug_log(str(hs_prog))
     edges = {NodeId(i) : [] for i in range(number_of_nodes)}
     for edge_line in edge_lines:

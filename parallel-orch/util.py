@@ -41,7 +41,7 @@ def delete_sandbox(sandbox):
     if not sandbox.startswith('/tmp/pash_spec/a'):
         breakpoint()
     assert sandbox.startswith('/tmp/pash_spec/a')
-    shutil.rmtree(os.path.join(sandbox, 'upperdir'))
+    shutil.rmtree(os.path.join(sandbox, 'upperdir'), ignore_errors=True)
 
 def sandboxed_path(sandbox_dir, path):
     return f"{sandbox_dir}/upperdir/{path}"

@@ -10,7 +10,7 @@ export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
 
 sudo mkdir -p /sys/fs/cgroup/frontier
 total_mem=$(free | awk '/Mem:/ { print $2 }')
-protected_mem=$(python3 -c "print(int(${total_mem}*0.75))")
+protected_mem=$(python3 -c "print(int(${total_mem}*0.75) << 10)")
 sudo bash -c "echo $protected_mem > /sys/fs/cgroup/frontier/memory.min"
 
 ## Generate a temporary directory to store the workfiles

@@ -16,15 +16,6 @@ export EXECUTION_ID=${10?No execution id given}
 ## GL 2023-07-08: Tests seem to pass without it
 source "$PASH_TOP/compiler/orchestrator_runtime/speculative/pash_spec_init_setup.sh"
 
-# if [ "speculate" == "$EXEC_MODE" ]; then
-#     export speculate_flag=1
-# elif [ "standard" == "$EXEC_MODE" ]; then
-#     export speculate_flag=0
-# else
-#     echo "$$: Unknown value ${EXEC_MODE} for execution mode" 1>&2
-#     exit 1
-# fi
-
 # mkdir -p /tmp/pash_spec/a
 # mkdir -p /tmp/pash_spec/b
 # export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/a/sandbox_XXXXXXX)/"

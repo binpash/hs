@@ -287,6 +287,9 @@ class PartialProgramOrder:
                 continue
             else:
                 cnid = ConcreteNodeId(next_node_id, loop_iters)
+                util.debug_log(f'pick {pre_env_file} as pre_env_file')
+                pre_env_file = util.cp_to_ptmpfile(pre_env_file, 'hs_spec_pre_env')
+                util.debug_log(f'copied to {pre_env_file}')
                 self.create_concrete_node(cnid, pre_env_file, prev_loop_list_context)
                 return cnid
                         
@@ -306,20 +309,6 @@ class PartialProgramOrder:
             prev_node = self.spec_exec_order[-1]
             if self.concrete_nodes[next_concrete_id].is_ready():
                 self.schedule_spec_work(next_concrete_id)
-
-    def get_pre_exec_env_of_concrete_node(self, concrete_node: ConcreteNode):
-        candidate_nodes = self.get_all_hypothetical_previous(concrete_node.cnid)
-        for prev_node in reversed(candidate_nodes):
-            candidate_concrete_node = self.concrete_nodes[prev_node]
-            if candidate_concrete_node.is_committed():
-                return (candidate_concrete_node, candidate_concrete_node.exec_ctxt.post_env_file)
-            elif candidate_concrete_node.is_speculated():
-                sandbox_dir = candidate_concrete_node.exec_ctxt.sandbox_dir
-                post_env_path = candidate_concrete_node.exec_ctxt.post_env_file
-                return (candidate_concrete_node, util.sandboxed_path(sandbox_dir, post_env_path))
-            else:
-                return (candidate_concrete_node, candidate_concrete_node.exec_ctxt.pre_env_file)
-        assert False
 
     # def get_prev_nodes(self, concrete_node_id: ConcreteNodeId) -> "list[ConcreteNodeId]":
     #     return self.exec_order[concrete_node_id][:]

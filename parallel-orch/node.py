@@ -429,6 +429,7 @@ class ConcreteNode:
             # Exceptions will be handled inside the call so we don't have to worry
             util.kill_process_tree(process.pid, sig=signal.SIGKILL)
 
+        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.exec_ctxt = None
         self.exec_result = None
         if spec_pre_env is not None:
@@ -457,6 +458,7 @@ class ConcreteNode:
         self.gather_fs_actions()
         self.update_loop_list_context()
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
 
     def finish_spec_execution(self):
@@ -468,6 +470,7 @@ class ConcreteNode:
     def commit_speculated(self):
         assert self.state == NodeState.SPECULATED
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
 
     def transition_from_stopped_to_executing(self, env_file=None):

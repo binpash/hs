@@ -16,6 +16,12 @@ export EXECUTION_ID=${10?No execution id given}
 ## GL 2023-07-08: Tests seem to pass without it
 source "$PASH_TOP/compiler/orchestrator_runtime/speculative/pash_spec_init_setup.sh"
 
+if [ "standard" == "$EXEC_MODE" ]; then
+    echo $$ > /sys/fs/cgroup/frontier/cgroup.procs
+elif [ "speculate" == "$EXEC_MODE" ]; then
+    renice 20 -p $$
+fi
+
 # mkdir -p /tmp/pash_spec/a
 # mkdir -p /tmp/pash_spec/b
 # export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/a/sandbox_XXXXXXX)/"

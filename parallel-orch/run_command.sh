@@ -19,7 +19,7 @@ source "$PASH_TOP/compiler/orchestrator_runtime/speculative/pash_spec_init_setup
 if [ "standard" == "$EXEC_MODE" ]; then
     echo $$ > /sys/fs/cgroup/frontier/cgroup.procs
 elif [ "speculate" == "$EXEC_MODE" ]; then
-    renice 20 -p $$
+    renice 20 -p $$ >/dev/null
 fi
 
 # mkdir -p /tmp/pash_spec/a

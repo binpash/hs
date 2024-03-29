@@ -429,6 +429,7 @@ class ConcreteNode:
             # Exceptions will be handled inside the call so we don't have to worry
             util.kill_process_tree(process.pid, sig=signal.SIGKILL)
 
+        process.wait()
         util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.exec_ctxt = None
         self.exec_result = None

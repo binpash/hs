@@ -13,7 +13,7 @@ def run_assignment_and_return_env_file(assignment: str, pre_execution_env_file: 
     logging.debug(f'Running assignment: {assignment} | pre_execution_env_file: {pre_execution_env_file} | post_execution_env_file: {post_execution_env_file}')
     run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_assignment.sh'
     args = ["/bin/bash", run_script, assignment, pre_execution_env_file, post_execution_env_file]
-    process = subprocess.run(args, stderr=subprocess.PIPE, text=True)
+    process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return post_execution_env_file
 
 def async_run_and_trace_command_return_trace(command, concrete_node_id, execution_id, pre_execution_env_file, speculate_mode=False):

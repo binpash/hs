@@ -352,7 +352,7 @@ class ConcreteNode:
         execute_func = executor.async_run_and_trace_command_return_trace
         # Set the execution id
         self.exec_id = util.generate_id()
-        self.exec_ctxt = ExecCtxt(*execute_func(cmd, self.cnid, self.exec_id, env_file))
+        self.exec_ctxt = ExecCtxt(*execute_func(cmd, self.cnid, self.exec_id, env_file, speculate))
 
     def execution_outcome(self) -> Tuple[int, str, str]:
         assert self.exec_result is not None
@@ -369,7 +369,21 @@ class ConcreteNode:
                                                 self.exec_ctxt.post_env_file)
             new_loop_list = get_loop_list_from_env(real_env_path)
             self.loop_list_context = self.loop_list_context.push(new_loop_list)
-        
+
+    def guess_post_env(self):
+        if self.command_unsafe():
+            env_file = self.spec_pre_env
+        elif self.is_committed():
+            env_file = self.exec_ctxt.post_env_file
+        elif self.is_speculated():
+            env_file = util.sandboxed_path(self.exec_ctxt.sandbox_dir,
+                                               self.exec_ctxt.post_env_file)
+        elif self.is_executing():
+            env_file = self.exec_ctxt.pre_env_file
+        else:
+            env_file = self.spec_pre_env
+        assert env_file is not None
+        return env_file
     ##                                      ##
     ##          Transition Functions        ##
     ##                                      ##
@@ -415,6 +429,8 @@ class ConcreteNode:
             # Exceptions will be handled inside the call so we don't have to worry
             util.kill_process_tree(process.pid, sig=signal.SIGKILL)
 
+        process.wait()
+        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.exec_ctxt = None
         self.exec_result = None
         if spec_pre_env is not None:
@@ -432,19 +448,22 @@ class ConcreteNode:
         self.start_command(env_file, speculate=True)
         self.state = NodeState.SPEC_EXECUTING
 
-    def commit_frontier_execution(self):
-        assert self.state == NodeState.EXECUTING
+    def collect_result(self):
+        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         self.exec_ctxt.process.wait()
         self.exec_result = ExecResult(self.exec_ctxt.process.returncode, self.exec_ctxt.process.pid)
+        return self.exec_result.exit_code == 137
+        
+    def commit_frontier_execution(self):
+        assert self.state == NodeState.EXECUTING
         self.gather_fs_actions()
         self.update_loop_list_context()
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
 
     def finish_spec_execution(self):
         assert self.state == NodeState.SPEC_EXECUTING
-        self.exec_ctxt.process.wait()
-        self.exec_result = ExecResult(self.exec_ctxt.process.returncode, self.exec_ctxt.process.pid)
         self.update_loop_list_context()
         self.gather_fs_actions()
         self.state = NodeState.SPECULATED
@@ -452,6 +471,7 @@ class ConcreteNode:
     def commit_speculated(self):
         assert self.state == NodeState.SPECULATED
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
 
     def transition_from_stopped_to_executing(self, env_file=None):

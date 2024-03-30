@@ -8,6 +8,11 @@
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(realpath $(dirname $0))}
 export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
 
+sudo mkdir -p /sys/fs/cgroup/frontier
+total_mem=$(free | awk '/Mem:/ { print $2 }')
+protected_mem=$(python3 -c "print(int(${total_mem}*0.75) << 10)")
+sudo bash -c "echo $protected_mem > /sys/fs/cgroup/frontier/memory.min"
+
 ## Generate a temporary directory to store the workfiles
 mkdir -p /tmp/pash_spec
 
@@ -23,3 +28,5 @@ export PASH_SPEC_SCHEDULER_SOCKET="${PASH_SPEC_TMP_PREFIX}/scheduler_socket"
 ## TODO: Replace this with a call to pa.sh (which will start the scheduler on its own).
 # python3 "$PASH_SPEC_TOP/parallel-orch/orch.py" "$@"
 "$PASH_TOP/pa.sh" --speculative "$@"
+
+sudo rmdir /sys/fs/cgroup/frontier

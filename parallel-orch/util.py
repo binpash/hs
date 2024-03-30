@@ -9,6 +9,7 @@ import re
 import psutil
 import signal
 import analysis
+import shutil
 from node import Node, NodeId, LoopStack, HSProg, HSBasicBlock
 from partial_program_order import PartialProgramOrder
 
@@ -23,6 +24,12 @@ def ptempfile(prefix=''):
     os.close(fd)
     return name
 
+def cp_to_ptmpfile(source, prefix=''):
+    fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX, prefix=prefix+'_')
+    os.close(fd)
+    shutil.copy(source, name)
+    return name
+
 def create_sandbox():
     os.makedirs("/tmp/pash_spec/a", exist_ok=True)
     os.makedirs("/tmp/pash_spec/b", exist_ok=True)
@@ -30,9 +37,14 @@ def create_sandbox():
     tdir = tempfile.mkdtemp(dir="/tmp/pash_spec/b", prefix="sandbox_")
     return sdir, tdir
 
+def delete_sandbox(sandbox):
+    if not sandbox.startswith('/tmp/pash_spec/a'):
+        breakpoint()
+    assert sandbox.startswith('/tmp/pash_spec/a')
+    shutil.rmtree(os.path.join(sandbox, 'upperdir'), ignore_errors=True)
+
 def sandboxed_path(sandbox_dir, path):
     return f"{sandbox_dir}/upperdir/{path}"
-
 
 def init_unix_socket(socket_file: str) -> socket.socket:
     server_address = socket_file

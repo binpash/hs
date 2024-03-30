@@ -243,7 +243,7 @@ def get_path_from_fd_path(args):
 def parse_renameat(pid, args, ret, ctx):
     path_a = get_path_from_fd_path(args)
     path_b = get_path_from_fd_path(','.join(args.split(',')[2:]))
-    return WFile(path_a), WFile(path_b)
+    return [WFile(path_a), WFile(path_b)]
 
 def parse_r_fd_path(args, ret):
     return RFile(get_path_from_fd_path(args))
@@ -386,7 +386,7 @@ def main(fname):
     with open(fname) as f:
         for l in f:
             record = parse_line(l, ctx)
-            if record:
+            if record: 
                 print(record)
 
 if __name__ == '__main__':

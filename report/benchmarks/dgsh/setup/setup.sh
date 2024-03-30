@@ -18,16 +18,19 @@ cd "$download_dir"
 echo "Downloading dgsh datasets..."
 
 # #1
-if [[ ! -f dblp.xml ]]; then
+if [[ ! -f "dblp.xml" ]]; then
     wget -nc https://atlas-group.cs.brown.edu/data/dblp/dblp.xml.gz
     gunzip dblp.xml.gz
     $inflate dblp.xml 1G
 fi
 
-if [[ ! -f fid ]]; then
+# 17
+if [[ ! -f "goods_classification.csv" ]]; then
     wget -nc -O "trade.zip"  https://www.stats.govt.nz/assets/Uploads/International-trade/International-trade-December-2020-quarter/Download-data/international-trade-december-2020-quarter-csv.zip
-    unzip -j "trade.zip"
+    gunzip -j "trade.zip"
     rm -rf "trade.zip"
+    $inflate goods_classification.csv 100M
+    $inflate goods_classification.csv 1G
 fi
 
 # Inputs for #5, #6, #8

@@ -60,7 +60,7 @@ done
 truncate -s "$target_size_bytes" "$temp_file"
 
 # Rename the temporary file to the original file name
-mv "$temp_file" "$target_size$input_file"
+mv "$temp_file" "$target_size-$input_file"
 
 # Calculate percentage of inflation
 percentage_inflation=$(( (($target_size_bytes - $input_size) * 100) / $input_size ))

@@ -1,4 +1,4 @@
-FROM ghcr.io/binpash/hs:latest
+FROM hs
 
 RUN echo "Europe/London" > /etc/timezone \
     dpkg-reconfigure -f noninteractive tzdata \
@@ -10,7 +10,7 @@ RUN echo "Europe/London" > /etc/timezone \
     libreadline-dev \
     tcl8.6-dev
 
-WORKDIR /srv/sqlite
+WORKDIR /root/sqlite
 
 RUN git clone https://github.com/sqlite/sqlite . && \
     git checkout c1cace0832fa2af5ab8315e217d708c09d586425 && \
@@ -19,7 +19,6 @@ RUN git clone https://github.com/sqlite/sqlite . && \
 COPY sqlite_build.sh .
 RUN chmod +x sqlite_build.sh
 
-WORKDIR /srv/hs
 
 
 

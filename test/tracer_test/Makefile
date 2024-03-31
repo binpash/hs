@@ -1,4 +1,4 @@
-objs = chdir pid fork symlink getcwd retval mkdir
+objs = chdir pid fork symlink getcwd retval mkdir renameat2
 
 CFLAGS=-O2
 

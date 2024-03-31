@@ -67,69 +67,76 @@ run_test()
 {
     cleanup
     local test=$1
-    local repetitions="$2"
+    shift # Move past the test name to process potential execution time limit and repetitions
+    local execution_time_limit=$1
+    shift # Move past the execution time limit (could be empty if not specified)
+    local repetitions=("$@") # Remaining arguments are treated as repetitions
 
     if [ "$(type -t $test)" != "function" ]; then
         echo "$test is not a function!   FAIL"
         return 1
     fi
 
-    echo -n "Running $test..."
-    # Run test with bash
-    output_diff=0
+    printf "Running %-35s" "$test..."
+
+    # Bash execution
+    failure_reason="" # Variable to store the reason of failure
     export test_output_dir="$WORKING_DIR/output_bash"
-    $test "$bash" "$TEST_SCRIPT_DIR" "$test_output_dir"  > "$test_output_dir/stdout" 2> /dev/null
+    $test "$bash" "$TEST_SCRIPT_DIR" "$test_output_dir" "$execution_time_limit" "${repetitions[@]}" > "$test_output_dir/stdout" 2> /dev/null
     test_bash_ec=$?
 
-     # Run test with orch
+    # Orch execution
     export test_output_dir="$WORKING_DIR/output_orch"
-    stderr_file="$(mktemp)"
-    ## Print stderr
-    if [ $DEBUG -ge 1 ]; then 
-        $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir"  2>&1 > "$test_output_dir/stdout" | tee "$stderr_file" 1>&2
-        test_orch_ec=$?
-    else
-        $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir"  2>"$stderr_file" > "$test_output_dir/stdout"
-        test_orch_ec=$?
+    TIMEFORMAT='%3R'; time ( $test "$orch" "$TEST_SCRIPT_DIR" "$test_output_dir" "$execution_time_limit" "${repetitions[@]}" > "$test_output_dir/stdout" 2> "$test_output_dir/test_stderr" ) 2> "$test_output_dir/time_output"
+    test_orch_ec=$?
+
+    # If debug is set, print the stderr
+    if [ "$DEBUG" -gt 1 ]; then
+        cat "$test_output_dir/test_stderr"
     fi
 
-    diff -q "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/" > /dev/null
+    local actual_execution_time=$(cat "$test_output_dir/time_output")
+
+    # Check diffs
+    diff --recursive --exclude="time_output" --exclude="test_stderr" "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/"
     test_diff_ec=$?
-    # Test repetitions
-    if [ ! -z "$repetitions" ]; then
-        test_repetitions "$repetitions" "$stderr_file"
-        test_repetitions_ec=$?
-    else
-        test_repetitions_ec=0
+
+    test_execution_time_ec=0
+    # Execution time testing
+    if [ ! -z "$execution_time_limit" ] && (( $(echo "$actual_execution_time > $execution_time_limit" | bc -l) )); then
+        failure_reason="(?) Execution time exceeded: Limit: $execution_time_limit sec, Actual: $actual_execution_time sec"
+        test_execution_time_ec=1
+        echo "$test $failure_reason" >> $output_dir/result_status
     fi
 
-    ## Check if the two exit codes are both success or both error
-    test $test_bash_ec == $test_orch_ec 
-    test_ec=$?
-    if [ $test_diff_ec -ne 0 ]; then
-        echo -n " (!) output mismatch "
-        diff "$WORKING_DIR/output_bash/" "$WORKING_DIR/output_orch/"
-    else
-        ## TODO: Don't have an else branch here (to show all errors at once)
-        if [ $test_ec -ne 0 ]; then
-            echo -n " (!) EC mismatch [$test_bash_ec-$test_orch_ec]"
-            output_diff=1
-
-        else
-            echo -ne '\t\t\t'
+    # Test repetitions if specified
+    if [ "${#repetitions[@]}" -gt 0 ]; then
+        test_repetitions "${repetitions[*]}" "$stderr_file"
+        test_repetitions_ec=$?
+        if [ $test_repetitions_ec -ne 0 ]; then
+            failure_reason=${failure_reason:-"(?) Repetitions mismatch"}
         fi
     fi
-    if [ $test_repetitions_ec -ne 0 ]; then
-        echo -n " (!) Repetitions mismatch"
+
+    # Evaluate results
+    if [ $test_diff_ec -ne 0 ]; then
+        failure_reason=${failure_reason:-"(!) Output mismatch"}
     fi
-    if [ $test_diff_ec -ne 0 ] || [ $output_diff -ne 0 ] || [ $test_repetitions_ec -ne 0 ]; then
-        echo "$test are not identical" >> $output_dir/result_status
-        echo -e '\t\tFAIL'
-        return 1
+
+    if [ $test_bash_ec -ne $test_orch_ec ]; then
+        failure_reason=${failure_reason:-"EC mismatch [$test_bash_ec-$test_orch_ec]"}
+    fi
+
+    if [ -n "$failure_reason" ]; then
+        echo -en "FAIL | Time: $actual_execution_time sec | $failure_reason\n"
     else
-        echo "$test are identical" >> $output_dir/result_status
-        echo -e '\tOK'
-        return 0
+        echo -en "OK   | Time: $actual_execution_time sec\n"
+    fi
+
+    if [ "${test_diff_ec:-0}" -ne 0 ] || [ "${test_repetitions_ec:-0}" -ne 0 ] || [ "${test_execution_time_ec:-0}" -ne 0 ]; then
+        echo "$test: FAIL" >> $output_dir/result_status
+    else
+        echo "$test: OK" >> $output_dir/result_status
     fi
 }
 
@@ -309,10 +316,34 @@ test_stdout()
     $shell $2/test_stdout.sh
 }
 
+test_comments()
+{
+    local shell=$1
+    $shell "$2/test_comments.sh"
+}
+
+test_function()
+{
+    local shell=$1
+    $shell "$2/test_function.sh"
+}
+
 test_if()
 {
     local shell=$1
     $shell $2/test_if.sh
+}
+
+test_if_2()
+{
+    local shell=$1
+    $shell $2/test_if_2.sh
+}
+
+test_cd()
+{
+    local shell=$1
+    $shell $2/test_cd.sh
 }
 
 test_loop()
@@ -394,16 +425,62 @@ test_early_stop2()
     $shell $2/test_early_stop2.sh
 }
 
+test_timed_execution()
+{
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in2
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in3
+    local shell=$1
+    $shell $2/test_timed_execution.sh
+}
+
+test_timed_loop()
+{
+    local shell=$1
+    $shell $2/test_timed_loop.sh
+}
+
 ## TODO: make more loop tests with nested loops and commands after the loop
 
-# We run all tests composed with && to exit on the first that fails
-if [ "$#" -eq 0 ]; then 
+# Arg parsing
+if [ "$#" -gt 0 ]; then
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            test*)
+                current_test=$1
+                shift # Move past the test name
+                execution_time_limit=""
+                declare -a repetitions=()
+
+                # Check if the next argument is numeric for the execution time limit
+                if [[ "$1" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+                    execution_time_limit=$1
+                    shift # Move past the execution time limit
+                fi
+
+                # All subsequent numeric arguments are repetitions
+                while [[ "$1" =~ ^[0-9]+$ ]]; do
+                    repetitions+=("$1")
+                    shift # Move past each repetition
+                done
+
+                run_test "$current_test" "$execution_time_limit" "${repetitions[@]}"
+                ;;
+            *)
+                echo "Unknown argument: $1"
+                exit 1
+                ;;
+        esac
+    done
+else
     run_test test_single_command
     run_test test_local_vars_1
     run_test test_local_vars_2
     run_test test_local_vars_3
     run_test test_command_var_assignments_1
     run_test test_command_var_assignments_2
+    # run_test test_timed_execution 3
+    # run_test test_timed_loop 5
     run_test test1_1 # "1 2 3 1" # 7
     run_test test1_2 #"1 2 2 1" # 6
     run_test test1_3 #"1 2 2 1" # 6
@@ -430,21 +507,19 @@ if [ "$#" -eq 0 ]; then
     run_test test9_3 # "1 1 1 1 1 1 1 1 2 2 1 1 1" # 15
     run_test test_stdout #"1 1 1 1 1 1" # 6
     run_test test_if
+    run_test test_if_2
+    run_test test_comments
+    run_test test_function
     run_test test_loop
     run_test test_break
     run_test test_network_access_1 #"1 2 2"
     run_test test_network_access_2 #"1 2 2 2"
     run_test test_network_access_3 #"1 2 2 2"
-else
-    for testname in $@
-    do
-        run_test "$testname" "$2"
-    done
 fi
 
-if type lsb_release > /dev/null ; then
+if command -v lsb_release >/dev/null 2>&1; then
    distro=$(lsb_release -i -s)
-elif [ -e /etc/os-release ] ; then
+elif [ -e /etc/os-release ]; then
    distro=$(awk -F= '$1 == "ID" {print $2}' /etc/os-release)
 fi
 
@@ -462,13 +537,16 @@ case "$distro" in
 esac
 
 echo -e "\n====================| Test Summary |====================\n"
-echo "> Below follow the identical outputs:"
-grep "are identical" "$output_dir"/result_status | awk '{print $1}' | tee $output_dir/passed.log
 
-echo "> Below follow the non-identical outputs:"     
-grep "are not identical" "$output_dir"/result_status | awk '{print $1}' | tee $output_dir/failed.log >> results_all.log
+echo "> Below follow the identical outputs:"
+grep ": OK" "$output_dir/result_status" | awk '{print $1}' | sed 's/://g' | tee $output_dir/passed.log
+
+echo "> Below follow the non-identical outputs:"
+grep ": FAIL" "$output_dir/result_status" | awk '{print $1}' | sed 's/://g' | tee $output_dir/failed.log
+
+TOTAL_TESTS=$(grep -cE "OK|FAIL" "$output_dir/result_status")
+PASSED_TESTS=$(grep -c "OK" "$output_dir/result_status")
+
 echo "========================================================"
-TOTAL_TESTS=$(cat "$output_dir"/result_status | wc -l | xargs)
-PASSED_TESTS=$(grep -c "are identical" "$output_dir"/result_status)
-echo "Summary: ${PASSED_TESTS}/${TOTAL_TESTS} tests passed." | tee $output_dir/results.log
+echo "Summary: ${PASSED_TESTS}/${TOTAL_TESTS} tests passed."
 echo "========================================================"

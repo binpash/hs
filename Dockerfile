@@ -13,7 +13,7 @@ RUN python3 -m venv .venv
 RUN source .venv/bin/activate
 ENV PASH_SPEC_TOP=/srv/hs
 ENV PASH_TOP=/srv/hs/deps/pash
-RUN git submodule update --init --recursive --remote
+RUN git submodule update --init --recursive
 WORKDIR /srv/hs/deps/try
 RUN ./setup.sh
 WORKDIR /srv/hs/deps/pash

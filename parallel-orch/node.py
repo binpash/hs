@@ -1,4 +1,3 @@
-from itertools import chain
 from enum import Enum, auto
 import logging
 import re
@@ -133,19 +132,93 @@ class LoopStack:
     def __eq__(self, other):
         return self.loops == other.loops
 
+
+class HSLoopListContext:
+    def __init__(self, loop_list_context=None):
+        if loop_list_context is None:
+            loop_list_context = []
+        self.loop_list_context = loop_list_context
+
+    def push(self, loop_list):
+        loop_list_context = self.loop_list_context[:]
+        loop_list_context.append(loop_list)
+        return HSLoopListContext(loop_list_context)
+
+    def get_ith(self, i):
+        pass
+
+    def get_top(self):
+        return self.loop_list_context[-1][:]
+    
+    def pop(self):
+        loop_list_context = self.loop_list_context[:]
+        loop_list_context.pop()
+        return HSLoopListContext(loop_list_context)
+
+def get_loop_list_from_env(env):
+    with open(env) as f:
+        d = util.parse_env_string_to_dict(f.read())
+    new_loop_list = d['HS_LOOP_LIST'].split()
+    return new_loop_list
+    
 @dataclass
 class Node:
     id_: NodeId
     cmd: str
     asts: "list[AstNode]"
     basic_block_id: int
+    assignment: bool
+    loop_list_change: bool
 
-    def __init__(self, id_, cmd, asts, basic_block_id):
+    def __init__(self, id_, cmd, asts, basic_block_id, var_assignment, loop_list_change):
         self.id_ = id_
         self.cmd = cmd
         self.asts = asts
         self.basic_block_id = basic_block_id
+        self.assignment = var_assignment
+        self.loop_list_change = loop_list_change
 
+    def is_assignment(self):
+        return self.assignment
+
+    def is_loop_list_change(self):
+        return self.loop_list_change
+
+    def is_loop_list_push(self):
+        return self.loop_list_change and self.cmd.startswith('HS_LOOP_LIST=')
+
+    def is_loop_list_pop(self):
+        return self.loop_list_change and self.cmd.startswith('unset')
+    
+    def pretty_format(self):
+        v = 'q' if self.assignment else ''
+        l = 'l' if self.loop_list_change else ''
+        return self.cmd.strip() + f'  --- {v}{l} {self.id_}@'
+
+    def simulate_env(self, env):
+        return executor.run_assignment_and_return_env_file(self.cmd, env)
+    
+    def simulate_loop_list(self, env, loop_list_context: 'HSLoopListContext'):
+        assert self.loop_list_change
+        if self.cmd == 'unset HS_LOOP_LIST':
+            return loop_list_context.pop()
+        else:
+            new_env = self.simulate_env(env)
+            new_loop_list = get_loop_list_from_env(new_env)
+            return loop_list_context.push(new_loop_list)
+
+def loop_iters_do_action(loop_iters, edge_type: 'CFGEdgeType'):
+    loop_iters_list = list(loop_iters)
+    if edge_type == CFGEdgeType.LOOP_BACK:
+        loop_iters_list[0] += 1
+    elif edge_type == CFGEdgeType.LOOP_SKIP:
+        loop_iters_list.pop(0)
+    elif edge_type == CFGEdgeType.LOOP_BEGIN:
+        loop_iters_list.insert(0, 1)
+    elif edge_type == CFGEdgeType.LOOP_END:
+        loop_iters_list.pop(0)
+    return loop_iters_list
+    
 class ConcreteNodeId:
     def __init__(self, node_id: NodeId, loop_iters = list()):
         self.node_id = node_id
@@ -197,10 +270,24 @@ class ConcreteNode:
     # This can only be set while in the frontier and the background node execution is enabled
     # TODO: For now ignore this. Maybe there is a better way to do this.
     # background_sandbox: Sandbox
+
+    # Exists when the node is in EXE or SPEC_EXE or after those states
     exec_ctxt: ExecCtxt
+
+    # Exists when the node is in COMMITED or SPEC_F
     exec_result: ExecResult
 
-    def __init__(self, cnid: ConcreteNodeId, node: Node):
+    # Updated when the node is loop changing and the node is transitioning
+    # into COMMITTED or SPEC_F
+    loop_list_context: HSLoopListContext
+    
+    spec_pre_env: str
+
+    # Exists when node is in READY
+    assignments: "list[NodeId]"
+
+    def __init__(self, cnid: ConcreteNodeId, node: Node, loop_list_context: HSLoopListContext,
+                 spec_pre_env=None):
         self.cnid = cnid
         self.abstract_node = node
         self.state = NodeState.INIT
@@ -210,6 +297,8 @@ class ConcreteNode:
         self.to_be_resolved_snapshot = None
         self.exec_ctxt = None
         self.exec_id = None
+        self.spec_pre_env = spec_pre_env
+        self.loop_list_context = loop_list_context
 
     def __str__(self):
         return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt})'
@@ -263,24 +352,48 @@ class ConcreteNode:
         execute_func = executor.async_run_and_trace_command_return_trace
         # Set the execution id
         self.exec_id = util.generate_id()
-        self.exec_ctxt = ExecCtxt(*execute_func(cmd, self.cnid, self.exec_id, env_file))
+        self.exec_ctxt = ExecCtxt(*execute_func(cmd, self.cnid, self.exec_id, env_file, speculate))
 
     def execution_outcome(self) -> Tuple[int, str, str]:
         assert self.exec_result is not None
         return self.exec_result.exit_code, self.exec_ctxt.post_env_file, self.exec_ctxt.stdout
 
     def command_unsafe(self):
+        if len(self.asts) == 0:
+            return True
         return not analysis.safe_to_execute(self.asts, {})
 
+    def update_loop_list_context(self):
+        if self.abstract_node.is_loop_list_change():
+            real_env_path = util.sandboxed_path(self.exec_ctxt.sandbox_dir,
+                                                self.exec_ctxt.post_env_file)
+            new_loop_list = get_loop_list_from_env(real_env_path)
+            self.loop_list_context = self.loop_list_context.push(new_loop_list)
 
+    def guess_post_env(self):
+        if self.command_unsafe():
+            env_file = self.spec_pre_env
+        elif self.is_committed():
+            env_file = self.exec_ctxt.post_env_file
+        elif self.is_speculated():
+            env_file = util.sandboxed_path(self.exec_ctxt.sandbox_dir,
+                                               self.exec_ctxt.post_env_file)
+        elif self.is_executing():
+            env_file = self.exec_ctxt.pre_env_file
+        else:
+            env_file = self.spec_pre_env
+        assert env_file is not None
+        return env_file
     ##                                      ##
     ##          Transition Functions        ##
     ##                                      ##
 
-    def transition_from_init_to_ready(self):
+    def transition_from_init_to_ready(self, spec_pre_env):
         assert self.state == NodeState.INIT
         self.state = NodeState.READY
         self.rwset = RWSet(set(), set())
+        self.spec_pre_env = spec_pre_env
+        # self.spec_pre_env = ConcreteAssignmentNode.execute_assignments_and_get_most_recent_spec_pre_env(assignments)
         # Also, probably unroll here?
 
     def transition_from_ready_to_unsafe(self):
@@ -296,8 +409,8 @@ class ConcreteNode:
             return
         else:
             self.reset_to_ready()
-        
-    def reset_to_ready(self):
+
+    def reset_to_ready(self, spec_pre_env: str = None):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
                               NodeState.SPECULATED]
 
@@ -316,10 +429,13 @@ class ConcreteNode:
             # Exceptions will be handled inside the call so we don't have to worry
             util.kill_process_tree(process.pid, sig=signal.SIGKILL)
 
+        process.wait()
+        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.exec_ctxt = None
         self.exec_result = None
+        if spec_pre_env is not None:
+            self.spec_pre_env = spec_pre_env
         self.state = NodeState.READY
-
 
     def start_executing(self, env_file):
         assert self.state == NodeState.READY
@@ -327,29 +443,35 @@ class ConcreteNode:
         self.state = NodeState.EXECUTING
 
     def start_spec_executing(self, env_file):
+        # raise NotImplementedError
         assert self.state == NodeState.READY
         self.start_command(env_file, speculate=True)
         self.state = NodeState.SPEC_EXECUTING
 
-    def commit_frontier_execution(self):
-        assert self.state == NodeState.EXECUTING
+    def collect_result(self):
+        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         self.exec_ctxt.process.wait()
         self.exec_result = ExecResult(self.exec_ctxt.process.returncode, self.exec_ctxt.process.pid)
+        return self.exec_result.exit_code == 137
+        
+    def commit_frontier_execution(self):
+        assert self.state == NodeState.EXECUTING
         self.gather_fs_actions()
+        self.update_loop_list_context()
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
 
     def finish_spec_execution(self):
         assert self.state == NodeState.SPEC_EXECUTING
-        self.exec_ctxt.process.wait()
-        self.exec_result = ExecResult(self.exec_ctxt.process.returncode, self.exec_ctxt.process.pid)
+        self.update_loop_list_context()
         self.gather_fs_actions()
         self.state = NodeState.SPECULATED
-
 
     def commit_speculated(self):
         assert self.state == NodeState.SPECULATED
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
 
     def transition_from_stopped_to_executing(self, env_file=None):
@@ -406,13 +528,18 @@ class ConcreteNode:
             "CMD_ID", "STDOUT_FILE", "DIRSTACK", "SECONDS", "TMPDIR",
             "UPDATED_DIRS_AND_MOUNTS", "EPOCHSECONDS", "LATEST_ENV_FILE",
             "TRY_COMMAND", "SRANDOM", "speculate_flag", "EXECUTION_ID",
-            "EPOCHREALTIME", "OLDPWD", "exit_code",
+            "EPOCHREALTIME", "OLDPWD", "exit_code", "BASHPID", "BASH_COMMAND", "BASH_ARGV0",
+            "cmd", "BASH_ARGC", "BASH_ARGV", "BASH_SUBSHELL", "LINENO", "GROUPS", "BASH_SOURCE",
+            "PREVIOUS_SHELL_EC", "pash_previous_exit_status", "filter_vars_file", "pash_spec_loop_id",
+            "pash_loop_iters",
         ])
-        
+
+        ignore_prefix = "pash_loop_"
 
         re_scalar_string = re.compile(r'declare (?:-x|--)? (\w+)="([^"]*)"')
         re_scalar_int = re.compile(r'declare -i (\w+)="(\d+)"')
         re_array = re.compile(r'declare -a (\w+)=(\([^)]+\))')
+        re_fn = re.compile(r'declare -fx (\w+)=(\([^)]+\))')
 
         def parse_env(content):
             env_vars = {}
@@ -423,8 +550,25 @@ class ConcreteNode:
                     match = regex.match(line)
                     if match:
                         key, value = match.groups()
-                        if key not in ignore_vars:
+                        if key not in ignore_vars and not key.startswith(ignore_prefix):
                             env_vars[key] = value
+                        break
+            inside_function = False
+            current_function = ''
+            function_body_lines = []
+            for line in content.splitlines():
+                if line.startswith('#') or not line.strip():
+                    continue
+                if not inside_function and not line.startswith('declare') and line.endswith('() '):
+                    inside_function = True
+                    current_function = line[:-len(' () ')]
+                elif inside_function:
+                    function_body_lines.append(line)
+                    if line == '}':
+                        inside_function = False
+                        if not current_function in ignore_vars:
+                            env_vars[current_function] = '\n'.join(function_body_lines)
+                        function_body_lines = []
             return env_vars
 
         with open(self.exec_ctxt.pre_env_file, 'r') as file:
@@ -434,7 +578,7 @@ class ConcreteNode:
             other_env_vars = parse_env(file.read())
 
         logging.debug(f"Comparing env files {self.exec_ctxt.pre_env_file} and {other_env}")
-        
+
         conflict_exists = False
         for key in set(node_env_vars.keys()).union(other_env_vars.keys()):
             if key not in node_env_vars:
@@ -459,14 +603,14 @@ class CFGEdgeType(Enum):
     LOOP_BEGIN = auto()
     LOOP_END = auto()
     OTHER = auto()
-
+    
 class HSBasicBlock:
     def __init__(self, bb_id: int, nodes: list[Node]):
         self.bb_id = bb_id
         self.nodes = nodes
 
     def __str__(self):
-        return ''.join([node.cmd.strip() + '\n' for node in self.nodes])
+        return ''.join([node.pretty_format() + '\n' for node in self.nodes])
 
     @property
     def loop_context(self):
@@ -491,8 +635,8 @@ class HSProg:
         for bb_id in range(len(basic_blocks)):
             self.block_adjacency[bb_id] = {}
 
-        for from_bb, to_bb, edge_type in block_edges:
-            self.block_adjacency[from_bb][to_bb] = CFGEdgeType[edge_type]
+        for from_bb, to_bb, edge_type, aux_info in block_edges:
+            self.block_adjacency[from_bb][to_bb] = (CFGEdgeType[edge_type], aux_info)
 
     def is_start_of_block(self, node_id: NodeId):
         for bb in self.basic_blocks:
@@ -519,17 +663,31 @@ class HSProg:
         else:
             return False
 
-    def guess_next_block(self, bb: HSBasicBlock):
+    def guess_next_block(self, bb: HSBasicBlock, loop_iters: list,
+                         loop_list_context: HSLoopListContext):
         bb_id = self.basic_blocks.index(bb)
         pick_dict = {}
-        for next_bb_id, edge_type in self.block_adjacency[bb_id].items():
-            pick_dict[edge_type] = next_bb_id
-        for edge_type in [CFGEdgeType.LOOP_END, CFGEdgeType.LOOP_TAKEN, CFGEdgeType.LOOP_SKIP,
-                          CFGEdgeType.LOOP_BACK, CFGEdgeType.LOOP_BEGIN,
+        for next_bb_id, (edge_type, aux_info) in self.block_adjacency[bb_id].items():
+            pick_dict[edge_type] = (next_bb_id, aux_info)
+        if CFGEdgeType.LOOP_BEGIN in pick_dict:
+            assert len(pick_dict) == 1
+            return (CFGEdgeType.LOOP_BEGIN, self.basic_blocks[pick_dict[edge_type][0]],
+                    pick_dict[edge_type][1])
+        elif CFGEdgeType.LOOP_SKIP in pick_dict:
+            assert CFGEdgeType.LOOP_TAKEN in pick_dict
+            if len(loop_list_context.get_top()) < loop_iters[0]:
+                return (CFGEdgeType.LOOP_SKIP,
+                        self.basic_blocks[pick_dict[CFGEdgeType.LOOP_SKIP][0]],
+                        pick_dict[edge_type][1])
+            else:
+                return (CFGEdgeType.LOOP_TAKEN,
+                        self.basic_blocks[pick_dict[CFGEdgeType.LOOP_TAKEN][0]],
+                        pick_dict[edge_type][1])
+        for edge_type in [CFGEdgeType.LOOP_END, CFGEdgeType.LOOP_BACK,
                           CFGEdgeType.IF_TAKEN, CFGEdgeType.ELSE_TAKEN,
                           CFGEdgeType.OTHER]:
             if edge_type in pick_dict:
-                return edge_type, self.basic_blocks[pick_dict[edge_type]]
+                return edge_type, self.basic_blocks[pick_dict[edge_type][0]], pick_dict[edge_type][1]
         assert False
 
     def find_node(self, node_id):
@@ -542,3 +700,4 @@ class HSProg:
     def __str__(self):
         return 'prog:\n' + '\n'.join(
             [f'block {i}:\n' + str(bb) + f'goto block {self.block_adjacency[i]}\n' for i, bb in enumerate(self.basic_blocks)])
+

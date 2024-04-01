@@ -1,5 +1,3 @@
 #!/bin/bash
-IN8=$IN_PRE/8.txt
 # 8.3: find names of the four people most involved with unix
-cat $IN8 | grep '(' | cut -d '(' -f 2 | cut -d ')' -f 1 | head -n 1
-
+cat $IN | grep '(' | cut -d '(' -f 2 | cut -d ')' -f 1 | head -n 1

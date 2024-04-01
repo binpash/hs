@@ -1,5 +1,3 @@
 #!/bin/bash
-IN8=$IN_PRE/8.txt
 # # 8.5: Find second-most-freq 8-character word(s) without hyphens
-# cat $IN8 > /dev/null
-
+cat $IN | tr -cs '[:alpha:]' '\n' | awk 'length($0) == 8' | tr '[:upper:]' '[:lower:]' | sort | uniq -c | sort -nr | awk 'NR==2 {print $2}'

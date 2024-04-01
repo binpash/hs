@@ -18,99 +18,21 @@ inputs=(
 1 10 11 12 2 3 4 5 6 7 8 9.1 9.2 9.3 9.4 9.5 9.6 9.7 9.8 9.9
 )
 
-# Function to append newline if not present
-append_nl_if_not() {
-    if [ -z "$1" ]; then
-        echo "No file argument given!"
-        exit 1
-    elif [ ! -f "$1" ]; then
-        echo "File $1 doesn't exist!"
-        exit 1
-    else
-        tail -c 1 "$1" | od -ta | grep -q nl || echo >> "$1"
+echo "Preparing unix_50 datasets..."
+
+inflate="$PASH_SPEC_TOP/report/util/inflate.sh"
+
+if [[ ! -f "*.txt" ]]; then
+    echo "Downloading unix_50 datasets..."
+    wget -r -np -nH --cut-dirs=3 -R "index.html*, robots.txt" https://atlas-group.cs.brown.edu/data/unix50/
+fi
+
+for i in ${inputs[@]}; do
+    if [[ ! -f "10M_$i.txt" ]]; then
+        echo "Inflating $i.txt..."
+        $inflate "$i.txt" 1M
+        $inflate "1M-$i.txt" 10M
+        $inflate "$10M-i.txt" 100M
+        $inflate *.txt 1G
     fi
-}
-
-# Function to setup the dataset
-setup_dataset() {
-    for input in ${inputs[@]}; do
-        append_nl_if_not "${input}.txt"
-    done
-}
-
-# Function to handle argument variables
-source_var() {
-    if [[ $gen_full_flag -eq 1 ]]; then
-        export IN_PRE=$PASH_SPEC_TOP/report/resources/unix_50/gen_full
-    elif [[ $full_flag -eq 1 ]]; then
-        export IN_PRE=$PASH_SPEC_TOP/report/resources/unix_50/input/full
-    else 
-        export IN_PRE=$PASH_SPEC_TOP/report/resources/unix_50/input
-    fi
-}
-
-download_data() {
-    echo "Downloading and unzipping data..."
-    # TODO: add Omega URL when available
-    # wget -O unix50.zip https://atlas-group.cs.brown.edu/data/ && unzip unix50.zip && rm -rf unix50.zip
-}
-
-# Parse arguments
-full_flag=0
-gen_full_flag=0
-download_flag=0
-while getopts ":sfgd" opt; do
-  case $opt in
-    f) full_flag=1 ;;
-    g) gen_full_flag=1 ;;
-    d) download_flag=1 ;;
-    \?) echo "Invalid option -$OPTARG" >&2 ;;
-  esac
 done
-
-# Conditional executions based on flags
-[[ $download_flag -eq 1 ]] && download_data
-[[ $full_flag -eq 1 ]] || [[ $gen_full_flag -eq 1 ]] && setup_dataset
-source_var
-
-# Function to create larger input files if --full or --gen-full flag is set
-generate_larger_inputs() {
-    if [[ $full_flag -eq 1 ]]; then
-        for file in *.txt; do
-            echo '' > temp.txt
-            for (( i = 0; i < 100; i++ )); do
-                cat $file >> temp.txt
-            done
-            mv temp.txt $file
-        done
-    fi
-
-    if [[ $gen_full_flag -eq 1 ]]; then
-        mkdir -p $IN_PRE
-        echo "Generating full-size inputs"
-
-        for file in *.txt; do
-            new_file=$file
-            max=$(echo "1000000 / $(stat --printf="%s" $file)" | bc)
-            echo "Generating 1-G $new_file (${max}x increase)"
-            cat $file > $IN_PRE/$new_file
-            for (( i = 0; i < max ; i++ )); do
-                cat $file >> $IN_PRE/$new_file
-                # cat $file
-            done
-        done
-    fi
-}
-
-# Function to clean up the directory
-cleanup() {
-    echo "Cleaning up temporary files..."
-    rm -f temp.txt
-}
-
-# Call the functions based on the flags
-generate_larger_inputs
-cleanup
-
-# Final message
-echo "Benchmark input setup is complete."

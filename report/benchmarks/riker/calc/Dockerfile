@@ -1,4 +1,4 @@
-FROM ghcr.io/binpash/hs:latest
+FROM hs
 
 RUN apt-get update
 RUN apt-get install -y git gcc-11 make libreadline-dev bsdmainutils

@@ -1,4 +1,4 @@
-FROM ghcr.io/binpash/hs:latest
+FROM hs
 
 RUN apt update
 RUN apt install -y git gcc make pkg-config tcl
@@ -13,4 +13,3 @@ RUN make .make-prerequisites
 COPY redis_build.sh /root/redis/redis_build.sh
 RUN chmod +x /root/redis/redis_build.sh
 
-WORKDIR /srv/hs

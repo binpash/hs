@@ -1,6 +1,6 @@
 #!/bin/sh
 
-CFLAGS="-DHAVE_CONFIG_H -I. -g -O2 -pthread -pthread -Wall -Werror -pedantic -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls"
+CFLAGS="-DHAVE_CONFIG_H -I. -g -O2 -pthread -pthread -Wall -pedantic -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls"
 
 MEMCACHED_SRC="memcached.c hash.c jenkins_hash.c murmur3_hash.c slabs.c items.c assoc.c thread.c daemon.c stats_prefix.c util.c cache.c bipbuffer.c logger.c crawler.c itoa_ljust.c slab_automove.c authfile.c restart.c extstore.c crc32c.c storage.c slab_automove_extstore.c"
 

@@ -440,6 +440,22 @@ test_timed_loop()
     $shell $2/test_timed_loop.sh
 }
 
+test_scheduling_restart_1()
+{
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in2
+    local shell=$1
+    $shell $2/test_scheduling_restart_1.sh
+}
+
+test_scheduling_restart_loop_1()
+{
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in_2_1
+    local shell=$1
+    $shell $2/test_scheduling_restart_loop_1.sh
+}
+
 ## TODO: make more loop tests with nested loops and commands after the loop
 
 # Arg parsing
@@ -479,6 +495,8 @@ else
     run_test test_local_vars_3
     run_test test_command_var_assignments_1
     run_test test_command_var_assignments_2
+    run_test test_scheduling_restart_1 5
+    run_test test_scheduling_restart_loop_1 5
     # run_test test_timed_execution 3
     # run_test test_timed_loop 5
     run_test test1_1 # "1 2 3 1" # 7

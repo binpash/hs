@@ -17,15 +17,14 @@ convert_to_bytes() {
     echo "$bytes"
 }
 
-# Check if correct number of arguments is provided
-if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 <input_file> <target_size>"
-    echo "Example: $0 input.txt 5M"
+# Check if at least two arguments are provided
+if [ "$#" -lt 2 ]; then
+    echo "Usage: $0 <input_file> <target_size_1> [<target_size_2> ...]"
+    echo "Example: $0 input.txt 5M 10M 1G"
     exit 1
 fi
 
 input_file="$1"
-target_size="$2"
 
 # Check if input file exists
 if [ ! -f "$input_file" ]; then
@@ -36,36 +35,46 @@ fi
 # Get the size of the input file
 input_size=$(stat -c%s "$input_file")
 
-# Convert target size to bytes
-target_size_bytes=$(convert_to_bytes "$target_size")
+# Iterate over each target size argument
+shift # Skip the first argument, which is the input file name
+for target_size in "$@"; do
 
-# Check if target size is smaller than input file size
-if [ "$target_size_bytes" -le "$input_size" ]; then
-    echo "Error: Target size must be greater than the size of the input file."
-    exit 1
-fi
+    # Convert target size to bytes
+    target_size_bytes=$(convert_to_bytes "$target_size")
 
-# Calculate the number of times to repeat the file
-repeats=$(( ($target_size_bytes + $input_size - 1) / $input_size ))
+    # Check if target size is smaller than input file size
+    if [ "$target_size_bytes" -le "$input_size" ]; then
+        echo "Error: Target size $target_size must be greater than the size of the input file."
+        continue # Skip to the next target size
+    fi
 
-# Create a temporary file to store repeated contents
-temp_file=$(mktemp)
+    # Define output file name
+    output_file="$target_size-$input_file"
+    cp "$input_file" "$output_file"
 
-# Repeat the contents of the input file
-for (( i=0; i<$repeats; i++ )); do
-    cat "$input_file" >> "$temp_file"
+    # Use file doubling to efficiently reach the target size
+    current_size=$input_size
+    while [ $((current_size * 2)) -le "$target_size_bytes" ]; do
+        # Use a temporary file to avoid "input file is output file" error
+        temp_file=$(mktemp)
+        cat "$output_file" "$output_file" > "$temp_file"
+        mv "$temp_file" "$output_file"
+        current_size=$((current_size * 2))
+    done
+
+    # Final adjustments to reach the exact target size
+    while [ $current_size -lt "$target_size_bytes" ]; do
+        # Calculate remaining bytes to reach target size
+        remaining=$((target_size_bytes - current_size))
+        if [ $remaining -gt $input_size ]; then
+            cat "$input_file" >> "$output_file"
+            current_size=$((current_size + input_size))
+        else
+            # Use dd with seek to append the final bytes without overwriting
+            dd if="$input_file" of="$output_file" bs=1 count="$remaining" seek="$current_size" conv=notrunc
+            break
+        fi
+    done
+
+    echo "$input_file inflated successfully to $target_size."
 done
-
-# Trim the temporary file to the target size
-truncate -s "$target_size_bytes" "$temp_file"
-
-# Rename the temporary file to the original file name
-mv "$temp_file" "$target_size-$input_file"
-
-# Calculate percentage of inflation
-percentage_inflation=$(( (($target_size_bytes - $input_size) * 100) / $input_size ))
-
-# Calculate how many times larger the inflated file got
-times_larger=$(( $target_size_bytes / $input_size ))
-
-echo "$input_file inflated successfully to $target_size ($percentage_inflation% inflation, $times_larger times larger)."

@@ -1,7 +1,37 @@
 [
     {
+        "name": "1.sh",
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/bus.csv"],
+        "command": "{{TEST_SCRIPT_DIR}}/1.sh",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "2.sh",
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/bus.csv"],
+        "command": "{{TEST_SCRIPT_DIR}}/2.sh",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "3.sh",
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/bus.csv"],
+        "command": "{{TEST_SCRIPT_DIR}}/3.sh",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "4.sh",
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/bus.csv"],
+        "command": "{{TEST_SCRIPT_DIR}}/4.sh",
+        "orch_args": "-d 2"
+    },
+    {
+        "name": "5.sh",
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/bus.csv"],
+        "command": "{{TEST_SCRIPT_DIR}}/5.sh",
+        "orch_args": "-d 2"
+    },
+    {
         "name": "Bus full",
-        "env": ["INPUT_FILE={{RESOURCE_DIR}}/bus_short.csv"],
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/bus.csv"],
         "command": "{{TEST_SCRIPT_DIR}}/full.sh",
         "orch_args": "-d 2"
     }

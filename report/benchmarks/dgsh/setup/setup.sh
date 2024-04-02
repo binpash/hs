@@ -29,29 +29,19 @@ if [[ ! -f "goods_classification.csv" ]]; then
     wget -nc -O "trade.zip"  https://www.stats.govt.nz/assets/Uploads/International-trade/International-trade-December-2020-quarter/Download-data/international-trade-december-2020-quarter-csv.zip
     gunzip -j "trade.zip"
     rm -rf "trade.zip"
-    $inflate goods_classification.csv 100M
     $inflate goods_classification.csv 1G
 fi
 
 # Inputs for #5, #6, #8
 if [[ ! -f pg100.txt ]]; then
     wget -nc https://www.gutenberg.org/cache/epub/100/pg100.txt
-    $inflate pg100.txt 100M
     $inflate pg100.txt 1G
 fi
 
 # Inputs for #7
 if [[ ! -f weblog.log ]]; then
     wget -nc -O weblog.log https://raw.githubusercontent.com/elastic/examples/master/Common%20Data%20Formats/apache_logs/apache_logs
-    $inflate weblog.log 100M
     $inflate weblog.log 1G
-fi
-
-# Inputs for #1
-if [[ ! -f ai4math-mathematical-qa-dataset.zip ]]; then
-    kaggle datasets download thedevastator/ai4math-mathematical-qa-dataset
-    unzip -j ai4math-mathematical-qa-dataset.zip
-    rm -rf ai4math-mathematical-qa-dataset.zip
 fi
 
 # Inputs for #2, #3

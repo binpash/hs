@@ -33,8 +33,7 @@
 
 ## Initialize the necessary temporary files
 file1=$(mktemp)
-git log --format="%an:%ad" --date=default "$@" >"$file1"
-
+git log --format="%an:%ad" --date=default >"$file1"
 echo "Authors ordered by number of commits"
 # Order by frequency
 awk -F: '{print $1}' <"$file1" | sort | uniq | sort -rn

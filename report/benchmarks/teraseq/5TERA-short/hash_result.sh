@@ -19,6 +19,12 @@ for f in "${samples[@]}"; do
             elif [[ "$g" == *.db ]]
             then
                 sqlite3 "$g" "SELECT * FROM genome transcr" | sha256sum
+	    elif [[ "$g" == *logfiles/cutadapt*.log ]]
+	    then
+		grep -v "Finished in " "$g" | sha256sum
+	    elif [[ "$g" == *logfiles/star*.log ]]
+	    then
+		cat "$g" | cut -d' ' -f5- | sha256sum
             else
                 sha256sum < "$g"
             fi

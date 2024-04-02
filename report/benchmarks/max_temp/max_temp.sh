@@ -2,11 +2,6 @@
 
 RESOURCE_DIR="$PASH_SPEC_TOP/report/resources/max_temp"
 
-echo $FROM $TO $RESOURCE_DIR
-
-# Create output files and initialize them
-echo "Year,Max,Min,Average"
-
 ## Processing files and data per year
 for year in $(seq $FROM $TO); do
     echo "Processing year: $year"

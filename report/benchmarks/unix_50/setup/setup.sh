@@ -29,10 +29,10 @@ fi
 
 for i in ${inputs[@]}; do
     if [[ ! -f "10M_$i.txt" ]]; then
-        echo "Inflating $i.txt..."
-        $inflate "$i.txt" 1M
-        $inflate "1M-$i.txt" 10M
-        $inflate "$10M-i.txt" 100M
-        $inflate *.txt 1G
+        $inflate "$i.txt" 10M
+        $inflate "10M-$i.txt" 100M
+        # $inflate "100M-10M-$i.txt" 1G
+        mv "100M-10M-$i.txt" "100M-$i.txt"
+        # mv "1G-100M-10M-$i.txt" "1G-$i.txt"
     fi
 done

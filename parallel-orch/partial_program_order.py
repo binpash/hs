@@ -309,18 +309,15 @@ class PartialProgramOrder:
             prev_node = self.spec_exec_order[-1]
             prev_node: ConcreteNodeId
 
-        
+        # Prioritize scheduling of existing ready spec nodes for plain nodes
+        # and creation of new spec nodes for loop nodes
+        if len(prev_node.loop_iters) == 0:
+            for cnid in self.get_schedulable_spec_nodes():
+                self.schedule_spec_work(cnid)
+
         while len(self.spec_exec_order) < window:
             logging.info(f"prev_node+++: {prev_node}, loop_iters: {prev_node.loop_iters}")    
-            # Prioritize scheduling of existing ready spec nodes for plain nodes
-            # and creation of new spec nodes for loop nodes
-            if len(prev_node.loop_iters) == 0:
-                existing_schedulable = self.get_schedulable_spec_nodes()
-                for cnid in existing_schedulable:
-                    self.schedule_spec_work(cnid)
-                    window -= 1
-                if window == 0:
-                    return
+
             next_concrete_id = self.make_new_spec_node(prev_node)
             if next_concrete_id is None:
                 window = len(self.spec_exec_order)

@@ -12,8 +12,8 @@ ftp_dir="./"
 
 
 # Start and end dates
-start_year=${1:-1901}
-end_year=${2:-1909}
+start_year=${1:-2000}
+end_year=${2:-20010}
 
 # Create local directory if it doesn't exist
 mkdir -p "$download_dir"
@@ -23,7 +23,7 @@ for year in $(seq $start_year $end_year); do
     echo "Fetching files for year $year..."
 
     # Navigate to the year directory and download all .gz files
-    lftp -e "mirror --verbose --parallel=3 $ftp_dir/$year $download_dir/$year; bye" -u anonymous, $ftp_server
+    lftp -e "mirror --verbose --parallel=5 $ftp_dir/$year $download_dir/$year; bye" -u anonymous, $ftp_server
 done
 
 echo "Files fetched from $start_year to $end_year."

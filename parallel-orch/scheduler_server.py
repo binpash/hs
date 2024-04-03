@@ -35,7 +35,7 @@ def parse_args():
                     action="store_true",
                     default=False,
                     help="Speculate immediately instead of waiting for the first Wait message.")
-    parser.add_argument("-w", "--window",
+    parser.add_argument("--window",
                         type=int,
                         default=5,
                         help="Number of commands to speculate.")

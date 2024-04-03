@@ -292,15 +292,35 @@ class PartialProgramOrder:
                 util.debug_log(f'copied to {pre_env_file}')
                 self.create_concrete_node(cnid, pre_env_file, prev_loop_list_context)
                 return cnid
+    
+    def get_schedulable_spec_nodes(self) -> list[ConcreteNodeId]:
+        schedulable = []
+        for cnid in self.spec_exec_order:
+            if self.concrete_nodes[cnid].is_ready():
+                schedulable.append(cnid)
+        return schedulable
                         
     def try_schedule_spec_nodes(self, window=2) -> list[ConcreteNodeId]:
         if len(self.canon_exec_order) == 0:
             return
-        if len(self.spec_exec_order) == 0:
+        elif len(self.spec_exec_order) == 0:
             prev_node = self.canon_exec_order[-1]
         else:
             prev_node = self.spec_exec_order[-1]
+            prev_node: ConcreteNodeId
+
+        
         while len(self.spec_exec_order) < window:
+            logging.info(f"prev_node+++: {prev_node}, loop_iters: {prev_node.loop_iters}")    
+            # Prioritize scheduling of existing ready spec nodes for plain nodes
+            # and creation of new spec nodes for loop nodes
+            if len(prev_node.loop_iters) == 0:
+                existing_schedulable = self.get_schedulable_spec_nodes()
+                for cnid in existing_schedulable:
+                    self.schedule_spec_work(cnid)
+                    window -= 1
+                if window == 0:
+                    return
             next_concrete_id = self.make_new_spec_node(prev_node)
             if next_concrete_id is None:
                 window = len(self.spec_exec_order)

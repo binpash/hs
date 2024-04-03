@@ -12,6 +12,11 @@ from enum import Enum, auto
 import util
 import analysis
 
+STATE_LOG = '[STATE_LOG] '
+
+def state_log(s):
+    logging.info(STATE_LOG + s)
+
 class NodeState(Enum):
     INIT = auto()
     READY = auto()
@@ -384,6 +389,10 @@ class ConcreteNode:
             env_file = self.spec_pre_env
         assert env_file is not None
         return env_file
+
+    def trace_state(self):
+        state_log(f'{self.cnid}: {state_pstr(self.state)}')
+
     ##                                      ##
     ##          Transition Functions        ##
     ##                                      ##
@@ -436,17 +445,20 @@ class ConcreteNode:
         if spec_pre_env is not None:
             self.spec_pre_env = spec_pre_env
         self.state = NodeState.READY
+        self.trace_state()
 
     def start_executing(self, env_file):
         assert self.state == NodeState.READY
         self.start_command(env_file)
         self.state = NodeState.EXECUTING
+        self.trace_state()
 
     def start_spec_executing(self, env_file):
         # raise NotImplementedError
         assert self.state == NodeState.READY
         self.start_command(env_file, speculate=True)
         self.state = NodeState.SPEC_EXECUTING
+        self.trace_state()
 
     def collect_result(self):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
@@ -461,28 +473,26 @@ class ConcreteNode:
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
         util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
+        self.trace_state()
 
     def finish_spec_execution(self):
         assert self.state == NodeState.SPEC_EXECUTING
         self.update_loop_list_context()
         self.gather_fs_actions()
         self.state = NodeState.SPECULATED
+        self.trace_state()
 
     def commit_speculated(self):
         assert self.state == NodeState.SPECULATED
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
         util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
+        self.trace_state()
 
     def transition_from_stopped_to_executing(self, env_file=None):
         assert self.state == NodeState.READY
         self.state = NodeState.EXECUTING
         self._attempt_start_command(env_file)
-
-    def transition_to_committed(self):
-        assert self.state in NodeState.SPECULATED
-        self.state = NodeState.COMMITTED
-        # TODO
 
     def transition_from_spec_executing_to_speculated(self):
         pass

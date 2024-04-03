@@ -398,7 +398,6 @@ class PartialProgramOrder:
         self._has_fs_deps(concrete_node_id)
 
     def schedule_spec_work(self, concrete_node_id: ConcreteNodeId):
-        event_log("schedule_spec")
         concrete_node = self.get_concrete_node(concrete_node_id)
         self.adjust_to_be_resolved_dict_entry(concrete_node_id)
         self.get_concrete_node(concrete_node_id).start_spec_executing(concrete_node.spec_pre_env)
@@ -410,6 +409,7 @@ class PartialProgramOrder:
         return env
 
     def reset_speculation(self):
+        event_log(f"reset speculation")
         for cnid in self.spec_exec_order:
             self.concrete_nodes[cnid].try_reset_to_ready()
         self.spec_exec_order = []
@@ -417,7 +417,6 @@ class PartialProgramOrder:
     ### external handler events ###
 
     def schedule_work(self, concrete_node_id: ConcreteNodeId, env_file: str):
-        event_log("schedule_work")
         self.get_concrete_node(concrete_node_id).start_executing(env_file)
 
     def handle_complete(self, concrete_node_id: ConcreteNodeId, has_pending_wait: bool,
@@ -505,6 +504,7 @@ class PartialProgramOrder:
         self.temp_new_env = (concrete_node_id, env_file)
         
         if node.is_ready():
+            event_log(f"schedule {concrete_node_id}")
             node.start_executing(env_file)
         elif node.is_unsafe():
             pass

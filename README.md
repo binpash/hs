@@ -4,6 +4,10 @@
 
 `hs` is a system for executing shell scripts out of order. It achieves this by tracing the script's execution, and if an error arises due to speculative execution, the script re-executes the necessary parts to ensure correct outcomes. The project aims to boost the parallel execution of shell scripts, reducing their runtime and enhancing efficiency.
 
+### Security Warning
+
+Being an experimental project, we are currently using sudo to change permission of `/sys/fs/cgroup/cgroup.procs` to 666 (which by default is usually 644).
+
 ### Structure
 
 The project's top-level directory contains the following:

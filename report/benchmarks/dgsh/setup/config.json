@@ -32,7 +32,7 @@
     },
     {
         "name": "dgsh 5.sh",
-        "env": ["INPUT_FILE={{RESOURCE_DIR}}/larger_file.txt"],
+        "env": ["INPUT_FILE={{RESOURCE_DIR}}/1G-pg100.txt"],
         "command": "{{TEST_SCRIPT_DIR}}/5.sh",
         "orch_args": "-d 2"
     },

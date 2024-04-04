@@ -180,7 +180,7 @@ class PartialProgramOrder:
                              loop_list_context: HSLoopListContext):
         if (concrete_node_id in self.concrete_nodes and
             not self.concrete_nodes[concrete_node_id].is_ready()):
-            self.concrete_nodes[concrete_node_id].reset_to_ready(spec_pre_env)
+            self.concrete_nodes[concrete_node_id].try_reset_to_ready(spec_pre_env)
         else:
             abstract_node = self.hsprog.find_node(concrete_node_id.node_id)
             new_concrete_node = ConcreteNode(concrete_node_id, abstract_node, loop_list_context)

@@ -11,6 +11,7 @@ export EXEC_MODE=${7?No execution mode given}
 export CMD_ID=${8?No command id given}
 export POST_EXEC_ENV=${9?No Riker env file given}
 export EXECUTION_ID=${10?No execution id given}
+LOWER_DIRS=${11?No lower dirs}
 
 ## KK 2023-04-24: Not sure this should be run every time we run a command
 ## GL 2023-07-08: Tests seem to pass without it
@@ -29,7 +30,7 @@ fi
 # echo tempdir $TEMPDIR
 # echo sandbox $SANDBOX_DIR
 
-bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh" > "${STDOUT_FILE}"
+bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" -L "${LOWER_DIRS}" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh" > "${STDOUT_FILE}"
 exit_code=$?
 ## Only used for debugging
 # ls -R "${SANDBOX_DIR}/upperdir" 1>&2

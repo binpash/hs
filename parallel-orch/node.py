@@ -262,7 +262,7 @@ class ConcreteNode:
     cnid: ConcreteNodeId
     abstract_node: Node
     state: NodeState
-    # Used for identifying the most recent valid execution
+    # exists for EXEC or SPEC_E or subsequent states, erased for READY
     exec_id: int
     # Nodes to check for fs dependencies before this node can be committed
     # for this particular execution of the main sandbox.
@@ -350,14 +350,19 @@ class ConcreteNode:
     def is_unsafe(self):
         return self.state == NodeState.UNSAFE
 
-    def start_command(self, env_file: str, speculate=False):
+    def start_command(self, env_file: str, speculate=False, speculated_nodes=None):
         # TODO: implement speculate
         # TODO: built-in commands
         cmd = self.cmd
         execute_func = executor.async_run_and_trace_command_return_trace
+        if speculated_nodes is None:
+            lower_sandboxes = []
+        else:
+            lower_sandboxes = [node.exec_ctxt.sandbox_dir for node in reversed(speculated_nodes)]
         # Set the execution id
         self.exec_id = util.generate_id()
-        self.exec_ctxt = ExecCtxt(*execute_func(cmd, self.cnid, self.exec_id, env_file, speculate))
+        self.exec_ctxt = ExecCtxt(*execute_func(cmd, self.cnid, self.exec_id, env_file, speculate,
+                                                lower_sandboxes))
 
     def execution_outcome(self) -> Tuple[int, str, str]:
         assert self.exec_result is not None
@@ -453,10 +458,10 @@ class ConcreteNode:
         self.state = NodeState.EXECUTING
         self.trace_state()
 
-    def start_spec_executing(self, env_file):
+    def start_spec_executing(self, env_file, speculated_nodes):
         # raise NotImplementedError
         assert self.state == NodeState.READY
-        self.start_command(env_file, speculate=True)
+        self.start_command(env_file, speculate=True, speculated_nodes=speculated_nodes)
         self.state = NodeState.SPEC_EXECUTING
         self.trace_state()
 

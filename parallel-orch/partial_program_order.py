@@ -353,7 +353,14 @@ class PartialProgramOrder:
 
     def get_all_previous_uncommitted(self, concrete_node_id: ConcreteNodeId) -> "set[ConcreteNodeId]":
         previous = self.get_all_previous(concrete_node_id)
-        return set([cnid for cnid in previous if not self.concrete_nodes[cnid].is_committed()])
+        cnid_eid_tuples = []
+        for cnid in previous:
+            concrete_node = self.concrete_nodes[cnid]
+            if concrete_node.is_speculated():
+                cnid_eid_tuples.append((concrete_node.cnid, concrete_node.exec_id))
+            elif not concrete_node.is_committed():
+                cnid_eid_tuples.append(concrete_node.cnid)
+        return set(cnid_eid_tuples)
 
     def adjust_to_be_resolved_dict_entry(self, concrete_node_id: ConcreteNodeId):
         node = self.concrete_nodes.get(concrete_node_id)
@@ -385,7 +392,13 @@ class PartialProgramOrder:
 
     def _has_fs_deps(self, concrete_node_id: ConcreteNodeId):
         node_of_interest : ConcreteNode = self.get_concrete_node(concrete_node_id)
-        for nid in self.to_be_resolved[concrete_node_id]:
+        for dep_entry in self.to_be_resolved[concrete_node_id]:
+            if isinstance(dep_entry, tuple):
+                nid, eid = dep_entry
+                if eid == self.get_concrete_node(nid).exec_id:
+                    continue
+            else:
+                nid = dep_entry    
             node: ConcreteNode = self.get_concrete_node(nid)
             if node.get_rw_set().has_conflict(node_of_interest.get_rw_set()):
                 return True
@@ -400,7 +413,10 @@ class PartialProgramOrder:
     def schedule_spec_work(self, concrete_node_id: ConcreteNodeId):
         concrete_node = self.get_concrete_node(concrete_node_id)
         self.adjust_to_be_resolved_dict_entry(concrete_node_id)
-        self.get_concrete_node(concrete_node_id).start_spec_executing(concrete_node.spec_pre_env)
+        speculated_nodes = [self.concrete_nodes[cnid] for cnid in self.spec_exec_order if
+                            self.concrete_nodes[cnid].is_speculated()]
+        self.get_concrete_node(concrete_node_id).start_spec_executing(concrete_node.spec_pre_env,
+                                                                      speculated_nodes)
 
     def simulate_var_assignments(self, env, assignments: "list[NodeId]"):
         for assignment in assignments:

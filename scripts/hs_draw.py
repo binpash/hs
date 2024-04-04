@@ -107,6 +107,7 @@ for i, key in enumerate(keys):
         print((bar.start_t-x0, bar.end_t-x0))
         ax.broken_barh([(bar.start_t-x0, bar.end_t-bar.start_t)], (y_pos - 0.4, 0.8), color=color, **options)
 
+ax.set_yticks(list(range(len(keys))))
 ax.set_yticklabels(keys)
 plt.tight_layout()
 print('saved at hs_plot.pdf')

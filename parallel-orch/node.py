@@ -413,11 +413,11 @@ class ConcreteNode:
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         self.exec_ctxt.process.kill()
 
-    def try_reset_to_ready(self):
+    def try_reset_to_ready(self, spec_pre_env: str=None):
         if self.state in [NodeState.READY, NodeState.UNSAFE]:
             return
         else:
-            self.reset_to_ready()
+            self.reset_to_ready(spec_pre_env)
 
     def reset_to_ready(self, spec_pre_env: str = None):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,

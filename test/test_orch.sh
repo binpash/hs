@@ -340,6 +340,12 @@ test_if_2()
     $shell $2/test_if_2.sh
 }
 
+test_if_3()
+{
+    local shell=$1
+    $shell $2/test_if_3.sh
+}
+
 test_cd()
 {
     local shell=$1

@@ -316,8 +316,6 @@ class PartialProgramOrder:
                 self.schedule_spec_work(cnid)
 
         while len(self.spec_exec_order) < window:
-            logging.info(f"prev_node+++: {prev_node}, loop_iters: {prev_node.loop_iters}")    
-
             next_concrete_id = self.make_new_spec_node(prev_node)
             if next_concrete_id is None:
                 window = len(self.spec_exec_order)

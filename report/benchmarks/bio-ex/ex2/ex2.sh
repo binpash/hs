@@ -15,9 +15,6 @@ for sample in SRR10045016 SRR10045017 SRR10045018 SRR10045019 SRR10045020 SRR100
 		        -baseout trim_output/${sample}/ ILLUMINACLIP:trimmomaticAdapters/TruSeq3-PE-2.fa:2:30:10 TRAILING:30
 done
 
-java -jar /root/Trimmomatic-0.39/trimmomatic-0.39.jar PE -threads 2 data_chr19/SRR10045016_1.fastq data_chr19/SRR10045016_2.fastq \
-        -baseout trim_output/SRR10045016/ ILLUMINACLIP:trimmomaticAdapters/TruSeq3-PE-2.fa:2:30:10 TRAILING:30
-
 # Step 3: Post-trimming Quality Control
 echo "Running FastQC on trimmed sequences..."
 mkdir -p fastqc_trimmed_output
@@ -34,10 +31,8 @@ echo "Aligning sequences with STAR..."
 mkdir -p STAR_output
 for sample in SRR10045016 SRR10045017 SRR10045018 SRR10045019 SRR10045020 SRR10045021; do
 	mkdir STAR_output/${sample}
-	../STAR/source/STAR --runThreadN 2 --genomeDir STAR_index_chr19/ --readFilesIn trim_output/${sample}/${sample}_1P trim_output/${sample}/${sample}_2P --sjdbGTFfile genome/chr19_Homo_sapiens.GRCh38.95.gtf --outFileNamePrefix STAR_output/${sample}/
+	../STAR/source/STAR --runThreadN 2 --genomeDir STAR_index_chr19/ --readFilesIn trim_output/${sample}_1P trim_output/${sample}_2P --sjdbGTFfile genome/chr19_Homo_sapiens.GRCh38.95.gtf --outFileNamePrefix STAR_output/${sample}/
 done
-
-../STAR/source/STAR --runThreadN 2 --genomeDir STAR_index_chr19/ --readFilesIn trim_output/SRR10045016_1P trim_output/SRR10045016_2P --sjdbGTFfile genome/chr19_Homo_sapiens.GRCh38.95.gtf --outFileNamePrefix STAR_output/SRR10045016/
 
 # Step 5: Counting with htseq-count
 echo "Counting alignments with htseq-count..."

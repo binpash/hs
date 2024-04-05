@@ -72,7 +72,7 @@ class ConfigParser:
         with open(self.config_file, 'r') as file:
             configs = json.load(file)
             for config in configs:
-                
+                print(config)
                 # Check if any expected list fields are actually strings 
                 # and convert them if so
                 env = config.get('env', [])

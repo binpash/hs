@@ -24,11 +24,11 @@ class BenchmarkRunner:
                 f"  Results: {self.results}")
 
 
-    def run_all_benchmarks(self):
+    def run_all_benchmarks(self, hs_only: bool, shell_only: bool, log_enable: bool, log_disable: bool):
         for benchmark in self.benchmarks:
-            self.run_benchmark(benchmark)
+            self.run_benchmark(benchmark, hs_only, shell_only, log_enable, log_disable)
 
-    def run_benchmark(self, benchmark: BenchmarkConfig):
+    def run_benchmark(self, benchmark: BenchmarkConfig, hs_only: bool, shell_only: bool, log_enable: bool, log_disable: bool):
         # Setup environment and pre-execution commands
         benchmark.setup_environment()
 
@@ -47,62 +47,117 @@ class BenchmarkRunner:
         
         
         # Execute the benchmark with bash
-        bash_time, bash_output, _ = CommandExecutor.run_command(
-            benchmark.command.split(" "), 
-            workdir, 
-            self.args.verbose)
-        
-        # Run post-bash-execution commands
-        for post_bash_command in benchmark.post_bash_commands:
-            CommandExecutor.run_post_execution_command(post_bash_command, 
-                                                        workdir, 
-                                                        self.args.verbose)
-    
-        # Execute the benchmark with the hs-orchestrator
-        orch_time, orch_output, orch_log = CommandExecutor.run_command_with_orch(
-            benchmark.command.split(" "), 
-            benchmark.orch_args, 
-            workdir, 
-            os.environ.get('ORCH_COMMAND'),
-            self.args.verbose)
-        
-        # Run post-hs-execution commands
-        for post_hs_command in benchmark.post_hs_commands:
-            CommandExecutor.run_post_execution_command(post_hs_command, 
-                                                        workdir, 
-                                                        self.args.verbose)
-    
-        # Analyze and compare results
-        if benchmark.custom_diff_script:
-            # Run the custom diff script. The script should return 0 if the outputs are the same, and 1 otherwise.
-            # The script may also print the diff output to stdout.
-            diff_exit_code, diff_lines, _ = CommandExecutor.run_post_execution_diff_script(
-                benchmark.custom_diff_script,
-                workdir,
+        if shell_only:
+            bash_time, bash_output, _ = CommandExecutor.run_command(
+                benchmark.command.split(" "), 
+                workdir, 
                 self.args.verbose)
-            same_results = diff_exit_code == 0
-            self.results.append((benchmark.name, bash_time, orch_time, 'Yes' if same_results else 'No', diff_lines))
-        else:
-            diff_lines = ResultAnalyzer.compare_results(bash_output, orch_output)
-            same_results = len(diff_lines) == 0
-            self.results.append((benchmark.name, bash_time, orch_time, 'Yes' if same_results else 'No', diff_lines))
-
-        # Run cleanup commands if specified
-        for cleanup_command in benchmark.cleanup_commands:
-            CommandExecutor.run_post_execution_command(cleanup_command, 
-                                                        workdir, 
-                                                        self.args.verbose)
-
-        prog_blocks = ResultAnalyzer.process_results(orch_log)
-        # Print results and optionally save logs
-        ReportGenerator.print_results(benchmark.name, bash_time, orch_time, same_results, diff_lines, verbose=self.args.verbose)
-        if not self.args.no_logs:
-            ReportGenerator.save_log_data(orch_log, os.environ.get('REPORT_OUTPUT_DIR'), f"{benchmark.name}.log")
+        
+            # Run post-bash-execution commands
+            for post_bash_command in benchmark.post_bash_commands:
+                CommandExecutor.run_post_execution_command(post_bash_command, 
+                                                            workdir, 
+                                                            self.args.verbose)
+            self.results.append((benchmark.name, bash_time, 0, 0, 0))
+            self.save_bash_times()
+            ReportGenerator.print_results(benchmark.name, bash_time, 0, 'Yes', "", verbose=self.args.verbose)
+        elif hs_only:
+            # Execute the benchmark with the hs-orchestrator
+            orch_time, orch_output, orch_log = CommandExecutor.run_command_with_orch(
+                benchmark.command.split(" "), 
+                benchmark.orch_args, 
+                workdir, 
+                os.environ.get('ORCH_COMMAND'),
+                self.args.verbose)
             
-        self.activities[benchmark.name] = prog_blocks
+            # Run post-hs-execution commands
+            for post_hs_command in benchmark.post_hs_commands:
+                CommandExecutor.run_post_execution_command(post_hs_command, 
+                                                            workdir, 
+                                                            self.args.verbose)
+            self.results.append((benchmark.name, 0, orch_time, 0, 0))
+            self.save_orch_times()
+            ReportGenerator.print_results(benchmark.name, 0, orch_time, 'Yes', "", verbose=self.args.verbose)
+        else:
+            bash_time, bash_output, _ = CommandExecutor.run_command(
+                benchmark.command.split(" "), 
+                workdir, 
+                self.args.verbose)
+        
+            # Run post-bash-execution commands
+            for post_bash_command in benchmark.post_bash_commands:
+                CommandExecutor.run_post_execution_command(post_bash_command, 
+                                                            workdir, 
+                                                            self.args.verbose)
+        
+            # Execute the benchmark with the hs-orchestrator
+            orch_time, orch_output, orch_log = CommandExecutor.run_command_with_orch(
+                benchmark.command.split(" "), 
+                benchmark.orch_args, 
+                workdir, 
+                os.environ.get('ORCH_COMMAND'),
+                self.args.verbose)
+            
+            # Run post-hs-execution commands
+            for post_hs_command in benchmark.post_hs_commands:
+                CommandExecutor.run_post_execution_command(post_hs_command, 
+                                                            workdir, 
+                                                            self.args.verbose)
+        
+            # Analyze and compare results
+            if benchmark.custom_diff_script:
+                # Run the custom diff script. The script should return 0 if the outputs are the same, and 1 otherwise.
+                # The script may also print the diff output to stdout.
+                diff_exit_code, diff_lines, _ = CommandExecutor.run_post_execution_diff_script(
+                    benchmark.custom_diff_script,
+                    workdir,
+                    self.args.verbose)
+                same_results = diff_exit_code == 0
+                self.results.append((benchmark.name, bash_time, orch_time, 'Yes' if same_results else 'No', diff_lines))
+            else:
+                diff_lines = ResultAnalyzer.compare_results(bash_output, orch_output)
+                same_results = len(diff_lines) == 0
+                self.results.append((benchmark.name, bash_time, orch_time, 'Yes' if same_results else 'No', diff_lines))
 
+            # Run cleanup commands if specified
+            for cleanup_command in benchmark.cleanup_commands:
+                CommandExecutor.run_post_execution_command(cleanup_command, 
+                                                            workdir, 
+                                                            self.args.verbose)
+
+            # prog_blocks = ResultAnalyzer.process_results(orch_log)
+            # Print results and optionally save logs
+            ReportGenerator.print_results(benchmark.name, bash_time, orch_time, same_results, diff_lines, verbose=self.args.verbose)
+            self.save_diffs(diff_lines)      
+            # self.activities[benchmark.name] = prog_blocks
+            self.save_bash_times()
+            self.save_orch_times()
+            
+        if not self.args.log_disable and not shell_only:
+            ReportGenerator.save_log_data(orch_log, os.environ.get('REPORT_OUTPUT_DIR'), f"hs_log")
+        
+
+    def save_bash_times(self):
+        # Save bash times to a file
+        with open(os.path.join(os.environ.get('REPORT_OUTPUT_DIR'), 'sh_time'), 'w') as f:
+            for result in self.results:
+                f.write(str(result[1]))
+                
+    def save_orch_times(self):
+        # Save orch times to a file
+        with open(os.path.join(os.environ.get('REPORT_OUTPUT_DIR'), 'hs_time'), 'w') as f:
+            for result in self.results:
+                f.write(str(result[2]))
+                
+    def save_diffs(self, diffs):
+        with open(os.path.join(os.environ.get('REPORT_OUTPUT_DIR'), 'error'), 'w') as f:
+            f.writelines(str(diffs))
 
     def generate_reports(self):
+            
+            self.save_bash_times()
+        
+            
             # Generate CSV report if required
             if self.args.csv_output:
                 ReportGenerator.generate_csv_report(self.results, os.environ.get('REPORT_OUTPUT_DIR'), "benchmark_results.csv")

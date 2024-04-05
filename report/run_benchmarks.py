@@ -26,46 +26,28 @@ def parse_args():
     parser.add_argument('--setup-script', type=str, default=None, help="Path to a setup script to run before running any other benchmark.")
     parser.add_argument('--subset', type=str, default=None, help="Name of a subset of benchmarks to run. Will instead download and store outputs in the dir with the specified name.")
     parser.add_argument('--no-setup', action='store_true', help="Do not run any setup script before running benchmarks. Assumes subset is also set.")
+    parser.add_argument('--hs-only', action='store_true', help="Only run benchmarks with the hs-orchestrator.")
+    parser.add_argument('--sh-only', action='store_true', help="Only run benchmarks with the shell.")
+    parser.add_argument('--log-enable', action='store_true', help="Enable logging of benchmark results.")
+    parser.add_argument('--log-disable', action='store_true', help="Disable logging of benchmark results.")
     return parser.parse_args()
 
 # Sets the required environment variables for the benchmarking process.
 def set_environment_variables(args):
     os.environ['ORCH_TOP'] = os.environ.get('ORCH_TOP', subprocess.check_output(['git', 'rev-parse', '--show-toplevel', '--show-superproject-working-tree']).decode('utf-8').strip())
-    os.environ['WORKING_DIR'] = os.path.join(os.environ['ORCH_TOP'], 'report')
+    os.environ['WORKING_DIR'] = os.environ.get('WORKING_DIR', os.path.join(os.environ['ORCH_TOP'], 'report'))
     os.environ['UTIL_DIR'] = os.path.join(os.environ['ORCH_TOP'], 'util')
     if args.subset:
-        os.environ['TEST_SCRIPT_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'benchmarks', args.subset)
-        os.environ['RESOURCE_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'resources', args.subset)
-        os.environ['REPORT_OUTPUT_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'output', args.subset)
+        os.environ['TEST_SCRIPT_DIR'] = os.environ.get('TEST_SCRIPT_DIR', os.path.join(os.environ['WORKING_DIR'], 'benchmarks', args.subset))
+        os.environ['RESOURCE_DIR'] = os.environ.get('RESOURCE_DIR', os.path.join(os.environ['WORKING_DIR'], 'resources', args.subset))
+        os.environ['REPORT_OUTPUT_DIR'] = os.environ.get('REPORT_OUTPUT_DIR', os.path.join(os.environ['WORKING_DIR'], 'output', args.subset))
     else:
-        os.environ['TEST_SCRIPT_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'benchmarks')
-        os.environ['RESOURCE_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'resources')
-        os.environ['REPORT_OUTPUT_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'output')
-    os.environ['PASH_TOP'] = os.path.join(os.environ['ORCH_TOP'], 'deps', 'pash')
-    os.environ['PASH_SPEC_TOP'] = os.path.join(os.environ['ORCH_TOP'])
-    os.environ['ORCH_COMMAND'] = os.path.join(os.environ['PASH_SPEC_TOP'], 'pash-spec.sh')
-    add_kaggle_to_path()
-
-def add_kaggle_to_path():
-    try:
-        result = subprocess.run(['find', os.path.expanduser('~'), '-name', 'kaggle'], capture_output=True, text=True, check=True)
-        find_output = result.stdout.strip().split('\n')
-
-        # Find the most likely path (assuming it's in some 'bin' directory)
-        kaggle_path = next((path for path in find_output if 'bin' in path), None)
-
-        if kaggle_path:
-            # Extract the directory from the full path
-            kaggle_dir = os.path.dirname(kaggle_path)
-
-            # Add the directory to the PATH
-            os.environ['PATH'] += os.pathsep + kaggle_dir
-            print(f"Added {kaggle_dir} to PATH")
-        else:
-            print("Kaggle executable not found")
-    except subprocess.CalledProcessError as e:
-        print("Error finding kaggle command:", e)
-
+        os.environ['TEST_SCRIPT_DIR'] = os.environ.get('TEST_SCRIPT_DIR', os.path.join(os.environ['WORKING_DIR'], 'benchmarks'))
+        os.environ['RESOURCE_DIR'] = os.environ.get('RESOURCE_DIR', os.path.join(os.environ['WORKING_DIR'], 'resources'))
+        os.environ['REPORT_OUTPUT_DIR'] = os.environ.get('REPORT_OUTPUT_DIR', os.path.join(os.environ['WORKING_DIR'], 'output'))
+    os.environ['PASH_TOP'] = os.environ.get('PASH_TOP', os.path.join(os.environ['ORCH_TOP'], 'deps', 'pash'))
+    os.environ['PASH_SPEC_TOP'] = os.environ.get('PASH_SPEC_TOP', os.path.join(os.environ['ORCH_TOP']))
+    os.environ['ORCH_COMMAND'] = os.environ.get('ORCH_COMMAND', os.path.join(os.environ['PASH_SPEC_TOP'], 'pash-spec.sh'))
 
 
 def main():
@@ -110,7 +92,7 @@ def main():
     
     # Initialize and run the BenchmarkRunner
     runner = BenchmarkRunner(config_parser.get_benchmarks(), args)
-    runner.run_all_benchmarks()
+    runner.run_all_benchmarks(args.hs_only, args.sh_only, args.log_enable, args.log_disable)
 
     # Generate reports if needed
     runner.generate_reports()

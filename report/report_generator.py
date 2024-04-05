@@ -23,18 +23,23 @@ class ReportGenerator:
 
         if verbose:
             print(f"Results for benchmark: {benchmark_name}")
-            print(f"Bash Execution Time: {bash_time:.02f}s")
-            print(f"hs Execution Time: {orch_time:.02f}s")
-            print(f"Valid: {'Yes' if same_results else 'No - see below'}")
+            if bash_time != 0:
+                print(f"Bash Execution Time: {bash_time:.02f}s")
+            if orch_time != 0:
+                print(f"hs Execution Time: {orch_time:.02f}s")
+                print(f"Valid: {'Yes' if same_results else 'No - see below'}")
             for line in diff_lines:
                 print(line)
-            comparison_result = f"{speed_comparison} than Bash ({times_diff}x {'faster' if bash_time > orch_time else 'slower'})"
+            if bash_time != 0 and orch_time != 0:
+                comparison_result = f"{speed_comparison} than Bash ({times_diff}x {'faster' if bash_time > orch_time else 'slower'})"
         else:
             print(f"{benchmark_name:20s} | Valid: {'Yes |' if len(diff_lines) == 0 else 'No'}", end=" ")
             if len(diff_lines) == 0:
-                comparison_result = f"hs is {times_diff}x {'faster' if bash_time > orch_time else 'slower'}"
+                if bash_time != 0 and orch_time != 0:
+                    comparison_result = f"hs is {times_diff}x {'faster' if bash_time > orch_time else 'slower'}"
 
-        print(comparison_result)
+        if bash_time != 0 and orch_time != 0:
+            print(comparison_result)
 
     @staticmethod
     def generate_csv_report(results, output_dir, filename):

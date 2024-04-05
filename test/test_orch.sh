@@ -440,6 +440,14 @@ test_timed_execution()
     $shell $2/test_timed_execution.sh
 }
 
+test_timed_execution_2()
+{
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in1
+    echo $'foo\nbar\nbaz\nqux\nquux\nfoo\nbar' > $3/in2
+    local shell=$1
+    $shell $2/test_timed_execution_2.sh
+}
+
 test_timed_loop()
 {
     local shell=$1

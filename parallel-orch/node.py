@@ -299,14 +299,13 @@ class ConcreteNode:
         self.tracefile = None
         self.rwset = None
         self.wait_env_file = None
-        self.to_be_resolved_snapshot = None
         self.exec_ctxt = None
         self.exec_id = None
         self.spec_pre_env = spec_pre_env
         self.loop_list_context = loop_list_context
 
     def __str__(self):
-        return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, rwset:{self.rwset}, to_be_resolved_snapshot:{self.to_be_resolved_snapshot}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt})'
+        return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt})'
 
     def __repr__(self):
         return str(self)

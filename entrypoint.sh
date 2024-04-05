@@ -1,3 +1,4 @@
 #!/bin/bash
-source .venv/bin/activate
+base=$(dirname $0)
+source ${base}/.venv/bin/activate
 exec "$@"

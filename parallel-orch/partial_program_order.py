@@ -180,7 +180,7 @@ class PartialProgramOrder:
                              loop_list_context: HSLoopListContext):
         if (concrete_node_id in self.concrete_nodes and
             not self.concrete_nodes[concrete_node_id].is_ready()):
-            self.concrete_nodes[concrete_node_id].reset_to_ready(spec_pre_env)
+            self.concrete_nodes[concrete_node_id].try_reset_to_ready(spec_pre_env)
         else:
             abstract_node = self.hsprog.find_node(concrete_node_id.node_id)
             new_concrete_node = ConcreteNode(concrete_node_id, abstract_node, loop_list_context)
@@ -243,24 +243,18 @@ class PartialProgramOrder:
         if (abstract_node.is_loop_list_change() and not abstract_node.is_assignment()
             and not prev_node.is_committed() and not prev_node.is_speculated()):
             return None
+        if prev_node.is_unsafe():
+            return None
         prev_loop_list_context = prev_node.loop_list_context
         loop_iters = prev_node_id.loop_iters
         next_concrete_id = None
         last_abstract_node_id = prev_node_id.node_id
-        if prev_node.is_committed() and prev_node.command_unsafe():
-            pre_env_file = prev_node.spec_pre_env
-        elif prev_node.is_committed():
-            pre_env_file = prev_node.exec_ctxt.post_env_file
-        elif prev_node.is_speculated():
-            pre_env_file = util.sandboxed_path(prev_node.exec_ctxt.sandbox_dir,
-                                               prev_node.exec_ctxt.post_env_file)
-        elif prev_node.is_executing():
-            pre_env_file = prev_node.exec_ctxt.pre_env_file
-        else:
-            pre_env_file = prev_node.spec_pre_env
-            assert pre_env_file is not None
-        if len(open(pre_env_file).read()) == 0:
-            raise ValueError(pre_env_file)
+        pre_env_file = prev_node.guess_post_env()
+        try:
+            if len(open(pre_env_file).read()) == 0:
+                raise ValueError(pre_env_file)
+        except FileNotFoundError:
+            breakpoint()
         while True:
             if bb.node_ids[-1] != last_abstract_node_id:
                 i = bb.node_ids.index(last_abstract_node_id)
@@ -293,6 +287,9 @@ class PartialProgramOrder:
                 continue
             else:
                 cnid = ConcreteNodeId(next_node_id, loop_iters)
+                util.debug_log(f'pick {pre_env_file} as pre_env_file')
+                pre_env_file = util.cp_to_ptmpfile(pre_env_file, 'hs_spec_pre_env')
+                util.debug_log(f'copied to {pre_env_file}')
                 self.create_concrete_node(cnid, pre_env_file, prev_loop_list_context)
                 return cnid
                         
@@ -312,21 +309,6 @@ class PartialProgramOrder:
             prev_node = self.spec_exec_order[-1]
             if self.concrete_nodes[next_concrete_id].is_ready():
                 self.schedule_spec_work(next_concrete_id)
-
-    def get_pre_exec_env_of_concrete_node(self, concrete_node: ConcreteNode):
-        candidate_nodes = self.get_all_hypothetical_previous(concrete_node.cnid)
-        for prev_node in reversed(candidate_nodes):
-            candidate_concrete_node = self.concrete_nodes[prev_node]
-            if candidate_concrete_node.exec_ctxt is not None:
-                if candidate_concrete_node.is_committed():
-                    return (candidate_concrete_node, candidate_concrete_node.exec_ctxt.post_env_file)
-                elif candidate_concrete_node.is_speculated():
-                    sandbox_dir = candidate_concrete_node.exec_ctxt.sandbox_dir
-                    post_env_path = candidate_concrete_node.exec_ctxt.post_env_file
-                    return (candidate_concrete_node, util.sandboxed_path(sandbox_dir, post_env_path))
-                else:
-                    return (candidate_concrete_node, candidate_concrete_node.exec_ctxt.pre_env_file)
-        return None
 
     # def get_prev_nodes(self, concrete_node_id: ConcreteNodeId) -> "list[ConcreteNodeId]":
     #     return self.exec_order[concrete_node_id][:]
@@ -416,10 +398,7 @@ class PartialProgramOrder:
         self._has_fs_deps(concrete_node_id)
 
     def schedule_spec_work(self, concrete_node_id: ConcreteNodeId):
-        event_log("schedule_spec")
         concrete_node = self.get_concrete_node(concrete_node_id)
-        starting_env_node, starting_env = self.get_pre_exec_env_of_concrete_node(concrete_node)
-        util.debug_log(f"concrete_node_id: {concrete_node_id}")
         self.adjust_to_be_resolved_dict_entry(concrete_node_id)
         self.get_concrete_node(concrete_node_id).start_spec_executing(concrete_node.spec_pre_env)
 
@@ -430,6 +409,7 @@ class PartialProgramOrder:
         return env
 
     def reset_speculation(self):
+        event_log(f"reset speculation")
         for cnid in self.spec_exec_order:
             self.concrete_nodes[cnid].try_reset_to_ready()
         self.spec_exec_order = []
@@ -437,14 +417,19 @@ class PartialProgramOrder:
     ### external handler events ###
 
     def schedule_work(self, concrete_node_id: ConcreteNodeId, env_file: str):
-        event_log("schedule_work")
         self.get_concrete_node(concrete_node_id).start_executing(env_file)
 
     def handle_complete(self, concrete_node_id: ConcreteNodeId, has_pending_wait: bool,
                         current_env: str):
         event_log(f"handle_complete {concrete_node_id}")
         node = self.get_concrete_node(concrete_node_id)
-        # TODO: complete the state matching
+        # TODO: make collect_result a state transition and make more states
+        is_killed = node.collect_result()
+        if is_killed:
+            node.reset_to_ready()
+            if has_pending_wait:
+                node.start_executing(current_env)
+            return
         if node.is_executing():
             node.commit_frontier_execution()
             self.current_loop_list = node.loop_list_context
@@ -503,7 +488,7 @@ class PartialProgramOrder:
             abstract_node = self.hsprog.find_node(concrete_node_id.node_id)
             new_concrete_node = ConcreteNode(concrete_node_id, abstract_node, self.current_loop_list)
             new_concrete_node.transition_from_init_to_ready(env_file)
-            if new_concrete_node.command_unsafe() or abstract_node.is_assignment():
+            if new_concrete_node.command_unsafe():
                 new_concrete_node.transition_from_ready_to_unsafe()
             self.concrete_nodes[concrete_node_id] = new_concrete_node
 
@@ -519,6 +504,7 @@ class PartialProgramOrder:
         self.temp_new_env = (concrete_node_id, env_file)
         
         if node.is_ready():
+            event_log(f"schedule {concrete_node_id}")
             node.start_executing(env_file)
         elif node.is_unsafe():
             pass

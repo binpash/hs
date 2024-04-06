@@ -19,7 +19,6 @@ SCRIPT_NAME = "full.sh"
 
 def do_sh_run(test_base: Path, output_base: Path, env: dict):
     before = time.time()
-    print(f'Running {test_base / SCRIPT_NAME}')
     result = run(['/bin/sh', test_base / SCRIPT_NAME], stdout=PIPE, env=env)
     duration = time.time() - before
     
@@ -33,7 +32,6 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
         cmd.extend(['-d', '2'])
     cmd.append(test_base / SCRIPT_NAME)
     before = time.time()
-    print(f'Running {cmd}')
     with open(output_base / 'hs_log', 'w') as log:
         result = run(cmd, stdout=PIPE, stderr=log, env=env)
     duration = time.time() - before
@@ -45,7 +43,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     test_base = Path(__file__).parent.resolve()
     hs_base = test_base.parent.parent.parent
-    print(hs_base)
     #######################
     # SPECIFY ENV VARS HERE
     env['IN'] =  hs_base / 'report' / 'resources' / 'unix_50'
@@ -54,7 +51,6 @@ if __name__ == '__main__':
     bench_base = test_base.parent
     local_name = os.sep.join(test_base.parts[-1:])
     output_base = hs_base / "report" / "output" / local_name
-    print(output_base)
     run_hs = False
     run_sh = False
     if args.target in ["hs-only", "both"]:

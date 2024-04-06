@@ -295,8 +295,9 @@ class PartialProgramOrder:
     
     def get_schedulable_spec_nodes(self) -> list[ConcreteNodeId]:
         schedulable = []
+        self.adjust_to_be_resolved_dict()
         for cnid in self.spec_exec_order:
-            if self.concrete_nodes[cnid].is_ready():
+            if self.concrete_nodes[cnid].is_ready() and not self._has_fs_deps(cnid):
                 schedulable.append(cnid)
         return schedulable
                         
@@ -309,11 +310,8 @@ class PartialProgramOrder:
             prev_node = self.spec_exec_order[-1]
             prev_node: ConcreteNodeId
 
-        # Prioritize scheduling of existing ready spec nodes for plain nodes
-        # and creation of new spec nodes for loop nodes
-        if len(prev_node.loop_iters) == 0:
-            for cnid in self.get_schedulable_spec_nodes():
-                self.schedule_spec_work(cnid)
+        for cnid in self.get_schedulable_spec_nodes():
+            self.schedule_spec_work(cnid)
 
         while len(self.spec_exec_order) < window:
             next_concrete_id = self.make_new_spec_node(prev_node)

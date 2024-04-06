@@ -1,25 +1,25 @@
 #!/bin/bash
 
-IN1=$IN/1G-1.txt
-IN2=$IN/1G-2.txt
-IN3=$IN/1G-3.txt
-IN4=$IN/1G-4.txt
-IN5=$IN/1G-5.txt
-IN6=$IN/1G-6.txt
-IN7=$IN/1G-7.txt
-IN8=$IN/1G-8.txt
-IN91=$IN/1G-9.1.txt
-IN92=$IN/1G-9.2.txt
-IN93=$IN/1G-9.3.txt
-IN94=$IN/1G-9.4.txt
-IN95=$IN/1G-9.5.txt
-IN96=$IN/1G-9.6.txt
-IN97=$IN/1G-9.7.txt
-IN98=$IN/1G-9.8.txt
-IN99=$IN/1G-9.9.txt
-IN10=$IN/1G-10.txt
-IN11=$IN/1G-11.txt
-IN12=$IN/1G-12.txt
+IN1=$IN/1.txt
+IN2=$IN/2.txt
+IN3=$IN/3.txt
+IN4=$IN/4.txt
+IN5=$IN/5.txt
+IN6=$IN/6.txt
+IN7=$IN/7.txt
+IN8=$IN/8.txt
+IN91=$IN/9.1.txt
+IN92=$IN/9.2.txt
+IN93=$IN/9.3.txt
+IN94=$IN/9.4.txt
+IN95=$IN/9.5.txt
+IN96=$IN/9.6.txt
+IN97=$IN/9.7.txt
+IN98=$IN/9.8.txt
+IN99=$IN/9.9.txt
+IN10=$IN/10.txt
+IN11=$IN/11.txt
+IN12=$IN/12.txt
 
 #1.sh 1.0: extract the last name
 cat $IN1 | cut -d ' ' -f 2
@@ -100,7 +100,7 @@ cat $IN93 | cut -c 1-2 | tr -d '\n'
 cat $IN94 | tr ' ' '\n' | grep "\"" | sed 4d | cut -d "\"" -f 2 | tr -d '\n'
 
 #27.sh # 9.5: backwards running clock, in a backwards poem
-cat $IN | rev | cut -c -3 | rev | grep -o '[A-Z][A-Z]*' | rev | tr -d '\n' | rev
+cat $IN95 | rev | cut -c -3 | rev | grep -o '[A-Z][A-Z]*' | rev | tr -d '\n' | rev
 
 #28.sh 9.6: Follow the directions for grep
 cat $IN96 | tr ' ' '\n' | grep '[A-Z]' | sed 1d | sed 3d | sed 3d | tr '[a-z]' '\n' | grep '[A-Z]' | sed 3d | tr -c '[A-Z]' '\n' | tr -d '\n'

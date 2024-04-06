@@ -20,7 +20,6 @@ SCRIPT_NAME = "8.sh"
 
 def do_sh_run(test_base: Path, output_base: Path, env: dict):
     before = time.time()
-    print(f'Running {test_base / SCRIPT_NAME}')
     result = run(['/bin/sh', test_base / SCRIPT_NAME], stdout=PIPE, env=env)
     duration = time.time() - before
     
@@ -34,7 +33,6 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
         cmd.extend(['-d', '2'])
     cmd.append(test_base / SCRIPT_NAME)
     before = time.time()
-    print(f'Running {cmd}')
     with open(output_base / 'hs_log', 'w') as log:
         result = run(cmd, stdout=PIPE, stderr=log, env=env)
     duration = time.time() - before

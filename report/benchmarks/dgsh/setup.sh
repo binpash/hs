@@ -3,14 +3,12 @@
 export PATH=$PATH:$HOME/.local/bin
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
 export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
+export REPORT_DIR=${REPORT_DIR:-$PASH_SPEC_TOP/report}
 
 inflate="$PASH_SPEC_TOP/report/util/inflate.sh"
 
 resource_dir="$PASH_SPEC_TOP/report/resources"
 download_dir="$resource_dir/dgsh"
-
-
-
 mkdir -p "$download_dir"
 
 cd "$download_dir"

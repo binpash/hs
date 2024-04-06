@@ -44,7 +44,7 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
 if __name__ == '__main__':
     args = parser.parse_args()
     test_base = Path(__file__).parent.resolve()
-    hs_base = test_base.parent.parent.parent.parent
+    hs_base = test_base.parent.parent.parent
     
     #######################
     # SPECIFY ENV VARS HERE
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     #######################
 
     bench_base = test_base.parent
-    local_name = os.sep.join(test_base.parts[-2:])
+    local_name = os.sep.join(test_base.parts[-1:])
     output_base = hs_base / "report" / "output" / local_name
     run_hs = False
     run_sh = False
@@ -71,6 +71,7 @@ if __name__ == '__main__':
         output_hs = do_hs_run(test_base, output_base, hs_base, args.window, env, args.log == 'enable')
     if run_sh and run_hs:
         with open(output_base / 'error', 'w') as errf:
+            print(output_sh[:100])
             if output_sh == output_hs:
                 errf.write('')
             else:

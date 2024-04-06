@@ -15,7 +15,7 @@ parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
 
 env = os.environ.copy()
-SCRIPT_NAME = "9.sh"
+SCRIPT_NAME = "8.sh"
 
 
 def do_sh_run(test_base: Path, output_base: Path, env: dict):
@@ -81,5 +81,3 @@ if __name__ == '__main__':
                 errf.write(output_sh[1].decode('UTF-8'))
                 errf.write(f'==== output hs ====\n')
                 errf.write(output_hs[1].decode('UTF-8'))
-
-    

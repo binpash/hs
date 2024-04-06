@@ -25,7 +25,7 @@ fi
 # 17
 if [[ ! -f "goods_classification.csv" ]]; then
     wget -nc -O "trade.zip"  https://www.stats.govt.nz/assets/Uploads/International-trade/International-trade-December-2020-quarter/Download-data/international-trade-december-2020-quarter-csv.zip
-    gunzip -j "trade.zip"
+    unzip -j "trade.zip"
     rm -rf "trade.zip"
     $inflate goods_classification.csv 1G
 fi

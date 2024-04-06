@@ -7,6 +7,7 @@ export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
 resource_dir="$PASH_SPEC_TOP/report/resources"
 download_dir="$resource_dir/bus-analytics"
 
+mkdir -p "$download_dir"
 cd "$download_dir"
 
 if [ ! -f bus.csv ]; then
@@ -14,7 +15,7 @@ if [ ! -f bus.csv ]; then
     wget -nc -O bus.csv.bz2 'https://www.balab.aueb.gr/~dds/oasa-2021-01-08.bz2'
     if [[ -f bus.csv.bz2 ]]; then
         echo "Decompressing full-size dataset..."
-        bzip2 -d bus.csv.bz2
+        bunzip2 -c bus.csv.bz2 > $download_dir/bus.csv
     fi
 else
     echo "Full-size dataset already exists."

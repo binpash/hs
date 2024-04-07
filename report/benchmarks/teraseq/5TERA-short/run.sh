@@ -3,7 +3,7 @@
 # Run 5TERA-short preprocessing, alignment, and postprocessing
 #
 
-trap 'echo Exiting "$BASH_COMMAND" with status $?' EXIT
+# trap 'echo Exiting "$BASH_COMMAND" with status $?' EXIT
 
 set -e # dliu
 

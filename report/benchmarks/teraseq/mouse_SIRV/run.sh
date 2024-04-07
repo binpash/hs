@@ -3,7 +3,7 @@
 # Run Mouse SIRV (PRJEB27590) preprocessing, alignment, and postprocessing
 #
 
-trap 'echo Exiting "$BASH_COMMAND" with status $?' EXIT
+# trap 'echo Exiting "$BASH_COMMAND" with status $?' EXIT
 
 set -e # dliu
 

@@ -49,7 +49,7 @@ if __name__ == '__main__':
     
     #######################
     # SPECIFY ENV VARS HERE
-    env['INPUT_FILE'] = hs_base / 'report' / 'resources' / 'dgsh' / 'pg100.txt'
+    env['INPUT_FILE'] = hs_base / 'report' / 'resources' / 'dgsh' / 'weblog.log'
     #######################
 
     bench_base = test_base.parent

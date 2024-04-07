@@ -17,12 +17,20 @@ tests=(
 	"RiboSeq"
 	"mouse_SIRV"
 )
-
-# run all download.sh
+cd "${teraseq_root}"
 for t in "${tests[@]}"
 do
+	echo "Setting up $t"
 	test_dir="${teraseq_root}/$t"
-	cd "$test_dir"
-	echo "Downloading for $t"
-	bash "${test_dir}/download.sh"
+	for d in $(find "${test_dir}" -mindepth 1 -maxdepth 1 -type d)
+	do
+		sdir=$(basename $d)
+		(
+			rm -r "${teraseq_root}/samples/${sdir}";
+			cp -rl "$d" "${teraseq_root}/samples/${sdir}";
+			rm -r "$d";
+			mkdir "${teraseq_root}/samples/${sdir}"/{align,db,logfiles}
+		) &
+	done
 done
+wait

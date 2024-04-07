@@ -569,16 +569,18 @@ class ConcreteNode:
 
         def parse_env(content):
             env_vars = {}
-            for line in content.splitlines():
-                if line.startswith('#') or not line.strip():
-                    continue
-                for regex in [re_scalar_string, re_scalar_int, re_array]:
-                    match = regex.match(line)
-                    if match:
-                        key, value = match.groups()
-                        if key not in ignore_vars and not key.startswith(ignore_prefix):
-                            env_vars[key] = value
-                        break
+            # for line in content.splitlines():
+            #     if line.startswith('#') or not line.strip():
+            #         continue
+            #     for regex in [re_scalar_string, re_scalar_int, re_array]:
+            #         match = regex.match(line)
+            #         if match:
+            #             key, value = match.groups()
+            #             if key not in ignore_vars and not key.startswith(ignore_prefix):
+            #                 env_vars[key] = value
+            #             break
+            env_vars = {key: value for key, value in util.parse_env_string_to_dict(content).items()
+                        if key not in ignore_vars and not key.startswith(ignore_prefix)}
             inside_function = False
             current_function = ''
             function_body_lines = []

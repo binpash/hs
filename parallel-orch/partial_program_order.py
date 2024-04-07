@@ -548,7 +548,6 @@ class PartialProgramOrder:
                 logging.info(f'Node {concrete_node_id} is stopped but not in the frontier.')
         elif node.is_speculated():
             # Check if env conflicts exist
-            breakpoint()
             if node.has_env_conflict_with(env_file):
                 util.debug_log(f'prev_env: {node.exec_ctxt.pre_env_file}, real: {env_file}')
                 node.reset_to_ready()
@@ -594,4 +593,4 @@ class PartialProgramOrder:
             # If we don't restart the node with pending wait here, the scheduler will hang
             if node.cnid==self.temp_new_env[0]:
                 node.start_executing(self.temp_new_env[1], self.current_loop_list)
-                util.debug_log(f'{concrete_node_id} start: current_loop_list is {self.current_loop_list}')
+                util.debug_log(f'{node.cnid} start: current_loop_list is {self.current_loop_list}')

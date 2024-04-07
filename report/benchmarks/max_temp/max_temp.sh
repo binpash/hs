@@ -1,7 +1,6 @@
 #!/bin/bash
-
+PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
 RESOURCE_DIR="$PASH_SPEC_TOP/report/resources/max_temp"
-
 ## Processing files and data per year
 for year in $(seq $FROM $TO); do
     echo "Processing year: $year"

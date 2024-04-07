@@ -7,23 +7,33 @@ export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
 download_dir="$PASH_SPEC_TOP/report/resources/max_temp" # Adjust the path as necessary
 
 # FTP server details
-ftp_server="ftp://ftp.ncdc.noaa.gov/pub/data/noaa"
-ftp_dir="./"
+# ftp_server="ftp://ftp.ncdc.noaa.gov/pub/data/noaa"
+# ftp_dir="./"
 
+IN=${IN:-'https://atlas-group.cs.brown.edu/data/noaa/'}
+fetch=${fetch:-"curl -s"}
 
 # Start and end dates
 start_year=${1:-2000}
 end_year=${2:-2010}
 
-# Create local directory if it doesn't exist
-mkdir -p "$download_dir"
+# Generate sequence of years and construct URLs to list files
+seq $start_year $end_year |
+sed "s;^;$IN;" | sed 's;$;/;' |
+xargs $fetch |
+grep gz |
+tr -s ' \n' |
+cut -d ' ' -f9 |
 
-# Downloading files
-for year in $(seq $start_year $end_year); do
-    echo "Fetching files for year $year..."
+# Preprocess URLs to include the year in the path
+sed 's;^\(.*\)\(20[0-9][0-9]\).gz;\2/\1\2\.gz;' |
+sed "s;^;$IN;" |
 
-    # Navigate to the year directory and download all .gz files
-    lftp -e "mirror --verbose --parallel=5 $ftp_dir/$year $download_dir/$year; bye" -u anonymous, $ftp_server
-done
-
-echo "Files fetched from $start_year to $end_year."
+# Download files in parallel, directing each to its year-based directory
+xargs -I {} -P 10 -n1 sh -c '
+  filename=$(basename "{}")
+  year=$(echo "$filename" | grep -oP "\d{4}(?=\.gz$)")
+  target_dir="'$download_dir'/$year"
+  mkdir -p "$target_dir"
+  curl -s -o "${target_dir}/${filename}" "{}"
+'

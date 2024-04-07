@@ -55,7 +55,7 @@ if __name__ == '__main__':
     #######################
 
     bench_base = test_base.parent
-    local_name = os.sep.join(test_base.parts[-2:])
+    local_name = os.sep.join(test_base.parts[-1:])
     output_base = hs_base / "report" / "output" / local_name
     run_hs = False
     run_sh = False

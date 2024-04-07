@@ -19,7 +19,8 @@ echo "Downloading dgsh datasets..."
 if [[ ! -f "dblp.xml" ]]; then
     wget -nc https://atlas-group.cs.brown.edu/data/dblp/dblp.xml.gz
     gunzip dblp.xml.gz
-    $inflate dblp.xml 1G
+    $inflate dblp.xml 100M
+    mv 100M-dblp.xml dblp.xml
 fi
 
 # 17
@@ -27,20 +28,24 @@ if [[ ! -f "goods_classification.csv" ]]; then
     wget -nc -O "trade.zip"  https://www.stats.govt.nz/assets/Uploads/International-trade/International-trade-December-2020-quarter/Download-data/international-trade-december-2020-quarter-csv.zip
     unzip -j "trade.zip"
     rm -rf "trade.zip"
-    $inflate goods_classification.csv 1G
+    $inflate goods_classification.csv 100M
+    mv 100M-goods_classification.csv goods_classification.csv
 fi
 
 # Inputs for #5, #6, #8
 if [[ ! -f pg100.txt ]]; then
     wget -nc https://www.gutenberg.org/cache/epub/100/pg100.txt
-    $inflate pg100.txt 1G
+    $inflate pg100.txt 100M
+    mv 100M-pg100.txt pg100.txt
 fi
 
 # Inputs for #7
 if [[ ! -f weblog.log ]]; then
     wget -nc -O weblog.log https://raw.githubusercontent.com/elastic/examples/master/Common%20Data%20Formats/apache_logs/apache_logs
-    $inflate weblog.log 1G
+    $inflate weblog.log 100M
+    mv 100M-weblog.log weblog.log
 fi
+
 
 # Inputs for #2, #3
 git clone https://github.com/kelsny/overcommitted

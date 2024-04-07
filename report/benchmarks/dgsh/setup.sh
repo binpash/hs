@@ -7,6 +7,8 @@ export REPORT_DIR=${REPORT_DIR:-$PASH_SPEC_TOP/report}
 
 inflate="$PASH_SPEC_TOP/report/util/inflate.sh"
 
+inflate_size=${inflate_size:-1G}
+
 resource_dir="$PASH_SPEC_TOP/report/resources"
 download_dir="$resource_dir/dgsh"
 mkdir -p "$download_dir"
@@ -19,8 +21,8 @@ echo "Downloading dgsh datasets..."
 if [[ ! -f "dblp.xml" ]]; then
     wget -nc https://atlas-group.cs.brown.edu/data/dblp/dblp.xml.gz
     gunzip dblp.xml.gz
-    $inflate dblp.xml 100M
-    mv 100M-dblp.xml dblp.xml
+    $inflate dblp.xml $inflate_size
+    mv $inflate_size-dblp.xml dblp.xml
 fi
 
 # 17
@@ -28,22 +30,22 @@ if [[ ! -f "goods_classification.csv" ]]; then
     wget -nc -O "trade.zip"  https://www.stats.govt.nz/assets/Uploads/International-trade/International-trade-December-2020-quarter/Download-data/international-trade-december-2020-quarter-csv.zip
     unzip -j "trade.zip"
     rm -rf "trade.zip"
-    $inflate goods_classification.csv 100M
-    mv 100M-goods_classification.csv goods_classification.csv
+    $inflate goods_classification.csv $inflate_size
+    mv $inflate_size-goods_classification.csv goods_classification.csv
 fi
 
 # Inputs for #5, #6, #8
 if [[ ! -f pg100.txt ]]; then
     wget -nc https://www.gutenberg.org/cache/epub/100/pg100.txt
-    $inflate pg100.txt 100M
-    mv 100M-pg100.txt pg100.txt
+    $inflate pg100.txt $inflate_size
+    mv $inflate_size-pg100.txt pg100.txt
 fi
 
 # Inputs for #7
 if [[ ! -f weblog.log ]]; then
     wget -nc -O weblog.log https://raw.githubusercontent.com/elastic/examples/master/Common%20Data%20Formats/apache_logs/apache_logs
-    $inflate weblog.log 100M
-    mv 100M-weblog.log weblog.log
+    $inflate weblog.log $inflate_size
+    mv $inflate_size-weblog.log weblog.log
 fi
 
 

@@ -18,6 +18,8 @@ inputs=(
 1 10 11 12 2 3 4 5 6 7 8 9.1 9.2 9.3 9.4 9.5 9.6 9.7 9.8 9.9
 )
 
+inflate_size=${inflate_size:-1G}
+
 echo "Preparing unix_50 datasets..."
 
 inflate="$PASH_SPEC_TOP/report/util/inflate.sh"
@@ -28,9 +30,9 @@ if [[ ! -f "*.txt" ]]; then
 fi
 
 for i in ${inputs[@]}; do
-    if [[ ! -f "10M_$i.txt" ]]; then
+    if [[ ! -f "$inflate_size-$i.txt" ]]; then
         $inflate "$i.txt" 10M
-        $inflate "10M-$i.txt" 100M & 
+        $inflate "10M-$i.txt" $inflate_size &
         # $inflate "100M-10M-$i.txt" 1G
        
         # mv "1G-100M-10M-$i.txt" "1G-$i.txt"
@@ -39,5 +41,5 @@ done
 wait
 
 for i in ${inputs[@]}; do
- mv "100M-10M-$i.txt" "100M-$i.txt"
+ mv "$inflate_size-10M-$i.txt" "$inflate_size-$i.txt"
  done

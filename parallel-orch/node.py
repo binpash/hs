@@ -160,6 +160,16 @@ class HSLoopListContext:
         loop_list_context.pop()
         return HSLoopListContext(loop_list_context)
 
+    def __repr__(self):
+        return repr(self.loop_list_context)
+
+    def __eq__(self, other: 'HSLoopListContext'):
+        if len(self.loop_list_context) == len(other.loop_list_context):
+            return all([self.loop_list_context[i] == other.loop_list_context[i]
+                        for i in range(len(self.loop_list_context))])
+        else:
+            return False
+
 def get_loop_list_from_env(env):
     with open(env) as f:
         d = util.parse_env_string_to_dict(f.read())
@@ -451,8 +461,10 @@ class ConcreteNode:
         self.state = NodeState.READY
         self.trace_state()
 
-    def start_executing(self, env_file):
+    def start_executing(self, env_file, loop_list_context):
         assert self.state == NodeState.READY
+        self.spec_pre_env = env_file
+        self.loop_list_context = loop_list_context
         self.start_command(env_file)
         self.state = NodeState.EXECUTING
         self.trace_state()

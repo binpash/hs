@@ -99,8 +99,8 @@ class PartialProgramOrder:
         self.log_state()
 
     def log_state(self):
-        for node in self.concrete_nodes.values():
-            progress_log(node.pretty_state_repr())
+        # for node in self.concrete_nodes.values():
+        #     progress_log(node.pretty_state_repr())
         progress_log('')
         progress_log('canon: ' + ' '.join([str(cnid) for cnid in self.canon_exec_order]))
         progress_log('spec:  ' + ' '.join([str(cnid) for cnid in self.spec_exec_order]))
@@ -178,10 +178,10 @@ class PartialProgramOrder:
     
     def create_concrete_node(self, concrete_node_id: ConcreteNodeId, spec_pre_env: str,
                              loop_list_context: HSLoopListContext):
-        if (concrete_node_id in self.concrete_nodes and
-            not self.concrete_nodes[concrete_node_id].is_ready()):
-            self.concrete_nodes[concrete_node_id].try_reset_to_ready(spec_pre_env)
-        else:
+        # if (concrete_node_id in self.concrete_nodes and
+        #     not self.concrete_nodes[concrete_node_id].is_ready()):
+        #     self.concrete_nodes[concrete_node_id].try_reset_to_ready(spec_pre_env)
+        # else:
             abstract_node = self.hsprog.find_node(concrete_node_id.node_id)
             new_concrete_node = ConcreteNode(concrete_node_id, abstract_node, loop_list_context)
             self.concrete_nodes[concrete_node_id] = new_concrete_node
@@ -445,9 +445,6 @@ class PartialProgramOrder:
     
     ### external handler events ###
 
-    def schedule_work(self, concrete_node_id: ConcreteNodeId, env_file: str):
-        self.get_concrete_node(concrete_node_id).start_executing(env_file)
-
     def handle_complete(self, concrete_node_id: ConcreteNodeId, has_pending_wait: bool,
                         current_env: str):
         event_log(f"handle_complete {concrete_node_id}")
@@ -457,22 +454,24 @@ class PartialProgramOrder:
         if is_killed:
             node.reset_to_ready()
             if has_pending_wait:
-                node.start_executing(current_env)
+                node.start_executing(current_env, self.current_loop_list)
             return
         if node.is_executing():
             node.commit_frontier_execution()
             self.current_loop_list = node.loop_list_context
+            util.debug_log(f'{concrete_node_id} done: current_loop_list is {self.current_loop_list}')
             self.adjust_to_be_resolved_dict()
         elif node.is_spec_executing():
             if self.has_fs_deps(concrete_node_id):
                 node.reset_to_ready()
                 # otherwise it stays in ready state and waits to be scheduled by the scheduler
                 if has_pending_wait:
-                    node.start_executing(current_env)
+                    node.start_executing(current_env, self.current_loop_list)
             else:
                 node.finish_spec_execution()
                 if has_pending_wait:
                     self.current_loop_list = node.loop_list_context
+                    util.debug_log(f'{concrete_node_id} done: current_loop_list is {self.current_loop_list}')
                     node.commit_speculated()
                     self.adjust_to_be_resolved_dict()
         else:
@@ -501,6 +500,7 @@ class PartialProgramOrder:
         if node.is_assignment():
             if node.is_loop_list_change():
                 self.current_loop_list = node.simulate_loop_list(env_file, self.current_loop_list)
+                util.debug_log(f'{concrete_node_id} done: current_loop_list is {self.current_loop_list}')
             return False
         else:
             return True
@@ -534,7 +534,10 @@ class PartialProgramOrder:
         
         if node.is_ready():
             event_log(f"schedule {concrete_node_id}")
-            node.start_executing(env_file)
+            if node.loop_list_context != self.current_loop_list:
+                self.reset_speculation()
+            node.start_executing(env_file, self.current_loop_list)
+            util.debug_log(f'{concrete_node_id} start: current_loop_list is {self.current_loop_list}')
         elif node.is_unsafe():
             pass
         elif node.is_stopped():
@@ -545,16 +548,19 @@ class PartialProgramOrder:
                 logging.info(f'Node {concrete_node_id} is stopped but not in the frontier.')
         elif node.is_speculated():
             # Check if env conflicts exist
+            breakpoint()
             if node.has_env_conflict_with(env_file):
                 util.debug_log(f'prev_env: {node.exec_ctxt.pre_env_file}, real: {env_file}')
                 node.reset_to_ready()
-                node.start_executing(env_file)
+                node.start_executing(env_file, self.current_loop_list)
+                util.debug_log(f'{concrete_node_id} start: current_loop_list is {self.current_loop_list}')
                 self.reset_speculation()
             # Optimization: It would make sense to perform the checks independently,
             # and if fs conflict, then update the run after dict.
             elif self.has_fs_deps(concrete_node_id):
                 node.reset_to_ready()
-                node.start_executing(env_file)
+                node.start_executing(env_file, self.current_loop_list)
+                util.debug_log(f'{concrete_node_id} start: current_loop_list is {self.current_loop_list}')
             else:
                 node.commit_speculated()
                 self.current_loop_list = node.loop_list_context
@@ -562,12 +568,14 @@ class PartialProgramOrder:
         elif node.is_executing():
             if node.has_env_conflict_with(env_file):
                 node.reset_to_ready()
-                node.start_executing(env_file)
+                node.start_executing(env_file, self.current_loop_list)
+                util.debug_log(f'{concrete_node_id} start: current_loop_list is {self.current_loop_list}')
                 self.reset_speculation()
         elif node.is_spec_executing():
             if node.has_env_conflict_with(env_file):
                 node.reset_to_ready()
-                node.start_executing(env_file)
+                node.start_executing(env_file, self.current_loop_list)
+                util.debug_log(f'{concrete_node_id} start: current_loop_list is {self.current_loop_list}')
                 self.reset_speculation()
         else:
             logging.error(f'Error: Node {concrete_node_id} is in an invalid state: {node.state}')
@@ -585,4 +593,5 @@ class PartialProgramOrder:
             node.reset_to_ready()
             # If we don't restart the node with pending wait here, the scheduler will hang
             if node.cnid==self.temp_new_env[0]:
-                node.start_executing(self.temp_new_env[1])
+                node.start_executing(self.temp_new_env[1], self.current_loop_list)
+                util.debug_log(f'{concrete_node_id} start: current_loop_list is {self.current_loop_list}')

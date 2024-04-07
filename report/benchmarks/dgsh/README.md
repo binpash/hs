@@ -1,6 +1,6 @@
-# Transit Analytics Benchmarks
+# DGSH Benchmarks
 
-This directory contains the Transit Analytics benchmarks.
+This directory contains the DGSH benchmarks.
 
 ## TLDR
 ```bash
@@ -8,7 +8,7 @@ This directory contains the Transit Analytics benchmarks.
 python3 run --window 10 --target both
 ```
 
-Results are in `<hs_top>/report/output/bus-analytics`.
+Results are in `<hs_top>/report/output/dgsh`.
 
 ## Directory Structure
 
@@ -23,7 +23,6 @@ The benchmark directory is structured with individual subdirectories for each be
 │   ├── 2.sh
 │   └── run
 ...
-├── full.sh
 ├── run
 └── setup.sh
 ```
@@ -36,9 +35,11 @@ Before running the benchmarks, you need to set up the input data. This setup is 
 ./setup.sh
 ```
 
+You can optionally specify the inflation size using the convention x+[K, M, G] (e.g., `1G`, `500M`). If not specified, the default size is `1G`.
+
 This script prepares the necessary input data for all benchmarks.
 
-The input files are downloaded and stored in the `<hs_top>/report/resources/bus-analytics` directory. Make sure you have sufficient space and permissions in this directory before running the setup.
+The input files are downloaded and stored in the `<hs_top>/report/resources/dgsh` directory. Make sure you have sufficient space and permissions in this directory before running the setup.
 
 
 ## Running Benchmarks
@@ -73,23 +74,9 @@ python3 run --window 10 --target hs-only --log enable
 Replace `1` with the appropriate benchmark number as needed.
 
 
-The outputs from running the benchmarks are saved in the `<hs_top>/report/output/bus-analytics` directory. Each sub-benchmark will have its own subdirectory. Each subdirectory will contain the following files:
+The outputs from running the benchmarks are saved in the `<hs_top>/report/output/dgsh` directory. Each sub-benchmark will have its own subdirectory. Each subdirectory will contain the following files:
 
 - `error`: empty if the benchmark execution completes successfully without differences in output between `sh` and `hs`; non-empty if differences are found.
 - `hs_time`: execution time of the `hs`.
 - `sh_time`: execution time of the `sh`.
 - `hs_log`: logs of `hs`.
-
-
-### Benchmark details
- Mass-Transport System Analytics
-
-This set of scripts script is part of [a recent study on OASA](https://insidestory.gr/article/noymera-leoforeia-athinas) from Diomidis Spinellis and Eleftheria Tsaliki.  OASA is the the mass-transport system supporting the city of Athens. 
-
-1. `1.sh`: Vehicles on the road per day
-2. `2.sh`: Days a vehicle is on the road
-3. `3.sh`: Hours each vehicle is on the road
-4. `4.sh`: Hours monitored each day
-5. `5.sh`: Hours each bus is active each day
-
-

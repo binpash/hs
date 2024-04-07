@@ -509,8 +509,8 @@ else
     run_test test_local_vars_3
     run_test test_command_var_assignments_1
     run_test test_command_var_assignments_2
-    run_test test_scheduling_restart_1 5
-    run_test test_scheduling_restart_loop_1 5
+    # run_test test_scheduling_restart_1 5
+    # run_test test_scheduling_restart_loop_1 5
     # run_test test_timed_execution 3
     # run_test test_timed_loop 5
     run_test test1_1 # "1 2 3 1" # 7

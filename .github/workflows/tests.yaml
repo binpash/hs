@@ -37,19 +37,21 @@ jobs:
           python-version: '3.11'
       - name: Running Correctness Tests
         run: |
-          cd ..
-          cp -r dynamic-parallelizer ~
-          cd ~/dynamic-parallelizer
           sudo touch /.githubenv
-          # install the system deps and pash the environment
-          sudo -E bash scripts/install_deps_ubuntu20.sh
           uname -a
+          # install the system deps and pash the environment
+          apt install python3 strace wget make file libtool lipcap2-bin mergerfs util-linux curl netcat-openbsd
+          git submodule update --init --recursive
+          cd deps/try
+          bash setup.sh
+          cd ../pash
+          bash scripts/setup-pash.sh
+          cd ../..
           # run all the tests
           export DEBUG=100
           export PASH_TOP="$PWD/deps/pash"
           export PATH=$PATH:$PASH_TOP
-          file ~/dynamic-parallelizer/deps/riker/debug/bin/rkr
-          bash ~/dynamic-parallelizer/test/test_orch.sh  
+          bash test/test_orch.sh  
           # get the timer
           timer=$(LANG=en_us_88591; date)
           echo "VERSION<<EOF" >> $GITHUB_ENV

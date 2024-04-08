@@ -1,9 +1,6 @@
 name: Docker
 on:
   push:
-    branches:
-    - main
-    - ezri-ci
 jobs:
   build:
     runs-on: ubuntu-latest

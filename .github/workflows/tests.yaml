@@ -39,12 +39,12 @@ jobs:
         run: |
           uname -a
           # install the system deps and pash the environment
-          apt install python3 strace wget make file libtool lipcap2-bin mergerfs util-linux curl netcat-openbsd
+          sudo apt install -y python3 strace wget make file libtool lipcap2-bin mergerfs util-linux curl netcat-openbsd
           git submodule update --init --recursive
           cd deps/try
-          bash setup.sh
+          sudo bash setup.sh
           cd ../pash
-          bash scripts/setup-pash.sh
+          sudo bash scripts/setup-pash.sh
           cd ../..
           # run all the tests
           export PASH_TOP="$PWD/deps/pash"

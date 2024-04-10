@@ -566,7 +566,6 @@ class ConcreteNode:
         self.exec_result = None
         if spec_pre_env is not None:
             self.spec_pre_env = spec_pre_env
-        self.rwset = RWSet(set(), set())
         self.init_trace_lines()
         if self.trace_fd is not None:
             self.trace_fd.close()

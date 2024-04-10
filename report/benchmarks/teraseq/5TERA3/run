@@ -67,7 +67,7 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, lo
         with open(output_base / "hs_time_merge", 'w') as f:
             f.write(f'{duration}\n')
     hs_hashes = hash_result(test_base, output_base)
-    return (result.returncode, merge_result.returncode), (result.stdout + (merge_result.stdout if do_merge else b"")), hs_hashes
+    return (result.returncode, (merge_result.returncode if do_merge else 0)), (result.stdout + (merge_result.stdout if do_merge else b"")), hs_hashes
 
 if __name__ == '__main__':
     args = parser.parse_args()

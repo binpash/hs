@@ -400,7 +400,15 @@ class PartialProgramOrder:
     def schedule_spec_work(self, concrete_node_id: ConcreteNodeId):
         concrete_node = self.get_concrete_node(concrete_node_id)
         self.adjust_to_be_resolved_dict_entry(concrete_node_id)
-        self.get_concrete_node(concrete_node_id).start_spec_executing(concrete_node.spec_pre_env)
+        speculated_nodes = []
+        for cnid in self.spec_exec_order:
+            node = self.concrete_nodes[cnid]
+            if cnid == concrete_node_id:
+                break
+            elif node.is_speculated():
+                speculated_nodes.append(node)
+        self.get_concrete_node(concrete_node_id).start_spec_executing(concrete_node.spec_pre_env,
+                                                                      speculated_nodes)
 
     def simulate_var_assignments(self, env, assignments: "list[NodeId]"):
         for assignment in assignments:

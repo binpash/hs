@@ -40,7 +40,7 @@ def do_sh_run(test_base: Path, output_base: Path, do_merge: bool = False):
         with open(output_base / "sh_time_merge", 'w') as f:
             f.write(f'{duration}\n')
     sh_hashes = hash_result(test_base, output_base)
-    return (result.returncode, merge_result.returncode), (result.stdout + (merge_result.stdout if do_merge else b"")), sh_hashes
+    return (result.returncode, (merge_result.returncode if do_merge else 0)), (result.stdout + (merge_result.stdout if do_merge else b"")), sh_hashes
 
 def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, log: bool, do_merge: bool = False):
     os.chdir(teraseq_samples)

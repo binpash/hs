@@ -427,8 +427,10 @@ class ConcreteNode:
         start_parse = len(self.trace_lines)-1
         self.trace_lines[-1] = self.trace_lines[-1] + new_lines[0]
         self.trace_lines.extend(new_lines[1:])
-        stop_parse = len(self.trace_lines)
+        stop_parse = len(self.trace_lines)-1
         read_set, write_set = trace_v2.parse_and_gather_cmd_rw_sets(self.trace_lines[start_parse:stop_parse])
+        # if self.cnid == ConcreteNodeId.parse("4@"):
+        #     breakpoint()
         self.update_rw_set(read_set, write_set)
 
     def get_rw_set(self):
@@ -564,6 +566,11 @@ class ConcreteNode:
         self.exec_result = None
         if spec_pre_env is not None:
             self.spec_pre_env = spec_pre_env
+        self.rwset = RWSet(set(), set())
+        self.init_trace_lines()
+        if self.trace_fd is not None:
+            self.trace_fd.close()
+            self.trace_fd = None
         self.state = NodeState.READY
         self.trace_state()
 

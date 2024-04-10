@@ -30,5 +30,7 @@ export PASH_SPEC_SCHEDULER_SOCKET="${PASH_SPEC_TMP_PREFIX}/scheduler_socket"
 ## TODO: Replace this with a call to pa.sh (which will start the scheduler on its own).
 # python3 "$PASH_SPEC_TOP/parallel-orch/orch.py" "$@"
 "$PASH_TOP/pa.sh" --speculative "$@"
+EXITCODE=$?
 
 sudo rmdir /sys/fs/cgroup/frontier
+exit $EXITCODE

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import sys
 from dataclasses import dataclass
 from datetime import datetime
@@ -90,25 +89,21 @@ for event in event_logs:
 keys = list(bars.keys())
 keys = sorted(keys, key=lambda key: BarList(bars[key]))
 
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=(24, 0.3*len(keys)))
 
 d = {'EXE': (0, 0, 0), 'SPEC_E': (0.8, 0.8, 0.8), 'SPEC_F': (0.4, 0.4, 0.4)}
-print(keys)
-
 for i, key in enumerate(keys):
     y_pos = i
     print(f'key: {key}')
-    if bars[key][-1].end_s == 'READY':
-        options = {'hatch': '/'}
-    else:
-        options = {}
     for bar in bars[key]:
         color = d[bar.start_s]
+        if bar.end_s == 'READY':
+            color = (0.8, color[1]*0.5, color[2]*0.5)
         print((bar.start_t-x0, bar.end_t-x0))
-        ax.broken_barh([(bar.start_t-x0, bar.end_t-bar.start_t)], (y_pos - 0.4, 0.8), color=color, **options)
+        ax.broken_barh([(bar.start_t-x0, bar.end_t-bar.start_t)], (y_pos-0.4, 0.8), color=color)
 
+print(len(keys))
 ax.set_yticks(list(range(len(keys))))
 ax.set_yticklabels(keys)
 plt.tight_layout()
-print('saved at hs_plot.pdf')
 plt.savefig('hs_plot.pdf')

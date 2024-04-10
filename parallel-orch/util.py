@@ -44,7 +44,10 @@ def delete_sandbox(sandbox):
     shutil.rmtree(os.path.join(sandbox, 'upperdir'), ignore_errors=True)
 
 def sandboxed_path(sandbox_dir, path):
-    return f"{sandbox_dir}/upperdir/{path}"
+    if len(sandbox_dir):
+        return f"{sandbox_dir}/upperdir/{path}"
+    else:
+        return path
 
 def init_unix_socket(socket_file: str) -> socket.socket:
     server_address = socket_file

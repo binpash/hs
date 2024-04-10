@@ -291,6 +291,13 @@ class ConcreteNode:
     # Exists when node is in READY
     assignments: "list[NodeId]"
 
+    # Exists when node is in EXE or SPEC_EXE, it acts as a cache for
+    # the trace file content
+    trace_lines: list
+    # Exists when node is in EXE or SPEC_EXE, it it an opened file
+    # or none when such file doesn't exist
+    trace_fd=None
+
     def __init__(self, cnid: ConcreteNodeId, node: Node, loop_list_context: HSLoopListContext,
                  spec_pre_env=None):
         self.cnid = cnid
@@ -303,6 +310,8 @@ class ConcreteNode:
         self.exec_id = None
         self.spec_pre_env = spec_pre_env
         self.loop_list_context = loop_list_context
+        self.trace_fd = None
+        self.init_trace_lines()
 
     def __str__(self):
         return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt})'
@@ -397,129 +406,30 @@ class ConcreteNode:
     def trace_state(self):
         state_log(f'{self.cnid}: {state_pstr(self.state)}')
 
-    ##                                      ##
-    ##          Transition Functions        ##
-    ##                                      ##
-
-    def transition_from_init_to_ready(self, spec_pre_env):
-        assert self.state == NodeState.INIT
-        self.state = NodeState.READY
-        self.rwset = RWSet(set(), set())
-        self.spec_pre_env = spec_pre_env
-        # self.spec_pre_env = ConcreteAssignmentNode.execute_assignments_and_get_most_recent_spec_pre_env(assignments)
-        # Also, probably unroll here?
-
-    def transition_from_ready_to_unsafe(self):
-        assert self.state == NodeState.READY
-        self.state = NodeState.UNSAFE
-
     def kill(self):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         self.exec_ctxt.process.kill()
 
-    def try_reset_to_ready(self, spec_pre_env: str=None):
-        if self.state in [NodeState.READY, NodeState.UNSAFE]:
-            return
-        else:
-            self.reset_to_ready(spec_pre_env)
-
-    def reset_to_ready(self, spec_pre_env: str = None):
-        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
-                              NodeState.SPECULATED]
-
-        logging.info(f"Resetting node {self.id_} to ready {self.exec_id}")
-        # We reset the exec id so if we receive a message
-        # due to a race condition, we will ignore it.
-        self.exec_id = None
-
-        # TODO: make this more sophisticated
-        if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
-            self.kill()
-
-        # Probably delete them from tmpfs too
-        process = self.exec_ctxt.process
-        if process.poll() is None:
-            # Exceptions will be handled inside the call so we don't have to worry
-            util.kill_process_tree(process.pid, sig=signal.SIGKILL)
-
-        process.wait()
-        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
-        self.exec_ctxt = None
-        self.exec_result = None
-        if spec_pre_env is not None:
-            self.spec_pre_env = spec_pre_env
-        self.state = NodeState.READY
-        self.trace_state()
-
-    def start_executing(self, env_file):
-        assert self.state == NodeState.READY
-        self.start_command(env_file)
-        self.state = NodeState.EXECUTING
-        self.trace_state()
-
-    def start_spec_executing(self, env_file, speculated_nodes):
-        # raise NotImplementedError
-        assert self.state == NodeState.READY
-        self.start_command(env_file, speculate=True, speculated_nodes=speculated_nodes)
-        self.state = NodeState.SPEC_EXECUTING
-        self.trace_state()
-
-    def collect_result(self):
-        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
-        self.exec_ctxt.process.wait()
-        self.exec_result = ExecResult(self.exec_ctxt.process.returncode, self.exec_ctxt.process.pid)
-        return self.exec_result.exit_code == 137
+    def init_trace_lines(self):
+        self.trace_lines = ['']
         
-    def commit_frontier_execution(self):
-        assert self.state == NodeState.EXECUTING
-        self.gather_fs_actions()
-        self.update_loop_list_context()
-        executor.commit_workspace(self.exec_ctxt.sandbox_dir)
-        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
-        self.state = NodeState.COMMITTED
-        self.trace_state()
-
-    def finish_spec_execution(self):
-        assert self.state == NodeState.SPEC_EXECUTING
-        self.update_loop_list_context()
-        self.gather_fs_actions()
-        self.state = NodeState.SPECULATED
-        self.trace_state()
-
-    def commit_speculated(self):
-        assert self.state == NodeState.SPECULATED
-        executor.commit_workspace(self.exec_ctxt.sandbox_dir)
-        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
-        self.state = NodeState.COMMITTED
-        self.trace_state()
-
-    def transition_from_stopped_to_executing(self, env_file=None):
-        assert self.state == NodeState.READY
-        self.state = NodeState.EXECUTING
-        self._attempt_start_command(env_file)
-
-    def transition_from_spec_executing_to_speculated(self):
-        pass
-
-    def commit_unsafe_node(self):
-        assert self.state == NodeState.UNSAFE
-        self.state = NodeState.COMMITTED
-
-    def update_rw_set(self, rw_set):
-        self.rwset = rw_set
-
     def gather_fs_actions(self) -> RWSet:
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         sandbox_dir = self.exec_ctxt.sandbox_dir
         trace_file = self.exec_ctxt.trace_file
-        try:
-            trace_object = executor.read_trace(sandbox_dir, trace_file)
-        except FileNotFoundError:
-            self.update_rw_set(RWSet(set(), set()))
-            return
-        read_set, write_set = trace_v2.parse_and_gather_cmd_rw_sets(trace_object)
-        rw_set = RWSet(read_set, write_set)
-        self.update_rw_set(rw_set)
+        if self.trace_fd is None:
+            try:
+                self.trace_fd = open(util.sandboxed_path(sandbox_dir, trace_file))
+            except FileNotFoundError:
+                return
+        new_trace = self.trace_fd.read()
+        new_lines = new_trace.split('\n')
+        start_parse = len(self.trace_lines)-1
+        self.trace_lines[-1] = self.trace_lines[-1] + new_lines[0]
+        self.trace_lines.extend(new_lines[1:])
+        stop_parse = len(self.trace_lines)
+        read_set, write_set = trace_v2.parse_and_gather_cmd_rw_sets(self.trace_lines[start_parse:stop_parse])
+        self.update_rw_set(read_set, write_set)
 
     def get_rw_set(self):
         # if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
@@ -606,6 +516,129 @@ class ConcreteNode:
                 conflict_exists = True
 
         return conflict_exists
+        
+    ##                                      ##
+    ##          Transition Functions        ##
+    ##                                      ##
+
+    def transition_from_init_to_ready(self, spec_pre_env):
+        assert self.state == NodeState.INIT
+        self.state = NodeState.READY
+        self.rwset = RWSet(set(), set())
+        self.spec_pre_env = spec_pre_env
+        # self.spec_pre_env = ConcreteAssignmentNode.execute_assignments_and_get_most_recent_spec_pre_env(assignments)
+        # Also, probably unroll here?
+
+    def transition_from_ready_to_unsafe(self):
+        assert self.state == NodeState.READY
+        self.state = NodeState.UNSAFE
+
+    def try_reset_to_ready(self, spec_pre_env: str=None):
+        if self.state in [NodeState.READY, NodeState.UNSAFE]:
+            return
+        else:
+            self.reset_to_ready(spec_pre_env)
+
+    def reset_to_ready(self, spec_pre_env: str = None):
+        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
+                              NodeState.SPECULATED]
+
+        logging.info(f"Resetting node {self.id_} to ready {self.exec_id}")
+        # We reset the exec id so if we receive a message
+        # due to a race condition, we will ignore it.
+        self.exec_id = None
+
+        # TODO: make this more sophisticated
+        if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
+            self.kill()
+
+        # Probably delete them from tmpfs too
+        process = self.exec_ctxt.process
+        if process.poll() is None:
+            # Exceptions will be handled inside the call so we don't have to worry
+            util.kill_process_tree(process.pid, sig=signal.SIGKILL)
+
+        process.wait()
+        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
+        self.exec_ctxt = None
+        self.exec_result = None
+        if spec_pre_env is not None:
+            self.spec_pre_env = spec_pre_env
+        self.state = NodeState.READY
+        self.trace_state()
+
+    def start_executing(self, env_file):
+        assert self.state == NodeState.READY
+        self.start_command(env_file)
+        self.state = NodeState.EXECUTING
+        self.init_trace_lines()
+        self.rwset = RWSet(set(), set())
+        self.trace_state()
+
+    def start_spec_executing(self, env_file, speculated_nodes):
+        # raise NotImplementedError
+        assert self.state == NodeState.READY
+        self.start_command(env_file, speculate=True, speculated_nodes=speculated_nodes)
+        self.init_trace_lines()
+        self.rwset = RWSet(set(), set())
+        self.state = NodeState.SPEC_EXECUTING
+        self.trace_state()
+
+    def collect_result(self):
+        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
+        self.exec_ctxt.process.wait()
+        self.exec_result = ExecResult(self.exec_ctxt.process.returncode, self.exec_ctxt.process.pid)
+        return self.exec_result.exit_code == 137
+        
+    def commit_frontier_execution(self):
+        assert self.state == NodeState.EXECUTING
+        self.gather_fs_actions()
+        self.init_trace_lines()
+        if self.trace_fd is not None:
+            self.trace_fd.close()
+            self.trace_fd = None
+        self.update_loop_list_context()
+        executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
+        self.state = NodeState.COMMITTED
+        self.trace_state()
+
+    def finish_spec_execution(self):
+        assert self.state == NodeState.SPEC_EXECUTING
+        self.update_loop_list_context()
+        self.gather_fs_actions()
+        self.init_trace_lines()
+        if self.trace_fd is not None:
+            self.trace_fd.close()
+            self.trace_fd = None
+        self.state = NodeState.SPECULATED
+        self.trace_state()
+
+    def commit_speculated(self):
+        assert self.state == NodeState.SPECULATED
+        executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
+        self.state = NodeState.COMMITTED
+        self.trace_state()
+
+    def transition_from_stopped_to_executing(self, env_file=None):
+        assert self.state == NodeState.READY
+        self.state = NodeState.EXECUTING
+        self._attempt_start_command(env_file)
+
+    def transition_from_spec_executing_to_speculated(self):
+        pass
+
+    def commit_unsafe_node(self):
+        assert self.state == NodeState.UNSAFE
+        self.state = NodeState.COMMITTED
+
+    def update_rw_set(self, r_set, w_set):
+        for rfile in r_set:
+            self.rwset.add_to_read_set(rfile)
+        for wfile in w_set:
+            self.rwset.add_to_write_set(wfile)
+
 
 
 class CFGEdgeType(Enum):

@@ -19,4 +19,4 @@ RUN unzip fastqc_v0.12.1.zip
 RUN chmod +x /root/workspace/FastQC/fastqc
 
 COPY ex2.sh /root/workspace/ex2.sh
-RUN chmod +x /root/ex2.sh
+RUN chmod +x /root/workspace/ex2.sh

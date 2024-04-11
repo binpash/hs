@@ -37,6 +37,12 @@ done
 # Step 5: Counting with htseq-count
 echo "Counting alignments with htseq-count..."
 mkdir -p htseq_output
-htseq-count -n 1 $(for sample in SRR10045016 SRR10045017 SRR10045018 SRR10045019 SRR10045020 SRR10045021; do echo STAR_output/${sample}/Aligned.out.sam; done) genome/chr19_Homo_sapiens.GRCh38.95.gtf > htseq_output/SRR10045016-17-18-19-20-21_counts.csv
+for sample in SRR10045016 SRR10045017 SRR10045018 SRR10045019 SRR10045020 SRR10045021; do
+	htseq-count -n 1 STAR_output/${sample}/Aligned.out.sam genome/chr19_Homo_sapiens.GRCh38.95.gtf > htseq_output/$sample.csv
+done
+
+for sample in SRR10045016 SRR10045017 SRR10045018 SRR10045019 SRR10045020 SRR10045021; do
+	cat htseq_output/$sample.csv >> htseq_output/SRR10045016-17-18-19-20-21_counts.csv
+done
 
 echo "RNA-Seq analysis completed."

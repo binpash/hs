@@ -35,6 +35,10 @@ def parse_args():
                     action="store_true",
                     default=False,
                     help="Speculate immediately instead of waiting for the first Wait message.")
+    parser.add_argument("--window",
+                        type=int,
+                        default=5,
+                        help="Number of commands to speculate.")
 
     args, unknown_args = parser.parse_known_args()
     return args
@@ -67,8 +71,8 @@ class Scheduler:
     window: int  # Integer representing the window
     latest_env: str # This variable should be initialized by the first wait, and always have a value since
 
-    def __init__(self, socket_file):
-        self.window = 0
+    def __init__(self, socket_file, window):
+        self.window = window
         self.done = False
         self.socket = util.init_unix_socket(socket_file)
         ## A map containing connections for node_ids that are waiting for a response
@@ -179,7 +183,7 @@ class Scheduler:
 
 
     def schedule_work(self):
-        self.partial_program_order.try_schedule_spec_nodes()
+        self.partial_program_order.try_schedule_spec_nodes(self.window)
 
     def run(self):
         ## The first command should be the daemon start
@@ -232,7 +236,7 @@ def main():
     # Set optimization options
     config.SANDBOX_KILLING = args.sandbox_killing
     config.SPECULATE_IMMEDIATELY = args.speculate_immediately
-    scheduler = Scheduler(config.SCHEDULER_SOCKET)
+    scheduler = Scheduler(config.SCHEDULER_SOCKET, args.window)
     scheduler.run()
 
 

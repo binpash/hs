@@ -32,6 +32,7 @@ def parse_args():
 def set_environment_variables(args):
     os.environ['ORCH_TOP'] = os.environ.get('ORCH_TOP', subprocess.check_output(['git', 'rev-parse', '--show-toplevel', '--show-superproject-working-tree']).decode('utf-8').strip())
     os.environ['WORKING_DIR'] = os.path.join(os.environ['ORCH_TOP'], 'report')
+    os.environ['UTIL_DIR'] = os.path.join(os.environ['ORCH_TOP'], 'util')
     if args.subset:
         os.environ['TEST_SCRIPT_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'benchmarks', args.subset)
         os.environ['RESOURCE_DIR'] = os.path.join(os.environ['WORKING_DIR'], 'resources', args.subset)

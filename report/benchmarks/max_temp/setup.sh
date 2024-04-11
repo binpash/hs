@@ -1,0 +1,39 @@
+#!/bin/bash
+
+export PATH=$PATH:$HOME/.local/bin
+export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
+export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
+
+download_dir="$PASH_SPEC_TOP/report/resources/max_temp" # Adjust the path as necessary
+
+# FTP server details
+# ftp_server="ftp://ftp.ncdc.noaa.gov/pub/data/noaa"
+# ftp_dir="./"
+
+IN=${IN:-'https://atlas-group.cs.brown.edu/data/noaa/'}
+fetch=${fetch:-"curl -s"}
+
+# Start and end dates
+start_year=${1:-2000}
+end_year=${2:-2010}
+
+# Generate sequence of years and construct URLs to list files
+seq $start_year $end_year |
+sed "s;^;$IN;" | sed 's;$;/;' |
+xargs $fetch |
+grep gz |
+tr -s ' \n' |
+cut -d ' ' -f9 |
+
+# Preprocess URLs to include the year in the path
+sed 's;^\(.*\)\(20[0-9][0-9]\).gz;\2/\1\2\.gz;' |
+sed "s;^;$IN;" |
+
+# Download files in parallel, directing each to its year-based directory
+xargs -I {} -P 10 -n1 sh -c '
+  filename=$(basename "{}")
+  year=$(echo "$filename" | grep -oP "\d{4}(?=\.gz$)")
+  target_dir="'$download_dir'/$year"
+  mkdir -p "$target_dir"
+  curl -s -o "${target_dir}/${filename}" "{}"
+'

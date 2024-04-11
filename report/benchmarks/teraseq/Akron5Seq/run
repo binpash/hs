@@ -80,7 +80,7 @@ if __name__ == '__main__':
                 errf.write(f'return code {output_sh[0]} vs {output_hs[0]}\n')
                 errf.write(f'==== output sh ====\n')
                 errf.write(output_sh[1].decode('UTF-8'))
+                errf.write(output_sh[2].decode('UTF-8'))
                 errf.write(f'==== output hs ====\n')
                 errf.write(output_hs[1].decode('UTF-8'))
-
-    
+                errf.write(output_hs[2].decode('UTF-8'))

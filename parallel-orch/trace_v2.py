@@ -357,9 +357,7 @@ def parse_exit_code(trace_object) -> int:
             return info.exitcode
     raise ValueError("No exitcode")
 
-def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
-    ctx = Context()
-    ctx.set_dir(os.getcwd())
+def parse_and_gather_cmd_rw_sets(trace_object, ctx: Context) -> Tuple[set, set]:
     read_set = set()
     write_set = set()
     for l in trace_object:

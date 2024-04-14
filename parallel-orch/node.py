@@ -297,6 +297,7 @@ class ConcreteNode:
     # Exists when node is in EXE or SPEC_EXE, it it an opened file
     # or none when such file doesn't exist
     trace_fd=None
+    trace_ctx=None
 
     def __init__(self, cnid: ConcreteNodeId, node: Node, loop_list_context: HSLoopListContext,
                  spec_pre_env=None):
@@ -420,6 +421,8 @@ class ConcreteNode:
         if self.trace_fd is None:
             try:
                 self.trace_fd = open(util.sandboxed_path(sandbox_dir, trace_file))
+                self.trace_ctx = trace_v2.Context()
+                self.trace_ctx.set_dir(os.getcwd())
             except FileNotFoundError:
                 return
         new_trace = self.trace_fd.read()
@@ -428,7 +431,8 @@ class ConcreteNode:
         self.trace_lines[-1] = self.trace_lines[-1] + new_lines[0]
         self.trace_lines.extend(new_lines[1:])
         stop_parse = len(self.trace_lines)-1
-        read_set, write_set = trace_v2.parse_and_gather_cmd_rw_sets(self.trace_lines[start_parse:stop_parse])
+        read_set, write_set = trace_v2.parse_and_gather_cmd_rw_sets(
+            self.trace_lines[start_parse:stop_parse], self.trace_ctx)
         # if self.cnid == ConcreteNodeId.parse("4@"):
         #     breakpoint()
         self.update_rw_set(read_set, write_set)
@@ -570,6 +574,7 @@ class ConcreteNode:
         if self.trace_fd is not None:
             self.trace_fd.close()
             self.trace_fd = None
+            self.trace_ctx = None
         self.state = NodeState.READY
         self.trace_state()
 
@@ -603,6 +608,7 @@ class ConcreteNode:
         if self.trace_fd is not None:
             self.trace_fd.close()
             self.trace_fd = None
+            self.trace_ctx = None
         self.update_loop_list_context()
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
         util.delete_sandbox(self.exec_ctxt.sandbox_dir)
@@ -617,6 +623,7 @@ class ConcreteNode:
         if self.trace_fd is not None:
             self.trace_fd.close()
             self.trace_fd = None
+            self.trace_ctx = None
         self.state = NodeState.SPECULATED
         self.trace_state()
 

@@ -18,7 +18,7 @@ for subdir in $list; do
   else
     local_target="$target";
   fi;
-  (CDPATH="${ZSH_VERSION+.}:" && cd $subdir && make $local_target)
+  (CDPATH="${ZSH_VERSION+.}:" && cd $subdir && make $local_target) \
   || eval $failcom;
 done;
 if test "$dot_seen" = "no"; then

@@ -8,9 +8,9 @@ WORKDIR /
 
 RUN wget http://ftp.gnu.org/gnu/make/make-4.3.tar.gz && \
     tar xzf make-4.3.tar.gz && \
-    rm make-4.3.tar.gz && \
-    cd make-4.3 && \
-    ./configure && \
+    rm make-4.3.tar.gz
+WORKDIR /make-4.3
+RUN ./configure && \
     make clean
 
 COPY make_build.sh /make-4.3/make_build.sh

@@ -1,6 +1,0 @@
-[{
-    "name": "max_temp",
-    "env": ["FROM=1901", "TO=1904", "OUTPUT={{RESOURCE_DIR}}/out"],
-    "command": "{{TEST_SCRIPT_DIR}}/max_temp.sh",
-    "orch_args": "-d 2"
-}]

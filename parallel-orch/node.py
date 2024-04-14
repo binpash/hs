@@ -612,7 +612,7 @@ class ConcreteNode:
             self.trace_ctx = None
         self.update_loop_list_context()
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
-        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
+        # util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
         self.trace_state()
 
@@ -631,7 +631,7 @@ class ConcreteNode:
     def commit_speculated(self):
         assert self.state == NodeState.SPECULATED
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
-        util.delete_sandbox(self.exec_ctxt.sandbox_dir)
+        # util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
         self.trace_state()
 

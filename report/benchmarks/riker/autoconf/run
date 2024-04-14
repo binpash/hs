@@ -27,9 +27,9 @@ def do_sh_run(env):
 
 def do_hs_run(window, log, env):
     if log:
-        result = run(["sudo", "docker", "run", "--privileged", "--rm", "hs/make:latest", "/bin/bash", "-c", f"time /srv/hs/pash-spec.sh -d 2 --window {window} /root/autoconf-2.69/autoconf_build.sh && sha1sum bin/autoconf"], stdout=PIPE, stderr=PIPE, env=env)
+        result = run(["sudo", "docker", "run", "--privileged", "--rm", "hs/autoconf:latest", "/bin/bash", "-c", f"time /srv/hs/pash-spec.sh -d 2 --window {window} /root/autoconf-2.69/autoconf_build.sh && sha1sum bin/autoconf"], stdout=PIPE, stderr=PIPE, env=env)
     else:
-        result = run(["sudo", "docker", "run", "--privileged", "--rm", "hs/make:latest", "/bin/bash", "-c", f"time /srv/hs/pash-spec.sh --window {window} /root/autoconf-2.69/autoconf_build.sh && sha1sum bin/autoconf"], stdout=PIPE, stderr=PIPE, env=env)
+        result = run(["sudo", "docker", "run", "--privileged", "--rm", "hs/autoconf:latest", "/bin/bash", "-c", f"time /srv/hs/pash-spec.sh --window {window} /root/autoconf-2.69/autoconf_build.sh && sha1sum bin/autoconf"], stdout=PIPE, stderr=PIPE, env=env)
 
     time = result.stderr.decode().split("\n")[-4].split("\t")[1]
     try:

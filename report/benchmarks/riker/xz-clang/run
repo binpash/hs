@@ -56,7 +56,7 @@ if __name__ == "__main__":
     if not "PASH_SPEC_TOP" in os.environ:
         raise("PASH_SPEC_TOP is not set")
 
-    output_base = Path(os.path.expandvars("$PASH_SPEC_TOP/report/outputs/" + os.sep.join(test_base.parts[-1:])))
+    output_base = Path(os.path.expandvars("$PASH_SPEC_TOP/report/output/" + os.sep.join(test_base.parts[-1:])))
     output_base.mkdir(parents=True, exist_ok=True)
 
     if run_sh and run_hs:

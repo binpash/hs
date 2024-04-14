@@ -11,6 +11,7 @@ ENV PASH_TOP=/srv/hs/deps/pash
 RUN conda install -y -c anaconda python=3.11
 RUN apt install -y vim strace make python3-cram file graphviz libtool python3-matplotlib libcap2-bin mergerfs lsb-release
 COPY . .
+RUN /srv/hs/report/benchmarks/teraseq/setup
 RUN git submodule update --init --recursive
 WORKDIR /srv/hs/deps/pash
 RUN scripts/distro-deps.sh

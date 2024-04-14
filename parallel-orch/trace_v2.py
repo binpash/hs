@@ -372,6 +372,7 @@ def parse_and_gather_cmd_rw_sets(trace_object) -> Tuple[set, set]:
             continue
         if not isinstance(records, list):
             records = [records]
+        records = [r for r in records if not (r.fname.startswith('/tmp/pash_spec') or r.fname.startswith('/dev'))]
         all_records = [r for record in records for r in record.closure()]
         for record in all_records:
             if type(record) is RFile and record.fname != '/dev/tty':

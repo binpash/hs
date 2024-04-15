@@ -373,6 +373,7 @@ class ConcreteNode:
         self.exec_id = util.generate_id()
         self.exec_ctxt = ExecCtxt(*execute_func(cmd, self.cnid, self.exec_id, env_file, speculate,
                                                 lower_sandboxes))
+        util.debug_log(f'Node {self.cnid} executing with pid {self.exec_ctxt.process.pid}')
 
     def execution_outcome(self) -> Tuple[int, str, str]:
         assert self.exec_result is not None
@@ -523,7 +524,16 @@ class ConcreteNode:
                 conflict_exists = True
 
         return conflict_exists
-        
+
+    def kill_children(self):
+        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
+        process = self.exec_ctxt.process
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.wait()
+    
     ##                                      ##
     ##          Transition Functions        ##
     ##                                      ##
@@ -557,15 +567,8 @@ class ConcreteNode:
 
         # TODO: make this more sophisticated
         if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
-            self.kill()
+            self.kill_children()
 
-        # Probably delete them from tmpfs too
-        process = self.exec_ctxt.process
-        if process.poll() is None:
-            # Exceptions will be handled inside the call so we don't have to worry
-            util.kill_process_tree(process.pid, sig=signal.SIGKILL)
-
-        process.wait()
         util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.exec_ctxt = None
         self.exec_result = None
@@ -606,6 +609,7 @@ class ConcreteNode:
         assert self.state == NodeState.EXECUTING
         self.gather_fs_actions()
         self.init_trace_lines()
+        self.kill_children()
         if self.trace_fd is not None:
             self.trace_fd.close()
             self.trace_fd = None
@@ -621,6 +625,7 @@ class ConcreteNode:
         self.update_loop_list_context()
         self.gather_fs_actions()
         self.init_trace_lines()
+        self.kill_children()
         if self.trace_fd is not None:
             self.trace_fd.close()
             self.trace_fd = None

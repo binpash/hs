@@ -4,9 +4,12 @@ import subprocess
 import util
 import os
 
-# This module executes a sequence of commands 
-# and traces them with Riker. 
+# This module executes a sequence of commands
+# and traces them with Riker.
 # All commands are run inside an overlay sandbox.
+
+def set_pgid():
+    os.setpgid(0, 0)
 
 def run_assignment_and_return_env_file(assignment: str, pre_execution_env_file: str):
     post_execution_env_file = util.ptempfile(prefix='hs_assignment_post_env')
@@ -47,14 +50,14 @@ def async_run_and_trace_command_return_trace_in_sandbox(command, execution_id, t
     args.append(lower_dirs_str)
     # Save output to temporary files to not saturate the memory
     logging.debug(args)
-    process = subprocess.Popen(args, stdout=None, stderr=None)
-    
+    process = subprocess.Popen(args, stdout=None, stderr=None, preexec_fn=set_pgid)
+
     # For debugging
     # process = subprocess.Popen(args)
     return process
 
 def commit_workspace(workspace_path):
-    ## Call commit-sandbox.sh to commit the uncommitted sandbox to the main workspace 
+    ## Call commit-sandbox.sh to commit the uncommitted sandbox to the main workspace
     run_script = f'{config.PASH_SPEC_TOP}/deps/try/try'
     args = ["/bin/bash", run_script, "commit", workspace_path]
     process = subprocess.check_output(args)
@@ -69,7 +72,7 @@ def read_trace(sandbox_dir, trace_file):
     logging.debug(f'Reading trace from: {path}')
     with open(path) as f:
         return f.read().split('\n')[:-1]
-    
+
 def read_env_file(env_file, sandbox_dir=None):
     if sandbox_dir is None:
         path = env_file

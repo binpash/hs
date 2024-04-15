@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # These need to be set up:
-IN=$INPUT
-IN_NAME=$IN_N
-OUT=$OUTPUT
+IN="/srv2/bio4"
+IN_NAME="large"
+OUT="/srv2/bio4/output"
 
 echo "$IN $IN_NAME $OUT"
 echo foo
@@ -11,9 +11,9 @@ mkdir -p "$OUT"
 
 # Processing input file
 cat "${IN}/${IN_NAME}" | while read s_line; do
-    sample=$(echo "$s_line" | cut -d " " -f 2)
-    pop=$(echo "$s_line" | cut -f 1 -d " ")
-    link=$(echo "$s_line" | cut -f 3 -d " ")
+    pop="${s_line%%-*}"
+    temp="${s_line#*-}"
+    sample="${temp%%-*}"
 
     echo "Processing Sample ${IN}/input/$sample"
     # Correcting labeling of chromosomes so that all are 1,2,3.. instead of chr1,chr2 or chromosome1 etc

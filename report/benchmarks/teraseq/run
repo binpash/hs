@@ -2,5 +2,6 @@
 
 for t in 5TERA 5TERA-short 5TERA3 TERA3 Akron5Seq mouse_SIRV dRNASeq RNASeq RiboSeq
 do
-	docker run --name ${t} --privileged --cgroupns=host -v /media/hdd2/dliu_teraseq/tmp_mnt:/tmp teraseq20-data-hs /srv/hs/report/benchmarks/teraseq/${t}/run --target hs-only --window 15
+	echo "=====${t}====="
+	docker run --name ${t} --privileged --cgroupns=host -v /media/data_1/dliu/tmp:/tmp teraseq20-data-hs /srv/hs/report/benchmarks/teraseq/${t}/run --target hs-only --window 15
 done

@@ -36,6 +36,7 @@ def do_sh_run(test_base: Path, output_base: Path):
     return result.returncode, result.stdout, sh_hashes
 
 def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, log: bool):
+    run("rm -rf /tmp/*", shell=True)
     os.chdir(teraseq_samples)
     clean_outputs(test_base)
     cmd = [hs_base / 'pash-spec.sh', '--window', str(window)]

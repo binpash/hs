@@ -3,10 +3,6 @@
 # Run RNA-Seq (ENCSR000CPR.1) preprocessing, alignment, and postprocessing
 #
 
-# trap 'echo Exiting "$BASH_COMMAND" with status $?' EXIT
-
-set -e # dliu
-
 cd /root/TERA-Seq_manuscript/samples # dliu
 
 . ../PARAMS.sh
@@ -110,9 +106,9 @@ for i in $samples; do
     echo " Working for" "$i"
 
     ln -s "$sdir"/align/reads.12.Aligned.sortedByCoord.out.bam \
-        "$sdir"/align/reads.1.Aligned.sortedByCoord.out.bam || true # dliu
+        "$sdir"/align/reads.1.Aligned.sortedByCoord.out.bam
     ln -s "$sdir"/align/reads.12.Aligned.toTranscriptome.out.bam \
-        "$sdir"/align/reads.1.Aligned.toTranscriptome.out.bam || true # dliu
+        "$sdir"/align/reads.1.Aligned.toTranscriptome.out.bam
 done
 
 echo ">>>> INDEX BAM FILES <<<<"

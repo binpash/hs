@@ -3,10 +3,6 @@
 # Run Ribo-Seq (SRR3306589) preprocessing, alignment, and postprocessing
 #
 
-# trap 'echo Exiting "$BASH_COMMAND" with status $?' EXIT
-
-set -e # dliu
-
 cd /root/TERA-Seq_manuscript/samples # dliu
 
 . ../PARAMS.sh
@@ -136,10 +132,10 @@ for i in $samples; do
 
     ln -sf \
         reads.1.Aligned.toTranscriptome.sortedByCoord.marked.out.bam \
-        "$sdir"/align/reads.1.Aligned.toTranscriptome.final.bam || true # dliu
+        "$sdir"/align/reads.1.Aligned.toTranscriptome.final.bam
     ln -sf \
         reads.1.Aligned.sortedByCoord.clean.marked.out.bam \
-        "$sdir"/align/reads.1.Aligned.final.bam || true # dliu
+        "$sdir"/align/reads.1.Aligned.final.bam
 done
 
 echo ">>> INDEX ALIGNMENTS <<<"

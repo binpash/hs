@@ -3,10 +3,6 @@
 # Run 5TERA preprocessing, alignment, and postprocessing
 #
 
-# trap 'echo Exiting "$BASH_COMMAND" with status $?' EXIT
-
-set -e # dliu
-
 cd /root/TERA-Seq_manuscript/samples # dliu
 
 . ../PARAMS.sh
@@ -104,7 +100,7 @@ for i in $samples; do
     samtools view -H "$sdir"/align/reads.1.sanitize.toEnsembl-transcripts-wRibo.sorted.bam > \
         "$sdir"/align/reads.1.sanitize.toRibosomal.sorted.sam
     samtools view -@ $threads -F4 "$sdir"/align/reads.1.sanitize.toEnsembl-transcripts-wRibo.sorted.bam \
-        | grep -v -P "\tENST" >> "$sdir"/align/reads.1.sanitize.toRibosomal.sorted.sam || true # dliu avoid exit with set -e
+        | grep -v -P "\tENST" >> "$sdir"/align/reads.1.sanitize.toRibosomal.sorted.sam
     rm "$sdir"/align/reads.1.sanitize.toEnsembl-transcripts-wRibo.sorted.bam
 
     cat "$sdir"/align/reads.1.sanitize.toRibosomal.sorted.sam | cut -f1 | sort | uniq > \
@@ -154,7 +150,7 @@ for i in $samples; do
     > "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome-polya.sorted.bam
 
     ln -s "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome-polya.sorted.bam \
-    "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome.sorted.bam || true # dliu ignore ln link exists error
+    "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome.sorted.bam
 done
 # dliu remove wait
 
@@ -192,7 +188,7 @@ for i in $samples; do
     samtools index \
         "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome-polya.sorted.bam # dliu remove &
     ln -s "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome-polya.sorted.bam.bai \
-        "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome.sorted.bam.bai || true # dliu ignore ln link exists error
+        "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome.sorted.bam.bai
     samtools index \
         "$sdir"/align/reads.1.sanitize.toGenome.sorted.bam # dliu remove &
     # dliu remove wait

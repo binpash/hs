@@ -9,8 +9,8 @@ export BIODIR="${PASH_SPEC_TOP}/report/benchmarks/bio4"
 
 download_dir="${PASH_SPEC_TOP}/report/benchmarks/bio4/input"
 mkdir -p "$download_dir"
-size=$1
-input_file="${BIODIR}/$SIZE"
+INPUT_LIST=$1
+input_file="${BIODIR}/$INPUT_LIST"
 
 sudo apt install -y samtools time
 

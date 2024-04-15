@@ -3,7 +3,8 @@
 export PATH=$PATH:$HOME/.local/bin
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
 export BIODIR="${PASH_SPEC_TOP}/report/benchmarks/bio4"
-export OUTBASE="${PASH_SPEC_TOP}/report/output/bio4"
+export OUTBASE="${PASH_SPEC_TOP}/report/output/bio4-$SIZE"
+export INPUT_LIST=$SIZE/list
 
 cd "$BIODIR"
 
@@ -91,14 +92,14 @@ case "$target" in
         ;;
 esac
 
-./setup.sh $size
+./setup.sh $INPUT_LIST
 
 if $run_sh
 then
-sh_r $SIZE
+sh_r $INPUT_LIST
 fi
 
 if $run_hs
 then
-hs_r $SIZE $window $log
+hs_r $INPUT_LIST $window $log
 fi

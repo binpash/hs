@@ -43,6 +43,7 @@ def do_sh_run(test_base: Path, output_base: Path, do_merge: bool = False):
     return (result.returncode, (merge_result.returncode if do_merge else 0)), (result.stdout + (merge_result.stdout if do_merge else b"")), sh_hashes
 
 def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, log: bool, do_merge: bool = False):
+    run("rm -rf /tmp/*", shell=True)
     os.chdir(teraseq_samples)
     clean_outputs(test_base)
     cmd = [hs_base / 'pash-spec.sh', '--window', str(window)]

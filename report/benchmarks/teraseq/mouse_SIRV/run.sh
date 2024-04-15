@@ -3,10 +3,6 @@
 # Run Mouse SIRV (PRJEB27590) preprocessing, alignment, and postprocessing
 #
 
-# trap 'echo Exiting "$BASH_COMMAND" with status $?' EXIT
-
-set -e # dliu
-
 cd /root/TERA-Seq_manuscript/samples # dliu
 
 . ../PARAMS.sh
@@ -111,7 +107,7 @@ for i in $samples; do
     > "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome-polya.sorted.bam
 
     ln -s "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome-polya.sorted.bam \
-        "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome.sorted.bam || true # dliu
+        "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome.sorted.bam
 done
 # dliu remove wait
 
@@ -177,7 +173,7 @@ for i in $samples; do
     samtools index \
         "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome-polya.sorted.bam # dliu remove &
     ln -s "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome-polya.sorted.bam.bai \
-        "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome.sorted.bam.bai || true # dliu
+        "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome.sorted.bam.bai
     samtools index \
         "$sdir"/align/reads.1.sanitize.toGenome.sorted.bam # dliu remove &
     samtools index \

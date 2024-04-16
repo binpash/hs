@@ -21,3 +21,4 @@ RUN ./setup.sh
 WORKDIR /srv/hs
 RUN chmod +x entrypoint.sh
 WORKDIR /root/TERA-Seq_manuscript/samples
+RUN mv /srv/hs/report/benchmarks/teraseq/annotate-sqlite-with-fastq.R /root/TERA-Seq_manuscript/tools/utils/

@@ -14,9 +14,13 @@ import util
 import analysis
 
 STATE_LOG = '[STATE_LOG] '
+OVERHEAD_LOG = '[OVERHEAD_LOG] '
 
 def state_log(s):
     logging.info(STATE_LOG + s)
+
+def overhead_log(s):
+    logging.info(OVERHEAD_LOG + s)
 
 class NodeState(Enum):
     INIT = auto()
@@ -526,6 +530,7 @@ class ConcreteNode:
         return conflict_exists
 
     def kill_children(self):
+        overhead_log(f"KILL|{self.cnid}")
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         process = self.exec_ctxt.process
         try:
@@ -533,6 +538,7 @@ class ConcreteNode:
         except ProcessLookupError:
             pass
         process.wait()
+        overhead_log(f"KILL_END|{self.cnid}")
     
     ##                                      ##
     ##          Transition Functions        ##
@@ -568,8 +574,9 @@ class ConcreteNode:
         # TODO: make this more sophisticated
         if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
             self.kill_children()
-
+        overhead_log(f"DELETE_SANDBOX|{self.cnid}")
         util.delete_sandbox(self.exec_ctxt.sandbox_dir)
+        overhead_log(f"DELETE_SANDBOX_END|{self.cnid}")
         self.exec_ctxt = None
         self.exec_result = None
         if spec_pre_env is not None:
@@ -615,7 +622,9 @@ class ConcreteNode:
             self.trace_fd = None
             self.trace_ctx = None
         self.update_loop_list_context()
+        overhead_log(f"COMMIT|{self.cnid}")
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        overhead_log(f"COMMIT_END|{self.cnid}")
         # util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
         self.trace_state()
@@ -635,7 +644,9 @@ class ConcreteNode:
 
     def commit_speculated(self):
         assert self.state == NodeState.SPECULATED
+        overhead_log(f"COMMIT|{self.cnid}")
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        overhead_log(f"COMMIT_END|{self.cnid}")
         # util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
         self.trace_state()

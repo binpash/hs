@@ -8,7 +8,7 @@ download_dir="$PASH_SPEC_TOP/report/resources/max_temp" # Adjust the path as nec
 
 
 # Loop through the years from 2000 to 2018
-for year in {2000..2020}; do
+for year in {1901..1901}; do
     # Create the URL for the specific year
     url="ftp://ftp.ncdc.noaa.gov/pub/data/noaa/$year"
 

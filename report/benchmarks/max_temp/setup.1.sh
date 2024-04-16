@@ -13,8 +13,12 @@ for year in {2000..2020}; do
     url="ftp://ftp.ncdc.noaa.gov/pub/data/noaa/$year"
 
     # Create a temporary directory for each year
-    mkdir -p "$year"
+    mkdir -p "$download_dir/$year"
+    mkdir -p $year
 
     # Download files from the current year's directory
     lftp -c "open '$url' && mirror --parallel=5 --verbose . '$year'"
+
+    mv "$year" "$download_dir/$year"
+
 done

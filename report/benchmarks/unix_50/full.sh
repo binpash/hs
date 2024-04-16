@@ -128,8 +128,3 @@ cat $IN11 | grep 'UNIX' | cut -f 1
 
 #36.sh 11.2: most repeated first name in the list?
 cat $IN11 | cut -f 2 | cut -d ' ' -f 1 | sort | uniq -c | sort -nr | head -n 1 | fmt -w1 | sed 1d
-
-
-# # 12.1: transform this list of instructions such that if the snake follows the
-# #       new instructions top to bottom, it ends on the location of the apple.
-# cat $IN12 > /dev/null

@@ -7,12 +7,14 @@ download_dir="$PASH_SPEC_TOP/report/resources/unix_50"
 result_dir="$PASH_SPEC_TOP/results/unix_50"
 
 ./run --target sh-only
+rm -rf /tmp/*
 mkdir -p $result_dir/base
 mv $output_dir/* $result_dir/base
 
-for window in 0 1 2 4 8 16 32 64
+for window in 0 10 20 30 40
 do
     ./run --target hs-only --window $window
+    rm -rf /tmp/*
     mkdir -p $result_dir/$window
     mv $output_dir/* $result_dir/$window
 done

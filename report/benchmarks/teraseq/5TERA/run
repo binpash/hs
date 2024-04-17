@@ -9,8 +9,8 @@ from subprocess import run, PIPE
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser.add_argument('--window', default=5, type=int, help='window size to run hs with')
-parser.add_argument('--target', choices=['hs-only', 'sh-only', 'both'],
-                    help='to run with sh or hs')
+parser.add_argument('--target', choices=['original', 'hs-only', 'sh-only', 'both'],
+                    help='to run with sh or hs or both sh and hs or run the original manual parallelization using & and wait')
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
 
@@ -23,6 +23,17 @@ def clean_outputs(test_base: Path):
 def hash_result(test_base: Path, output_base: Path):
     result = run([test_base / "hash_result.sh"], stdout=PIPE)
     return result.stdout
+
+def do_original_run(test_base: Path, output_base: Path):
+    os.chdir(teraseq_samples)
+    clean_outputs(test_base)
+    before = time.time()
+    result = run(['/bin/bash', test_base / f'run_{test_base.parts[-1]}.sh'], stdout=PIPE)
+    duration = time.time() - before
+    with open(output_base / "orig_time", 'w') as f:
+        f.write(f'{duration}\n')
+    orig_hashes = hash_result(test_base, output_base)
+    return result.returncode, result.stdout, orig_hashes
 
 def do_sh_run(test_base: Path, output_base: Path):
     os.chdir(teraseq_samples)
@@ -59,6 +70,10 @@ if __name__ == '__main__':
     bench_base = test_base.parent
     local_name = os.sep.join(test_base.parts[-2:])
     output_base = hs_base / "report" / "output" / local_name
+    if args.target in ["original"]:
+        output_base.mkdir(parents=True, exist_ok=True)
+        output_orig = do_original_run(test_base, output_base)
+        exit(0)
     run_hs = False
     run_sh = False
     if args.target in ["hs-only", "both"]:

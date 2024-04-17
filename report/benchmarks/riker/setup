@@ -1,5 +1,6 @@
 #!/bin/bash
 
-for experiment in autoconf calc llvm lua make memcached redis sqlite vim xz xz-clang; do
+for experiment in autoconf calc coreutils llvm lsof lua make memcached protobuf redis sqlite vim xz xz-clang; do
+    echo "Building hs/$experiment docker image..."
     sudo docker build -t hs/$experiment ./benchmarks/riker/$experiment/
 done

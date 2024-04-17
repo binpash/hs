@@ -14,3 +14,4 @@ RUN ./configure && \
     make clean
 
 COPY make_build.sh /make-4.3/make_build.sh
+RUN chmod +x /make-4.3/make_build.sh

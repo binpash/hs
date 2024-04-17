@@ -19,11 +19,11 @@ echo 'char_u *default_vimruntime_dir = (char_u *)"";' | sed -e 's/[\\"]/\\&/g' -
 echo 'char_u *all_cflags = (char_u *)"'$CFLAGS'";' | sed -e 's/[\\"]/\\&/g' -e 's/\\"/"/' -e 's/\\";$/";/' -e 's/  */ /g' >>  auto/pathdef.c
 echo 'char_u *all_lflags = (char_u *)"gcc '$LFLAGS' -o vim '$LIBS'";' | sed -e 's/[\\"]/\\&/g' -e 's/\\"/"/' -e 's/\\";$/";/' -e 's/  */ /g' >>  auto/pathdef.c
 echo 'char_u *compiled_user = (char_u *)"' | tr -d "\\012" >> auto/pathdef.c
-# the following line was modified since the conditional is always false
-((logname) 2>/dev/null || whoami) | tr -d "\\012" >> auto/pathdef.c
+# the following line was modified for POSIX compliance
+logname | tr -d "\\012" >> auto/pathdef.c
 echo '";' >> auto/pathdef.c
 echo 'char_u *compiled_sys = (char_u *)"' | tr -d "\\012" >> auto/pathdef.c
-# the following line was modified since the conditional is always true
+
 hostname | tr -d "\\012" >> auto/pathdef.c
 echo '";' >> auto/pathdef.c
 sh ./pathdef.sh

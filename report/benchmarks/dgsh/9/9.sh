@@ -33,7 +33,7 @@ file2=$(mktemp)
 file3=$(mktemp)
 
 # Find object files and print defined symbols
-find . -type f -name "*.o" | xargs nm > "$file1"
+find $INPUT -type f -name "*.o" | xargs nm > "$file1"
 
 # List all defined (exported) symbols
 awk 'NF == 3 && $2 ~ /[A-Z]/ {print $3}' "$file1" | sort > "$file2"

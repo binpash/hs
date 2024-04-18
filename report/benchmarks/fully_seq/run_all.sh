@@ -1,18 +1,17 @@
 #!/bin/bash
 
-./setup.sh
-# rm /mydata/input.txt
-time ./run --target sh-only
-mkdir -p /mydata/results/output/artificial/fully_seq/base
-rm /mydata/input.txt
-mv /mydata/dynamic-parallelizer/report/output/artificial/fully_seq/* /mydata/results/output/artificial/fully_seq/base
+export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
 
-for window in 0 
+output_dir="$PASH_SPEC_TOP/report/output/fully-seq"
+result_dir="$PASH_SPEC_TOP/results/fully-seq"
+
+./run --target sh-only
+mkdir -p $result_dir/base
+mv $output_dir/* $result_dir/base
+
+for window in 0 10 20 40
 do
-    ./setup.sh
-    time ./run --target hs-only --window $window
-    rm /mydata/input.txt
-    mkdir -p /mydata/results/output/artificial/fully_seq/$window
-    mv /mydata/dynamic-parallelizer/report/output/artificial/fully_seq/* /mydata/results/output/artificial/fully_seq/$window
+    ./run --target hs-only --window $window
+    mkdir -p $output_dir/$result_dir
+    mv $output_dir/* $result_dir/$window
 done
-

@@ -1,25 +1,25 @@
 #!/bin/bash
 
-IN1=$IN/100M-1.txt
-IN2=$IN/100M-2.txt
-IN3=$IN/100M-3.txt
-IN4=$IN/100M-4.txt
-IN5=$IN/100M-5.txt
-IN6=$IN/100M-6.txt
-IN7=$IN/100M-7.txt
-IN8=$IN/100M-8.txt
-IN91=$IN/100M-9.1.txt
-IN92=$IN/100M-9.2.txt
-IN93=$IN/100M-9.3.txt
-IN94=$IN/100M-9.4.txt
-IN95=$IN/100M-9.5.txt
-IN96=$IN/100M-9.6.txt
-IN97=$IN/100M-9.7.txt
-IN98=$IN/100M-9.8.txt
-IN99=$IN/100M-9.9.txt
-IN10=$IN/100M-10.txt
-IN11=$IN/100M-11.txt
-IN12=$IN/100M-12.txt
+IN1=$IN/1G-1.txt
+IN2=$IN/1G-2.txt
+IN3=$IN/1G-3.txt
+IN4=$IN/1G-4.txt
+IN5=$IN/1G-5.txt
+IN6=$IN/1G-6.txt
+IN7=$IN/1G-7.txt
+IN8=$IN/1G-8.txt
+IN91=$IN/1G-9.1.txt
+IN92=$IN/1G-9.2.txt
+IN93=$IN/1G-9.3.txt
+IN94=$IN/1G-9.4.txt
+IN95=$IN/1G-9.5.txt
+IN96=$IN/1G-9.6.txt
+IN97=$IN/1G-9.7.txt
+IN98=$IN/1G-9.8.txt
+IN99=$IN/1G-9.9.txt
+IN10=$IN/1G-10.txt
+IN11=$IN/1G-11.txt
+IN12=$IN/1G-12.txt
 
 #1.sh 1.0: extract the last name
 cat $IN1 | cut -d ' ' -f 2
@@ -128,8 +128,3 @@ cat $IN11 | grep 'UNIX' | cut -f 1
 
 #36.sh 11.2: most repeated first name in the list?
 cat $IN11 | cut -f 2 | cut -d ' ' -f 1 | sort | uniq -c | sort -nr | head -n 1 | fmt -w1 | sed 1d
-
-
-# # 12.1: transform this list of instructions such that if the snake follows the
-# #       new instructions top to bottom, it ends on the location of the apple.
-# cat $IN12 > /dev/null

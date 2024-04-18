@@ -33,9 +33,6 @@ for i in ${inputs[@]}; do
     if [[ ! -f "$inflate_size-$i.txt" ]]; then
         $inflate "$i.txt" 10M
         $inflate "10M-$i.txt" $inflate_size &
-        # $inflate "100M-10M-$i.txt" 1G
-       
-        # mv "1G-100M-10M-$i.txt" "1G-$i.txt"
     fi
 done
 wait

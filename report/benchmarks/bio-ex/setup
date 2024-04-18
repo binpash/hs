@@ -1,0 +1,6 @@
+#!/bin/bash
+
+sudo docker build -t hs ..
+for experiment in ex1 ex2 ex2-accelerated; do
+    sudo docker build -t hs/$experiment ./benchmarks/bio-ex/$experiment/
+done

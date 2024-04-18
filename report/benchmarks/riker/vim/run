@@ -21,8 +21,6 @@ def convert_time_to_float(time):
 def do_sh_run(env):
     result = run(["sudo", "docker", "run", "--privileged", "--rm", "hs/vim:latest", "/bin/bash", "-c", "time sh /root/vim/vim_build.sh && file /root/vim/src/vim"], stdout=PIPE, stderr=PIPE, env=env)
 
-    print(result.stdout.decode())
-    print(result.stdout.decode().split("\n"))
     time = result.stderr.decode().split("\n")[-4].split("\t")[1]
     shasum = result.stdout.decode().split("\n")[0].split("=")[1].split(",")[0]
     return convert_time_to_float(time), shasum
@@ -91,13 +89,11 @@ if __name__ == "__main__":
             with open(output_base / 'hs_log', 'w') as file:
                 file.write(hs_log)
     elif run_sh:
-        SCRIPT_NAME = "sh_script.sh"
-        do_sh_run(env)
+        sh_time, sh_shasum = do_sh_run(env)
         with open(output_base / 'sh_time', 'w') as file:
             file.write(str(sh_time))
     elif run_hs:
-        SCRIPT_NAME = "hs_script.sh"
-        do_hs_run(args.window, log, env)
+        hs_time, hs_shasum, hs_log = do_hs_run(args.window, log, env)
         with open(output_base / 'hs_time', 'w') as file:
             file.write(str(hs_time))
         if log:

@@ -22,7 +22,7 @@ def do_sh_run(env):
     result = run(["sudo", "docker", "run", "--privileged", "--rm", "hs/protobuf:latest", "/bin/bash", "-c", "time sh /protobuf/protobuf_build.sh && sha1sum /protobuf/src/protoc"], stdout=PIPE, stderr=PIPE, env=env)
 
     time = result.stderr.decode().split("\n")[-4].split("\t")[1]
-    shasum = result.stdout.decode().split("\n")[-2].split("=")[1].split(",")[0]
+    shasum = result.stdout.decode().split("\n")[-2].split(" ")[0]
     return convert_time_to_float(time), shasum
 
 def do_hs_run(window, log, env):
@@ -32,7 +32,7 @@ def do_hs_run(window, log, env):
         result = run(["sudo", "docker", "run", "--privileged", "--rm", "hs/protobuf:latest", "/bin/bash", "-c", f"time /srv/hs/pash-spec.sh --window {window} /protobuf/protobuf_build.sh && sha1sum /protobuf/src/protoc"], stdout=PIPE, stderr=PIPE, env=env)
 
     time = result.stderr.decode().split("\n")[-4].split("\t")[1]
-    shasum = result.stdout.decode().split("\n")[-2].split("=")[1].split(",")[0]
+    shasum = result.stdout.decode().split("\n")[-2].split(" ")[0]
     return convert_time_to_float(time), shasum, result.stderr.decode()
 
 if __name__ == "__main__":
@@ -84,13 +84,11 @@ if __name__ == "__main__":
             with open(output_base / 'hs_log', 'w') as file:
                 file.write(hs_log)
     elif run_sh:
-        SCRIPT_NAME = "sh_script.sh"
-        do_sh_run(env)
+        sh_time, sh_shasum = do_sh_run(env)
         with open(output_base / 'sh_time', 'w') as file:
             file.write(str(sh_time))
     elif run_hs:
-        SCRIPT_NAME = "hs_script.sh"
-        do_hs_run(args.window, log, env)
+        hs_time, hs_shasum, hs_log = do_hs_run(args.window, log, env)
         with open(output_base / 'hs_time', 'w') as file:
             file.write(str(hs_time))
         if log:

@@ -16,53 +16,60 @@ data_file_path = os.path.join(args.input_directory, 'data.csv')
 # Read the data
 data = pd.read_csv(data_file_path)
 
-# Ensure numeric types for 'sh' and 'hs (15)' columns
+# Ensure numeric types for 'sh', 'hs (15)', and 'hs(56)' if it exists
 data['sh'] = pd.to_numeric(data['sh'], errors='coerce')
 data['hs (15)'] = pd.to_numeric(data['hs (15)'], errors='coerce')
+data['hs(56)'] = pd.to_numeric(data['hs(56)'], errors='coerce') if 'hs(56)' in data.columns else None
 
-# Drop rows with NaNs created by conversion errors or originally missing values
-data.dropna(subset=['sh', 'hs (15)'], inplace=True)
+# Drop rows with NaNs in 'sh'
+data.dropna(subset=['sh'], inplace=True)
 
-# Calculate the relative speedup
-data['Relative Speedup'] = data['sh'] / data['hs (15)']
+# Calculate the relative speedup for hs (15) and hs (56) compared to sh, if hs(56) exists
+data['hs (15)'] = data['sh'] / data['hs (15)']
+if 'hs(56)' in data.columns:
+    data['hs (56)'] = data['sh'] / data['hs(56)']
 
-# Split data for boxplot and barplot
-grouped_data = data[data['Benchmark Family'] != "BAR"]
-bar_benchmarks = data[data['Benchmark Family'] == "BAR"]
+# Melt the dataframe to long format for easy plotting with seaborn, excluding sh
+value_vars_to_melt = ['hs (15)', 'hs (56)'] if 'hs(56)' in data.columns else ['hs (15)']
+data_long = data.melt(id_vars=['Benchmark', 'Benchmark Family'], value_vars=value_vars_to_melt,
+                      var_name='Measurement', value_name='Relative Speedup')
 
 # Set global font properties
 plt.rcParams.update({'font.size': 14, 'font.family': 'serif'})
 
 # Plotting
-fig, axs = plt.subplots(1, 2, figsize=(12, 4.5), sharey=True)
+fig, axs = plt.subplots(1, 2, figsize=(7, 6), sharey=True)
+
+# Filter data for boxplot and barplot based on 'Benchmark Family'
+grouped_data = data_long[data_long['Benchmark Family'] != "BAR"]
+bar_data = data_long[data_long['Benchmark Family'] == "BAR"]
 
 # Boxplot for grouped benchmarks with scatter
-sns.boxplot(x='Benchmark Family', y='Relative Speedup', data=grouped_data, width=0.5, ax=axs[0],
-            boxprops=dict(facecolor="lightgrey", edgecolor="black"), whiskerprops=dict(color="black"),
-            capprops=dict(color="black"), medianprops=dict(color="black"))
+sns.boxplot(x='Benchmark Family', y='Relative Speedup', hue='Measurement', data=grouped_data, ax=axs[0],
+            palette='pastel', showfliers=False)
+            # whiskerprops=dict(color="black"), capprops=dict(color="black"),
+            # medianprops=dict(color="black"))
 
-# Scatter plot with larger, darker color dots for better visibility
-sns.stripplot(x='Benchmark Family', y='Relative Speedup', data=grouped_data, jitter=True, ax=axs[0], color='black', size=7, alpha=0.7)
+# Adding scatter plot with jitter on top of boxplots for individual data points
+sns.stripplot(x='Benchmark Family', y='Relative Speedup', hue='Measurement', data=grouped_data, ax=axs[0], dodge=True,
+              color='black', size=7, alpha=0.7, jitter=True, legend=False)
 
-# Reference line at y=1, indicating the base performance
-axs[0].axhline(y=1, color='black', linestyle='--')
-axs[0].set_xlabel('')
-axs[0].set_ylabel('Relative Speedup', fontsize=16)
-axs[0].tick_params(axis='x', rotation=45)
-
+axs[0].legend_.remove()  # Remove the legend created by stripplot to avoid duplication
 # Barplot for "BAR" benchmarks in grey
-sns.barplot(x='Benchmark', y='Relative Speedup', data=bar_benchmarks, ax=axs[1], color='grey')
-axs[1].set_xlabel('')
-axs[1].set_ylabel('')
-axs[1].axhline(y=1, color='k', linestyle='--')
-axs[1].tick_params(axis='x', rotation=45)
+sns.barplot(x='Benchmark', y='Relative Speedup', hue='Measurement', data=bar_data, ax=axs[1], palette='pastel')
 
-# Custom formatter for y-tick labels to add "x"
-axs[0].get_yaxis().set_major_formatter(plt.FuncFormatter(lambda x, _: f'{x:.1f}x'))
-axs[1].get_yaxis().set_major_formatter(plt.FuncFormatter(lambda x, _: f'{x:.1f}x'))
+# Customize plot elements
+for ax in axs:
+    ax.axhline(y=1, color='black', linestyle='--', label='sh')
+    ax.set_xlabel('')
+    ax.tick_params(axis='x', rotation=45)
+    ax.get_yaxis().set_major_formatter(plt.FuncFormatter(lambda x, _: f'{x:.1f}x' if x % 1 == 0.5 else f'{x:.0f}x'))
+    ax.legend(title='', fontsize=12)
 
-# Shared X-axis label
-# fig.text(0.5, 0.04, 'Benchmark Categories', ha='center', fontsize=16)
+axs[1].set_ylabel('')  # Remove the ylabel of the second diagram
+axs[1].get_legend().remove()  # Remove the legend created by barplot to avoid duplication
+
+axs[0].set_ylabel('Relative Speedup', fontsize=16)
 
 plt.tight_layout(rect=[0, 0.05, 1, 1])
 plt.savefig(args.output_file, bbox_inches='tight', pad_inches=0.05)

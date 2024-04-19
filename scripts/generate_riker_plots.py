@@ -3,8 +3,45 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import sys
 
-# Read the data, skipping incomplete lines
-data = pd.read_csv(sys.argv[1]).dropna()
+# create the csv by parsing the output files in ../output/ directory
+if (".csv" not in sys.argv[1]):
+    print("Data file not specified. Trying to parse the output files in ../report/output/ directory.")
+
+    with open("riker_data_automated.csv", "w") as csv:
+        csv.write("benchmark,sh,strace_time,riker_time,hs_time\n")
+
+    benchmarks = ["autoconf", "calc", "coreutils", "llvm", "lsof", "lua", "make", "memcached", "protobuf", "redis", "sqlite", "vim", "xz", "xz-clang"]
+    for benchmark in benchmarks.copy():
+        try:
+            line = f"{benchmark},"
+            with open(f'../report/output/{benchmark}/sh_time', 'r') as file:
+                lines = file.readlines()
+                time = float(lines[0])
+                line += f"{time},"
+            with open(f'../report/output/{benchmark}/strace_time', 'r') as file:
+                lines = file.readlines()
+                time = float(lines[0])
+                line += f"{time},"
+            with open(f'../report/output/{benchmark}/riker_time', 'r') as file:
+                lines = file.readlines()
+                time = float(lines[0])
+                line += f"{time},"
+            with open(f'../report/output/{benchmark}/hs_time', 'r') as file:
+                lines = file.readlines()
+                time = float(lines[0])
+                line += f"{time}\n"
+            with open("riker_data.csv", "a") as csv:
+                csv.write(line)
+        except:
+            print(f"Error processing {benchmark}")
+            benchmarks.remove(benchmark)
+
+    data = pd.read_csv("riker_data.csv").dropna()
+    result_filename = sys.argv[1]
+
+else: 
+    data = pd.read_csv(sys.argv[1]).dropna()
+    result_filename = sys.argv[2]
 
 # Calculate relative execution time compared to sh
 data['strace_time'] = data['strace_time'] / data['sh']
@@ -38,4 +75,4 @@ plt.xticks(rotation=45, fontsize=27)
 plt.legend(title='', fontsize=20, title_fontsize='25')
 
 plt.tight_layout()
-plt.savefig(sys.argv[2], bbox_inches='tight', pad_inches=0.05)
+plt.savefig(result_filename, bbox_inches='tight', pad_inches=0.05)

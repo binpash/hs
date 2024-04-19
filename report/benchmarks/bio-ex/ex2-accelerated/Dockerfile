@@ -18,5 +18,5 @@ RUN unzip Trimmomatic-0.39.zip
 RUN unzip fastqc_v0.12.1.zip
 RUN chmod +x /root/workspace/FastQC/fastqc
 
-COPY modified_ex2.sh /root/workspace/ex2.sh
-RUN chmod +x /root/workspace/ex2.sh
+COPY modified_ex2.sh /root/workspace/modified_ex2.sh
+RUN chmod +x /root/workspace/modified_ex2.sh

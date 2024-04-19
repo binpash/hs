@@ -50,7 +50,7 @@ data['hs_time'] = data['hs_time'] / data['sh']
 
 # Melt the dataframe to long format for easy plotting with seaborn, excluding sh
 data_long = data.melt(id_vars='benchmark', value_vars=['strace_time', 'riker_time', 'hs_time'],
-                      var_name='Measurement', value_name='Relative Execution Time to sh')
+                      var_name='Measurement', value_name='Relative Slowdown')
 
 # Adjusting measurement names for clarity in the legend
 data_long['Measurement'] = data_long['Measurement'].map({'strace_time': 'strace', 'riker_time': 'Riker', 'hs_time': 'hs'})
@@ -65,7 +65,7 @@ plt.figure(figsize=(20, 12))  # Increased figure size for better readability wit
 # Greyscale
 # barplot = sns.barplot(x='benchmark', y='Relative Execution Time to sh', hue='Measurement', data=data_long, palette='gray')
 
-barplot = sns.barplot(x='benchmark', y='Execution Time Relative to sh', hue='Measurement', data=data_long, palette='pastel')
+barplot = sns.barplot(x='benchmark', y='Relative Slowdown', hue='Measurement', data=data_long, palette='pastel')
 
 
 
@@ -78,7 +78,7 @@ plt.gca().set_yticklabels([f'{y:.0f}x' for y in plt.gca().get_yticks()], fontsiz
 
 # Customizing the plot with larger fonts
 plt.xlabel('', fontsize=1)
-plt.ylabel('Relative Execution Time to sh', fontsize=40)
+plt.ylabel('Relative Slowdown', fontsize=40)
 plt.xticks(rotation=45, fontsize=35)
 plt.legend(title='', fontsize=30, title_fontsize='30')
 

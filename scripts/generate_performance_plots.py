@@ -60,7 +60,7 @@ sns.barplot(x='Benchmark', y='Relative Speedup', hue='Measurement', data=bar_dat
 
 # Customize plot elements
 for ax in axs:
-    ax.axhline(y=1, color='black', linestyle='--', label='sh')
+    ax.axhline(y=1, color='black', linestyle='--', label='sh (Baseline)')
     ax.set_xlabel('')
     ax.tick_params(axis='x', rotation=45)
     ax.get_yaxis().set_major_formatter(plt.FuncFormatter(lambda x, _: f'{x:.1f}x' if x % 1 == 0.5 else f'{x:.0f}x'))

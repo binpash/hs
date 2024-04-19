@@ -38,7 +38,7 @@ data_long = data.melt(id_vars=['Benchmark', 'Benchmark Family'], value_vars=valu
 plt.rcParams.update({'font.size': 14, 'font.family': 'serif'})
 
 # Plotting
-fig, axs = plt.subplots(1, 2, figsize=(7, 6), sharey=True)
+fig, axs = plt.subplots(1, 2, figsize=(7, 4.7), sharey=True)
 
 # Filter data for boxplot and barplot based on 'Benchmark Family'
 grouped_data = data_long[data_long['Benchmark Family'] != "BAR"]
@@ -63,7 +63,7 @@ for ax in axs:
     ax.axhline(y=1, color='black', linestyle='--', label='sh (Baseline)')
     ax.set_xlabel('')
     ax.tick_params(axis='x', rotation=45)
-    ax.get_yaxis().set_major_formatter(plt.FuncFormatter(lambda x, _: f'{x:.1f}x' if x % 1 == 0.5 else f'{x:.0f}x'))
+    ax.get_yaxis().set_major_formatter(plt.FuncFormatter(lambda x, _: '' if x % 1 == 0.5 else f'{x:.0f}x'))
     ax.legend(title='', fontsize=12)
 
 axs[1].set_ylabel('')  # Remove the ylabel of the second diagram

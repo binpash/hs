@@ -6,7 +6,7 @@ import argparse
 import matplotlib.pyplot as plt
 
 # Set global font properties
-plt.rcParams.update({'font.size': 14, 'font.family': 'serif'})
+plt.rcParams.update({'font.size': 22, 'font.family': 'serif'})
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='Generate window plots')
@@ -44,30 +44,21 @@ df['relative_speedup'] = df['base_time'] / df['hs_time']
 
 
 plt.figure(figsize=(10, 6))
-markers = ['o', 'v', '^', '<', '>', '*', "s"]
-colors = ['0.6', '0.3', '0']
-lines = ['-', '--', '-.', ':']
-
-# for i, benchmark_name in enumerate(df['benchmark_name'].unique()):
-#     benchmark_df = df[df['benchmark_name'] == benchmark_name]
-#     plt.plot(benchmark_df['window'], benchmark_df['hs_base_ratio'], label=benchmark_name, linestyle="-", marker=markers[i % len(markers)], color=colors[i % len(colors)])
+markers = ['o', 'v', '^', '<', '>', "s"]
+colors = ['#FFB6C1', '#ADD8E6', '#90EE90', '#FFDAB9', '#87CEFA', '#98FB98']
 
 # Relative speedup
 for i, benchmark_name in enumerate(df['benchmark_name'].unique()):
     benchmark_df = df[df['benchmark_name'] == benchmark_name]
-    plt.plot(benchmark_df['window'], benchmark_df['relative_speedup'], label=benchmark_name, linestyle="-", marker=markers[i % len(markers)], color=colors[i % len(colors)])
-
-
-# Add dotted line at y=1 to indicate the base performance
-plt.axhline(y=1, color='k', linestyle=':', linewidth=2, label='Base Performance')
+    plt.plot(benchmark_df['window'], benchmark_df['relative_speedup'], label=benchmark_name, linestyle="-", marker=markers[i % len(markers)], color=colors[i % len(colors)], linewidth=3, markersize=8)
 
 # Update y-axis label to reflect the change to relative speedup
-plt.ylabel('Relative Speedup', fontsize=16, fontfamily='serif')
+plt.ylabel('Relative Performance', fontsize=21, fontfamily='serif')
 
 # Set axis labels with specific font properties
-plt.xlabel('Window', fontsize=16, fontfamily='serif')
+plt.xlabel('Window', fontsize=21, fontfamily='serif')
 
-plt.legend(title='', fontsize='10')
+plt.legend(title='', fontsize='13.4')
 plt.grid(True, which='both', linestyle='--', linewidth=0.3)
 
 # Log scale on x-axis (messes up 0 value)
@@ -79,18 +70,18 @@ plt.grid(True, which='both', linestyle='--', linewidth=0.3)
 current_yticks = plt.gca().get_yticks()
 
 # Format y-axis tick labels
-formatted_yticklabels = [f"{label.round(2)}x" for label in current_yticks]
+formatted_yticklabels = [f'{label:.0f}x' for label in current_yticks]
 
 # Set formatted y-axis tick labels with specific font properties and tilt them
-plt.yticks(ticks=current_yticks, labels=formatted_yticklabels, fontsize=10, fontfamily='serif', rotation=45)
-
+plt.yticks(ticks=current_yticks, labels=formatted_yticklabels, fontsize=15, fontfamily='serif')
+# set_major_formatter(plt.FuncFormatter(lambda x, _: f'' if x % 1 == 0.5 else f'{x:.0f}x'))
 
 # Set formatted y-axis tick labels with specific font properties
-plt.yticks(ticks=current_yticks, labels=formatted_yticklabels, fontsize=14, fontfamily='serif')
+plt.yticks(ticks=current_yticks, labels=formatted_yticklabels, fontsize=20, fontfamily='serif')
 
 
-plt.xticks(fontsize=14, fontfamily='serif')
-plt.yticks(fontsize=14, fontfamily='serif')
+plt.xticks(fontsize=17, fontfamily='serif')
+plt.yticks(fontsize=17, fontfamily='serif')
 plt.xticks(df['window'].unique())
 plt.tight_layout()
 

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 print_fibonacci() {
     local n="$1"

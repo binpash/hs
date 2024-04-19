@@ -70,13 +70,12 @@ if __name__ == "__main__":
 
     if run_all:
         baseline_time = do_baseline_run(env)
-        strace_time = do_strace_run(env)
-        riker_time = do_riker_run(env)
-        hs_time, hs_log = do_hs_run(args.window, log, env)
-
         print(f"baseline time: {baseline_time}")
+        strace_time = do_strace_run(env)
         print(f"strace time: {strace_time}")
+        riker_time = do_riker_run(env)
         print(f"Riker time: {riker_time}")
+        hs_time, hs_log = do_hs_run(args.window, log, env)
         print(f"hs time: {hs_time}")
 
         with open(output_base / 'baseline_time', 'w') as file:

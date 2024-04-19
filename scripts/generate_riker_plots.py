@@ -55,24 +55,32 @@ data_long = data.melt(id_vars='benchmark', value_vars=['strace_time', 'riker_tim
 # Adjusting measurement names for clarity in the legend
 data_long['Measurement'] = data_long['Measurement'].map({'strace_time': 'strace', 'riker_time': 'Riker', 'hs_time': 'hs'})
 
-# Increase global font size
-plt.rcParams.update({'font.size': 25, 'font.family': 'serif', 'legend.title_fontsize': 25})
+plt.rcParams.update({'font.size': 35, 'font.family': 'serif', 'legend.title_fontsize': 30})
 
 # Create the plot
-plt.figure(figsize=(16, 10))
-barplot = sns.barplot(x='benchmark', y='Relative Execution Time to sh', hue='Measurement', data=data_long, palette='gray')
+plt.figure(figsize=(20, 12))  # Increased figure size for better readability with larger fonts
+
+#
+#
+# Greyscale
+# barplot = sns.barplot(x='benchmark', y='Relative Execution Time to sh', hue='Measurement', data=data_long, palette='gray')
+
+barplot = sns.barplot(x='benchmark', y='Execution Time Relative to sh', hue='Measurement', data=data_long, palette='pastel')
+
+
+
 
 # Draw a horizontal line at y=1 to represent sh baseline
 plt.axhline(y=1, color='black', linestyle='--', label='sh (Baseline)')
 
 # Format y-tick labels to show "times X" with larger font size
-plt.gca().set_yticklabels([f'{y:.0f}x' for y in plt.gca().get_yticks()], fontsize=20)
+plt.gca().set_yticklabels([f'{y:.0f}x' for y in plt.gca().get_yticks()], fontsize=25)
 
 # Customizing the plot with larger fonts
-plt.xlabel('', fontsize=25)
-plt.ylabel('Relative Execution Time to SH', fontsize=25)
-plt.xticks(rotation=45, fontsize=27)
-plt.legend(title='', fontsize=20, title_fontsize='25')
+plt.xlabel('', fontsize=1)
+plt.ylabel('Relative Execution Time to sh', fontsize=40)
+plt.xticks(rotation=45, fontsize=35)
+plt.legend(title='', fontsize=30, title_fontsize='30')
 
 plt.tight_layout()
 plt.savefig(result_filename, bbox_inches='tight', pad_inches=0.05)

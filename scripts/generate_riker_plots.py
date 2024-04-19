@@ -14,7 +14,7 @@ if (".csv" not in sys.argv[1]):
     for benchmark in benchmarks.copy():
         try:
             line = f"{benchmark},"
-            with open(f'../report/output/{benchmark}/sh_time', 'r') as file:
+            with open(f'../report/output/{benchmark}/baseline_time', 'r') as file:
                 lines = file.readlines()
                 time = float(lines[0])
                 line += f"{time},"
@@ -30,13 +30,13 @@ if (".csv" not in sys.argv[1]):
                 lines = file.readlines()
                 time = float(lines[0])
                 line += f"{time}\n"
-            with open("riker_data.csv", "a") as csv:
+            with open("riker_data_automated.csv", "a") as csv:
                 csv.write(line)
         except:
             print(f"Error processing {benchmark}")
             benchmarks.remove(benchmark)
 
-    data = pd.read_csv("riker_data.csv").dropna()
+    data = pd.read_csv("riker_data_automated.csv").dropna()
     result_filename = sys.argv[1]
 
 else: 
@@ -49,7 +49,7 @@ data['riker_time'] = data['riker_time'] / data['sh']
 data['hs_time'] = data['hs_time'] / data['sh']
 
 # Melt the dataframe to long format for easy plotting with seaborn, excluding sh
-data_long = data.melt(id_vars='benchmark', value_vars=['strace_time', 'riker_time', 'hs_time'],
+data_long = data.melt(id_vars='benchmark', value_vars=['strace_time', 'hs_time', 'riker_time'],
                       var_name='Measurement', value_name='Relative Slowdown')
 
 # Adjusting measurement names for clarity in the legend
@@ -63,12 +63,8 @@ plt.figure(figsize=(20, 12))  # Increased figure size for better readability wit
 #
 #
 # Greyscale
-# barplot = sns.barplot(x='benchmark', y='Relative Execution Time to sh', hue='Measurement', data=data_long, palette='gray')
-
+# barplot = sns.barplot(x='benchmark', y='Relative Slowdown', hue='Measurement', data=data_long, palette='gray')
 barplot = sns.barplot(x='benchmark', y='Relative Slowdown', hue='Measurement', data=data_long, palette='pastel')
-
-
-
 
 # Draw a horizontal line at y=1 to represent sh baseline
 plt.axhline(y=1, color='black', linestyle='--', label='sh (Baseline)')

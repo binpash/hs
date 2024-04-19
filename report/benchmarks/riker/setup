@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo please ensure you build the Dockerfile at the root of the repo as `hs`
+echo please ensure you build the Dockerfile at the root of the repo with the tag hs
 # Building riker on top of the base hs image
 sudo docker build -t hs-riker ./benchmarks/riker/
 

@@ -277,7 +277,11 @@ def parse_clone(pid, args, ret, ctx):
 def parse_symlinkat(pid, args, ret):
     a0, rest = args.split(sep=',', maxsplit=1)
     return parse_w_fd_path(rest, ret)
-        
+
+def parse_symlink(pid, args, ret, ctx):
+    a0, rest = args.split(sep=',', maxsplit=1)
+    return parse_w_first_path(pid, rest, ret, ctx)
+
 def parse_syscall(pid, syscall, args, ret, ctx):
     if syscall in r_first_path_set:
         return parse_r_first_path(pid, args, ret, ctx)
@@ -299,6 +303,8 @@ def parse_syscall(pid, syscall, args, ret, ctx):
         return parse_renameat(pid, args, ret, ctx)
     elif syscall == 'symlinkat':
         return parse_symlinkat(pid, args, ret)
+    elif syscall == 'symlink':
+        return parse_symlink(pid, args, ret, ctx)
     elif syscall == 'clone':
         return parse_clone(pid, args, ret, ctx)
     elif syscall in ignore_set:

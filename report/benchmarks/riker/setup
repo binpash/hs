@@ -1,5 +1,6 @@
 #!/bin/bash
 
+sudo docker build -t hs ..
 # Building riker on top of the base hs image
 sudo docker build -t hs-riker ./benchmarks/riker/
 

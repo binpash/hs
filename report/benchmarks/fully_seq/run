@@ -44,15 +44,16 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
 if __name__ == '__main__':
     args = parser.parse_args()
     test_base = Path(__file__).parent.resolve()
-    hs_base = test_base.parent.parent.parent.parent
-    
+    hs_base = test_base.parent.parent.parent
+    print(f'Running {test_base}')
+    print(f'Running {hs_base}')
     #######################
     # SPECIFY ENV VARS HERE
-    env['INPUT'] = "1000000"
+    env['INPUT'] = "800000"
     #######################
 
     bench_base = test_base.parent
-    local_name = os.sep.join(test_base.parts[-2:])
+    local_name = os.sep.join(test_base.parts[-1:])
     output_base = hs_base / "report" / "output" / local_name
     run_hs = False
     run_sh = False

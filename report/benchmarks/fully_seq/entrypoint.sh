@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # # Input file name
-INPUT="1000000"
 out="$(mktemp)"
 
 # Repeat the operation by calling compute_and_append.sh.

@@ -1,4 +1,4 @@
-FROM hs
+FROM hs-riker
 
 WORKDIR /
 
@@ -14,6 +14,6 @@ RUN test -f Makefile || ./configure
 RUN make clean
 
 COPY protobuf_build.sh /protobuf/protobuf_build.sh
+COPY protobuf_build.sh /protobuf/Rikerfile
+RUN chmod +x /protobuf/Rikerfile
 RUN chmod +x /protobuf/protobuf_build.sh
-
-sha1sum src/protoc 

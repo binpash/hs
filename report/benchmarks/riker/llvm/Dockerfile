@@ -1,4 +1,4 @@
-FROM hs
+FROM hs-riker
 
 RUN apt-get update && apt-get install -y git clang cmake
 
@@ -13,4 +13,6 @@ WORKDIR /llvm-project/llvm-build
 RUN cmake -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_BINDINGS=0 ../llvm
 
 COPY llvm_build.sh /llvm-project/llvm-build/llvm_build.sh
+COPY llvm_build.sh /llvm-project/llvm-build/Rikerfile
+RUN chmod +x /llvm-project/llvm-build/Rikerfile
 RUN chmod +x /llvm-project/llvm-build/llvm_build.sh

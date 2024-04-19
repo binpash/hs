@@ -1,4 +1,4 @@
-FROM hs
+FROM hs-riker
 
 RUN apt-get update && apt-get install -y git wget gcc make libgmp-dev perl libacl1-dev libattr1-dev libcap-dev
 
@@ -13,4 +13,6 @@ ENV FORCE_UNSAFE_CONFIGURE=1
 
 RUN test -f Makefile || ./configure
 COPY coreutils_build.sh /coreutils-8.32/coreutils_build.sh
+COPY coreutils_build.sh /coreutils-8.32/Rikerfile
+RUN chmod +x /coreutils-8.32/Rikerfile
 RUN chmod +x /coreutils-8.32/coreutils_build.sh

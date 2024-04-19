@@ -1,4 +1,4 @@
-FROM hs
+FROM hs-riker
 
 RUN apt-get update && apt-get install -y wget \
     gcc \
@@ -14,4 +14,6 @@ RUN ./configure && \
     make clean
 
 COPY make_build.sh /make-4.3/make_build.sh
+COPY make_build.sh /make-4.3/Rikerfile
+RUN chmod +x /make-4.3/Rikerfile
 RUN chmod +x /make-4.3/make_build.sh

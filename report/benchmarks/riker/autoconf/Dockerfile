@@ -1,4 +1,4 @@
-FROM hs
+FROM hs-riker
 
 RUN apt-get update && apt-get install -y wget \
     make \
@@ -14,4 +14,6 @@ WORKDIR /root/autoconf-2.69
 RUN ./configure
 
 COPY autoconf_build.sh /root/autoconf-2.69/autoconf_build.sh
+COPY autoconf_build.sh /root/autoconf-2.69/Rikerfile
+RUN chmod +x /root/autoconf-2.69/Rikerfile
 RUN chmod +x autoconf_build.sh

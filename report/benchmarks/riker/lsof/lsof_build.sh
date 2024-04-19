@@ -29,4 +29,4 @@ echo '#define LSOF_USER "'`whoami`'"' >> version.h
 sed '/VN/s/.ds VN \(.*\)/#define LSOF_VERSION "\1"/' < version >> version.h
 
 # Now build the lsof executable
-cc $CFLAGS -o lsof *.c -L./lib -llsof -lnsl -ltirpc
+cc $CFLAGS -o lsof *.c -L./lib -lnsl -ltirpc

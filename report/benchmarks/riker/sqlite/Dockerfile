@@ -1,4 +1,4 @@
-FROM hs
+FROM hs-riker
 
 RUN echo "Europe/London" > /etc/timezone \
     dpkg-reconfigure -f noninteractive tzdata \
@@ -17,6 +17,8 @@ RUN git clone https://github.com/sqlite/sqlite . && \
     ./configure
 
 COPY sqlite_build.sh .
+COPY wrapper.sh .
+RUN chmod +x wrapper.sh
 RUN chmod +x sqlite_build.sh
 
 

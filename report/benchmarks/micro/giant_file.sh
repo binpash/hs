@@ -1,2 +1,3 @@
 #! /bin/sh
-python3 giant_file.py ./
+touch giant
+python3 giant_file.py ./giant

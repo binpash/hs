@@ -20,6 +20,6 @@ def read_large_file_in_chunks(file_path, chunk_size=1024 * 1024):
 
 # Example usage
 file_path = sys.argv[1]
-size = sys.arvg[2]
+size = int(sys.argv[2])
 create_large_file_with_zeros(file_path, size)  # Create a 100 MB file filled with zeros
 read_large_file_in_chunks(file_path)  # Read the file in 1 MB chunks

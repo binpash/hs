@@ -4,7 +4,5 @@ scripts/vars.sh
 *~
 \#*\#
 .\#*
-./report/resources/*
-./report/output/*
-./report/resources/**/*
-./report/output/**/*
+report/resources/
+report/output/

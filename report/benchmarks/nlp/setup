@@ -1,0 +1,22 @@
+#!/bin/bash
+
+export PATH=$PATH:$HOME/.local/bin
+export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
+export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
+export REPORT_DIR=${REPORT_DIR:-$PASH_SPEC_TOP/report}
+
+inflate="$PASH_SPEC_TOP/report/util/inflate.sh"
+
+inflate_size=${inflate_size:-20M}
+cd pg
+$inflate pg100.txt $inflate_size
+$inflate pg1342.txt $inflate_size
+$inflate pg145.txt $inflate_size
+$inflate pg1513.txt $inflate_size
+$inflate pg16389.txt $inflate_size
+$inflate pg2641.txt $inflate_size
+$inflate pg2701.txt $inflate_size
+$inflate pg37106.txt $inflate_size
+$inflate pg67979.txt $inflate_size
+$inflate pg84.txt $inflate_size
+cd ..

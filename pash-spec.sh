@@ -15,14 +15,16 @@ sudo chmod 666 /sys/fs/cgroup/cgroup.procs
 sudo chmod 666 /sys/fs/cgroup/frontier/cgroup.procs
 sudo bash -c "echo $protected_mem > /sys/fs/cgroup/frontier/memory.min"
 
-## Generate a temporary directory to store the workfiles
-mkdir -p /tmp/pash_spec
+if [ -n "$PASH_TMP_DIR" ]; then
+    mkdir -p $PASH_TMP_DIR/tmp/pash_spec
+    echo $PASH_TMP_DIR >&2
+    export PASH_SPEC_TMP_PREFIX="$(mktemp -d "$PASH_TMP_DIR/tmp/pash_spec/pash_XXXXXXX")"
+else
+    mkdir -p /tmp/pash_spec
+    export PASH_SPEC_TMP_PREFIX="$(mktemp -d /tmp/pash_spec/pash_XXXXXXX)"
+fi
 
-## Delete any Riker cache
-rm -rf ./.rkr
-
-## Create a temporary directory where PaSh-Spec can use for temporary files and logs
-export PASH_SPEC_TMP_PREFIX="$(mktemp -d /tmp/pash_spec/pash_XXXXXXX)/"
+echo "PASH_SPEC_TMP_PREFIX: $PASH_SPEC_TMP_PREFIX" >&2
 
 ## Initialize the scheduler-server
 export PASH_SPEC_SCHEDULER_SOCKET="${PASH_SPEC_TMP_PREFIX}/scheduler_socket"

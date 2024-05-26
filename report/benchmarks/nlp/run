@@ -13,6 +13,7 @@ parser.add_argument('--target', choices=['hs-only', 'sh-only', 'both'],
                     help='to run with sh or hs')
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
+parser.add_argument('--tmpdir', type=Path)
 
 env = os.environ.copy()
 
@@ -48,6 +49,8 @@ if __name__ == '__main__':
     #######################
     # SPECIFY ENV VARS HERE
     #######################
+    env['PASH_TMP_DIR'] = str(args.tmpdir)
+    env['PASH_TOP'] = str(hs_base / "deps" / "pash")
 
     bench_base = test_base.parent
     local_name = os.sep.join(test_base.parts[-1:])

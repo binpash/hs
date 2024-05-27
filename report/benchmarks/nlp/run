@@ -49,8 +49,10 @@ if __name__ == '__main__':
     #######################
     # SPECIFY ENV VARS HERE
     #######################
-    env['PASH_TMP_DIR'] = str(args.tmpdir)
+    if args.tmpdir: env['PASH_TMP_DIR'] = str(args.tmpdir)
+    
     env['PASH_TOP'] = str(hs_base / "deps" / "pash")
+    env['PASH_SPEC_TOP'] = str(hs_base)
 
     bench_base = test_base.parent
     local_name = os.sep.join(test_base.parts[-1:])

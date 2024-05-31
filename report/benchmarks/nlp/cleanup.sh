@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 
-# rm -rf genesis exodus pg
-rm -rf output
+cd "$(realpath $(dirname "$0"))"
+
+# rm -rf ./inputs
+rm -rf ./outputs

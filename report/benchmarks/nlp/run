@@ -14,13 +14,15 @@ parser.add_argument('--target', choices=['hs-only', 'sh-only', 'both'],
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
 parser.add_argument('--tmpdir', type=Path)
+parser.add_argument('--small', default=False, type=bool, help='use small inputs')
 
 env = os.environ.copy()
 
 def do_sh_run(test_base: Path, script_name: str, output_base: Path, env: dict):
+    cmd = ['/bin/sh', test_base / "scripts" / script_name]
+    print(f'Running {cmd}')
     before = time.time()
-    print(f'Running {test_base / script_name}')
-    result = run(['/bin/sh', test_base / script_name], stdout=PIPE, env=env)
+    result = run(cmd, stdout=PIPE, env=env)
     duration = time.time() - before
     
     with open(output_base / f"{Path(script_name).stem}_sh_time", 'w') as f:
@@ -31,9 +33,9 @@ def do_hs_run(test_base: Path, script_name: str, output_base: Path, hs_base: Pat
     cmd = [hs_base / 'pash-spec.sh', '--window', str(window)]
     if log:
         cmd.extend(['-d', '2'])
-    cmd.append(test_base / script_name)
-    before = time.time()
+    cmd.append(test_base / "scripts" / script_name)
     print(f'Running {cmd}')
+    before = time.time()
     with open(output_base / f"{Path(script_name).stem}_hs_log", 'w') as log:
         result = run(cmd, stdout=PIPE, stderr=log, env=env)
     duration = time.time() - before
@@ -53,6 +55,8 @@ if __name__ == '__main__':
     
     env['PASH_TOP'] = str(hs_base / "deps" / "pash")
     env['PASH_SPEC_TOP'] = str(hs_base)
+    env['SUITE_DIR'] = str(test_base)
+    env['IN'] = str(test_base / "inputs" / "pg-small") if args.small else str(test_base / "inputs" / "pg")
 
     bench_base = test_base.parent
     local_name = os.sep.join(test_base.parts[-1:])
@@ -74,12 +78,11 @@ if __name__ == '__main__':
         '3_1.sh',
         '3_2.sh',
         '3_3.sh',
-        #'4_3b.sh',
-        '4_3b_unrolled.sh',
         '4_3.sh',
+        '4_3b.sh',
+        '6_1.sh',
         '6_1_1.sh',
         '6_1_2.sh',
-        '6_1.sh',
         '6_2.sh',
         '6_3.sh',
         '6_4.sh',
@@ -87,15 +90,11 @@ if __name__ == '__main__':
         '6_7.sh',
         '7_1.sh',
         '7_2.sh',
-        #'8_1.sh',
-        '8_1_unrolled.sh',
+        '8_1.sh',
         '8.2_1.sh',
-        #'8.2_2.sh',
-        '8.2_2_unrolled.sh',
-        #'8.3_2.sh',
-        '8.3_2_unrolled.sh',
-        #'8.3_3.sh',
-        '8.3_3_unrolled.sh'
+        '8.2_2.sh',
+        '8.3_2.sh',
+        '8.3_3.sh',
     ]
 
     for script_name in scripts:

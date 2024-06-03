@@ -1,9 +1,14 @@
 #!/bin/bash
 
 # Define the directory containing the log files and mappings
-log_dir="/media/data_1/gliargo/dynamic-parallelizer/report/benchmarks/bio4/input/logs/wc"
-mapping_file="${log_dir}/object_mappings.sort"
-tool="${log_dir}/recreate"
+export PATH=$PATH:$HOME/.local/bin
+export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
+
+download_dir="$PASH_SPEC_TOP/report/resources/log-analysis/wc"
+benchmark_dir="$PASH_SPEC_TOP/report/benchmarks/log-analysis/wc"
+log_dir="$download_dir"
+mapping_file="${benchmark_dir}/object_mappings.sort"
+tool="${benchmark_dir}/recreate"
 
 # Ensure the mappings file exists
 if [ ! -f "$mapping_file" ]; then

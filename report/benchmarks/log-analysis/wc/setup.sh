@@ -16,4 +16,4 @@ tar -xf WorldCup_tools.tar && rm WorldCup_tools.tar
 wget --quiet -r -np -nH --cut-dirs=6 -P "${download_dir}" "${IN_ROOT}/"
 rm -rf ${download_dir}/robots.txt ${download_dir}/index.html* ${download_dir}/WorldCup_tools.tar
 
-
+mkdir outputs

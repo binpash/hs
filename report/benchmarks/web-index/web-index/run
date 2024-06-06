@@ -60,14 +60,12 @@ if __name__ == '__main__':
     #######################
     # SPECIFY ENV VARS HERE
     if args.input == 'small':
-        env['INPUT_FILE'] = hs_base / 'report' / 'resources' / 'web-index' / 'index500.txt'
-    elif args.input == 'medium':
-        env['INPUT_FILE'] = hs_base / 'report' / 'resources' / 'web-index' / 'index1000.txt'
-    elif args.input == 'full':
         env['INPUT_FILE'] = hs_base / 'report' / 'resources' / 'web-index' / 'index.txt'
+    elif args.input == 'full':
+        env['INPUT_FILE'] = hs_base / 'report' / 'resources' / 'web-index' / 'index_small.txt'
     env['WEB_INDEX_DIR'] = hs_base / 'report' / 'benchmarks' / 'web-index'
     env['SCRIPT_DIR'] = hs_base / 'report' / 'benchmarks' / 'web-index' / 'web-index'
-    env['WIKI'] = hs_base / 'report' / 'resources' / 'web-index' / 'en' / 'articles'
+    env['WIKI'] = hs_base / 'report' / 'resources' / 'web-index' / 'articles'
     #######################
 
     bench_base = test_base.parent

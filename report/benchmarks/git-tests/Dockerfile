@@ -8,3 +8,5 @@ RUN git checkout bea9ecd24b0c3bf06cab4a851694fe09e7e51408 # v2.45.2
 RUN make configure && ./configure && make
 WORKDIR /srv/hs/report/benchmarks/git-tests
 COPY . .
+WORKDIR /srv/hs/deps/try
+RUN git fetch && git switch commit-utils

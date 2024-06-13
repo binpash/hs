@@ -9,3 +9,5 @@ mkdir -p "$PASH_SPEC_TOP/report/resources/sklearn"
 mkdir -p "$PASH_SPEC_TOP/report/output/sklearn"
 
 # Currently just dumped the entire dataset, but ideally we actually download it
+
+pip install -r requirements.txt

@@ -14,7 +14,7 @@ parser.add_argument('--target', choices=['hs-only', 'sh-only', 'both'],
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
 parser.add_argument('--tmpdir', type=Path)
-parser.add_argument('--small', default=False, type=bool, help='use small inputs')
+parser.add_argument('--small', action="store_true", help='use small inputs')
 
 env = os.environ.copy()
 

@@ -4,3 +4,7 @@ scripts/vars.sh
 *~
 \#*\#
 .\#*
+report/output/
+test/output_bash/
+test/output_orch/
+test/results/

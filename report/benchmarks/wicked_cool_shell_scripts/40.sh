@@ -1,6 +1,6 @@
 #!/bin/bash
-# adduser--Adds a new user to the system, including building their
-# home directory, copying in default config data, etc.
+# addusers--Adds new users to the system, including building their
+# home directories, copying in default config data, etc.
 # For a standard Unix/Linux system, not OS X.
 pwfile="/etc/passwd"
 shadowfile="/etc/shadow"
@@ -12,30 +12,32 @@ if [ "$(id -un)" != "root" ] ; then
     exit 1
 fi
 
-echo "Add new user account to $(hostname)"
-/bin/echo -n "login: " ; read login
+echo "Add new user accounts to $(hostname)"
+read -p "Enter the file path containing usernames: " userfile
 
-# The next line sets the highest possible user ID value at 5000,
-# but you should adjust this number to match the top end
-# of your user ID range.
-uid="$(awk -F: '{ if (big < $3 && $3 < 5000) big=$3 } END { print big + 1 }' $pwfile)"
-homedir=$hdir/$login
+if [ ! -f "$userfile" ]; then
+    echo "Error: File '$userfile' not found." >&2
+    exit 1
+fi
 
-# We are giving each user their own group.
-gid=$uid
+for login in $(cat "$userfile"); do
+    uid="$(awk -F: '{ if (big < $3 && $3 < 5000) big=$3 } END { print big + 1 }' "$pwfile")"
+    homedir="$hdir/$login"
+    gid="$uid"
 
-/bin/echo -n "full name: " ; read fullname
-/bin/echo -n "shell: " ; read shell
+    read -p "Enter the full name for $login: " fullname
+    read -p "Enter the shell for $login: " shell
 
-echo "Setting up account $login for $fullname..."
-echo ${login}:x:${uid}:${gid}:${fullname}:${homedir}:$shell >> $pwfile
-echo ${login}:*:11647:0:99999:7::: >> $shadowfile
-echo "${login}:x:${gid}:$login" >> $gfile
+    echo "Setting up account $login for $fullname..."
+    echo "${login}:x:${uid}:${gid}:${fullname}:${homedir}:$shell" >> "$pwfile"
+    echo "${login}:*:11647:0:99999:7:::" >> "$shadowfile"
+    echo "${login}:x:${gid}:$login" >> "$gfile"
 
-mkdir $homedir
-cp -R /etc/skel/.[a-zA-Z]* $homedir
-chmod 755 $homedir
-chown -R ${login}:${login} $homedir
+    mkdir "$homedir"
+    cp -R /etc/skel/.[a-zA-Z]* "$homedir"
+    chmod 755 "$homedir"
+    chown -R "${login}:${login}" "$homedir"
 
-# Setting an initial password
-exec passwd $login
+    # Setting an initial password
+    exec passwd "$login"
+done

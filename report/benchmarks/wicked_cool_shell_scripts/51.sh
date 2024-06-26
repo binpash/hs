@@ -10,34 +10,14 @@ inclist="/tmp/backup.inclist.$(date +%d%m%y)"
 output="/tmp/backup.$(date +%d%m%y).bz2"
 tsfile="$HOME/.backup.timestamp"
 btype="incremental" # Default to an incremental backup.
-noinc=0 # And here's an update of the timestamp.
 
 trap "/bin/rm -f $inclist" EXIT
 
-usageQuit()
-{
-    cat << "EOF" >&2
-    Usage: $0 [-o output] [-i|-f] [-n]
-    -o lets you specify an alternative backup file/device,
-    -i is an incremental, -f is a full backup, and -n prevents
-    updating the timestamp when an incremental backup is done.
-EOF
-    exit 1
-}
-
 ########## Main code section begins here ###########
 
-while getopts "o:ifn" arg; do
-    case "$opt" in
-        o ) output="$OPTARG"; ;; # getopts automatically manages OPTARG.
-        i ) btype="incremental"; ;;
-        f ) btype="full"; ;;
-        n ) noinc=1; ;;
-        ? ) usageQuit ;;
-    esac
-done
-
-shift $(( $OPTIND - 1 ))
+if [ "$1" = "-f" ]; then
+    btype="full"
+fi
 
 echo "Doing $btype backup, saving output to $output"
 
@@ -59,8 +39,6 @@ else
     failure="$?"
 fi
 
-if [ "$noinc" = "0" -a "$failure" = "0" ] ; then
+if [ "$failure" = "0" ] ; then
     touch -t $timestamp $tsfile
 fi
-
-exit 0

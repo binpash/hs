@@ -3,11 +3,11 @@ import logging
 import os
 import re
 import executor
+from executor import ExecCtxt, ExecResult, ExecArgs
 import trace_v2
 import util
 import signal
 from dataclasses import dataclass
-from subprocess import Popen
 from typing import Tuple
 from enum import Enum, auto
 import util
@@ -112,20 +112,6 @@ class NodeId:
     def parse_node_id(node_id_str: str):
         return NodeId(int(node_id_str))
 
-@dataclass
-class ExecCtxt:
-    process: Popen
-    trace_file: str
-    stdout: str
-    stderr: str
-    pre_env_file: str
-    post_env_file: str
-    sandbox_dir: str
-
-@dataclass
-class ExecResult:
-    exit_code: int
-    proc_id: int
 
 class LoopStack:
     def __init__(self, loop_contexts_or_iters=None):
@@ -374,9 +360,8 @@ class ConcreteNode:
             lower_sandboxes = [node.exec_ctxt.sandbox_dir for node in reversed(speculated_nodes)]
         # Set the execution id
         self.exec_id = util.generate_id()
-        args = executor.ExecutorArgs(command=self.cmd, concrete_node_id=self.cnid, execution_id=self.exec_id, pre_execution_env_file=env_file, speculate_mode=speculate, lower_sandboxes=lower_sandboxes)
-        process, args = execute_func(args)
-        self.exec_ctxt = ExecCtxt(process, args.trace_file, args.stdout_file, args.stderr_file, args.pre_execution_env_file, args.post_execution_env_file, args.sandbox_dir)
+        args = ExecArgs(command=self.cmd, concrete_node_id=self.cnid, execution_id=self.exec_id, pre_execution_env_file=env_file, speculate_mode=speculate, lower_sandboxes=lower_sandboxes)
+        self.exec_ctxt = execute_func(args)
         util.debug_log(f'Node {self.cnid} executing with pid {self.exec_ctxt.process.pid}')
 
     def execution_outcome(self) -> Tuple[int, str, str]:

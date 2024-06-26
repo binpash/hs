@@ -159,7 +159,7 @@ class HSLoopListContext:
 
     def get_top(self):
         return self.loop_list_context[-1][:]
-    
+
     def pop(self):
         loop_list_context = self.loop_list_context[:]
         loop_list_context.pop()
@@ -170,7 +170,7 @@ def get_loop_list_from_env(env):
         d = util.parse_env_string_to_dict(f.read())
     new_loop_list = d['HS_LOOP_LIST'].split()
     return new_loop_list
-    
+
 @dataclass
 class Node:
     id_: NodeId
@@ -199,7 +199,7 @@ class Node:
 
     def is_loop_list_pop(self):
         return self.loop_list_change and self.cmd.startswith('unset')
-    
+
     def pretty_format(self):
         v = 'q' if self.assignment else ''
         l = 'l' if self.loop_list_change else ''
@@ -207,7 +207,7 @@ class Node:
 
     def simulate_env(self, env):
         return executor.run_assignment_and_return_env_file(self.cmd, env)
-    
+
     def simulate_loop_list(self, env, loop_list_context: 'HSLoopListContext'):
         assert self.loop_list_change
         if self.cmd == 'unset HS_LOOP_LIST':
@@ -228,7 +228,7 @@ def loop_iters_do_action(loop_iters, edge_type: 'CFGEdgeType'):
     elif edge_type == CFGEdgeType.LOOP_END:
         loop_iters_list.pop(0)
     return loop_iters_list
-    
+
 class ConcreteNodeId:
     def __init__(self, node_id: NodeId, loop_iters = list()):
         self.node_id = node_id
@@ -290,7 +290,7 @@ class ConcreteNode:
     # Updated when the node is loop changing and the node is transitioning
     # into COMMITTED or SPEC_F
     loop_list_context: HSLoopListContext
-    
+
     spec_pre_env: str
 
     # Exists when node is in READY
@@ -367,7 +367,6 @@ class ConcreteNode:
     def start_command(self, env_file: str, speculate=False, speculated_nodes=None):
         # TODO: implement speculate
         # TODO: built-in commands
-        cmd = self.cmd
         execute_func = executor.async_run_and_trace_command_return_trace
         if speculated_nodes is None:
             lower_sandboxes = []
@@ -375,8 +374,9 @@ class ConcreteNode:
             lower_sandboxes = [node.exec_ctxt.sandbox_dir for node in reversed(speculated_nodes)]
         # Set the execution id
         self.exec_id = util.generate_id()
-        self.exec_ctxt = ExecCtxt(*execute_func(cmd, self.cnid, self.exec_id, env_file, speculate,
-                                                lower_sandboxes))
+        args = executor.ExecutorArgs(command=self.cmd, concrete_node_id=self.cnid, execution_id=self.exec_id, pre_execution_env_file=env_file, speculate_mode=speculate, lower_sandboxes=lower_sandboxes)
+        process, args = execute_func(args)
+        self.exec_ctxt = ExecCtxt(process, args.trace_file, args.stdout_file, args.stderr_file, args.pre_execution_env_file, args.post_execution_env_file, args.sandbox_dir)
         util.debug_log(f'Node {self.cnid} executing with pid {self.exec_ctxt.process.pid}')
 
     def execution_outcome(self) -> Tuple[int, str, str]:
@@ -419,7 +419,7 @@ class ConcreteNode:
 
     def init_trace_lines(self):
         self.trace_lines = ['']
-        
+
     def gather_fs_actions(self) -> RWSet:
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         sandbox_dir = self.exec_ctxt.sandbox_dir
@@ -539,7 +539,7 @@ class ConcreteNode:
             pass
         process.wait()
         overhead_log(f"KILL_END|{self.cnid}")
-    
+
     ##                                      ##
     ##          Transition Functions        ##
     ##                                      ##
@@ -611,7 +611,7 @@ class ConcreteNode:
         self.exec_ctxt.process.wait()
         self.exec_result = ExecResult(self.exec_ctxt.process.returncode, self.exec_ctxt.process.pid)
         return self.exec_result.exit_code == 137
-        
+
     def commit_frontier_execution(self):
         assert self.state == NodeState.EXECUTING
         self.gather_fs_actions()
@@ -680,7 +680,7 @@ class CFGEdgeType(Enum):
     LOOP_BEGIN = auto()
     LOOP_END = auto()
     OTHER = auto()
-    
+
 class HSBasicBlock:
     def __init__(self, bb_id: int, nodes: list[Node]):
         self.bb_id = bb_id

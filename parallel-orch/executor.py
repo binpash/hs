@@ -4,6 +4,25 @@ import subprocess
 import util
 import os
 
+from dataclasses import dataclass
+from node import ConcreteNodeId
+
+@dataclass
+class ExecutorArgs:
+    command: str
+    concrete_node_id: ConcreteNodeId
+    execution_id: int
+    pre_execution_env_file: str
+    speculate_mode: bool
+    lower_sandboxes: list[str]
+
+    trace_file: str = ""
+    stdout_file: str = ""
+    stderr_file: str = ""
+    post_execution_env_file: str = ""
+    sandbox_dir: str = ""
+    tmp_dir: str = ""
+
 # This module executes a sequence of commands
 # and traces them with Riker.
 # All commands are run inside an overlay sandbox.
@@ -19,38 +38,38 @@ def run_assignment_and_return_env_file(assignment: str, pre_execution_env_file: 
     process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return post_execution_env_file
 
-def async_run_and_trace_command_return_trace(command, concrete_node_id, execution_id, pre_execution_env_file, speculate_mode, lower_sandboxes):
-    trace_file = util.ptempfile(prefix='hs_trace')
-    stdout_file = util.ptempfile(prefix='hs_stdout')
-    stderr_file = util.ptempfile(prefix='hs_stderr')
-    post_execution_env_file = util.ptempfile(prefix='hs_post_env')
-    sandbox_dir, tmp_dir = util.create_sandbox()
-    logging.debug(f'Scheduler: Stdout file for: {concrete_node_id} is: {stdout_file}')
-    logging.debug(f'Scheduler: Stderr file for: {concrete_node_id} is: {stderr_file}')
-    logging.debug(f'Scheduler: Trace file for: {concrete_node_id}: {trace_file}')
-    process = async_run_and_trace_command_return_trace_in_sandbox(command, execution_id, trace_file, concrete_node_id, stdout_file, stderr_file, pre_execution_env_file, post_execution_env_file, sandbox_dir, tmp_dir, lower_sandboxes, speculate_mode)
-    return process, trace_file, stdout_file, stderr_file, pre_execution_env_file, post_execution_env_file, sandbox_dir
+def async_run_and_trace_command_return_trace(args: ExecutorArgs):
+    args.trace_file = util.ptempfile(prefix='hs_trace')
+    args.stdout_file = util.ptempfile(prefix='hs_stdout')
+    args.stderr_file = util.ptempfile(prefix='hs_stderr')
+    args.post_execution_env_file = util.ptempfile(prefix='hs_post_env')
+    args.sandbox_dir, args.tmp_dir = util.create_sandbox()
+    logging.debug(f'Scheduler: Stdout file for: {args.concrete_node_id} is: {args.stdout_file}')
+    logging.debug(f'Scheduler: Stderr file for: {args.concrete_node_id} is: {args.stderr_file}')
+    logging.debug(f'Scheduler: Trace file for: {args.concrete_node_id}: {args.trace_file}')
+    process = async_run_and_trace_command_return_trace_in_sandbox(args)
+    return process, args
 
-def async_run_and_trace_command_return_trace_in_sandbox_speculate(command, execution_id, concrete_node_id, pre_execution_env_file):
-    process, trace_file, stdout_file, stderr_file, post_execution_env_file, sandbox_dir = async_run_and_trace_command_return_trace(command, execution_id, concrete_node_id, pre_execution_env_file, speculate_mode=True)
-    return process, trace_file, stdout_file, stderr_file, post_execution_env_file, sandbox_dir
+def async_run_and_trace_command_return_trace_in_sandbox_speculate(args: ExecutorArgs):
+    process, args = async_run_and_trace_command_return_trace(args)
+    return process, args
 
-def async_run_and_trace_command_return_trace_in_sandbox(command, execution_id, trace_file, concrete_node_id, stdout_file, stderr_file, pre_execution_env_file, post_execution_env_file, sandbox_dir, tmp_dir, lower_sandboxes, speculate_mode=False):
+def async_run_and_trace_command_return_trace_in_sandbox(args: ExecutorArgs):
     ## Call Riker to execute the command
     run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command.sh'
-    lower_dirs_str = ':'.join(lower_sandboxes)
-    args = ["/bin/bash", run_script, command, trace_file, stdout_file, pre_execution_env_file, sandbox_dir, tmp_dir]
-    if speculate_mode:
-        args.append("speculate")
+    lower_dirs_str = ':'.join(args.lower_sandboxes)
+    cmd = ["/bin/bash", run_script, args.command, args.trace_file, args.stdout_file, args.pre_execution_env_file, args.sandbox_dir, args.tmp_dir]
+    if args.speculate_mode:
+        cmd.append("speculate")
     else:
-        args.append("standard")
-    args.append(str(concrete_node_id))
-    args.append(post_execution_env_file)
-    args.append(str(execution_id))
-    args.append(lower_dirs_str)
+        cmd.append("standard")
+    cmd.append(str(args.concrete_node_id))
+    cmd.append(args.post_execution_env_file)
+    cmd.append(str(args.execution_id))
+    cmd.append(lower_dirs_str)
     # Save output to temporary files to not saturate the memory
-    logging.debug(args)
-    process = subprocess.Popen(args, stdout=None, stderr=None, preexec_fn=set_pgid)
+    logging.debug(cmd)
+    process = subprocess.Popen(cmd, stdout=None, stderr=None, preexec_fn=set_pgid)
 
     # For debugging
     # process = subprocess.Popen(args)

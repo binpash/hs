@@ -353,15 +353,14 @@ class ConcreteNode:
     def start_command(self, env_file: str, speculate=False, speculated_nodes=None):
         # TODO: implement speculate
         # TODO: built-in commands
-        execute_func = executor.async_run_and_trace_command_return_trace
+        execute_func = executor.run_trace_sandboxed
         if speculated_nodes is None:
             lower_sandboxes = []
         else:
             lower_sandboxes = [node.exec_ctxt.sandbox_dir for node in reversed(speculated_nodes)]
         # Set the execution id
         self.exec_id = util.generate_id()
-        args = ExecArgs(command=self.cmd, concrete_node_id=self.cnid, execution_id=self.exec_id, pre_execution_env_file=env_file, speculate_mode=speculate, lower_sandboxes=lower_sandboxes)
-        self.exec_ctxt = execute_func(args)
+        self.exec_ctxt = execute_func(ExecArgs(command=self.cmd, concrete_node_id=self.cnid, execution_id=self.exec_id, pre_execution_env_file=env_file, speculate_mode=speculate, lower_sandboxes=lower_sandboxes))
         util.debug_log(f'Node {self.cnid} executing with pid {self.exec_ctxt.process.pid}')
 
     def execution_outcome(self) -> Tuple[int, str, str]:

@@ -41,9 +41,7 @@ jobs:
           # install the system deps and pash the environment
           sudo apt install -y python3 strace wget make file libtool mergerfs util-linux curl netcat-openbsd
           git submodule update --init --recursive
-          cd deps/try
-          sudo bash setup.sh
-          cd ../pash
+          cd deps/pash
           sudo bash scripts/setup-pash.sh
           cd ../..
           # run all the tests

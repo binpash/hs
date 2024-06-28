@@ -5,4 +5,4 @@
 [submodule "deps/try"]
 	path = deps/try
 	url = https://github.com/binpash/try.git
-	branch = hs
+	branch = try-timed

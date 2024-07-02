@@ -353,7 +353,7 @@ class ConcreteNode:
     def start_command(self, env_file: str, speculate=False, speculated_nodes=None):
         # TODO: implement speculate
         # TODO: built-in commands
-        execute_func = executor.run_trace_sandboxed
+        execute_func = executor.run_trace
         if speculated_nodes is None:
             lower_sandboxes = []
         else:

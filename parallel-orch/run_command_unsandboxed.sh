@@ -5,13 +5,10 @@ export CMD_STRING=${1?No command was given to execute}
 export TRACE_FILE=${2?No trace file path given}
 export STDOUT_FILE=${3?No stdout file given}
 export LATEST_ENV_FILE=${4?No env file to run with given}
-# export SANDBOX_DIR=${5?No sandbox dir given}
-# export TMPDIR=${6?No tmp dir given}
-export EXEC_MODE=${7?No execution mode given}
-export CMD_ID=${8?No command id given}
-export POST_EXEC_ENV=${9?No Riker env file given}
-export EXECUTION_ID=${10?No execution id given}
-# LOWER_DIRS=${11?No lower dirs}
+export EXEC_MODE=${5?No execution mode given}
+export CMD_ID=${6?No command id given}
+export POST_EXEC_ENV=${7?No Riker env file given}
+export EXECUTION_ID=${8?No execution id given}
 
 ## KK 2023-04-24: Not sure this should be run every time we run a command
 ## GL 2023-07-08: Tests seem to pass without it

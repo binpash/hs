@@ -606,8 +606,7 @@ class ConcreteNode:
             self.trace_ctx = None
         self.update_loop_list_context()
         overhead_log(f"COMMIT|{self.cnid}")
-        if self.exec_ctxt.sandbox_dir != "":
-            executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        # executor.commit_workspace(self.exec_ctxt.sandbox_dir)
         overhead_log(f"COMMIT_END|{self.cnid}")
         # util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED

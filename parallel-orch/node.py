@@ -3,7 +3,6 @@ import logging
 import os
 import re
 import executor
-from executor import ExecCtxt, ExecResult, ExecArgs
 import trace_v2
 import util
 import signal
@@ -268,10 +267,10 @@ class ConcreteNode:
     # background_sandbox: Sandbox
 
     # Exists when the node is in EXE or SPEC_EXE or after those states
-    exec_ctxt: ExecCtxt
+    exec_ctxt: executor.ExecCtxt
 
     # Exists when the node is in COMMITED or SPEC_F
-    exec_result: ExecResult
+    exec_result: executor.ExecResult
 
     # Updated when the node is loop changing and the node is transitioning
     # into COMMITTED or SPEC_F
@@ -353,14 +352,14 @@ class ConcreteNode:
     def start_command(self, env_file: str, speculate=False, speculated_nodes=None):
         # TODO: implement speculate
         # TODO: built-in commands
-        execute_func = executor.run_trace_sandboxed
+        execute_func = executor.run_trace
         if speculated_nodes is None:
             lower_sandboxes = []
         else:
             lower_sandboxes = [node.exec_ctxt.sandbox_dir for node in reversed(speculated_nodes)]
         # Set the execution id
         self.exec_id = util.generate_id()
-        self.exec_ctxt = execute_func(ExecArgs(command=self.cmd, concrete_node_id=self.cnid, execution_id=self.exec_id, pre_execution_env_file=env_file, speculate_mode=speculate, lower_sandboxes=lower_sandboxes))
+        self.exec_ctxt = execute_func(executor.ExecArgs(command=self.cmd, concrete_node_id=self.cnid, execution_id=self.exec_id, pre_execution_env_file=env_file, speculate_mode=speculate, lower_sandboxes=lower_sandboxes))
         util.debug_log(f'Node {self.cnid} executing with pid {self.exec_ctxt.process.pid}')
 
     def execution_outcome(self) -> Tuple[int, str, str]:
@@ -593,7 +592,7 @@ class ConcreteNode:
     def collect_result(self):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         self.exec_ctxt.process.wait()
-        self.exec_result = ExecResult(self.exec_ctxt.process.returncode, self.exec_ctxt.process.pid)
+        self.exec_result = executor.ExecResult(self.exec_ctxt.process.returncode, self.exec_ctxt.process.pid)
         return self.exec_result.exit_code == 137
 
     def commit_frontier_execution(self):
@@ -607,7 +606,7 @@ class ConcreteNode:
             self.trace_ctx = None
         self.update_loop_list_context()
         overhead_log(f"COMMIT|{self.cnid}")
-        executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        # executor.commit_workspace(self.exec_ctxt.sandbox_dir)
         overhead_log(f"COMMIT_END|{self.cnid}")
         # util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED

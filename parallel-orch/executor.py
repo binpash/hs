@@ -45,22 +45,28 @@ def run_assignment_and_return_env_file(assignment: str, pre_execution_env_file: 
     process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return post_execution_env_file
 
-def run_trace_sandboxed(args: ExecArgs):
-    run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command.sh'
-
+def run_trace(args: ExecArgs):
     trace_file  = util.ptempfile(prefix='hs_trace')
     stdout_file = util.ptempfile(prefix='hs_stdout')
     stderr_file = util.ptempfile(prefix='hs_stderr')
     logging.debug(f'Scheduler: Trace file for: {args.concrete_node_id}: {trace_file}')
     logging.debug(f'Scheduler: Stdout file for: {args.concrete_node_id} is: {stdout_file}')
     logging.debug(f'Scheduler: Stderr file for: {args.concrete_node_id} is: {stderr_file}')
-
-    sandbox_dir, tmp_dir = util.create_sandbox()
     post_execution_env_file = util.ptempfile(prefix='hs_post_env')
-    lower_dirs_str = ':'.join(args.lower_sandboxes)
-    speculate_mode = "speculate" if args.speculate_mode else "standard"
 
-    cmd = ["/bin/bash", run_script, args.command, trace_file, stdout_file, args.pre_execution_env_file, sandbox_dir, tmp_dir, speculate_mode, str(args.concrete_node_id), post_execution_env_file, str(args.execution_id), lower_dirs_str ]
+    if args.speculate_mode:
+        run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command_sandboxed.sh'
+        sandbox_dir, tmp_dir = util.create_sandbox()
+        lower_dirs_str = ':'.join(args.lower_sandboxes)
+        speculate_mode = "speculate"
+        cmd = ["/bin/bash", run_script, args.command, trace_file, stdout_file, args.pre_execution_env_file, sandbox_dir, tmp_dir, speculate_mode, str(args.concrete_node_id), post_execution_env_file, str(args.execution_id), lower_dirs_str]
+    else:
+        run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command_unsandboxed.sh'
+        sandbox_dir, tmp_dir = "", ""
+        lower_dirs_str = ""
+        speculate_mode = "standard"
+        cmd = ["/bin/bash", run_script, args.command, trace_file, stdout_file, args.pre_execution_env_file, speculate_mode, str(args.concrete_node_id), post_execution_env_file, str(args.execution_id)]
+
     logging.debug(cmd)
     process = subprocess.Popen(cmd, stdout=None, stderr=None, preexec_fn=set_pgid)
     # For debugging

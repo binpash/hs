@@ -12,6 +12,7 @@ import analysis
 import shutil
 from node import Node, NodeId, LoopStack, HSProg, HSBasicBlock
 from partial_program_order import PartialProgramOrder
+from config import PASH_SPEC_TMP_PREFIX
 
 DEBUG_LOG = '[DEBUG_LOG] '
 
@@ -31,16 +32,16 @@ def cp_to_ptmpfile(source, prefix=''):
     return name
 
 def create_sandbox():
-    os.makedirs("/tmp/pash_spec/a", exist_ok=True)
-    os.makedirs("/tmp/pash_spec/b", exist_ok=True)
-    sdir = tempfile.mkdtemp(dir="/tmp/pash_spec/a", prefix="sandbox_")
-    tdir = tempfile.mkdtemp(dir="/tmp/pash_spec/b", prefix="sandbox_")
+    os.makedirs(f"{config.PASH_SPEC_TMP_PREFIX}/tmp/pash_spec/a", exist_ok=True)
+    os.makedirs(f"{config.PASH_SPEC_TMP_PREFIX}/tmp/pash_spec/b", exist_ok=True)
+    sdir = tempfile.mkdtemp(dir=f"{config.PASH_SPEC_TMP_PREFIX}/tmp/pash_spec/a", prefix="sandbox_")
+    tdir = tempfile.mkdtemp(dir=f"{config.PASH_SPEC_TMP_PREFIX}/tmp/pash_spec/b", prefix="sandbox_")
     return sdir, tdir
 
 def delete_sandbox(sandbox):
-    if not sandbox.startswith('/tmp/pash_spec/a'):
+    if not sandbox.startswith(f"{config.PASH_SPEC_TMP_PREFIX}/tmp/pash_spec/a"):
         breakpoint()
-    assert sandbox.startswith('/tmp/pash_spec/a')
+    assert sandbox.startswith(f"{config.PASH_SPEC_TMP_PREFIX}/tmp/pash_spec/a")
     shutil.rmtree(os.path.join(sandbox, 'upperdir'), ignore_errors=True)
 
 def sandboxed_path(sandbox_dir, path):

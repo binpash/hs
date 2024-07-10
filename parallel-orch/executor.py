@@ -4,6 +4,32 @@ import subprocess
 import util
 import os
 
+from dataclasses import dataclass
+
+@dataclass
+class ExecCtxt:
+    process: subprocess.Popen
+    trace_file: str
+    stdout: str
+    stderr: str
+    pre_env_file: str
+    post_env_file: str
+    sandbox_dir: str
+
+@dataclass
+class ExecResult:
+    exit_code: int
+    proc_id: int
+
+@dataclass
+class ExecArgs:
+    command: str
+    concrete_node_id: "ConcreteNodeId"
+    execution_id: int
+    pre_execution_env_file: str
+    speculate_mode: bool
+    lower_sandboxes: list[str]
+
 # This module executes a sequence of commands
 # and traces them with Riker.
 # All commands are run inside an overlay sandbox.
@@ -19,42 +45,34 @@ def run_assignment_and_return_env_file(assignment: str, pre_execution_env_file: 
     process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return post_execution_env_file
 
-def async_run_and_trace_command_return_trace(command, concrete_node_id, execution_id, pre_execution_env_file, speculate_mode, lower_sandboxes):
-    trace_file = util.ptempfile(prefix='hs_trace')
+def run_trace(args: ExecArgs):
+    trace_file  = util.ptempfile(prefix='hs_trace')
     stdout_file = util.ptempfile(prefix='hs_stdout')
     stderr_file = util.ptempfile(prefix='hs_stderr')
+    logging.debug(f'Scheduler: Trace file for: {args.concrete_node_id}: {trace_file}')
+    logging.debug(f'Scheduler: Stdout file for: {args.concrete_node_id} is: {stdout_file}')
+    logging.debug(f'Scheduler: Stderr file for: {args.concrete_node_id} is: {stderr_file}')
     post_execution_env_file = util.ptempfile(prefix='hs_post_env')
-    sandbox_dir, tmp_dir = util.create_sandbox()
-    logging.debug(f'Scheduler: Stdout file for: {concrete_node_id} is: {stdout_file}')
-    logging.debug(f'Scheduler: Stderr file for: {concrete_node_id} is: {stderr_file}')
-    logging.debug(f'Scheduler: Trace file for: {concrete_node_id}: {trace_file}')
-    process = async_run_and_trace_command_return_trace_in_sandbox(command, execution_id, trace_file, concrete_node_id, stdout_file, stderr_file, pre_execution_env_file, post_execution_env_file, sandbox_dir, tmp_dir, lower_sandboxes, speculate_mode)
-    return process, trace_file, stdout_file, stderr_file, pre_execution_env_file, post_execution_env_file, sandbox_dir
 
-def async_run_and_trace_command_return_trace_in_sandbox_speculate(command, execution_id, concrete_node_id, pre_execution_env_file):
-    process, trace_file, stdout_file, stderr_file, post_execution_env_file, sandbox_dir = async_run_and_trace_command_return_trace(command, execution_id, concrete_node_id, pre_execution_env_file, speculate_mode=True)
-    return process, trace_file, stdout_file, stderr_file, post_execution_env_file, sandbox_dir
-
-def async_run_and_trace_command_return_trace_in_sandbox(command, execution_id, trace_file, concrete_node_id, stdout_file, stderr_file, pre_execution_env_file, post_execution_env_file, sandbox_dir, tmp_dir, lower_sandboxes, speculate_mode=False):
-    ## Call Riker to execute the command
-    run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command.sh'
-    lower_dirs_str = ':'.join(lower_sandboxes)
-    args = ["/bin/bash", run_script, command, trace_file, stdout_file, pre_execution_env_file, sandbox_dir, tmp_dir]
-    if speculate_mode:
-        args.append("speculate")
+    if args.speculate_mode:
+        run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command_sandboxed.sh'
+        sandbox_dir, tmp_dir = util.create_sandbox()
+        lower_dirs_str = ':'.join(args.lower_sandboxes)
+        speculate_mode = "speculate"
+        cmd = ["/bin/bash", run_script, args.command, trace_file, stdout_file, args.pre_execution_env_file, sandbox_dir, tmp_dir, speculate_mode, str(args.concrete_node_id), post_execution_env_file, str(args.execution_id), lower_dirs_str]
     else:
-        args.append("standard")
-    args.append(str(concrete_node_id))
-    args.append(post_execution_env_file)
-    args.append(str(execution_id))
-    args.append(lower_dirs_str)
-    # Save output to temporary files to not saturate the memory
-    logging.debug(args)
-    process = subprocess.Popen(args, stdout=None, stderr=None, preexec_fn=set_pgid)
+        run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command_unsandboxed.sh'
+        sandbox_dir, tmp_dir = "", ""
+        lower_dirs_str = ""
+        speculate_mode = "standard"
+        cmd = ["/bin/bash", run_script, args.command, trace_file, stdout_file, args.pre_execution_env_file, speculate_mode, str(args.concrete_node_id), post_execution_env_file, str(args.execution_id)]
 
+    logging.debug(cmd)
+    process = subprocess.Popen(cmd, stdout=None, stderr=None, preexec_fn=set_pgid)
     # For debugging
-    # process = subprocess.Popen(args)
-    return process
+    # process = subprocess.Popen(cmd)
+
+    return ExecCtxt(process, trace_file, stdout_file, stderr_file, args.pre_execution_env_file, post_execution_env_file, sandbox_dir)
 
 def commit_workspace(workspace_path):
     ## Call commit-sandbox.sh to commit the uncommitted sandbox to the main workspace

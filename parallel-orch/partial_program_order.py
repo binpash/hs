@@ -292,9 +292,10 @@ class PartialProgramOrder:
             else:
                 cnid = ConcreteNodeId(next_node_id, loop_iters)
                 util.debug_log(f'pick {pre_env_file} as pre_env_file')
-                pre_env_file = util.cp_to_ptmpfile(pre_env_file, 'hs_spec_pre_env')
-                util.debug_log(f'copied to {pre_env_file}')
-                self.create_concrete_node(cnid, pre_env_file, prev_loop_list_context)
+                new_pre_env_file = util.cp_to_ptmpfile(pre_env_file, 'hs_spec_pre_env')
+                util.copy(pre_env_file + '.fds', new_pre_env_file + '.fds')
+                util.debug_log(f'copied to {new_pre_env_file}')
+                self.create_concrete_node(cnid, new_pre_env_file, prev_loop_list_context)
                 return cnid
     
     def get_schedulable_spec_nodes(self) -> list[ConcreteNodeId]:
@@ -458,6 +459,7 @@ class PartialProgramOrder:
                         current_env: str):
         event_log(f"handle_complete {concrete_node_id}")
         node = self.get_concrete_node(concrete_node_id)
+        util.debug_log(f"outfds: {node.exec_ctxt.outfds}")
         # TODO: make collect_result a state transition and make more states
         is_killed = node.collect_result()
         if is_killed:

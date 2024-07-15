@@ -25,6 +25,17 @@ def ptempfile(prefix=''):
     os.close(fd)
     return name
 
+def ptempdir(prefix=''):
+    name = tempfile.mkdtemp(dir=config.PASH_SPEC_TMP_PREFIX, prefix=prefix+'_')
+    return name
+
+def copy(path_from, path_to):
+    shutil.copy(path_from, path_to)
+
+def append(path_from, path_to):
+    with open(path_from, 'r') as source, open(path_to, 'a') as destination:
+        shutil.copyfileobj(source, destination)
+
 def cp_to_ptmpfile(source, prefix=''):
     fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX, prefix=prefix+'_')
     os.close(fd)

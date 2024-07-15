@@ -10,7 +10,7 @@ from dataclasses import dataclass
 class ExecCtxt:
     process: subprocess.Popen
     trace_file: str
-    stdout: str
+    outfds: str
     stderr: str
     pre_env_file: str
     post_env_file: str
@@ -49,10 +49,10 @@ def run_trace_sandboxed(args: ExecArgs):
     run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_command.sh'
 
     trace_file  = util.ptempfile(prefix='hs_trace')
-    stdout_file = util.ptempfile(prefix='hs_stdout')
+    outfiles_dir = util.ptempdir(prefix='hs_outfiles')
     stderr_file = util.ptempfile(prefix='hs_stderr')
     logging.debug(f'Scheduler: Trace file for: {args.concrete_node_id}: {trace_file}')
-    logging.debug(f'Scheduler: Stdout file for: {args.concrete_node_id} is: {stdout_file}')
+    logging.debug(f'Scheduler: Stdout file for: {args.concrete_node_id} is: {outfiles_dir}')
     logging.debug(f'Scheduler: Stderr file for: {args.concrete_node_id} is: {stderr_file}')
 
     sandbox_dir, tmp_dir = util.create_sandbox()
@@ -60,13 +60,13 @@ def run_trace_sandboxed(args: ExecArgs):
     lower_dirs_str = ':'.join(args.lower_sandboxes)
     speculate_mode = "speculate" if args.speculate_mode else "standard"
 
-    cmd = ["/bin/bash", run_script, args.command, trace_file, stdout_file, args.pre_execution_env_file, sandbox_dir, tmp_dir, speculate_mode, str(args.concrete_node_id), post_execution_env_file, str(args.execution_id), lower_dirs_str ]
+    cmd = ["/bin/bash", run_script, args.command, trace_file, outfiles_dir, args.pre_execution_env_file, sandbox_dir, tmp_dir, speculate_mode, str(args.concrete_node_id), post_execution_env_file, str(args.execution_id), lower_dirs_str ]
     logging.debug(cmd)
     process = subprocess.Popen(cmd, stdout=None, stderr=None, preexec_fn=set_pgid)
     # For debugging
     # process = subprocess.Popen(cmd)
 
-    return ExecCtxt(process, trace_file, stdout_file, stderr_file, args.pre_execution_env_file, post_execution_env_file, sandbox_dir)
+    return ExecCtxt(process, trace_file, outfiles_dir, stderr_file, args.pre_execution_env_file, post_execution_env_file, sandbox_dir)
 
 def commit_workspace(workspace_path):
     ## Call commit-sandbox.sh to commit the uncommitted sandbox to the main workspace

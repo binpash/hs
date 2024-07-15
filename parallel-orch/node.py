@@ -350,6 +350,38 @@ class ConcreteNode:
     def is_unsafe(self):
         return self.state == NodeState.UNSAFE
 
+
+    # This function fixes up fds redirected by the runtime
+    # which facilitates fd edit merging optimization.
+    def fixup_fds(self):
+        replace_map = {}
+        with open(self.exec_ctxt.pre_env_file + '.fds', 'r') as f:
+            "line format: fd mode offset path"
+            lines = f.read().split('\n')[:-1]
+            for line in lines:
+                fd, mode, offset, path = line.split(' ', maxsplit=3)
+                replace_map[f'{self.exec_ctxt.outfds}/{fd}'] = path
+        new_lines = []
+        if self.state == NodeState.SPEC_EXECUTING:
+            post_path = util.sandboxed_path(self.exec_ctxt.sandbox_dir,
+                                            self.exec_ctxt.post_env_file + '.fds')
+        else:
+            post_path = self.exec_ctxt.post_env_file + '.fds'
+        with open(post_path, 'r') as f:
+            "line format: fd mode offset path"
+            lines = f.read().split('\n')[:-1]
+            for line in lines:
+                fd, mode, offset, path = line.split(' ', maxsplit=3)
+                if path in replace_map:
+                    path = replace_map[path]
+                new_lines.append((fd, mode, offset, path))
+        with open(post_path, 'w') as f:
+            for line in new_lines:
+                f.write(' '.join(line))
+                f.write('\n')
+
+        
+    
     def start_command(self, env_file: str, speculate=False, speculated_nodes=None):
         # TODO: implement speculate
         # TODO: built-in commands
@@ -365,7 +397,7 @@ class ConcreteNode:
 
     def execution_outcome(self) -> Tuple[int, str, str]:
         assert self.exec_result is not None
-        return self.exec_result.exit_code, self.exec_ctxt.post_env_file, self.exec_ctxt.stdout
+        return self.exec_result.exit_code, self.exec_ctxt.post_env_file, self.exec_ctxt.outfds
 
     def command_unsafe(self):
         if len(self.asts) == 0:
@@ -511,6 +543,12 @@ class ConcreteNode:
                 logging.debug(f"Variable {key} differs: node environment has {node_env_vars[key]}, other has {other_env_vars[key]}")
                 conflict_exists = True
 
+        with open(self.exec_ctxt.pre_env_file + '.fds', 'r') as file1, open(other_env + '.fds', 'r') as file2:
+            s1 = file1.read()
+            s2 = file2.read()
+            if s1 != s2:
+                conflict_exists = True
+                
         return conflict_exists
 
     def kill_children(self):
@@ -524,6 +562,15 @@ class ConcreteNode:
         process.wait()
         overhead_log(f"KILL_END|{self.cnid}")
 
+    def commit_fd_writes(self):
+        with open(self.exec_ctxt.pre_env_file + '.fds', 'r') as f:
+            "line format: fd mode offset path"
+            lines = f.read().split('\n')[:-1]
+            for line in lines:
+                fd, mode, offset, path = line.split(' ', maxsplit=3)
+                if mode == 'w':
+                    util.append(self.exec_ctxt.outfds + '/' + fd, path)
+        
     ##                                      ##
     ##          Transition Functions        ##
     ##                                      ##
@@ -608,8 +655,10 @@ class ConcreteNode:
         self.update_loop_list_context()
         overhead_log(f"COMMIT|{self.cnid}")
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        self.commit_fd_writes()
         overhead_log(f"COMMIT_END|{self.cnid}")
         # util.delete_sandbox(self.exec_ctxt.sandbox_dir)
+        self.fixup_fds()
         self.state = NodeState.COMMITTED
         self.trace_state()
 
@@ -623,6 +672,7 @@ class ConcreteNode:
             self.trace_fd.close()
             self.trace_fd = None
             self.trace_ctx = None
+        self.fixup_fds()
         self.state = NodeState.SPECULATED
         self.trace_state()
 
@@ -630,6 +680,7 @@ class ConcreteNode:
         assert self.state == NodeState.SPECULATED
         overhead_log(f"COMMIT|{self.cnid}")
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
+        self.commit_fd_writes()
         overhead_log(f"COMMIT_END|{self.cnid}")
         # util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED

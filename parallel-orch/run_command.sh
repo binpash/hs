@@ -31,10 +31,10 @@ fi
 # echo sandbox $SANDBOX_DIR
 
 # ENSURE MAINFILE EXISTS
-timelog=$(mktemp)
-export $timelog
+TIMELOG=$(mktemp)
+export TIMELOG=$TIMELOG
 
-bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" -L "${LOWER_DIRS}" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh" > "${STDOUT_FILE}"
+bash "${PASH_SPEC_TOP}/deps/try/try-timed" -D "${SANDBOX_DIR}" -L "${LOWER_DIRS}" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh" > "${STDOUT_FILE}"
 exit_code=$?
 ## Only used for debugging
 # ls -R "${SANDBOX_DIR}/upperdir" 1>&2
@@ -44,7 +44,7 @@ out=`head -3 $SANDBOX_DIR/upperdir/$TRACE_FILE`
 
 #####
 
-input=$(cat $timelog)
+input=$(cat $TIMELOG)
 name="$CMD_ID, $CMD_STRING"
 printf "$name;" >> $MAINFILE
 

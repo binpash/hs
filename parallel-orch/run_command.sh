@@ -30,6 +30,10 @@ fi
 # echo tempdir $TEMPDIR
 # echo sandbox $SANDBOX_DIR
 
+# ENSURE MAINFILE EXISTS
+timelog=$(mktemp)
+export $timelog
+
 bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" -L "${LOWER_DIRS}" "${PASH_SPEC_TOP}/parallel-orch/template_script_to_execute.sh" > "${STDOUT_FILE}"
 exit_code=$?
 ## Only used for debugging
@@ -37,6 +41,34 @@ exit_code=$?
 out=`head -3 $SANDBOX_DIR/upperdir/$TRACE_FILE`
 ## Send a message to the scheduler socket
 ## Assumes "${PASH_SPEC_SCHEDULER_SOCKET}" is set and exported
+
+#####
+
+input=$(cat $timelog)
+name="$CMD_ID, $CMD_STRING"
+printf "$name;" >> $MAINFILE
+
+# Initialize variables
+prev_timestamp=0
+
+# Process each line of the input
+while IFS= read -r line; do
+    # Extract the timestamp and step from the line
+    timestamp=$(echo "$line" | cut -d' ' -f1)
+
+    # Calculate the delta t if it's not the first line
+    if [[ $prev_timestamp != 0 ]]; then
+        # milisecond
+        delta_t=$(echo "($timestamp - $prev_timestamp) * 1000" | bc)
+        printf "%.9f;" "$delta_t" >> $MAINFILE
+    fi
+
+    # Update the previous timestamp and step
+    prev_timestamp=$timestamp
+done <<< "$input"
+echo >> $MAINFILE
+
+#####
 
 ## Pass the proper exit code
 msg="CommandExecComplete:${CMD_ID}|Exec id:${EXECUTION_ID}|Sandbox dir:${SANDBOX_DIR}|Trace file:${TRACE_FILE}|Tempdir:${TEMPDIR}"

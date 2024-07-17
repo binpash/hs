@@ -5,7 +5,6 @@ import util
 import os
 
 from dataclasses import dataclass
-from node import ConcreteNodeId
 
 @dataclass
 class ExecCtxt:
@@ -25,7 +24,7 @@ class ExecResult:
 @dataclass
 class ExecArgs:
     command: str
-    concrete_node_id: ConcreteNodeId
+    concrete_node_id: "ConcreteNodeId"
     execution_id: int
     pre_execution_env_file: str
     speculate_mode: bool

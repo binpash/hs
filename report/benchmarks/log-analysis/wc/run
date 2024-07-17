@@ -17,15 +17,17 @@ parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
 env = os.environ.copy()
 SCRIPT_NAME = "wc-logs.sh"
 
-
 def do_sh_run(test_base: Path, output_base: Path, env: dict):
+    cmd = ['/bin/sh', test_base / SCRIPT_NAME]
+    print(f'Running {cmd}')
     before = time.time()
-    print(f'Running {test_base / SCRIPT_NAME}')
-    result = run(['/bin/sh', test_base / SCRIPT_NAME], stdout=PIPE, env=env)
+    result = run(cmd, stdout=PIPE, env=env)
     duration = time.time() - before
     
     with open(output_base / "sh_time", 'w') as f:
         f.write(f'{duration}\n')
+    os.makedirs(output_base / "sh", exist_ok=True)
+    run(["mv", *output_base.glob("*.log"), output_base / "sh"])
     return result.returncode, result.stdout
 
 def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, env: dict, log: bool):
@@ -40,6 +42,8 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
     duration = time.time() - before
     with open(output_base / "hs_time", 'w') as f:
         f.write(f'{duration}\n')
+    os.makedirs(output_base / "hs", exist_ok=True)
+    run(["mv", *output_base.glob("*.log"), output_base / "hs"])
     return result.returncode, result.stdout
 
 if __name__ == '__main__':

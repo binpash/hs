@@ -23,27 +23,28 @@ def do_sh_run(test_base: Path, output_base: Path, env: dict):
     before = time.time()
     result = run(cmd, stdout=PIPE, env=env)
     duration = time.time() - before
-    
     with open(output_base / "sh_time", 'w') as f:
         f.write(f'{duration}\n')
-    os.makedirs(output_base / "sh", exist_ok=True)
-    run(["mv", *output_base.glob("*.log"), output_base / "sh"])
+    log_files = list(output_base.glob("*.log"))
+    assert log_files != []
+    run(["mv", *log_files, output_base / "sh"])
     return result.returncode, result.stdout
 
 def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, env: dict, log: bool):
-    cmd = [hs_base / 'pash-spec.sh', '--window', str(window)]
+    cmd = [hs_base / 'pash-spec.sh', '--window', str(window), '-f', output_base / 'hs_log']
     if log:
         cmd.extend(['-d', '2'])
     cmd.append(test_base / SCRIPT_NAME)
-    before = time.time()
     print(f'Running {cmd}')
-    with open(output_base / 'hs_log', 'w') as log:
-        result = run(cmd, stdout=PIPE, stderr=log, env=env)
+    before = time.time()
+    # with open(output_base / 'hs_log', 'w') as log:
+    result = run(cmd, stdout=PIPE, env=env)
     duration = time.time() - before
     with open(output_base / "hs_time", 'w') as f:
         f.write(f'{duration}\n')
-    os.makedirs(output_base / "hs", exist_ok=True)
-    run(["mv", *output_base.glob("*.log"), output_base / "hs"])
+    log_files = list(output_base.glob("*.log"))
+    assert log_files != []
+    run(["mv", *log_files, output_base / "hs"])
     return result.returncode, result.stdout
 
 if __name__ == '__main__':
@@ -79,7 +80,8 @@ if __name__ == '__main__':
     if not run_hs and not run_sh:
         raise("Not running anything, add --target argument")
     output_base.mkdir(parents=True, exist_ok=True)
-    
+    os.makedirs(output_base / "sh", exist_ok=True)
+    os.makedirs(output_base / "hs", exist_ok=True)
     
     if run_sh:
         output_sh = do_sh_run(test_base, output_base, env)

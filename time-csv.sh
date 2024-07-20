@@ -3,7 +3,8 @@
 MAINFILE="$(mktemp)"
 export MAINFILE=$MAINFILE
 
-./pash-spec.sh $@
+export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
+"$PASH_SPEC_TOP"/pash-spec.sh $@
 
 while IFS= read -r line; do
     execution_id=$(echo "$line" | awk '{print $2}')

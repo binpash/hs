@@ -9,7 +9,7 @@ export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-sup
 while IFS= read -r line; do
     execution_id=$(echo "$line" | awk '{print $2}')
     timefile="/tmp/try-time-${execution_id}"
-    printf "%s;" "$execution_id"
+    printf "%s;" "$execution_id" >>time.csv
 
     prev_timestamp=0
     while IFS= read -r line; do
@@ -20,11 +20,11 @@ while IFS= read -r line; do
         if [[ $prev_timestamp != 0 ]]; then
             # milliseconds
             delta_t=$(echo "($timestamp - $prev_timestamp) * 1000" | bc)
-            printf "%.9f;" "$delta_t"
+            printf "%.9f;" "$delta_t" >>time.csv
         fi
 
         # Update the previous timestamp
         prev_timestamp=$timestamp
     done < "$timefile"
-    echo
+    echo >>time.csv
 done < "$MAINFILE"

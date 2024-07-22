@@ -358,6 +358,12 @@ test_loop()
     $shell $2/test_loop.sh
 }
 
+test_fd_1()
+{
+    local shell=$1
+    $shell $2/test_fd_1.sh
+}
+
 test_break()
 {
     local shell=$1
@@ -543,6 +549,7 @@ else
     run_test test_comments
     run_test test_function
     run_test test_loop
+    run_test test_fd_1
     run_test test_break
     run_test test_network_access_1 #"1 2 2"
     run_test test_network_access_2 #"1 2 2 2"

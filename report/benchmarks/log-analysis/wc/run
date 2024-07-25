@@ -31,14 +31,14 @@ def do_sh_run(test_base: Path, output_base: Path, env: dict):
     return result.returncode, result.stdout
 
 def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, env: dict, log: bool):
-    cmd = [hs_base / 'pash-spec.sh', '--window', str(window), '-f', output_base / 'hs_log']
+    cmd = [hs_base / 'pash-spec.sh', '--window', str(window)]
     if log:
         cmd.extend(['-d', '2'])
     cmd.append(test_base / SCRIPT_NAME)
     print(f'Running {cmd}')
     before = time.time()
-    # with open(output_base / 'hs_log', 'w') as log:
-    result = run(cmd, stdout=PIPE, env=env)
+    with open(output_base / 'hs_log', 'w') as log:
+        result = run(cmd, stdout=PIPE, stderr=log, env=env)
     duration = time.time() - before
     with open(output_base / "hs_time", 'w') as f:
         f.write(f'{duration}\n')

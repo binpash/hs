@@ -2,6 +2,7 @@ from enum import Enum
 from node import NodeId, Node, CFGEdgeType, ConcreteNodeId, ConcreteNode, HSProg, HSBasicBlock, HSLoopListContext, loop_iters_do_action, get_loop_list_from_env
 import logging
 import util
+from pathlib import Path
 from collections import deque
 from executor import run_assignment_and_return_env_file
 
@@ -461,11 +462,15 @@ class PartialProgramOrder:
         node = self.get_concrete_node(concrete_node_id)
         util.debug_log(f"outfds: {node.exec_ctxt.outfds}")
         # TODO: make collect_result a state transition and make more states
-        is_killed = node.collect_result()
+        is_killed, runtime_finished = node.collect_result()
         if is_killed:
             node.reset_to_ready()
             if has_pending_wait:
                 node.start_executing(current_env)
+            return
+        if not runtime_finished:
+            node.reset_to_ready()
+            node.transition_from_ready_to_unsafe()
             return
         if node.is_executing():
             node.commit_frontier_execution()
@@ -498,7 +503,6 @@ class PartialProgramOrder:
     def finish_wait_unsafe(self, concrete_node_id: ConcreteNodeId, env: str):
         node = self.concrete_nodes[concrete_node_id]
         node.spec_pre_env = env
-        node.commit_unsafe_node()
 
     # Returns whether handle_wait should be called.
     # This function exists because handle_wait always guarantees the creation of

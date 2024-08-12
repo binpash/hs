@@ -10,6 +10,7 @@ import signal
 from dataclasses import dataclass
 from typing import Tuple
 from enum import Enum, auto
+from pathlib import Path
 import util
 import analysis
 
@@ -31,6 +32,7 @@ class NodeState(Enum):
     EXECUTING = auto()
     SPEC_EXECUTING = auto()
     UNSAFE = auto()
+    COMMITTED_UNSAFE = auto()
 
 def state_pstr(state: NodeState):
     same_length_state_str = {
@@ -380,8 +382,6 @@ class ConcreteNode:
                 f.write(' '.join(line))
                 f.write('\n')
 
-        
-    
     def start_command(self, env_file: str, speculate=False, speculated_nodes=None):
         # TODO: implement speculate
         # TODO: built-in commands
@@ -412,7 +412,7 @@ class ConcreteNode:
             self.loop_list_context = self.loop_list_context.push(new_loop_list)
 
     def guess_post_env(self):
-        if self.command_unsafe():
+        if self.command_unsafe() or self.is_unsafe():
             env_file = self.spec_pre_env
         elif self.is_committed():
             env_file = self.exec_ctxt.post_env_file
@@ -548,7 +548,7 @@ class ConcreteNode:
             s2 = file2.read()
             if s1 != s2:
                 conflict_exists = True
-                
+
         return conflict_exists
 
     def kill_children(self):
@@ -570,7 +570,18 @@ class ConcreteNode:
                 fd, mode, offset, path = line.split(' ', maxsplit=3)
                 if mode == 'w':
                     util.append(self.exec_ctxt.outfds + '/' + fd, path)
-        
+
+    def runtime_finished(self):
+        # TODO: update this when exec doesn't use sandbox anymore
+        if self.state in [NodeState.SPEC_EXECUTING, NodeState.EXECUTING]:
+            post_path = util.sandboxed_path(self.exec_ctxt.sandbox_dir,
+                                            self.exec_ctxt.post_env_file + '.fds')
+        # elif self.state == NodeState.EXECUTING:
+        #     post_path = self.exec_ctxt.post_env_file + '.fds'
+        else:
+            assert False
+        return Path(post_path).exists()
+
     ##                                      ##
     ##          Transition Functions        ##
     ##                                      ##
@@ -641,7 +652,7 @@ class ConcreteNode:
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         self.exec_ctxt.process.wait()
         self.exec_result = ExecResult(self.exec_ctxt.process.returncode, self.exec_ctxt.process.pid)
-        return self.exec_result.exit_code == 137
+        return self.exec_result.exit_code == 137, self.runtime_finished()
 
     def commit_frontier_execution(self):
         assert self.state == NodeState.EXECUTING
@@ -696,7 +707,7 @@ class ConcreteNode:
 
     def commit_unsafe_node(self):
         assert self.state == NodeState.UNSAFE
-        self.state = NodeState.COMMITTED
+        self.state = NodeState.COMMITTED_UNSAFE
 
     def update_rw_set(self, r_set, w_set):
         for rfile in r_set:
@@ -812,4 +823,3 @@ class HSProg:
     def __str__(self):
         return 'prog:\n' + '\n'.join(
             [f'block {i}:\n' + str(bb) + f'goto block {self.block_adjacency[i]}\n' for i, bb in enumerate(self.basic_blocks)])
-

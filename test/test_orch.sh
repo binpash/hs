@@ -364,6 +364,18 @@ test_fd_1()
     $shell $2/test_fd_1.sh
 }
 
+test_commandline_args()
+{
+    local shell=$1
+    $shell $2/test_commandline_args.sh a "b c" d
+}
+
+test_dynamic_exit()
+{
+    local shell=$1
+    $shell $2/test_dynamic_exit.sh
+}
+
 test_break()
 {
     local shell=$1
@@ -550,6 +562,7 @@ else
     run_test test_function
     run_test test_loop
     run_test test_fd_1
+    run_test test_commandline_args
     run_test test_break
     run_test test_network_access_1 #"1 2 2"
     run_test test_network_access_2 #"1 2 2 2"

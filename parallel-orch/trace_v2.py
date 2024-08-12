@@ -12,7 +12,7 @@ from dataclasses import dataclass
 # setxattr lsetxattr removexattr lremovexattr, fanotify_mark, renameat2, chroot, quotactl
 # TODO: link, symlink, renameat
 
-# handled individually openat, open, chdir, clone, rename, symlinkat
+# handled individually openat, open, chdir, clone, rename, symlinkat, link
 r_first_path_set = set(['execve', 'stat', 'lstat', 'access', 'statfs',
                         'readlink', 'execve', 'getxattr', 'lgetxattr'])
 w_first_path_set = set(['mkdir', 'rmdir', 'truncate', 'creat', 'chmod', 'chown',
@@ -120,6 +120,8 @@ def parse_string(s):
     # as a read when we handle return value anyway so it's fine
     if s == 'NULL':
         return ''
+    if s.endswith('...'):
+        s = s[:-len('...')]
     assert s[0] == '"' and s[-1] == '"'
     return bytes(s[1:-1], "utf-8").decode("unicode_escape")
 
@@ -303,7 +305,7 @@ def parse_syscall(pid, syscall, args, ret, ctx):
         return parse_renameat(pid, args, ret, ctx)
     elif syscall == 'symlinkat':
         return parse_symlinkat(pid, args, ret)
-    elif syscall == 'symlink':
+    elif syscall in ['symlink', 'link']:
         return parse_symlink(pid, args, ret, ctx)
     elif syscall == 'clone':
         return parse_clone(pid, args, ret, ctx)

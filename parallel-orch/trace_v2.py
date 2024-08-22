@@ -8,15 +8,15 @@ from dataclasses import dataclass
 # Global TODOs:
 # handle pwd, such that open and stat can work
 
-# not handled: listxattr, llistxattr, getxattr, pivot_root, mount, umount2
+# not handled: getxattr, pivot_root, mount, umount2
 # setxattr lsetxattr removexattr lremovexattr, fanotify_mark, renameat2, chroot, quotactl
 # TODO: link, symlink, renameat
 
 # handled individually openat, open, chdir, clone, rename, symlinkat, link
 r_first_path_set = set(['execve', 'stat', 'lstat', 'access', 'statfs',
-                        'readlink', 'execve', 'getxattr', 'lgetxattr'])
+                        'readlink', 'execve', 'getxattr', 'lgetxattr', 'llistxattr'])
 w_first_path_set = set(['mkdir', 'rmdir', 'truncate', 'creat', 'chmod', 'chown',
-                        'lchown', 'utime', 'mknod', 'utimes', 'acct', 'unlink'])
+                        'lchown', 'utime', 'mknod', 'utimes', 'acct', 'unlink', 'setxattr', 'removexattr'])
 r_fd_path_set = set(['fstatat', 'newfstatat', 'statx', 'name_to_handle_at',
                      'readlinkat', 'faccessat', 'execveat', 'faccessat2'])
 w_fd_path_set = set(['unlinkat', 'utimensat', 'mkdirat', 'mknodat', 'fchownat', 'futimeat',

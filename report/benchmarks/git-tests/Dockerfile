@@ -5,6 +5,8 @@ RUN apt update && apt-get install -q -y gettext libsvn-perl apache2 cvs cvsps gi
 RUN git clone https://github.com/git/git.git
 WORKDIR /srv/hs/report/benchmarks/git-tests/git
 RUN git checkout bea9ecd24b0c3bf06cab4a851694fe09e7e51408 # v2.45.2
-RUN make configure && ./configure && make
+COPY ./git_diff ./
+RUN patch -p1 < ./git_diff
+RUN make configure && ./configure && make -j $(nproc)
 WORKDIR /srv/hs/report/benchmarks/git-tests
 COPY . .

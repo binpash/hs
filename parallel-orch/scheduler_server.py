@@ -3,6 +3,7 @@ import logging
 import signal
 import util
 import config
+import os
 from partial_program_order import PartialProgramOrder, NodeId
 from node import LoopStack, ConcreteNodeId
 

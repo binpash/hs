@@ -122,6 +122,10 @@ class Scheduler:
 
                 if self.partial_program_order.get_concrete_node(node_id).is_committed():
                     self.respond_to_pending_wait(node_id)
+                elif self.partial_program_order.get_concrete_node(node_id).is_unsafe() and \
+                     node_id in self.waiting_for_response:
+                    self.partial_program_order.finish_wait_unsafe(node_id, self.latest_env)
+                    self.respond_to_wait_on_unsafe(node_id)
             else:
                 logging.info(f'Scheduler: Received command exec complete message for a killed instance, ignoring - {node_id}.')
         elif (input_cmd.startswith("Wait")):

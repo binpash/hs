@@ -5,7 +5,7 @@ from pathlib import Path
 import os
 import glob
 import time
-from subprocess import run, PIPE
+from subprocess import run, PIPE, STDOUT
 
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser = argparse.ArgumentParser(description="Run benchmark")
@@ -14,6 +14,7 @@ parser.add_argument('--target', choices=['hs-only', 'sh-only', 'both'],
                     help='to run with sh or hs')
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
+parser.add_argument('--start-from', default="t0000", type=str, help='start from a different script')
 
 env = os.environ.copy()
 SCRIPTS = []
@@ -32,14 +33,14 @@ def do_sh_run(test_base: Path, output_base: Path, env: dict):
     return result.returncode, result.stdout
 
 def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, env: dict, log: bool):
-    cmd = [hs_base / 'pash-spec.sh', '--window', str(window)]
+    cmd = [hs_base / 'pash-spec.sh', '--window', str(window), '--log_file', output_base / f"{SCRIPT_NAME}.hs_log"]
     if log:
         cmd.extend(['-d', '2'])
     cmd.append(SCRIPT)
     print(f"Running hs: {cmd}")
     before = time.time()
-    with open(output_base / f"{SCRIPT_NAME}.hs_log", 'w') as log:
-        result = run(cmd, stdout=PIPE, stderr=log, env=env)
+    # with open(output_base / f"{SCRIPT_NAME}.hs_log", 'w') as log:
+    result = run(cmd, stdout=PIPE, stderr=STDOUT, env=env)
     duration = time.time() - before
     with open(output_base / f"{SCRIPT_NAME}.hs_time", 'w') as f:
         f.write(f'{duration}\n')
@@ -55,6 +56,9 @@ if __name__ == '__main__':
 
     git_tests = test_base / "git" / "t"
     SCRIPTS.extend(sorted(glob.glob(os.path.join(str(git_tests), "t[0-9]*.sh"))))
+    start = args.start_from
+    while len(SCRIPTS) > 0 and start not in SCRIPTS[0]:
+        SCRIPTS.pop(0)
     os.chdir(git_tests)
 
     bench_base = test_base.parent

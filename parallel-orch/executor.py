@@ -43,6 +43,7 @@ def run_assignment_and_return_env_file(assignment: str, pre_execution_env_file: 
     run_script = f'{config.PASH_SPEC_TOP}/parallel-orch/run_assignment.sh'
     args = ["/bin/bash", run_script, assignment, pre_execution_env_file, post_execution_env_file]
     process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    util.copy(pre_execution_env_file + '.fds', post_execution_env_file + '.fds')
     return post_execution_env_file
 
 def run_trace_sandboxed(args: ExecArgs):

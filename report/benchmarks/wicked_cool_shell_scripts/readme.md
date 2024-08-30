@@ -12,11 +12,11 @@ For all
 - [ ] 37.sh
     Correctness: df output is different in hs due to overlayfs
 - [ ] 40.sh
-    Correctness: WIP
+    Correctness: yes, tho some scheduelr errors
 - [ ] 41.sh
     Correctness: yes
 - [ ] 42.sh
-    Correctness: hangs ?
+    Correctness: no, will investigate
 - [ ] 43.sh
     Correctness: lots of hs scheduler errors, (pash restore fds), however is
     correct

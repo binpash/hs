@@ -1,0 +1,38 @@
+Line 2: Invalid minute value "X/5"
+>>>> 2: */5 * * * * /home/user/script.py
+
+Line 5: Invalid minute value "@daily"
+Line 5: Invalid hour value "/home/user/daily_task.sh"
+>>>> 5: @daily /home/user/daily_task.sh    
+
+Line 6: Invalid hour value "X/6"
+>>>> 6: 15 */6 * * * /usr/bin/fetch_data.py
+
+Line 8: Invalid minute value "X/30"
+>>>> 8: */30 * * * * /home/user/monitor.sh
+
+Line 10: Invalid minute value "40/5"
+>>>> 10: 10-40/5 * * * * /usr/local/bin/check_status.py
+
+Line 11: Invalid day of week value "/invalid/path/script.sh"
+>>>> 11: * * * * /invalid/path/script.sh 
+
+Line 13: Invalid hour value "25"
+>>>> 13: 0 25 * * * /var/www/invalid_hour.php
+
+Line 14: Invalid day of month value "32"
+>>>> 14: 0 0 32 * * /opt/scripts/invalid_day.sh
+
+Line 15: Invalid month value "13"
+>>>> 15: 0 0 0 13 * /usr/bin/invalid_month.py
+
+Line 16: Invalid minute value "X/100"
+>>>> 16: */100 * * * * /home/user/invalid_step.sh
+
+Line 17: Invalid day of week value "8"
+>>>> 17: 0 0 * * 8 /var/log/invalid_weekday.sh
+
+Line 18: Invalid minute value "X/0"
+>>>> 18: */0 * * * * /home/user/invalid_interval.sh
+
+Done. Found 12 errors in 20 crontab entries.

@@ -16,6 +16,8 @@ if [ "$(basename $1)" != "$1" -o "$1" = "." ] ; then
  exit 1
 fi
 if [ ! -w . ] ; then
+	touch zz
+	echo wtf
  echo "${progname}: cannot write archive file to current directory." >&2
  exit 1
 fi   

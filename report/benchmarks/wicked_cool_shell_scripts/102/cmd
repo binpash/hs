@@ -1,0 +1,3 @@
+#!/bin/sh
+./102.sh jpg png
+./102.sh png jpg

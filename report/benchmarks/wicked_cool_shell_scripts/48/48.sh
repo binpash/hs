@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # verifycron--Checks a crontab file to ensure that it's formatted properly.
 # Expects standard cron notation of min hr dom mon dow CMD, where min is
 # 0-59, hr is 0-23, dom is 1-31, mon is 1-12 (or names), and dow is 0-7
@@ -78,7 +78,7 @@ while read min hour dom mon dow command; do
         continue # Nothing to check
     fi
 
-    ((entries++))
+    entries=$((entries + 1))
     fixvars
 
     # At this point, all the fields in the current line are split out into

@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/bin/sh
+IFS='
+'
 
 # numberlines--A simple alternative to cat -n, etc.
 for filename in "$@"; do

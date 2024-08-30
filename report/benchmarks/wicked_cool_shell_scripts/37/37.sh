@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # newdf--A friendlier version of df
 awkscript="/tmp/newdf.$$"
 trap "rm -f $awkscript" EXIT

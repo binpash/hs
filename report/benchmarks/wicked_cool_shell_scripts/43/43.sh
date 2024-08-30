@@ -1,10 +1,11 @@
-#!/bin/bash
+#!/bin/sh
+set -x
 # validator--Ensures that the PATH contains only valid directories
 # and then checks that all environment variables are valid.
 # Looks at SHELL, HOME, PATH, EDITOR, MAIL, and PAGER.
 
 errors=0
-source library.sh # This contains Script #1, the in_path() function.
+#source library.sh # This contains Script #1, the in_path() function.
 
 validate() {
     varname=$1
@@ -14,7 +15,7 @@ validate() {
         if [ "${varvalue%${varvalue#?}}" = "/" ] ; then
             if [ ! -x $varvalue ] ; then
                 echo "** $varname set to $varvalue, but I cannot find executable."
-                (( errors++ ))
+                errors=$(( $errors + 1 ))
             fi
         else
             if in_path $varvalue $PATH ; then

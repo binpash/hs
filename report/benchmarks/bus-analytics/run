@@ -71,7 +71,7 @@ if __name__ == '__main__':
         output_hs = do_hs_run(test_base, output_base, hs_base, args.window, env, args.log == 'enable')
     if run_sh and run_hs:
         with open(output_base / 'error', 'w') as errf:
-            print(output_sh[:100])
+            # print(output_sh[:100])
             if output_sh == output_hs:
                 errf.write('')
             else:

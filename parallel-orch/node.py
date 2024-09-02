@@ -377,7 +377,8 @@ class ConcreteNode:
                 offset = int(offset)
                 if path in replace_map:
                     path = replace_map[path]
-                    offset += os.path.getsize(path)
+                    if not path.startswith('pipe:['):
+                        offset += os.path.getsize(path)
                 new_lines.append((fd, mode, str(offset), path))
         with open(post_path, 'w') as f:
             for line in new_lines:

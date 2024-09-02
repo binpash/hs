@@ -374,9 +374,12 @@ class ConcreteNode:
             lines = f.read().split('\n')[:-1]
             for line in lines:
                 fd, mode, offset, path = line.split(' ', maxsplit=3)
+                offset = int(offset)
                 if path in replace_map:
                     path = replace_map[path]
-                new_lines.append((fd, mode, offset, path))
+                    if not path.startswith('pipe:['):
+                        offset += os.path.getsize(path)
+                new_lines.append((fd, mode, str(offset), path))
         with open(post_path, 'w') as f:
             for line in new_lines:
                 f.write(' '.join(line))
@@ -544,8 +547,12 @@ class ConcreteNode:
                 conflict_exists = True
 
         with open(self.exec_ctxt.pre_env_file + '.fds', 'r') as file1, open(other_env + '.fds', 'r') as file2:
-            s1 = file1.read()
-            s2 = file2.read()
+            # Since we assume stdin, stdout, and stderr don't change during the script
+            # We are omitting them from the comparison
+            s1 = file1.read().split('\n')
+            s2 = file2.read().split('\n')
+            s1[2] = ''
+            s2[2] = ''
             if s1 != s2:
                 conflict_exists = True
 
@@ -666,7 +673,7 @@ class ConcreteNode:
         self.update_loop_list_context()
         overhead_log(f"COMMIT|{self.cnid}")
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
-        self.commit_fd_writes()
+        # self.commit_fd_writes()
         overhead_log(f"COMMIT_END|{self.cnid}")
         # util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.fixup_fds()
@@ -691,7 +698,7 @@ class ConcreteNode:
         assert self.state == NodeState.SPECULATED
         overhead_log(f"COMMIT|{self.cnid}")
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
-        self.commit_fd_writes()
+        # self.commit_fd_writes()
         overhead_log(f"COMMIT_END|{self.cnid}")
         # util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED

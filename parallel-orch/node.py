@@ -547,8 +547,10 @@ class ConcreteNode:
                 conflict_exists = True
 
         with open(self.exec_ctxt.pre_env_file + '.fds', 'r') as file1, open(other_env + '.fds', 'r') as file2:
-            s1 = file1.read()
-            s2 = file2.read()
+            # Since we assume stdin, stdout, and stderr don't change during the script
+            # We are omitting them from the comparison
+            s1 = file1.read().split('\n')[3:]
+            s2 = file2.read().split('\n')[3:]
             if s1 != s2:
                 conflict_exists = True
 

@@ -668,7 +668,7 @@ class ConcreteNode:
         self.update_loop_list_context()
         overhead_log(f"COMMIT|{self.cnid}")
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
-        self.commit_fd_writes()
+        # self.commit_fd_writes()
         overhead_log(f"COMMIT_END|{self.cnid}")
         # util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.fixup_fds()
@@ -693,7 +693,7 @@ class ConcreteNode:
         assert self.state == NodeState.SPECULATED
         overhead_log(f"COMMIT|{self.cnid}")
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
-        self.commit_fd_writes()
+        # self.commit_fd_writes()
         overhead_log(f"COMMIT_END|{self.cnid}")
         # util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED

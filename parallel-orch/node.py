@@ -374,9 +374,11 @@ class ConcreteNode:
             lines = f.read().split('\n')[:-1]
             for line in lines:
                 fd, mode, offset, path = line.split(' ', maxsplit=3)
+                offset = int(offset)
                 if path in replace_map:
                     path = replace_map[path]
-                new_lines.append((fd, mode, offset, path))
+                    offset += os.path.getsize(path)
+                new_lines.append((fd, mode, str(offset), path))
         with open(post_path, 'w') as f:
             for line in new_lines:
                 f.write(' '.join(line))

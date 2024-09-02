@@ -92,8 +92,6 @@ case "$target" in
         ;;
 esac
 
-./setup.sh $INPUT_LIST
-
 if $run_sh
 then
 sh_r $INPUT_LIST

@@ -1,17 +1,17 @@
 #!/bin/bash
 
 # These need to be set up:
-BIODIR="${PASH_SPEC_TOP}/report/benchmarks/bio4"
-IN="$BIODIR"
+BIODIR="${BIODIR:-$PASH_SPEC_TOP/report/benchmarks/bio4}"
+IN="${IN:-$BIODIR/input}"
 IN_NAME=$1
-OUT="$BIODIR/output"
+OUT="${OUT:-$BIODIR/output}"
 
 echo "$IN $IN_NAME $OUT"
-cd $IN
+#cd $IN
 mkdir -p "$OUT"
 
 # Processing input file
-for line in $(cat "${IN}/${IN_NAME}")
+for line in $(cat "${BIODIR}/${IN_NAME}")
 do
 	#sample=$(echo "$line" | cut -d " " -f 2)
 	#pop=$(echo "$line" | cut -f 1 -d " ")
@@ -22,17 +22,17 @@ do
 	temp="${line#*-}"
 	sample="${temp%%-*}"
 
-	echo "Processing Sample ${IN}/input/$sample"
+	echo "Processing Sample ${IN}/$sample"
 	# Correcting labeling of chromosomes so that all are 1,2,3.. instead of chr1,chr2 or chromosome1 etc
 	# uniform the chromosomes in the file due to inconsistencies
-	samtools view -H "${IN}/input/$sample.bam" | sed -e 's/SN:\([0-9XY]\)/SN:chr\1/' -e 's/SN:MT/SN:chrM/' \
-		| samtools reheader - "${IN}/input/$sample.bam" > "${OUT}/$sample"_corrected.bam
+	samtools view -H "${IN}/$sample.bam" | sed -e 's/SN:\([0-9XY]\)/SN:chr\1/' -e 's/SN:MT/SN:chrM/' \
+		| samtools reheader - "${IN}/$sample.bam" > "${OUT}/$sample"_corrected.bam
 
     # Create bai file 
     samtools index -b "${OUT}/$sample"_corrected.bam
 
     ### Isolating each relevant chromosome based on Gene_locs
-    chromosomes=$(cut -f 2 ./Gene_locs.txt | sort | uniq)
+    chromosomes=$(cut -f 2 "$BIODIR"/Gene_locs.txt | sort | uniq)
     for chr in $chromosomes; do
 	    echo "Isolating Chromosome $chr from sample ${OUT}/$sample"
 	    samtools view -b "${OUT}/$sample"_corrected.bam chr"$chr" > "${OUT}/$pop"_"$sample"_"$chr".bam

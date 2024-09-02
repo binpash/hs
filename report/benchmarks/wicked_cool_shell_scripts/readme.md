@@ -23,9 +23,9 @@ For all
 - [ ] 48.sh
     Correctness: yes
 - [ ] 50.sh
-    WIP
+    Correctness: yes
 - [ ] 51.sh
-    WIP
+    Correctness: yes
 - [ ] 52.sh
     Correctness: yes
 - [ ] 102.sh

@@ -33,7 +33,7 @@ if [ $dirsize -gt $maxarchivedir ] ; then
   fi
 fi
 archivename="$1.tgz"
-if tar cf - $1 | $compress > /tmp/$archivename ; then
+if tar cf - $1 | $compress > $archivename ; then
   echo "Directory $1 archived as $archivename"
 else
   echo "Warning: tar encountered errors archiving $1"

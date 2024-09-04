@@ -1,7 +1,7 @@
 a=$(ls sh)
 b=$(ls hs)
 
-if [ $a != $b ]
+if [ "$a" != "$b" ]
 then
     echo failed > results_error
 fi

@@ -22,10 +22,9 @@ run() {
     cd $SYSADMINDIR/$job
 
     echo running sh
-    /usr/bin/time -f '%e' -o result_hs_time sh run_sh.sh &> result_hs_log
+    /usr/bin/time -f '%e' -o result_hs_time sh run_sh.sh > result_hs_log 2>&1
     echo running hs
-    /usr/bin/time -f '%e' -o result_sh_time $pashcmd run_hs.sh &> result_hs_log
-    sleep 3
+    /usr/bin/time -f '%e' -o result_sh_time $pashcmd run_hs.sh > result_hs_log 2>&1
     echo verifying
     sh verify.sh > result_error
     cat result_error
@@ -54,21 +53,17 @@ run() {
 # TODO 42 init fails due to shadow file owned by another gid
 #echo --- running 42 ---
 #run 42
-# TODO 43 
 #echo --- running 43 ---
 #run 43
 #echo --- running 48 ---
 #run 48
-#TODO WIP WIPPPP
-echo --- running 50 ---
-run 50
-#TODO WIP
+#echo --- running 50 ---
+#run 50
+# TODO 51 proposed removal due to timestamps involved
 #echo --- running 51 ---
 #run 51
-#TODO WIP
 #echo --- running 52 ---
 #run 52
-#TODO WIP
 #echo --- running 102 ---
 #run 102
 

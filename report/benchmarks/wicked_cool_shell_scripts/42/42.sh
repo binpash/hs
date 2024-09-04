@@ -1,5 +1,4 @@
 #!/bin/sh
-set -x
 # deleteuser--Deletes user accounts without a trace.
 # Not for use with OS X.
 

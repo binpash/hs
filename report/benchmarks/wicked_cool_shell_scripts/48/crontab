@@ -2,8 +2,8 @@
 */5 * * * * /home/user/script.py
 30 8-18 * * 1-5 /var/www/update.php
 0 22 * * 1-5 /opt/scripts/cleanup.sh
-@daily /home/user/daily_task.sh
-15 */6 * * * /usr/bin/fetch_data.py
+* * * * * /home/user/daily_task.sh
+15 6 * * * /usr/bin/fetch_data.py
 45 23 * * 6 /var/log/rotate_logs.sh
 */30 * * * * /home/user/monitor.sh
 0 0 * * 0 /root/weekly_maintenance.sh

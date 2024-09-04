@@ -1,5 +1,4 @@
 #!/bin/sh
-set -x
 # validator--Ensures that the PATH contains only valid directories
 # and then checks that all environment variables are valid.
 # Looks at SHELL, HOME, PATH, EDITOR, MAIL, and PAGER.

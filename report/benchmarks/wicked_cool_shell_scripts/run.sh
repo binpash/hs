@@ -1,15 +1,75 @@
-set -x
-window=16
+#!/bin/sh
+#set -x
+
+export SYSADMINDIR="${PASH_SPEC_TOP}/report/benchmarks/wicked_cool_shell_scripts"
+export OUTBASE="${PASH_SPEC_TOP}/report/output/wicked_cool_shell_scripts"
+
+if [ -z window ]
+then
+    echo please set window var
+    exit 1
+fi
+
 pashcmd="/srv/hs/pash-spec.sh --window $window"
 
-##### -- 27 -- #####
-echo running experiment 27
-cd 27
-./27.sh test >out_sh
-$pashcmd ./27.sh test >out_hs
-diff out_sh out_hs
-if [ $? -eq 0 ]; then
-    echo OK
-else
-    echo FAIL
+if [ -z logging ]
+then
+    pashcmd="${pashcmd} -d2"
 fi
+
+run() {
+    local job=$1
+    cd $SYSADMINDIR/$job
+
+    echo running sh
+    /usr/bin/time -f '%e' -o result_hs_time sh run_sh.sh &> result_hs_log
+    echo running hs
+    /usr/bin/time -f '%e' -o result_sh_time $pashcmd run_hs.sh &> result_hs_log
+    sleep 3
+    echo verifying
+    sh verify.sh > result_error
+    cat result_error
+    mkdir -p $OUTBASE/$job
+    mv result_* $OUTBASE/$job
+}
+
+#echo --- running 27 ---
+#run 27
+#echo --- running 28 ---
+#run 28
+#echo --- running 29 ---
+#run 29
+# TODO 35 currently hangs
+#echo --- running 35 ---
+#run 35
+# TODO 37 df output will be different
+#echo --- running 37 ---
+#run 37
+# TODO 40 verify fails due to shadow file owned by another gid
+#echo --- running 40 ---
+#run 40
+# TODO 41 as it is an interactive focused script
+#echo --- running 41 ---
+#run 41
+# TODO 42 init fails due to shadow file owned by another gid
+#echo --- running 42 ---
+#run 42
+# TODO 43 
+#echo --- running 43 ---
+#run 43
+#echo --- running 48 ---
+#run 48
+#TODO WIP WIPPPP
+echo --- running 50 ---
+run 50
+#TODO WIP
+#echo --- running 51 ---
+#run 51
+#TODO WIP
+#echo --- running 52 ---
+#run 52
+#TODO WIP
+#echo --- running 102 ---
+#run 102
+
+echo all done

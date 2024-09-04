@@ -50,6 +50,7 @@ if __name__ == '__main__':
     #######################
     # SPECIFY ENV VARS HERE
     env['INPUT'] = "800000"
+    env['BENCH_DIR'] = str(test_base)
     #######################
 
     bench_base = test_base.parent

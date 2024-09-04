@@ -32,12 +32,12 @@ run() {
     mv result_* $OUTBASE/$job
 }
 
-#echo --- running 27 ---
-#run 27
-#echo --- running 28 ---
-#run 28
-#echo --- running 29 ---
-#run 29
+echo --- running 27 ---
+run 27
+echo --- running 28 ---
+run 28
+echo --- running 29 ---
+run 29
 # TODO 35 currently hangs
 #echo --- running 35 ---
 #run 35
@@ -53,18 +53,18 @@ run() {
 # TODO 42 init fails due to shadow file owned by another gid
 #echo --- running 42 ---
 #run 42
-#echo --- running 43 ---
-#run 43
-#echo --- running 48 ---
-#run 48
-#echo --- running 50 ---
-#run 50
+echo --- running 43 ---
+run 43
+echo --- running 48 ---
+run 48
+echo --- running 50 ---
+run 50
 # TODO 51 proposed removal due to timestamps involved
 #echo --- running 51 ---
 #run 51
-#echo --- running 52 ---
-#run 52
-#echo --- running 102 ---
-#run 102
+echo --- running 52 ---
+run 52
+echo --- running 102 ---
+run 102
 
 echo all done

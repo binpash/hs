@@ -1,32 +1,3 @@
-For all
-    Performance: hs overhead > exec time
 
-- [ ] 27.sh
-    Correctness: IFS fails
-- [ ] 28.sh
-    Correctness: IFS fails
-- [ ] 29.sh
-    Correctness: yes
-- [ ] 35.sh
-    Correctness: hangs
-- [ ] 37.sh
-    Correctness: df output is different in hs due to overlayfs
-- [ ] 40.sh
-    Correctness: yes
-- [ ] 41.sh
-    Correctness: yes
-- [ ] 42.sh
-    Correctness: hangs
-- [ ] 43.sh
-    Correctness: lots of hs scheduler errors, (pash restore fds), however is
-    correct
-- [ ] 48.sh
-    Correctness: yes
-- [ ] 50.sh
-    Correctness: yes
-- [ ] 51.sh
-    Correctness: yes
-- [ ] 52.sh
-    Correctness: yes
-- [ ] 102.sh
-    Correctness: yes
+
+docker run --rm -it --privileged $(docker build -q .) /bin/bash -c "window=8 sh run.sh && bash"

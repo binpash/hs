@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -e
+export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
+cd "$PASH_SPEC_TOP"/report/benchmarks/web-index
 # 7zip
 pkgs='p7zip-full curl wget nodejs unzip' 
 if ! dpkg -s $pkgs >/dev/null 2>&1 ; then

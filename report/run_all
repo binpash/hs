@@ -1,0 +1,78 @@
+#!/bin/sh
+
+export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
+
+# fully_seq
+"$PASH_SPEC_TOP"/report/benchmarks/fully_seq/run --target both --window 32
+
+# micro
+"$PASH_SPEC_TOP"/report/benchmarks/micro/run --target both --window 32
+
+# wicked_cool_shell_scripts
+
+# dgsh
+"$PASH_SPEC_TOP"/report/benchmarks/dgsh/setup
+"$PASH_SPEC_TOP"/report/benchmarks/dgsh/run --target both --window 32
+
+# unix_50
+"$PASH_SPEC_TOP"/report/benchmarks/unix_50/setup
+"$PASH_SPEC_TOP"/report/benchmarks/unix_50/run --target both --window 32
+
+# max_temp
+"$PASH_SPEC_TOP"/report/benchmarks/max_temp/setup
+"$PASH_SPEC_TOP"/report/benchmarks/max_temp/run --target both --window 32
+ 
+# bio-ex
+"$PASH_SPEC_TOP"/report/benchmarks/bio-ex/setup
+"$PASH_SPEC_TOP"/report/benchmarks/bio-ex/run
+
+# bio4
+"$PASH_SPEC_TOP"/report/benchmarks/bio4/setup large
+"$PASH_SPEC_TOP"/report/benchmarks/bio4/setup medium
+"$PASH_SPEC_TOP"/report/benchmarks/bio4/setup small
+"$PASH_SPEC_TOP"/report/benchmarks/bio4/run --target both --window 32 --input-size small
+"$PASH_SPEC_TOP"/report/benchmarks/bio4/run --target both --window 32 --input-size medium
+"$PASH_SPEC_TOP"/report/benchmarks/bio4/run --target both --window 32 --input-size large
+
+# riker
+"$PASH_SPEC_TOP"/report/benchmarks/riker/setup
+"$PASH_SPEC_TOP"/report/benchmarks/riker/run > "$PASH_SPEC_TOP"/report/output/riker/result
+ 
+# sklearn
+"$PASH_SPEC_TOP"/report/benchmarks/sklearn/setup.sh
+"$PASH_SPEC_TOP"/report/benchmarks/sklearn/inputs.sh
+"$PASH_SPEC_TOP"/report/benchmarks/sklearn/run --target both --window 32
+
+# sklearn_large
+"$PASH_SPEC_TOP"/report/benchmarks/sklearn_large/setup.sh
+"$PASH_SPEC_TOP"/report/benchmarks/sklearn_large/inputs.sh
+"$PASH_SPEC_TOP"/report/benchmarks/sklearn_large/run --target both --window 32
+ 
+# bus-analytics
+"$PASH_SPEC_TOP"/report/benchmarks/bus-analytics/setup
+"$PASH_SPEC_TOP"/report/benchmarks/bus-analytics/run --target both --window 32
+
+# nlp
+"$PASH_SPEC_TOP"/report/benchmarks/nlp/inputs.sh
+"$PASH_SPEC_TOP"/report/benchmarks/nlp/run --target both --window 32
+
+# log-analysis
+"$PASH_SPEC_TOP"/report/benchmarks/log-analysis/wc/setup.sh
+"$PASH_SPEC_TOP"/report/benchmarks/log-analysis/wc/run --target both --window 32
+
+# web-index
+"$PASH_SPEC_TOP"/report/benchmarks/web-index/setup.sh
+"$PASH_SPEC_TOP"/report/benchmarks/web-index/input.sh
+"$PASH_SPEC_TOP"/report/benchmarks/web-index/web-index/run --target both --window 32
+
+# git-tests
+"$PASH_SPEC_TOP"/report/benchmarks/git-tests/setup
+docker run --name hs-git-tests-bench --privileged --cgroupns=host hs/git-tests /srv/hs/report/benchmarks/git-tests/run --target both --window 32
+mkdir -p "$PASH_SPEC_TOP"/report/output/git-tests
+rm -r "$PASH_SPEC_TOP"/report/output/git-tests
+docker cp hs-git-tests-bench:/srv/hs/report/output/git-tests "$PASH_SPEC_TOP"/report/output/git-tests
+docker rm hs-git-tests-bench
+ 
+# teraseq - requires docker and takes long time
+"$PASH_SPEC_TOP"/report/benchmarks/teraseq/setup.sh
+"$PASH_SPEC_TOP"/report/benchmarks/teraseq/run

@@ -47,20 +47,21 @@ if __name__ == '__main__':
     args = parser.parse_args()
     test_base = Path(__file__).parent.resolve()
     hs_base = test_base.parent.parent.parent
+    bench_base = test_base.parent
+    local_name = os.sep.join(test_base.parts[-1:])
+    #print(local_name)
+    output_base = hs_base / "report" / "output" / 'sklearn' / local_name
 
     #######################
     # SPECIFY ENV VARS HERE
     
-    env['TMP'] = hs_base / 'report' / 'resources' / 'sklearn'
+    env['DATA'] = hs_base / 'report' / 'resources' / 'sklearn'
     env['OUT'] = hs_base / 'report' / 'output' / 'sklearn'
+    env['TMP'] = hs_base / 'report' / 'output' / 'sklearn'
     env['SCRIPTS'] = hs_base / 'report' / 'benchmarks' / 'sklearn_large' / 'scripts'
     
     #######################
 
-    bench_base = test_base.parent
-    local_name = os.sep.join(test_base.parts[-1:])
-    print(local_name)
-    output_base = hs_base / "report" / "output" / 'sklearn' / local_name
     run_hs = False
     run_sh = False
     if args.target in ["hs-only", "both"]:

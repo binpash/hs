@@ -65,6 +65,7 @@ if __name__ == '__main__':
         env['INPUT_FILE'] = hs_base / 'report' / 'resources' / 'web-index' / 'index.txt'
     env['WEB_INDEX_DIR'] = hs_base / 'report' / 'benchmarks' / 'web-index'
     env['SCRIPT_DIR'] = hs_base / 'report' / 'benchmarks' / 'web-index' / 'web-index'
+    env['OUTPUT'] = hs_base / 'report' / 'output' / 'web-index'
     env['WIKI'] = hs_base / 'report' / 'resources' / 'web-index' / 'articles'
     #######################
 

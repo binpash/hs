@@ -9,6 +9,12 @@ export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-sup
 "$PASH_SPEC_TOP"/report/benchmarks/micro/run --target both --window 32
 
 # wicked_cool_shell_scripts
+"$PASH_SPEC_TOP"/report/benchmarks/wicked_cool_shell_scripts/setup
+docker run --name hs-wicked-cool-shell-scripts-bench --privileged --cgroupns=host hs/wicked-cool-shell-scripts /bin/bash -c "window=32 sh run.sh"
+mkdir -p "$PASH_SPEC_TOP"/report/output/wicked_cool_shell_scripts
+rm -r "$PASH_SPEC_TOP"/report/output/wicked_cool_shell_scripts
+docker cp hs-wicked-cool-shell-scripts-bench:/srv/hs/report/output/wicked_cool_shell_scripts "$PASH_SPEC_TOP"/report/output/wicked_cool_shell_scripts
+docker rm hs-wicked-cool-shell-scripts-bench
 
 # dgsh
 "$PASH_SPEC_TOP"/report/benchmarks/dgsh/setup

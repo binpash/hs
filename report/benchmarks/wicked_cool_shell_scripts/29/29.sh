@@ -1,5 +1,7 @@
 #!/bin/sh
 # showfile--Shows the contents of a file, including additional useful info
+IFS='
+'
 
 width=72
 for input in "$@"
@@ -31,4 +33,4 @@ do
         fi
     done
     echo "-----------------------------------------------------------------"
-done | ${PAGER:-more}
+done

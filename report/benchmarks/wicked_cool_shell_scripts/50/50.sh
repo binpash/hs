@@ -8,7 +8,7 @@
 # seven days. If duration is set to zero, the script will ignore that
 # particular set of log files.
 
-logdir="/var/log" # Your logfile directory could vary.
+logdir="./log" # Your logfile directory could vary.
 config="$logdir/rotatelogs.conf"
 mv="/bin/mv"
 default_duration=7 # We'll default to a 7-day rotation schedule.
@@ -37,7 +37,7 @@ cd $logdir
 # identifiers--hence [0-9].
 # This is a pretty gnarly find statement that's explained in the prose
 # further in this section. Keep reading if you're curious!
-for name in $(find . -maxdepth 1 -type f -size +0c ! -name '*[0-9]*' \
+for name in $(find . -maxdepth 1 -type f -size +0c ! -name '*[0-9]*' \
 ! -name '\.*' ! -name '*conf' -print | sed 's/^\.\///')
 do
     count=$(( $count + 1 ))

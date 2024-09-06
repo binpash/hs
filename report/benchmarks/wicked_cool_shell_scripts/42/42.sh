@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # deleteuser--Deletes user accounts without a trace.
 # Not for use with OS X.
 
@@ -21,7 +21,7 @@ fi
 file=$1
 
 for username in $(cat "$file"); do
-    $suspend $username # Suspend their account while we do the dirty work.
+ #   $suspend $username # Suspend their account while we do the dirty work.
 
     uid="$(grep -E "^${username}:" $pwfile | cut -d: -f3)"
 

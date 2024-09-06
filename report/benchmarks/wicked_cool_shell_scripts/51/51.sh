@@ -30,11 +30,11 @@ if [ "$btype" = "incremental" ] ; then
         exit 1
     fi
 
-    find $HOME -depth -type f -newer $tsfile -user ${USER:-LOGNAME} | \
+    find $HOME -depth -type f -newer $tsfile -user $(id -u) | \
     pax -w -x tar | $compress > $output
     failure="$?"
 else
-    find $HOME -depth -type f -user ${USER:-LOGNAME} | \
+	find $HOME -depth -type f -user $(id -u) | \
     pax -w -x tar | $compress > $output
     failure="$?"
 fi

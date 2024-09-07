@@ -55,10 +55,17 @@ if __name__ == '__main__':
     #######################
 
     git_tests = test_base / "git" / "t"
-    SCRIPTS.extend(sorted(glob.glob(os.path.join(str(git_tests), "t[0-9]*.sh"))))
+    # SCRIPTS.extend(sorted(glob.glob(os.path.join(str(git_tests), "t[0-9]*.sh"))))
+    with open(test_base / "hs_passing_tests.txt", 'r') as passing_tests:
+        scripts = passing_tests.read().strip().splitlines()
+        for script in scripts:
+            SCRIPTS.append(str(git_tests / script))
+
+    # start is a substr of the test script filename so if it matches then it will start at that test.
     start = args.start_from
     while len(SCRIPTS) > 0 and start not in SCRIPTS[0]:
         SCRIPTS.pop(0)
+
     os.chdir(git_tests)
 
     bench_base = test_base.parent

@@ -6,3 +6,6 @@
 
 report/benchmarks/teraseq/*.dockerignore
 report/benchmarks/teraseq/Dockerfile*
+
+report/resources
+report/output

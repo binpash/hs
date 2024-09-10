@@ -4,15 +4,20 @@ export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-sup
 
 export WINDOW=${WINDOW:-15}
 
+# build base hs image
+docker build -t hs "$PASH_SPEC_TOP"
+
 # fully_seq
 echo "--- running fully_seq ---"
 "$PASH_SPEC_TOP"/report/benchmarks/fully_seq/run --target both --window $WINDOW
+sudo rm -rf /tmp/pash_*
 
 # micro
 echo "--- running micro ---"
 "$PASH_SPEC_TOP"/report/benchmarks/micro/run --target both --window $WINDOW
+sudo rm -rf /tmp/pash_*
 
-# wicked_cool_shell_scripts
+# wicked_cool_shell_scripts - requires docker
 echo "--- running wicked-cool-shell-scripts ---"
 "$PASH_SPEC_TOP"/report/benchmarks/wicked_cool_shell_scripts/setup
 docker run --name hs-wicked-cool-shell-scripts-bench --privileged --cgroupns=host hs/wicked-cool-shell-scripts /bin/bash -c "window=$WINDOW sh run.sh"
@@ -25,18 +30,21 @@ docker rm hs-wicked-cool-shell-scripts-bench
 echo "--- running dgsh ---"
 "$PASH_SPEC_TOP"/report/benchmarks/dgsh/setup
 "$PASH_SPEC_TOP"/report/benchmarks/dgsh/run --target both --window $WINDOW
+sudo rm -rf /tmp/pash_*
 
 # unix_50
 echo "--- running unix_50 ---"
 "$PASH_SPEC_TOP"/report/benchmarks/unix_50/setup
 "$PASH_SPEC_TOP"/report/benchmarks/unix_50/run --target both --window $WINDOW
+sudo rm -rf /tmp/pash_*
 
 # max_temp
 echo "--- running max_temp ---"
 "$PASH_SPEC_TOP"/report/benchmarks/max_temp/setup
 "$PASH_SPEC_TOP"/report/benchmarks/max_temp/run --target both --window $WINDOW
+sudo rm -rf /tmp/pash_*
 
-# bio-ex
+# bio-ex - requires docker
 echo "--- running bio-ex ---"
 "$PASH_SPEC_TOP"/report/benchmarks/bio-ex/setup
 "$PASH_SPEC_TOP"/report/benchmarks/bio-ex/run
@@ -49,8 +57,9 @@ echo "--- running bio4 ---"
 "$PASH_SPEC_TOP"/report/benchmarks/bio4/run --target both --window $WINDOW --input-size small
 "$PASH_SPEC_TOP"/report/benchmarks/bio4/run --target both --window $WINDOW --input-size medium
 "$PASH_SPEC_TOP"/report/benchmarks/bio4/run --target both --window $WINDOW --input-size large
+sudo rm -rf /tmp/pash_*
 
-# riker
+# riker - requires docker
 echo "--- running riker ---"
 "$PASH_SPEC_TOP"/report/benchmarks/riker/setup
 "$PASH_SPEC_TOP"/report/benchmarks/riker/run > "$PASH_SPEC_TOP"/report/output/riker/result
@@ -60,33 +69,39 @@ echo "--- running sklearn ---"
 "$PASH_SPEC_TOP"/report/benchmarks/sklearn/setup.sh
 "$PASH_SPEC_TOP"/report/benchmarks/sklearn/inputs.sh
 "$PASH_SPEC_TOP"/report/benchmarks/sklearn/run --target both --window $WINDOW
+sudo rm -rf /tmp/pash_*
 
 # sklearn_large
 echo "--- running sklearn_large ---"
 "$PASH_SPEC_TOP"/report/benchmarks/sklearn_large/setup.sh
 "$PASH_SPEC_TOP"/report/benchmarks/sklearn_large/inputs.sh
 "$PASH_SPEC_TOP"/report/benchmarks/sklearn_large/run --target both --window $WINDOW
+sudo rm -rf /tmp/pash_*
  
 # bus-analytics
 echo "--- running bus-analytics ---"
 "$PASH_SPEC_TOP"/report/benchmarks/bus-analytics/setup
 "$PASH_SPEC_TOP"/report/benchmarks/bus-analytics/run --target both --window $WINDOW
+sudo rm -rf /tmp/pash_*
 
 # nlp
 echo "--- running nlp ---"
 "$PASH_SPEC_TOP"/report/benchmarks/nlp/inputs.sh
 "$PASH_SPEC_TOP"/report/benchmarks/nlp/run --target both --window $WINDOW
+sudo rm -rf /tmp/pash_*
 
 # log-analysis
 echo "--- running log-analysis ---"
 "$PASH_SPEC_TOP"/report/benchmarks/log-analysis/wc/setup.sh
 "$PASH_SPEC_TOP"/report/benchmarks/log-analysis/wc/run --target both --window $WINDOW
+sudo rm -rf /tmp/pash_*
 
 # web-index
 echo "--- running web-index ---"
 "$PASH_SPEC_TOP"/report/benchmarks/web-index/setup.sh
 "$PASH_SPEC_TOP"/report/benchmarks/web-index/input.sh
 "$PASH_SPEC_TOP"/report/benchmarks/web-index/web-index/run --target both --window $WINDOW
+sudo rm -rf /tmp/pash_*
 
 # git-tests
 echo "--- running git-tests ---"

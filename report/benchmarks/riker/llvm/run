@@ -19,21 +19,21 @@ def convert_time_to_float(time):
     return float(time[0]) * 60 + float(time[1][:-1])
 
 def do_baseline_run(env):
-    result = run(["sudo", "docker", "run", "--privileged", "--rm", "hs/llvm:latest", "/bin/bash", "-c", "time sh /llvm-project/llvm-build/llvm_build.sh"], stdout=PIPE, stderr=PIPE, env=env)
+    result = run(["sudo", "docker", "run", "--init", "--privileged", "--cgroupns=host", "--rm", "hs/llvm:latest", "/bin/bash", "-c", "time sh /llvm-project/llvm-build/llvm_build.sh"], stdout=PIPE, stderr=PIPE, env=env)
     time = result.stderr.decode().split("\n")[-4].split("\t")[1]
     return convert_time_to_float(time)
 
 def do_strace_run(env):
-    result = run(["sudo", "docker", "run", "--privileged", "--rm", "hs/llvm:latest", "/bin/bash", "-c", "time strace -y -f --seccomp-bpf --trace=fork,clone,%file -o strace_trace bash -c \"/llvm-project/llvm-build/llvm_build.sh\""], stdout=PIPE, stderr=PIPE, env=env)
+    result = run(["sudo", "docker", "run", "--init", "--privileged", "--cgroupns=host", "--rm", "hs/llvm:latest", "/bin/bash", "-c", "time strace -y -f --seccomp-bpf --trace=fork,clone,%file -o strace_trace bash -c \"/llvm-project/llvm-build/llvm_build.sh\""], stdout=PIPE, stderr=PIPE, env=env)
     time = result.stderr.decode().split("\n")[-4].split("\t")[1]
     # print(result.stderr.decode())
     return convert_time_to_float(time)
 
 def do_hs_run(window, log, env):
     if log:
-        result = run(["sudo", "docker", "run", "--privileged", "--rm", "hs/llvm:latest", "/bin/bash", "-c", f"time /srv/hs/pash-spec.sh -d 2 --window {window} /llvm-project/llvm-build/llvm_build.sh &> hs_trace"], stdout=PIPE, stderr=PIPE, env=env)
+        result = run(["sudo", "docker", "run", "--init", "--privileged", "--cgroupns=host", "--rm", "hs/llvm:latest", "/bin/bash", "-c", f"time /srv/hs/pash-spec.sh -d 2 --window {window} /llvm-project/llvm-build/llvm_build.sh &> hs_trace"], stdout=PIPE, stderr=PIPE, env=env)
     else:
-        result = run(["sudo", "docker", "run", "--privileged", "--rm", "hs/llvm:latest", "/bin/bash", "-c", f"time /srv/hs/pash-spec.sh --window {window} /llvm-project/llvm-build/llvm_build.sh &> hs_trace"], stdout=PIPE, stderr=PIPE, env=env)
+        result = run(["sudo", "docker", "run", "--init", "--privileged", "--cgroupns=host", "--rm", "hs/llvm:latest", "/bin/bash", "-c", f"time /srv/hs/pash-spec.sh --window {window} /llvm-project/llvm-build/llvm_build.sh &> hs_trace"], stdout=PIPE, stderr=PIPE, env=env)
 
     time = result.stderr.decode().split("\n")[-4].split("\t")[1]
 
@@ -42,7 +42,7 @@ def do_hs_run(window, log, env):
     return convert_time_to_float(time), result.stderr.decode()
 
 def do_riker_run(env):
-    result = run(["sudo", "docker", "run", "--privileged", "--rm", "hs/llvm:latest", "/bin/bash", "-c", "time rkr --log ir &> riker_trace"], stdout=PIPE, stderr=PIPE, env=env)
+    result = run(["sudo", "docker", "run", "--init", "--privileged", "--cgroupns=host", "--rm", "hs/llvm:latest", "/bin/bash", "-c", "time rkr --log ir &> riker_trace"], stdout=PIPE, stderr=PIPE, env=env)
     time = result.stderr.decode().split("\n")[-4].split("\t")[1]
     # print(result.stderr.decode())
     return convert_time_to_float(time)

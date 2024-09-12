@@ -25,7 +25,7 @@ def do_sh_run(test_base: Path, output_base: Path, env: dict):
     duration = time.time() - before
     with open(output_base / "sh_time", 'w') as f:
         f.write(f'{duration}\n')
-    os.rename(env["OUTPUT_DIR"] / "trained_model.obj", env["OUTPUT_DIR"] / "sh_trained_model.obj")
+    os.rename(env["RESULT"] / "trained_model.obj", env["RESULT"] / "sh_trained_model.obj")
     return result.returncode, result.stdout
 
 def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, env: dict, log: bool):
@@ -40,7 +40,7 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
     duration = time.time() - before
     with open(output_base / "hs_time", 'w') as f:
         f.write(f'{duration}\n')
-    os.rename(env["OUTPUT_DIR"] / "trained_model.obj", env["OUTPUT_DIR"] / "hs_trained_model.obj")
+    os.rename(env["RESULT"] / "trained_model.obj", env["RESULT"] / "hs_trained_model.obj")
     return result.returncode, result.stdout
 
 if __name__ == '__main__':
@@ -53,9 +53,10 @@ if __name__ == '__main__':
     
     env['TMP'] = hs_base / 'report' / 'resources' / 'sklearn'
     env['RESULT'] = hs_base / 'report' / 'output' / 'sklearn'
-    env['OUTPUT_DIR'] = hs_base / 'report' / 'output' / 'sklearn'
+    env['DIR'] = test_base
     
     #######################
+
 
     bench_base = test_base.parent
     local_name = os.sep.join(test_base.parts[-1:])

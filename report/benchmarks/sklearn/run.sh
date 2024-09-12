@@ -1,8 +1,9 @@
 #!/bin/bash
 
 PYTHON="python3"
-DIR=$PWD
+DIR=${DIR:-$PWD}
 SCRIPTS=$DIR/scripts
+RESULT=${RESULT:-$PWD/result}
 
 # Ideally, we'll move on to piping rather than writing to a file
 MODEL=$TMP/model.obj

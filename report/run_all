@@ -61,6 +61,7 @@ sudo rm -rf /tmp/pash_*
 # riker - requires docker
 echo "--- running riker ---"
 "$PASH_SPEC_TOP"/report/benchmarks/riker/setup
+mkdir -p "$PASH_SPEC_TOP"/report/output/riker
 "$PASH_SPEC_TOP"/report/benchmarks/riker/run > "$PASH_SPEC_TOP"/report/output/riker/result
  
 # sklearn

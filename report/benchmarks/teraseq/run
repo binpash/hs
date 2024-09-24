@@ -8,7 +8,7 @@ mkdir -p "$PASH_SPEC_TOP"/report/output/teraseq
 for t in 5TERA 5TERA-short 5TERA3 TERA3 Akron5Seq mouse_SIRV dRNASeq RNASeq RiboSeq
 do
 	echo "=====${t}====="
-	docker run --name "hs-teraseq-$t" -v ${DOCKER_TMP}:/tmp --privileged --cgroupns=host hs/teraseq /srv/hs/report/benchmarks/teraseq/${t}/run --target both --window $WINDOW
+	docker run --name "hs-teraseq-$t" --init --privileged --cgroupns=host -v ${DOCKER_TMP}:/tmp hs/teraseq /srv/hs/report/benchmarks/teraseq/${t}/run --target both --window $WINDOW
 	mkdir -p "$PASH_SPEC_TOP"/report/output/teraseq/${t}
 	docker cp "hs-teraseq-$t":/srv/hs/report/output/teraseq/${t}/. "$PASH_SPEC_TOP"/report/output/teraseq/${t}/.
 	docker rm "hs-teraseq-$t"

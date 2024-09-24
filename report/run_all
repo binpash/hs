@@ -29,7 +29,7 @@ cleantmp
 # wicked_cool_shell_scripts - requires docker
 echo "--- running wicked-cool-shell-scripts ---"
 "$PASH_SPEC_TOP"/report/benchmarks/wicked_cool_shell_scripts/setup
-docker run --init --name hs-wicked-cool-shell-scripts-bench -v ${DOCKER_TMP}:/tmp --privileged --cgroupns=host hs/wicked-cool-shell-scripts /bin/bash -c "window=$WINDOW sh run.sh"
+docker run --name hs-wicked-cool-shell-scripts-bench --init --privileged --cgroupns=host -v ${DOCKER_TMP}:/tmp hs/wicked-cool-shell-scripts /bin/bash -c "window=$WINDOW sh run.sh"
 mkdir -p "$PASH_SPEC_TOP"/report/output/wicked_cool_shell_scripts
 docker cp hs-wicked-cool-shell-scripts-bench:/srv/hs/report/output/wicked_cool_shell_scripts/. "$PASH_SPEC_TOP"/report/output/wicked_cool_shell_scripts/.
 docker rm hs-wicked-cool-shell-scripts-bench
@@ -118,7 +118,7 @@ cleantmp
 # git-tests
 echo "--- running git-tests ---"
 "$PASH_SPEC_TOP"/report/benchmarks/git-tests/setup
-docker run --name hs-git-tests-bench --init -v ${DOCKER_TMP}:/tmp --privileged --cgroupns=host hs/git-tests /srv/hs/report/benchmarks/git-tests/run --target both --window $WINDOW
+docker run --name hs-git-tests-bench --init --privileged --cgroupns=host -v ${DOCKER_TMP}:/tmp hs/git-tests /srv/hs/report/benchmarks/git-tests/run --target both --window $WINDOW
 mkdir -p "$PASH_SPEC_TOP"/report/output/git-tests
 docker cp hs-git-tests-bench:/srv/hs/report/output/git-tests/. "$PASH_SPEC_TOP"/report/output/git-tests/.
 docker rm hs-git-tests-bench

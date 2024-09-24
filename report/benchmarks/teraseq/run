@@ -12,5 +12,4 @@ do
 	mkdir -p "$PASH_SPEC_TOP"/report/output/teraseq/${t}
 	docker cp "hs-teraseq-$t":/srv/hs/report/output/teraseq/${t}/. "$PASH_SPEC_TOP"/report/output/teraseq/${t}/.
 	docker rm "hs-teraseq-$t"
-	sudo rm -r ${DOCKER_TMP}/*
 done

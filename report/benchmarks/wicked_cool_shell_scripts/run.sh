@@ -22,9 +22,9 @@ run() {
     cd $SYSADMINDIR/$job
 
     echo running sh
-    /usr/bin/time -f '%e' -o result_hs_time sh run_sh.sh > result_hs_log 2>&1
+    /usr/bin/time -f '%e' -o result_sh_time sh run_sh.sh > result_sh_log 2>&1
     echo running hs
-    /usr/bin/time -f '%e' -o result_sh_time $pashcmd run_hs.sh > result_hs_log 2>&1
+    /usr/bin/time -f '%e' -o result_hs_time $pashcmd run_hs.sh > result_hs_log 2>&1
     echo verifying
     sh verify.sh > result_error
     cat result_error

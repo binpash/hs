@@ -43,6 +43,12 @@ do
 	printf "$f,$(cat ${PASH_SPEC_TOP}/report/output/$f/baseline_time),$(cat ${PASH_SPEC_TOP}/report/output/$f/hs_time)\n" >> $dir/riker.csv
 done
 
+printf "git_tests,sh_time,hs_time\n" >> $dir/git_tests.csv
+for f in $(cat ${PASH_SPEC_TOP}/report/benchmarks/git-tests/hs_passing_tests.txt)
+do
+	printf "$f,$(cat ${PASH_SPEC_TOP}/report/output/git-tests/${f}.sh_time),$(cat ${PASH_SPEC_TOP}/report/output/git-tests/${f}.hs_time)\n" >> $dir/git_tests.csv
+done
+
 printf "wicked_cool_shell_scripts,sh_time,hs_time\n" >> $dir/wicked_cool_shell_scripts.csv
 for f in 27 28 29 35 37 40 41 42 43 48 50 51 52 102
 do

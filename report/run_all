@@ -62,14 +62,30 @@ echo "--- running bio-ex ---"
 "$PASH_SPEC_TOP"/report/benchmarks/bio-ex/run
 cleandockertmp
 
+# bio-ex-tryoverhead - requires docker
+echo "--- running bio-ex-overhead ---"
+"$PASH_SPEC_TOP"/report/benchmarks/bio-ex-tryoverhead/setup
+"$PASH_SPEC_TOP"/report/benchmarks/bio-ex-tryoverhead/run
+cleandockertmp
+
 # bio4
 echo "--- running bio4 ---"
-"$PASH_SPEC_TOP"/report/benchmarks/bio4/setup large
-"$PASH_SPEC_TOP"/report/benchmarks/bio4/setup medium
 "$PASH_SPEC_TOP"/report/benchmarks/bio4/setup small
+"$PASH_SPEC_TOP"/report/benchmarks/bio4/setup medium
+"$PASH_SPEC_TOP"/report/benchmarks/bio4/setup large
 "$PASH_SPEC_TOP"/report/benchmarks/bio4/run --target both --window $WINDOW --input-size small
 "$PASH_SPEC_TOP"/report/benchmarks/bio4/run --target both --window $WINDOW --input-size medium
 "$PASH_SPEC_TOP"/report/benchmarks/bio4/run --target both --window $WINDOW --input-size large
+cleantmp
+
+# bio4-tryoverhead
+echo "--- running bio4-tryoverhead ---"
+"$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/setup small
+"$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/setup medium
+"$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/setup large
+"$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/run --target both --window $WINDOW --input-size small
+"$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/run --target both --window $WINDOW --input-size medium
+"$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/run --target both --window $WINDOW --input-size large
 cleantmp
 
 # riker - requires docker

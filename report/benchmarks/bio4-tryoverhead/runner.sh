@@ -17,11 +17,11 @@ hs_r() {
 	local log=$3
 
 	echo Running hS test for $size with window $window
-	/usr/bin/time -f '%e' -o "$OUTBASE/hs_time" sh fxbio4-try.sh $size &> "$OUTBASE/hs_log"
-	md5sum $BIODIR/output/* > "$OUTBASE/hs_hash"
+	/usr/bin/time -f '%e' -o "$OUTBASE/try_time" sh fxbio4-try.sh $size &> "$OUTBASE/try_log"
+	md5sum $BIODIR/output/* > "$OUTBASE/try_hash"
 
 	rm -rf output
-	diff "$OUTBASE/hs_hash" "$OUTBASE/sh_hash" > "$OUTBASE/error"
+	diff "$OUTBASE/try_hash" "$OUTBASE/sh_hash" > "$OUTBASE/error"
 }
 
 sh_r() {

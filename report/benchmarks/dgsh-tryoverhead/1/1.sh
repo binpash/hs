@@ -1,4 +1,5 @@
 #!/bin/bash
+try=try
 
 # Adapted from: dspinellis/dgsh
 # Source file: example/compress-compare.sh
@@ -33,20 +34,21 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-echo $INPUT_FILE
-file1=$(mktemp)
-cat $INPUT_FILE >"$file1"
-printf 'File type:\t'
-file - <"$file1"
+$try -y echo $INPUT_FILE
+$try -y file1=$(mktemp)
+$try -y cat $INPUT_FILE >"$file1"
+$try -y printf 'File type:\t'
+$try -y file - <"$file1"
 
-printf 'Original size:\t'
-wc -c <"$file1"
+$try -y printf 'Original size:\t'
+$try -y wc -c <"$file1"
 
-printf 'xz:\t\t'
-xz -c <"$file1" | wc -c
+$try -y printf 'xz:\t\t'
+$try -y xz -c <"$file1" | $try -y wc -c
+$try -y "xz -c <\"$file1\" | wc -c"
 
-printf 'bzip2:\t\t'
-bzip2 -c <"$file1" | wc -c
+$try -y printf 'bzip2:\t\t'
+$try -y bzip2 -c <"$file1" | $try -y wc -c
 
-printf 'gzip:\t\t'
-gzip -c <"$file1" | wc -c
+$try -y printf 'gzip:\t\t'
+$try -y gzip -c <"$file1" | $try -y wc -c

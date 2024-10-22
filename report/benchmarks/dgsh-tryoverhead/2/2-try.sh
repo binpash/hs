@@ -1,4 +1,5 @@
 #!/bin/bash
+try=/srv/hs/deps/try/try
 
 # Adapted from: dspinellis/dgsh
 # Source file example/commit-stats.sh
@@ -34,12 +35,11 @@
 ## Initialize the necessary temporary files
 file1=$(mktemp)
 
-git -C $REPO_DIR log --format="%an:%ad" --date=default >"$file1"
-echo "Authors ordered by number of commits"
+$try -y git -C $REPO_DIR log --format="%an:%ad" --date=default >"$file1"
+$try -y echo "Authors ordered by number of commits"
 # Order by frequency
-awk -F: '{print $1}' <"$file1" | sort | uniq | sort -rn
+$try -y awk -F: '{print $1}' <"$file1" | $try -y sort | $try -y uniq | $try -y sort -rn
 
-echo "Days ordered by number of commits"
+$try -y echo "Days ordered by number of commits"
 # Order by frequency
-awk -F: '{print substr($2, 1, 3)}' <"$file1"  | sort | uniq | sort -rn
-
+$try -y awk -F: '{print substr($2, 1, 3)}' <"$file1"  | $try -y sort | $try -y uniq | $try -y sort -rn

@@ -83,9 +83,9 @@ echo "--- running bio4-tryoverhead ---"
 "$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/setup small
 "$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/setup medium
 "$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/setup large
-"$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/run --target both --window $WINDOW --input-size small
-"$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/run --target both --window $WINDOW --input-size medium
-"$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/run --target both --window $WINDOW --input-size large
+"$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/runner.sh --target both --window $WINDOW --input-size small
+"$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/runner.sh --target both --window $WINDOW --input-size medium
+"$PASH_SPEC_TOP"/report/benchmarks/bio4-tryoverhead/runner.sh --target both --window $WINDOW --input-size large
 cleantmp
 
 # riker - requires docker

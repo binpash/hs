@@ -22,7 +22,7 @@ done
 printf "bio-ex,sh_time,hs_time\n" >> $dir/bio-ex.csv
 for t in ex1 ex2 ex2-accelerated
 do
-	printf "$t,$(cat ${PASH_SPEC_TOP}/report/output/$t/sh_time),$(cat ${PASH_SPEC_TOP}/report/output/$t/hs_time)\n" >> $dir/bio-ex.csv
+	printf "$t,$(cat ${PASH_SPEC_TOP}/report/output/bio-ex/$t/sh_time),$(cat ${PASH_SPEC_TOP}/report/output/bio-ex/$t/hs_time)\n" >> $dir/bio-ex.csv
 done
 
 printf "unix_50,sh_time,hs_time\n" >> $dir/unix_50.csv

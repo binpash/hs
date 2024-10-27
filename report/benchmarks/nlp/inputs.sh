@@ -5,7 +5,7 @@ mkdir -p inputs
 cd inputs
 
 if [ ! -f ./book_links.txt ]; then
-    wget -O book_links.txt "https://atlas-group.cs.brown.edu/data/gutenberg/books.txt"
+    wget --no-check-certificate -O book_links.txt "https://atlas-group.cs.brown.edu/data/gutenberg/books.txt"
     if [ ! -f book_links.txt ]; then
         echo "Failed to download book_links.txt"
         exit 1
@@ -13,11 +13,11 @@ if [ ! -f ./book_links.txt ]; then
 fi
 
 if [ ! -f ./genesis ]; then
-    curl -sf https://atlas-group.cs.brown.edu/data/gutenberg/8/0/0/8001/8001.txt > genesis
+    wget --no-check-certificate -O genesis "https://atlas-group.cs.brown.edu/data/gutenberg/8/0/0/8001/8001.txt"
 fi 
 
 if [ ! -f ./exodus ]; then
-    curl -sf https://atlas-group.cs.brown.edu/data/gutenberg/3/3/4/2/33420/33420-0.txt > exodus
+    wget --no-check-certificate -O exodus "https://atlas-group.cs.brown.edu/data/gutenberg/3/3/4/2/33420/33420-0.txt"
 fi
 
 if [ ! -e ./pg ]; then
@@ -29,7 +29,7 @@ if [ ! -e ./pg ]; then
     do
         full_url="https://atlas-group.cs.brown.edu/data/gutenberg/${line}"
         echo "Downloading $full_url"
-        wget -q "$full_url"
+        wget -q "$full_url" --no-check-certificate
     done
 
     cd ..
@@ -44,7 +44,7 @@ if [ ! -e ./pg-small ]; then
     do
         full_url="https://atlas-group.cs.brown.edu/data/gutenberg/${line}"
         echo "Downloading $full_url"
-        wget -q "$full_url"
+        wget -q "$full_url" --no-check-certificate
     done
 
     cd ..

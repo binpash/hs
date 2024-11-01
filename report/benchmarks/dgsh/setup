@@ -19,7 +19,7 @@ echo "Downloading dgsh datasets..."
 
 # #1
 if [[ ! -f "dblp.xml" ]]; then
-    wget -nc https://atlas-group.cs.brown.edu/data/dblp/dblp.xml.gz
+    wget -nc --no-check-certificate https://atlas-group.cs.brown.edu/data/dblp/dblp.xml.gz
     gunzip dblp.xml.gz
     $inflate dblp.xml $inflate_size
     mv $inflate_size-dblp.xml dblp.xml

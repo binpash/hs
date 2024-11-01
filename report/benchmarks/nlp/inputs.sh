@@ -29,7 +29,7 @@ if [ ! -e ./pg ]; then
     do
         full_url="https://atlas-group.cs.brown.edu/data/gutenberg/${line}"
         echo "Downloading $full_url"
-        wget -q "$full_url" --no-check-certificate
+        wget --no-check-certificate -q "$full_url"
     done
 
     cd ..
@@ -44,7 +44,7 @@ if [ ! -e ./pg-small ]; then
     do
         full_url="https://atlas-group.cs.brown.edu/data/gutenberg/${line}"
         echo "Downloading $full_url"
-        wget -q "$full_url" --no-check-certificate
+        wget --no-check-certificate -q "$full_url"
     done
 
     cd ..

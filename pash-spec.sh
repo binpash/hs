@@ -17,14 +17,14 @@ sudo bash -c "echo $protected_mem > /sys/fs/cgroup/frontier/memory.min"
 
 if [ -n "$PASH_TMP_DIR" ]; then
     mkdir -p $PASH_TMP_DIR/tmp/pash_spec
-    echo $PASH_TMP_DIR >&2
+    # echo $PASH_TMP_DIR >&2
     export PASH_SPEC_TMP_PREFIX="$(mktemp -d "$PASH_TMP_DIR/tmp/pash_spec/pash_XXXXXXX")"
 else
     mkdir -p /tmp/pash_spec
     export PASH_SPEC_TMP_PREFIX="$(mktemp -d /tmp/pash_spec/pash_XXXXXXX)"
 fi
 
-echo "PASH_SPEC_TMP_PREFIX: $PASH_SPEC_TMP_PREFIX" >&2
+# echo "PASH_SPEC_TMP_PREFIX: $PASH_SPEC_TMP_PREFIX" >&2
 
 ## Initialize the scheduler-server
 export PASH_SPEC_SCHEDULER_SOCKET="${PASH_SPEC_TMP_PREFIX}/scheduler_socket"

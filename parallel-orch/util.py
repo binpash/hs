@@ -19,6 +19,10 @@ DEBUG_LOG = '[DEBUG_LOG] '
 def debug_log(s):
     logging.debug(DEBUG_LOG + s)
 
+def overhead_log(s):
+    # logging.debug(DEBUG_LOG + s)
+    pass
+    
 def ptempfile(prefix=''):
     fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX, prefix=prefix+'_')
     ## TODO: Get a name without opening the fd too if possible
@@ -298,18 +302,18 @@ def parse_partial_program_order_from_file(file_path: str):
     loop_context_end = number_of_nodes + loop_context_start
     loop_context_lines = lines[loop_context_start:loop_context_end]
     loop_contexts = parse_loop_contexts(loop_context_lines)
-    logging.debug(f'Loop contexts: {loop_contexts}')
+    debug_log(f'Loop contexts: {loop_contexts}')
     
     var_assignment_lines = int(lines[loop_context_end])
     var_assignment_start = loop_context_end + 1
     var_assignment_end = var_assignment_start + var_assignment_lines
     var_assignment_lines = lines[var_assignment_start:var_assignment_end]
     var_assignments = parse_var_assignment_lines(var_assignment_lines)
-    logging.debug(f'Var assignments: {var_assignments}')
+    debug_log(f'Var assignments: {var_assignments}')
 
     ## The rest of the lines are edge_lines
     edge_lines = lines[var_assignment_end:]
-    logging.debug(f'Edges: {edge_lines}')
+    debug_log(f'Edges: {edge_lines}')
 
     ab_nodes = {}
     for i in range(number_of_nodes):
@@ -330,8 +334,8 @@ def parse_partial_program_order_from_file(file_path: str):
         from_id, to_id = parse_edge_line(edge_line)
         edges[NodeId(from_id)].append(NodeId(to_id))
 
-    logging.info(f"Nodes|{','.join([str(node) for node in ab_nodes])}")
-    logging.info(f"Edges|{edges}")
+    debug_log(f"Nodes|{','.join([str(node) for node in ab_nodes])}")
+    debug_log(f"Edges|{edges}")
     return PartialProgramOrder(ab_nodes, edges, hs_prog)
 
 def generate_id() -> int:

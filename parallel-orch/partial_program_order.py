@@ -8,16 +8,13 @@ from executor import run_assignment_and_return_env_file
 
 PROG_LOG =  '[PROG_LOG] '
 EVENT_LOG = '[EVENT_LOG] '
-OVERHEAD_LOG = '[OVERHEAD_LOG] '
 
 def event_log(s):
     logging.info(EVENT_LOG + s)
 
 def progress_log(s):
-    logging.info(PROG_LOG + s)
-
-def overhead_log(s):
-    logging.info(OVERHEAD_LOG + s)
+    # logging.info(PROG_LOG + s)
+    pass
 
 def simulate_loop_iter_env(env, var, loop_list_context, loop_iters):
     loop_list = loop_list_context.get_top()
@@ -98,7 +95,7 @@ class PartialProgramOrder:
         return self.frontier
 
     def log_info(self):
-        logging.info(f"Nodes: {self.concrete_nodes}")
+        # logging.info(f"Nodes: {self.concrete_nodes}")
         # logging.info(f"Adjacency: {self.adjacency}")
         # logging.info(f"Inverse adjacency: {self.inverse_adjacency}")
         self.log_state()
@@ -407,9 +404,9 @@ class PartialProgramOrder:
 
     def fetch_fs_actions(self):
         for node in self.get_executing_normal_and_spec_nodes():
-            overhead_log(f"TRACE_FETCHING|{node.cnid}")
+            util.overhead_log(f"TRACE_FETCHING|{node.cnid}")
             node.gather_fs_actions()
-            overhead_log(f"TRACE_FETCHING_END|{node.cnid}")
+            util.overhead_log(f"TRACE_FETCHING_END|{node.cnid}")
 
     def _has_fs_deps(self, concrete_node_id: ConcreteNodeId):
         node_of_interest : ConcreteNode = self.get_concrete_node(concrete_node_id)

@@ -6,7 +6,7 @@ export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-sup
 download_dir="$PASH_SPEC_TOP/report/resources/log-analysis/wc"
 benchmark_dir="$PASH_SPEC_TOP/report/benchmarks/log-analysis/wc"
 
-IN_ROOT=${IN_ROOT:-'https://atlas-group.cs.brown.edu/data/web-logs/world-cup'}
+IN_ROOT=${IN_ROOT:-'https://atlas.cs.brown.edu/data/web-logs/world-cup'}
 
 cd "${benchmark_dir}"
 

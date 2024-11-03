@@ -9,15 +9,15 @@ if [ "$1" = "--small" ]; then
 	if [[ ! -f "$RESOURCES_DIR/wikipedia-small.tar.gz" ]]; then
 		# 1000 entries
 		echo "Downloading the small dataset."
-		wget --no-check-certificate -O $RESOURCES_DIR/wikipedia-small.tar.gz https://atlas-group.cs.brown.edu/data/wikipedia/input_small/articles.tar.gz
-		wget --no-check-certificate -O $RESOURCES_DIR/index_small.txt https://atlas-group.cs.brown.edu/data/wikipedia/input_small/index.txt 
+		wget --no-check-certificate -O $RESOURCES_DIR/wikipedia-small.tar.gz https://atlas.cs.brown.edu/data/wikipedia/input_small/articles.tar.gz
+		wget --no-check-certificate -O $RESOURCES_DIR/index_small.txt https://atlas.cs.brown.edu/data/wikipedia/input_small/index.txt 
 	fi
 else
 	if [[ ! -f "$RESOURCES_DIR/wikipedia.tar.gz" ]]; then
 		# full dataset
 		echo "Downloading the full dataset. Caution!! Extracted size >200GB"
-		wget --no-check-certificate -O $RESOURCES_DIR/wikipedia.tar.gz https://atlas-group.cs.brown.edu/data/wikipedia/input/articles.tar.gz
-		wget --no-check-certificate -O $RESOURCES_DIR/index.txt https://atlas-group.cs.brown.edu/data/wikipedia/input/index.txt
+		wget --no-check-certificate -O $RESOURCES_DIR/wikipedia.tar.gz https://atlas.cs.brown.edu/data/wikipedia/input/articles.tar.gz
+		wget --no-check-certificate -O $RESOURCES_DIR/index.txt https://atlas.cs.brown.edu/data/wikipedia/input/index.txt
 	fi
 fi
 

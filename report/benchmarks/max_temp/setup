@@ -10,7 +10,7 @@ download_dir="$PASH_SPEC_TOP/report/resources/max_temp" # Adjust the path as nec
 # ftp_server="ftp://ftp.ncdc.noaa.gov/pub/data/noaa"
 # ftp_dir="./"
 
-IN=${IN:-'https://atlas-group.cs.brown.edu/data/noaa/'}
+IN=${IN:-'https://atlas.cs.brown.edu/data/noaa/'}
 fetch=${fetch:-"curl -s -k"}
 
 # Start and end dates

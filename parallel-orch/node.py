@@ -482,7 +482,7 @@ class ConcreteNode:
             "EPOCHREALTIME", "OLDPWD", "exit_code", "BASHPID", "BASH_COMMAND", "BASH_ARGV0",
             "cmd", "BASH_ARGC", "BASH_ARGV", "BASH_SUBSHELL", "LINENO", "GROUPS", "BASH_SOURCE",
             "PREVIOUS_SHELL_EC", "pash_previous_exit_status", "filter_vars_file", "pash_spec_loop_id",
-            "pash_loop_iters",
+            "pash_loop_iters", "LINES", "COLUMNS",
         ])
 
         ignore_prefix = "pash_loop_"
@@ -528,18 +528,18 @@ class ConcreteNode:
         with open(other_env, 'r') as file:
             other_env_vars = parse_env(file.read())
 
-        util.debug_log(f"Comparing env files {self.exec_ctxt.pre_env_file} and {other_env}")
+        util.env_log(f"Comparing env files {self.exec_ctxt.pre_env_file} and {other_env}")
 
         conflict_exists = False
         for key in set(node_env_vars.keys()).union(other_env_vars.keys()):
             if key not in node_env_vars:
-                util.debug_log(f"Variable {key} missing in node environment")
+                util.env_log(f"Variable {key} missing in node environment")
                 conflict_exists = True
             elif key not in other_env_vars:
-                util.debug_log(f"Variable {key} missing in other environment")
+                util.env_log(f"Variable {key} missing in other environment")
                 conflict_exists = True
             elif node_env_vars[key] != other_env_vars[key]:
-                util.debug_log(f"Variable {key} differs: node environment has {node_env_vars[key]}, other has {other_env_vars[key]}")
+                util.env_log(f"Variable {key} differs: node environment has {node_env_vars[key]}, other has {other_env_vars[key]}")
                 conflict_exists = True
 
         with open(self.exec_ctxt.pre_env_file + '.fds', 'r') as file1, open(other_env + '.fds', 'r') as file2:

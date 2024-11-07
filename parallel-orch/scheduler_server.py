@@ -216,8 +216,7 @@ class Scheduler:
 
     def terminate_pending_commands(self):
         for node in self.partial_program_order.get_executing_normal_and_spec_nodes():
-            proc, _trace_file, _stdout, _stderr, _variable_file, _ = node.get_main_sandbox()
-            logging.debug(f'Killing: {proc}')
+            node.reset_to_ready()
             # proc.terminate()
 
 def main():

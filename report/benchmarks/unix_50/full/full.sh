@@ -1,5 +1,5 @@
 #!/bin/bash
-
+IN=$IN
 IN1=$IN/1G-1.txt
 IN2=$IN/1G-2.txt
 IN3=$IN/1G-3.txt

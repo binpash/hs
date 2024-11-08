@@ -45,7 +45,8 @@ for target_size in "$@"; do
     # Check if target size is smaller than input file size
     if [ "$target_size_bytes" -le "$input_size" ]; then
         echo "Error: Target size $target_size must be greater than the size of the input file."
-        continue # Skip to the next target size
+        echo "Setting target size to the size of the input file."
+        target_size_bytes=$input_size
     fi
 
     # Define output file name

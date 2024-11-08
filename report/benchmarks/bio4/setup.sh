@@ -7,7 +7,8 @@ export BIODIR="${PASH_SPEC_TOP}/report/benchmarks/bio4"
 
 download_dir="${PASH_SPEC_TOP}/report/benchmarks/bio4/input"
 mkdir -p "$download_dir"
-INPUT_LIST=$1
+# INPUT_LIST=$1
+INPUT_LIST="input_full.txt"
 input_file="${BIODIR}/$INPUT_LIST"
 
 sudo apt install -y samtools time
@@ -18,18 +19,25 @@ download_bam_files() {
         if [[ ! -f "$download_dir/$sample.bam" ]]; then
             echo "Downloading $sample..."
             wget -q -O "$download_dir/$sample.bam" "$link"
+        else
+            echo "File $sample.bam already exists, skipping download."
         fi
     done < "$input_file"
 }
 
 while getopts ":i:c" opt; do
     case $opt in
-        i) input_file=$OPTARG ;;
         c) 
             echo "Cleaning up..."
+            rm -rf "$download_dir"/../output
+            exit 0
+            ;;
+        C)
+            echo "Cleaning up and removing input files..."
             rm -rf "$download_dir"/*.bam
             rm -rf "$download_dir"/*.sam
             rm -rf "$download_dir"/../output
+            rm -f "$input_file"
             exit 0
             ;;
         \?) echo "Invalid option -$OPTARG" >&2

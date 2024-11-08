@@ -7,6 +7,9 @@ export REPORT_DIR=${REPORT_DIR:-$PASH_SPEC_TOP/report}
 
 inflate="$PASH_SPEC_TOP/report/util/inflate.sh"
 
+## Set the size of the inflated files
+## e.g. 1k, 100M, 1G, 10G
+## Default is 1G
 inflate_size=${inflate_size:-1G}
 
 resource_dir="$PASH_SPEC_TOP/report/resources"
@@ -52,3 +55,31 @@ fi
 # Inputs for #2, #3
 git clone https://github.com/kelsny/overcommitted
 git clone https://github.com/FFmpeg/FFmpeg.git
+
+sudo apt update
+sudo apt install -y \
+  yasm nasm cmake libx264-dev libx265-dev libvpx-dev libfdk-aac-dev \
+  libopus-dev libass-dev libvpx-dev libfreetype6-dev libmp3lame-dev \
+  libfdk-aac-dev libxvidcore-dev libvorbis-dev libtheora-dev libavcodec-dev \
+  libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev \
+  libswresample-dev
+
+cd FFmpeg
+
+./configure \
+  --enable-gpl \
+  --enable-nonfree \
+  --enable-libx264 \
+  --enable-libx265 \
+  --enable-libvpx \
+  --enable-libfdk-aac \
+  --enable-libopus \
+  --enable-libass \
+  --enable-libfreetype \
+  --enable-libmp3lame \
+  --enable-libxvid \
+  --enable-libvorbis \
+  --enable-libtheora
+
+# Compile the code
+make -j16

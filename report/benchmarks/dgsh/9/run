@@ -78,9 +78,9 @@ def compare_outputs(output_base: Path):
         sh_stdout = f1.read()
         hs_stdout = f2.read()
 
-    if sh_stdout != hs_stdout:
-        outputs_match = False
-        with open(error_file, 'w') as errf:
+    with open(error_file, 'w') as errf:
+        if sh_stdout != hs_stdout:
+            outputs_match = False
             errf.write('Stdout differs between sh and hs runs.\n')
 
     # Compare stderr
@@ -121,9 +121,6 @@ def compare_outputs(output_base: Path):
             with open(error_file, 'a') as errf:
                 errf.write(f'Contents of file {fname} differ between sh and hs runs.\n')
 
-    if outputs_match and error_file.exists():
-        error_file.unlink()
-
 if __name__ == '__main__':
     args = parser.parse_args()
     test_base = Path(__file__).parent.resolve()
@@ -134,7 +131,7 @@ if __name__ == '__main__':
 
     #######################
     # SPECIFY ENV VARS HERE
-    REPO_DIR = hs_base / 'report' / 'resources' / 'dgsh' / 'Linux'
+    REPO_DIR = hs_base / 'report' / 'resources' / 'dgsh' / 'FFmpeg'
     env['REPO_DIR'] = str(REPO_DIR)
     #######################
 

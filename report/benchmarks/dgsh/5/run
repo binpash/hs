@@ -5,7 +5,7 @@ BENCHMARK_NO="5"
 # Base directories
 HS_BASE="$(git rev-parse --show-toplevel)"
 TEST_BASE="$HS_BASE/report/benchmarks/dgsh/$BENCHMARK_NO"
-TEST_UPPER="$TEST_BASE/.."
+TEST_UPPER="$HS_BASE/report"
 RESOURCE_DIR="$HS_BASE/report/resources/dgsh"
 
 # Script to run

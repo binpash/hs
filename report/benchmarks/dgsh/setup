@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 export PATH=$PATH:$HOME/.local/bin
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
@@ -11,7 +12,7 @@ inflate="$PASH_SPEC_TOP/report/util/inflate.sh"
 ## e.g. 1k, 100M, 1G, 10G
 ## Default is 1G
 inflate_size=${inflate_size:-1G}
-
+benchmark_dir="$PASH_SPEC_TOP/report/benchmarks/dgsh"
 resource_dir="$PASH_SPEC_TOP/report/resources"
 download_dir="$resource_dir/dgsh"
 mkdir -p "$download_dir"
@@ -53,20 +54,18 @@ fi
 
 
 # Inputs for #2, #3
-git clone https://github.com/kelsny/overcommitted
-git clone https://github.com/FFmpeg/FFmpeg.git
+if [[ ! -d overcommitted ]]; then
+    git clone https://github.com/kelsny/overcommitted
+fi
+if [[ ! -d FFmpeg ]]; then
+    git clone https://github.com/FFmpeg/FFmpeg.git
+fi
 
-sudo apt update
-sudo apt install -y \
-  yasm nasm cmake libx264-dev libx265-dev libvpx-dev libfdk-aac-dev \
-  libopus-dev libass-dev libvpx-dev libfreetype6-dev libmp3lame-dev \
-  libfdk-aac-dev libxvidcore-dev libvorbis-dev libtheora-dev libavcodec-dev \
-  libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev \
-  libswresample-dev
+pushd $benchmark_dir/9
+docker build . -t hs_benchmark_ffmpeg_build
+popd
 
-cd FFmpeg
-
-./configure \
+docker run --rm -v ./FFmpeg:/root/FFmpeg hs_benchmark_ffmpeg_build /bin/bash -c 'cd FFmpeg; ./configure \
   --enable-gpl \
   --enable-nonfree \
   --enable-libx264 \
@@ -79,7 +78,5 @@ cd FFmpeg
   --enable-libmp3lame \
   --enable-libxvid \
   --enable-libvorbis \
-  --enable-libtheora
+  --enable-libtheora; make -j$(nproc)'
 
-# Compile the code
-make -j16

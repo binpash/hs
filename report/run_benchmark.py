@@ -18,6 +18,7 @@ def parse_arguments():
     parser.add_argument('--test_base', required=True, help='Base directory of the test')
     parser.add_argument('--hs_base', required=True, help='Base directory of hs')
     parser.add_argument('--env_vars', nargs='*', default=[], help='Environment variables to set')
+    parser.add_argument('--suffix', help='Suffix for the output directory')
     return parser.parse_args()
 
 def cleanup_output_dir(output_base: Path):
@@ -81,7 +82,7 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
         f.write(f'{duration}\n')
 
     # Create a symlink for hs_log pointing to stderr
-    hs_log_path = output_dir / "hs_log"
+    hs_log_path = output_base / "hs_log"
     stderr_path = output_dir / "stderr"
     if hs_log_path.exists() or hs_log_path.is_symlink():
         hs_log_path.unlink()
@@ -154,9 +155,12 @@ def main():
         key, value = var.split('=', 1)
         env[key] = value
 
-    # Output base directory
+    # Determine output base directory with optional suffix
     local_name = os.sep.join(test_base.parts[-2:])
-    output_base = hs_base / "report" / "output" / local_name
+    if args.suffix:
+        output_base = hs_base / "report" / "output" / f"{local_name}-{args.suffix}"
+    else:
+        output_base = hs_base / "report" / "output" / local_name
 
     run_hs = args.target in ["hs-only", "both"]
     run_sh = args.target in ["sh-only", "both"]

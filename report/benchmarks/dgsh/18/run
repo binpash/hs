@@ -1,158 +1,25 @@
-#!/usr/bin/env python3
+#!/bin/bash
 
-import argparse
-from pathlib import Path
-import os
-import time
-import shutil
-from subprocess import run, PIPE
+BENCHMARK_NO="18"
 
-parser = argparse.ArgumentParser(description="Run benchmark")
-parser.add_argument('--window', default=5, type=int, help='window size to run hs with')
-parser.add_argument('--target', choices=['hs-only', 'sh-only', 'both'],
-                    default='both', help='to run with sh or hs')
-parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
-                    help='whether to enable logging for hs')
+# Base directories
+HS_BASE="$(git rev-parse --show-toplevel)"
+TEST_BASE="$HS_BASE/report/benchmarks/dgsh/$BENCHMARK_NO"
+TEST_UPPER="$TEST_BASE/.."
+RESOURCE_DIR="$HS_BASE/report/resources/dgsh"
 
-env = os.environ.copy()
-SCRIPT_NAME = "18.sh"
+# Script to run
+SCRIPT_NAME="$BENCHMARK_NO.sh"
 
-def cleanup_output_dir(output_base: Path):
-    if output_base.exists() and output_base.is_dir():
-        shutil.rmtree(output_base)
-    output_base.mkdir(parents=True, exist_ok=True)
+# Environment variables
+ENV_VARS=(
+    "REPO_DIR=$RESOURCE_DIR/FFmpeg"
+)
 
-def do_sh_run(test_base: Path, output_base: Path, env: dict):
-    output_dir = output_base / 'sh'
-    output_dir.mkdir(parents=True, exist_ok=True)
-    env['OUTPUT_DIR'] = str(output_dir)
-
-    before = time.time()
-    result = run(['/bin/sh', test_base / SCRIPT_NAME], stdout=PIPE, stderr=PIPE, env=env)
-    duration = time.time() - before
-
-    with open(output_dir / "stdout", 'wb') as f:
-        f.write(result.stdout)
-
-    with open(output_dir / "stderr", 'wb') as f:
-        f.write(result.stderr)
-
-    with open(output_base / "sh_time", 'w') as f:
-        f.write(f'{duration}\n')
-
-    return result.returncode
-
-def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, env: dict, log: bool):
-    output_dir = output_base / 'hs'
-    output_dir.mkdir(parents=True, exist_ok=True)
-    env['OUTPUT_DIR'] = str(output_dir)
-
-    cmd = [str(hs_base / 'pash-spec.sh'), '--window', str(window)]
-    if log:
-        cmd.extend(['-d', '2'])
-    cmd.append(str(test_base / SCRIPT_NAME))
-    before = time.time()
-    result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
-    duration = time.time() - before
-
-    with open(output_dir / "stdout", 'wb') as f:
-        f.write(result.stdout)
-
-    with open(output_dir / "stderr", 'wb') as f:
-        f.write(result.stderr)
-
-    with open(output_base / "hs_time", 'w') as f:
-        f.write(f'{duration}\n')
-
-    return result.returncode
-
-def compare_outputs(output_base: Path):
-    sh_output_dir = output_base / 'sh'
-    hs_output_dir = output_base / 'hs'
-    error_file = output_base / 'error'
-
-    outputs_match = True
-
-    # Compare stdout
-    with open(sh_output_dir / "stdout", 'rb') as f1, open(hs_output_dir / "stdout", 'rb') as f2:
-        sh_stdout = f1.read()
-        hs_stdout = f2.read()
-
-    if sh_stdout != hs_stdout:
-        outputs_match = False
-        with open(error_file, 'w') as errf:
-            errf.write('Stdout differs between sh and hs runs.\n')
-
-    # Compare stderr
-    # with open(sh_output_dir / "stderr", 'rb') as f1, open(hs_output_dir / "stderr", 'rb') as f2:
-        # sh_stderr = f1.read()
-        # hs_stderr = f2.read()
-
-    # if sh_stderr != hs_stderr:
-    #     outputs_match = False
-    #     with open(error_file, 'a') as errf:
-    #         errf.write('Stderr differs between sh and hs runs.\n')
-
-    # Compare generated files in OUTPUT_DIR/sh and OUTPUT_DIR/hs
-    sh_files = list(sh_output_dir.glob('*'))
-    hs_files = list(hs_output_dir.glob('*'))
-
-    # Exclude stdout and stderr files from comparison
-    sh_file_names = {f.name for f in sh_files if f.name not in ['stdout', 'stderr']}
-    hs_file_names = {f.name for f in hs_files if f.name not in ['stdout', 'stderr']}
-
-    if sh_file_names != hs_file_names:
-        outputs_match = False
-        with open(error_file, 'a') as errf:
-            errf.write('Generated files differ between sh and hs runs.\n')
-            errf.write(f'Files in sh run: {sorted(sh_file_names)}\n')
-            errf.write(f'Files in hs run: {sorted(hs_file_names)}\n')
-
-    # Compare contents of files with same names
-    common_files = sh_file_names & hs_file_names
-    for fname in common_files:
-        sh_file = sh_output_dir / fname
-        hs_file = hs_output_dir / fname
-        with open(sh_file, 'rb') as f1, open(hs_file, 'rb') as f2:
-            sh_content = f1.read()
-            hs_content = f2.read()
-        if sh_content != hs_content:
-            outputs_match = False
-            with open(error_file, 'a') as errf:
-                errf.write(f'Contents of file {fname} differ between sh and hs runs.\n')
-
-    if outputs_match and error_file.exists():
-        error_file.unlink()
-
-if __name__ == '__main__':
-    args = parser.parse_args()
-    test_base = Path(__file__).parent.resolve()
-    hs_base = test_base.parent.parent.parent.parent
-    bench_base = test_base.parent
-    local_name = os.sep.join(test_base.parts[-2:])
-    output_base = hs_base / "report" / "output" / local_name
-
-    #######################
-    # SPECIFY ENV VARS HERE
-    REPO_DIR = hs_base / 'report' / 'resources' / 'dgsh' / 'FFmpeg'
-    env['REPO_DIR'] = str(REPO_DIR)
-    #######################
-
-    run_hs = False
-    run_sh = False
-    if args.target in ["hs-only", "both"]:
-        run_hs = True
-    if args.target in ["sh-only", "both"]:
-        run_sh = True
-    if not run_hs and not run_sh:
-        raise Exception("Not running anything, add --target argument")
-
-    # Cleanup previous outputs
-    cleanup_output_dir(output_base)
-
-    if run_sh:
-        sh_returncode = do_sh_run(test_base, output_base, env)
-    if run_hs:
-        hs_returncode = do_hs_run(test_base, output_base, hs_base, args.window, env, args.log == 'enable')
-    if run_sh and run_hs:
-        compare_outputs(output_base)
+# Pass arguments to the global script
+python3 "$TEST_UPPER/run_benchmark.py" \
+    --script_name "$SCRIPT_NAME" \
+    --test_base "$TEST_BASE" \
+    --hs_base "$HS_BASE" \
+    --env_vars "${ENV_VARS[@]}" \
+    "$@"

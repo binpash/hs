@@ -42,11 +42,14 @@
 INPUT_FILE="$INPUT_FILE"
 OUTPUT_DIR="$OUTPUT_DIR"
 
+mkdir -p "$OUTPUT_DIR"
+
 # Output files
 file1="$OUTPUT_DIR/file1.txt"
 file2="$OUTPUT_DIR/file2.txt"
 file3="$OUTPUT_DIR/file3.txt"
 
+cat "$INPUT_FILE" > "$file1"
 # Ensure output directory exists
 mkdir -p "$OUTPUT_DIR"
 

@@ -31,8 +31,10 @@
 #  limitations under the License.
 #
 
-## Initialize the necessary temporary files
-file1=$(mktemp)
+REPO_DIR="$REPO_DIR"
+OUTPUT_DIR="$OUTPUT_DIR"
+
+file1="$OUTPUT_DIR/file1.txt"
 
 git -C $REPO_DIR log --format="%an:%ad" --date=default >"$file1"
 echo "Authors ordered by number of commits"

@@ -32,11 +32,14 @@
 #  limitations under the License.
 #
 
-# Initialize the necessary temporary files
-file1=$(mktemp)
-file2=$(mktemp)
-file3=$(mktemp)
-file4=$(mktemp)
+INPUT_FILE="$INPUT_FILE"
+OUTPUT_DIR="$OUTPUT_DIR"
+
+# Output files
+file1="$OUTPUT_DIR/file1.txt"
+file2="$OUTPUT_DIR/file2.txt"
+file3="$OUTPUT_DIR/file3.txt"
+file4="$OUTPUT_DIR/file4.txt"
 
 cat $INPUT_FILE > $file1
 

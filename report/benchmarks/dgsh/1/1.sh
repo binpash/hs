@@ -33,8 +33,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-echo $INPUT_FILE
-file1=$(mktemp)
+
+INPUT_FILE="$INPUT_FILE"
+OUTPUT_DIR="$OUTPUT_DIR"
+
+# Output files
+file1="$OUTPUT_DIR/file1.txt"
+
 cat $INPUT_FILE >"$file1"
 printf 'File type:\t'
 file - <"$file1"

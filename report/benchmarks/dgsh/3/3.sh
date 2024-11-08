@@ -29,12 +29,14 @@
 #  limitations under the License.
 #
 
+REPO_DIR="$REPO_DIR"
+OUTPUT_DIR="$OUTPUT_DIR"
 
 ## Initialize the necessary temporary files
-file1=$(mktemp)
-file2=$(mktemp)
-file3=$(mktemp)
-file4=$(mktemp)
+file1="$OUTPUT_DIR/file1.txt"
+file2="$OUTPUT_DIR/file2.txt"
+file3="$OUTPUT_DIR/file3.txt"
+file4="$OUTPUT_DIR/file4.txt"
 
 find "$REPO_DIR" \( -name \*.c -or -name \*.h \) -type f -print0 >"$file1"
 

@@ -23,42 +23,34 @@
 #  limitations under the License.
 #
 
-# Create temporary files
-free_space_file=$(mktemp)
-file_details_file=$(mktemp)
-file_count_file=$(mktemp)
-dir_count_file=$(mktemp)
-byte_count_file=$(mktemp)
-#!/bin/sh
+
+
+REPO_DIR="$REPO_DIR"
+OUTPUT_DIR="$OUTPUT_DIR"
 
 # Create temporary files
-free_space_file=$(mktemp)
-file_details_file=$(mktemp)
-file_count_file=$(mktemp)
-dir_count_file=$(mktemp)
-byte_count_file=$(mktemp)
-
-# Base directory for the listing
+free_space_file="$OUTPUT_DIR/file1.txt"
+file_details_file="$OUTPUT_DIR/file2.txt"
+file_count_file="$OUTPUT_DIR/file3.txt"
+dir_count_file="$OUTPUT_DIR/file4.txt"
+byte_count_file="$OUTPUT_DIR/file5.txt"
 
 # Get free space
-df -h . | awk '!/Use%/{print $4}' > "$free_space_file"
+df -h $REPO_DIR | awk 'NR==2{print $4}' > "$free_space_file"
 
 # Recursively list details of files
-find . -type f -exec ls -l {} + | awk '{print $6, $7, $8, $1, sprintf("%8d", $5), $9}' > "$file_details_file"
+find $REPO_DIR -type f -exec ls -l {} + | awk '{print $6, $7, $8, $1, sprintf("%8d", $5), $9}' > "$file_details_file"
 
 # Count number of files
-find . -type f | wc -l > "$file_count_file"
+find $REPO_DIR -type f | wc -l > "$file_count_file"
 
 # Count number of directories
-find . -type d | wc -l > "$dir_count_file"
+find $REPO_DIR -type d | wc -l > "$dir_count_file"
 
 # Calculate total bytes for files
-find . -type f -exec stat --format="%s" {} + | awk '{s+=$1} END {print s}' > "$byte_count_file"
+find $REPO_DIR -type f -exec stat --format="%s" {} + | awk '{s+=$1} END {print s}' > "$byte_count_file"
 
 # Display the results
 cat "$file_details_file"
 echo "               $(cat "$file_count_file") File(s) $(cat "$byte_count_file") bytes"
 echo "               $(cat "$dir_count_file") Dir(s) $(cat "$free_space_file") bytes free"
-
-# Clean up temporary files
-rm -f "$free_space_file" "$file_details_file" "$file_count_file" "$dir_count_file" "$byte_count_file"

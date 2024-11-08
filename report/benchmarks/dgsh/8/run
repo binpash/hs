@@ -23,50 +23,106 @@ def cleanup_output_dir(output_base: Path):
     output_base.mkdir(parents=True, exist_ok=True)
 
 def do_sh_run(test_base: Path, output_base: Path, env: dict):
+    output_dir = output_base / 'sh'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    env['OUTPUT_DIR'] = str(output_dir)
+
     before = time.time()
-    result = run(['/bin/sh', test_base / SCRIPT_NAME], stdout=PIPE, env=env)
+    result = run(['/bin/sh', test_base / SCRIPT_NAME], stdout=PIPE, stderr=PIPE, env=env)
     duration = time.time() - before
+
+    with open(output_dir / "stdout", 'wb') as f:
+        f.write(result.stdout)
+
+    with open(output_dir / "stderr", 'wb') as f:
+        f.write(result.stderr)
 
     with open(output_base / "sh_time", 'w') as f:
         f.write(f'{duration}\n')
 
-    with open(output_base / "sh_output", 'wb') as f:
-        f.write(result.stdout)
-
-    return result.returncode, result.stdout
+    return result.returncode
 
 def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, env: dict, log: bool):
-    cmd = [hs_base / 'pash-spec.sh', '--window', str(window)]
+    output_dir = output_base / 'hs'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    env['OUTPUT_DIR'] = str(output_dir)
+
+    cmd = [str(hs_base / 'pash-spec.sh'), '--window', str(window)]
     if log:
         cmd.extend(['-d', '2'])
-    cmd.append(test_base / SCRIPT_NAME)
+    cmd.append(str(test_base / SCRIPT_NAME))
     before = time.time()
-    with open(output_base / 'hs_log', 'w') as log_file:
-        result = run(cmd, stdout=PIPE, stderr=log_file, env=env)
+    result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
     duration = time.time() - before
+
+    with open(output_dir / "stdout", 'wb') as f:
+        f.write(result.stdout)
+
+    with open(output_dir / "stderr", 'wb') as f:
+        f.write(result.stderr)
+
     with open(output_base / "hs_time", 'w') as f:
         f.write(f'{duration}\n')
 
-    with open(output_base / "hs_output", 'wb') as f:
-        f.write(result.stdout)
-
-    return result.returncode, result.stdout
+    return result.returncode
 
 def compare_outputs(output_base: Path):
-    sh_output_file = output_base / "sh_output"
-    hs_output_file = output_base / "hs_output"
+    sh_output_dir = output_base / 'sh'
+    hs_output_dir = output_base / 'hs'
     error_file = output_base / 'error'
 
-    with open(sh_output_file, 'rb') as f1, open(hs_output_file, 'rb') as f2:
-        sh_output = f1.read()
-        hs_output = f2.read()
+    outputs_match = True
 
-    if sh_output != hs_output:
+    # Compare stdout
+    with open(sh_output_dir / "stdout", 'rb') as f1, open(hs_output_dir / "stdout", 'rb') as f2:
+        sh_stdout = f1.read()
+        hs_stdout = f2.read()
+
+    if sh_stdout != hs_stdout:
+        outputs_match = False
         with open(error_file, 'w') as errf:
-            errf.write('Outputs differ between sh and hs runs.\n')
-    else:
-        if error_file.exists():
-            error_file.unlink()
+            errf.write('Stdout differs between sh and hs runs.\n')
+
+    # Compare stderr
+    # with open(sh_output_dir / "stderr", 'rb') as f1, open(hs_output_dir / "stderr", 'rb') as f2:
+        # sh_stderr = f1.read()
+        # hs_stderr = f2.read()
+
+    # if sh_stderr != hs_stderr:
+    #     outputs_match = False
+    #     with open(error_file, 'a') as errf:
+    #         errf.write('Stderr differs between sh and hs runs.\n')
+
+    # Compare generated files in OUTPUT_DIR/sh and OUTPUT_DIR/hs
+    sh_files = list(sh_output_dir.glob('*'))
+    hs_files = list(hs_output_dir.glob('*'))
+
+    # Exclude stdout and stderr files from comparison
+    sh_file_names = {f.name for f in sh_files if f.name not in ['stdout', 'stderr']}
+    hs_file_names = {f.name for f in hs_files if f.name not in ['stdout', 'stderr']}
+
+    if sh_file_names != hs_file_names:
+        outputs_match = False
+        with open(error_file, 'a') as errf:
+            errf.write('Generated files differ between sh and hs runs.\n')
+            errf.write(f'Files in sh run: {sorted(sh_file_names)}\n')
+            errf.write(f'Files in hs run: {sorted(hs_file_names)}\n')
+
+    # Compare contents of files with same names
+    common_files = sh_file_names & hs_file_names
+    for fname in common_files:
+        sh_file = sh_output_dir / fname
+        hs_file = hs_output_dir / fname
+        with open(sh_file, 'rb') as f1, open(hs_file, 'rb') as f2:
+            sh_content = f1.read()
+            hs_content = f2.read()
+        if sh_content != hs_content:
+            outputs_match = False
+            with open(error_file, 'a') as errf:
+                errf.write(f'Contents of file {fname} differ between sh and hs runs.\n')
+
+    if outputs_match and error_file.exists():
+        error_file.unlink()
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -79,12 +135,9 @@ if __name__ == '__main__':
     #######################
     # SPECIFY ENV VARS HERE
     INPUT_FILE = hs_base / 'report' / 'resources' / 'dgsh' / 'pg100.txt'
-    OUTPUT_DIR = output_base
     env['INPUT_FILE'] = str(INPUT_FILE)
-    env['OUTPUT_DIR'] = str(OUTPUT_DIR)
     #######################
 
-    
     run_hs = False
     run_sh = False
     if args.target in ["hs-only", "both"]:
@@ -96,13 +149,10 @@ if __name__ == '__main__':
 
     # Cleanup previous outputs
     cleanup_output_dir(output_base)
-    if OUTPUT_DIR.exists():
-        shutil.rmtree(OUTPUT_DIR)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     if run_sh:
-        sh_returncode, sh_stdout = do_sh_run(test_base, output_base, env)
+        sh_returncode = do_sh_run(test_base, output_base, env)
     if run_hs:
-        hs_returncode, hs_stdout = do_hs_run(test_base, output_base, hs_base, args.window, env, args.log == 'enable')
+        hs_returncode = do_hs_run(test_base, output_base, hs_base, args.window, env, args.log == 'enable')
     if run_sh and run_hs:
         compare_outputs(output_base)

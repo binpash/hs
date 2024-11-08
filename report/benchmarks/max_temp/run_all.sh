@@ -20,7 +20,6 @@ for window in 40 30 20 10 0
 do
     ./run --target hs-only --window $window
     rm $download_dir/*.txt
-    rm -rf /tmp/*
     mkdir -p $result_dir/$window
     mv $output_dir/* $result_dir/$window
 done

@@ -281,7 +281,7 @@ def parse_clone(pid, args, ret, ctx):
         child = -1
     if child < 0:
         return
-    arg_list = [x.strip() for x in match_arg(args)]
+    arg_list = [x.strip() for x in split_args(args)]
     flags = [arg for arg in arg_list if arg.startswith('flags=')][0]
     flags = flags[len('flags='):]
     if has_clone_fs(flags):

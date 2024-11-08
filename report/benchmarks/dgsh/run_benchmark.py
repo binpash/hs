@@ -80,6 +80,13 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
     with open(output_base / "hs_time", 'w') as f:
         f.write(f'{duration}\n')
 
+    # Create a symlink for hs_log pointing to stderr
+    hs_log_path = output_dir / "hs_log"
+    stderr_path = output_dir / "stderr"
+    if hs_log_path.exists() or hs_log_path.is_symlink():
+        hs_log_path.unlink()
+    hs_log_path.symlink_to(stderr_path)
+
     return result.returncode
 
 def compare_outputs(output_base: Path):
@@ -88,6 +95,7 @@ def compare_outputs(output_base: Path):
     error_file = output_base / 'error'
 
     outputs_match = True
+    error_messages = []
 
     print(f"Comparing outputs in {sh_output_dir} and {hs_output_dir}")
 
@@ -98,39 +106,41 @@ def compare_outputs(output_base: Path):
 
     if sh_stdout != hs_stdout:
         outputs_match = False
-        with open(error_file, 'w') as errf:
-            errf.write('Stdout differs between sh and hs runs.\n')
+        error_messages.append('Stdout differs between sh and hs runs.\n')
 
-    # Compare generated files in OUTPUT_DIR/sh and OUTPUT_DIR/hs
-    sh_files = list(sh_output_dir.glob('*'))
-    hs_files = list(hs_output_dir.glob('*'))
+    # Get lists of files in both sh and hs output directories, excluding hs_log
+    sh_file_names = {f.name for f in sh_output_dir.glob('*') if f.name not in ['stdout', 'stderr']}
+    hs_file_names = {f.name for f in hs_output_dir.glob('*') if f.name not in ['stdout', 'stderr', 'hs_log']}
 
-    # Exclude stdout and stderr files from comparison
-    sh_file_names = {f.name for f in sh_files if f.name not in ['stdout', 'stderr']}
-    hs_file_names = {f.name for f in hs_files if f.name not in ['stdout', 'stderr']}
-
+    # Check for differences in filenames
     if sh_file_names != hs_file_names:
         outputs_match = False
-        with open(error_file, 'a') as errf:
-            errf.write('Generated files differ between sh and hs runs.\n')
-            errf.write(f'Files in sh run: {sorted(sh_file_names)}\n')
-            errf.write(f'Files in hs run: {sorted(hs_file_names)}\n')
+        error_messages.append('Generated files differ between sh and hs runs.\n')
+        error_messages.append(f'Files in sh run: {sorted(sh_file_names)}\n')
+        error_messages.append(f'Files in hs run: {sorted(hs_file_names)}\n')
 
-    # Compare contents of files with same names
-    common_files = sh_file_names & hs_file_names
-    for fname in common_files:
+    # Compare contents of files with the same names, but do not take intersection
+    all_files = sh_file_names | hs_file_names
+    for fname in all_files:
         sh_file = sh_output_dir / fname
         hs_file = hs_output_dir / fname
-        with open(sh_file, 'rb') as f1, open(hs_file, 'rb') as f2:
-            sh_content = f1.read()
-            hs_content = f2.read()
-        if sh_content != hs_content:
+        if sh_file.exists() and hs_file.exists():
+            with open(sh_file, 'rb') as f1, open(hs_file, 'rb') as f2:
+                sh_content = f1.read()
+                hs_content = f2.read()
+            if sh_content != hs_content:
+                outputs_match = False
+                error_messages.append(f'Contents of file {fname} differ between sh and hs runs.\n')
+        else:
             outputs_match = False
-            with open(error_file, 'a') as errf:
-                errf.write(f'Contents of file {fname} differ between sh and hs runs.\n')
+            error_messages.append(f'File {fname} missing in {"hs" if sh_file.exists() else "sh"} run.\n')
 
-    if outputs_match and error_file.exists():
-        error_file.unlink()
+    # Write errors or create an empty error file if no errors
+    if outputs_match:
+        error_file.touch()
+    else:
+        with open(error_file, 'w') as errf:
+            errf.writelines(error_messages)
 
 def main():
     args = parse_arguments()

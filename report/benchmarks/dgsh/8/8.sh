@@ -39,9 +39,8 @@
 #
 
 # Input and Output directories from environment variables
-hs_base="$(git rev-parse --show-toplevel)"
-INPUT_FILE="$hs_base/report/resources/dgsh/pg100.txt"
-OUTPUT_DIR="$hs_base/report/output/dgsh/8"
+INPUT_FILE="$INPUT_FILE"
+OUTPUT_DIR="$OUTPUT_DIR"
 
 # Output files
 file1="$OUTPUT_DIR/file1.txt"
@@ -85,8 +84,10 @@ nchars=$(wc -c < "$file1")
 echo "Character frequency"
 sed 's/./&\n/g' < "$file1" |
 awk '{count[$1]++} END {for (i in count) print count[i], i}' |
-sort -rn > "$file3"
+sort -rn | tee "$file3"
 
 # Print relative
 echo "Relative character frequency"
-awk -v NCHARS="$nchars" '{printf "%s %s %.2f%%\n", $1, $2, $1 / NCHARS * 100}' "$file3"
+awk -v NCHARS="$nchars" 'BEGIN {
+		OFMT = "%.2g%%"}
+		{print $1, $2, $1 / NCHARS * 100}' "$file3"

@@ -38,13 +38,20 @@
 #  limitations under the License.
 #
 
-# Temporary files
-file1=$(mktemp)
-file2=$(mktemp)
-file3=$(mktemp)
-file4=$(mktemp)
+# Input and Output directories from environment variables
+hs_base="$(git rev-parse --show-toplevel)"
+INPUT_FILE="$hs_base/report/resources/dgsh/pg100.txt"
+OUTPUT_DIR="$hs_base/report/output/dgsh/8"
 
-cat $INPUT_FILE > $file1
+# Output files
+file1="$OUTPUT_DIR/file1.txt"
+file2="$OUTPUT_DIR/file2.txt"
+file3="$OUTPUT_DIR/file3.txt"
+
+# Ensure output directory exists
+mkdir -p "$OUTPUT_DIR"
+
+cat "$INPUT_FILE" > "$file1"
 
 # Split input one word per line
 tr -cs a-zA-Z '\n' < "$file1" > "$file2"
@@ -71,7 +78,6 @@ awk '{count[$1]++} END {for (i in count) print count[i], i}' < "$file2" |
 sort -rn
 
 # Store number of characters to use in awk below
-
 nchars=$(wc -c < "$file1")
 
 # Character frequency
@@ -79,10 +85,8 @@ nchars=$(wc -c < "$file1")
 echo "Character frequency"
 sed 's/./&\n/g' < "$file1" |
 awk '{count[$1]++} END {for (i in count) print count[i], i}' |
-sort -rn | tee "$file3"
+sort -rn > "$file3"
 
 # Print relative
 echo "Relative character frequency"
-awk -v NCHARS=$nchars 'BEGIN {
-		OFMT = "%.2g%%"}
-		{print $1, $2, $1 / NCHARS * 100}' "$file3"
+awk -v NCHARS="$nchars" '{printf "%s %s %.2f%%\n", $1, $2, $1 / NCHARS * 100}' "$file3"

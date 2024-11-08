@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BENCHMARK_NO="2"
+BENCHMARK_NO="full"
 
 # Base directories
 HS_BASE="$(git rev-parse --show-toplevel)"

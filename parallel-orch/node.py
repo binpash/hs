@@ -427,6 +427,14 @@ class ConcreteNode:
 
     def trace_state(self):
         state_log(f'{self.cnid}: {state_pstr(self.state)}')
+        if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING, NodeState.COMMITTED, NodeState.SPECULATED]:
+            state_log("id: {}, pre_env: {}, sandbox: {}, out_fd_dir: {}, trace: {}".format(
+                self.cnid,
+                self.exec_ctxt.pre_env_file,
+                self.exec_ctxt.sandbox_dir,
+                self.exec_ctxt.outfds,
+                self.exec_ctxt.trace_file
+            ))
 
     def kill(self):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
@@ -596,10 +604,12 @@ class ConcreteNode:
         self.spec_pre_env = spec_pre_env
         # self.spec_pre_env = ConcreteAssignmentNode.execute_assignments_and_get_most_recent_spec_pre_env(assignments)
         # Also, probably unroll here?
+        self.trace_state()
 
     def transition_from_ready_to_unsafe(self):
         assert self.state == NodeState.READY
         self.state = NodeState.UNSAFE
+        self.trace_state()
 
     def try_reset_to_ready(self, spec_pre_env: str=None):
         if self.state in [NodeState.READY, NodeState.UNSAFE]:
@@ -636,6 +646,7 @@ class ConcreteNode:
 
     def start_executing(self, env_file):
         assert self.state == NodeState.READY
+
         self.start_command(env_file)
         self.state = NodeState.EXECUTING
         self.init_trace_lines()

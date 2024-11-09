@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# xargs:
-# add `-t` for debugging
-
-cat "$INPUT_FILE" | xargs -d '\n' -I {} bash "$SCRIPT_DIR/page_per_line.sh" {} $@ > out
+for line in $(cat "$INPUT_FILE"); do
+    cat "$WIKI/$line" | tr -d "\n\r"
+done

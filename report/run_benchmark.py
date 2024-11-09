@@ -156,7 +156,10 @@ def main():
         env[key] = value
 
     # Determine output base directory with optional suffix
-    local_name = os.sep.join(test_base.parts[-2:])
+    if test_base.parts[-2] == "benchmarks":
+        local_name = test_base.parts[-1]
+    else:
+        local_name = os.sep.join(test_base.parts[-2:])
     if args.suffix:
         output_base = hs_base / "report" / "output" / f"{local_name}-{args.suffix}"
     else:

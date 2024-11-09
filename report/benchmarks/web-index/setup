@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+BENCH_TOP=${BENCH_TOP:-$(git rev-parse --show-toplevel)}
+
 set -e
 # 7zip
-pkgs='p7zip-full curl wget nodejs unzip' 
+pkgs='p7zip-full curl wget nodejs unzip npm' 
 if ! dpkg -s $pkgs >/dev/null 2>&1 ; then
   sudo apt-get install $pkgs -y
   echo 'Packages Installed'
@@ -23,3 +25,6 @@ fi
 if [ ! -d node_modules ]; then
     npm install
 fi
+
+# Call with --small to use a smaller input file
+"$BENCH_TOP/report/benchmarks/web-index/input.sh"

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BENCHMARK_NO="4"
+BENCHMARK_NO="full"
 
 # Base directories
 HS_BASE="$(git rev-parse --show-toplevel)"
@@ -13,7 +13,7 @@ SCRIPT_NAME="$BENCHMARK_NO.sh"
 
 # Environment variables
 ENV_VARS=(
-    "IN=$RESOURCE_DIR/1G-1.txt"
+    "IN=$RESOURCE_DIR"
 )
 
 # Pass arguments to the global script

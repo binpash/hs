@@ -321,9 +321,9 @@ def strip_pid(l):
         raise ValueError('expect pid')
 
 def handle_info(l):
-    if '+++' in l:
+    if l.endswith('+++'):
         return True, parse_info(l)
-    elif '---' in l:
+    elif l.endswith('---'):
         return True, None
     else:
         return False, None
@@ -390,7 +390,7 @@ def main(fname):
     ctx = Context()
     ctx.set_dir(os.getcwd())
     with open(fname) as f:
-        for l in f:
+        for i, l in enumerate(f):
             record = parse_line(l, ctx)
             if record: 
                 print(record)

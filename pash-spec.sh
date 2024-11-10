@@ -14,7 +14,7 @@ if [ -w /sys/fs/cgroup/ ]; then
     protected_mem=$(python3 -c "print(int(${total_mem}*0.75) << 10)")
     chmod 666 /sys/fs/cgroup/cgroup.procs
     chmod 666 /sys/fs/cgroup/frontier/cgroup.procs
-    if [ $(whoami) == "root"]; then
+    if [ $(whoami) == "root" ]; then
 	bash -c "echo $protected_mem > /sys/fs/cgroup/frontier/memory.min"
     fi
 fi

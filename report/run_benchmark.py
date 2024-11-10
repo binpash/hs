@@ -139,9 +139,12 @@ def compare_outputs(output_base: Path):
     # Write errors or create an empty error file if no errors
     if outputs_match:
         error_file.touch()
+        print("PASS: Outputs match")
     else:
         with open(error_file, 'w') as errf:
             errf.writelines(error_messages)
+            print("FAIL: Outputs differ")
+            
 
 def main():
     args = parse_arguments()

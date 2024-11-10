@@ -129,8 +129,7 @@ def between(s, d1, d2):
     return s.find(d1) + len(d1), s.rfind(d2)
 
 def is_absolute(path):
-    assert len(path)
-    return path[0] == '/'
+    return len(path) > 0 and path[0] == '/'
 
 def is_ret_err(ret: str):
     ret = ret.strip()

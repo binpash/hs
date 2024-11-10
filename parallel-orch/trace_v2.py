@@ -295,6 +295,10 @@ def parse_symlink(pid, args, ret, ctx):
     a0, rest = take_first_arg(args)
     return parse_w_first_path(pid, rest, ret, ctx)
 
+def parse_inotify_add_watch(pid, args, ret, ctx):
+    _, rest = take_first_arg(args)
+    return parse_r_first_path(pid, rest, ret, ctx)
+
 def parse_syscall(pid, syscall, args, ret, ctx):
     if syscall in r_first_path_set:
         return parse_r_first_path(pid, args, ret, ctx)
@@ -320,6 +324,8 @@ def parse_syscall(pid, syscall, args, ret, ctx):
         return parse_symlink(pid, args, ret, ctx)
     elif syscall == 'clone':
         return parse_clone(pid, args, ret, ctx)
+    elif syscall == 'inotify_add_watch':
+        return parse_inotify_add_watch(pid, args, ret, ctx)
     elif syscall in ignore_set:
         return []
     else:

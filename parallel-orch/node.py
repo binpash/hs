@@ -152,7 +152,8 @@ class HSLoopListContext:
 def get_loop_list_from_env(env):
     with open(env) as f:
         d = util.parse_env_string_to_dict(f.read())
-    new_loop_list = d['HS_LOOP_LIST'].split()
+    ifs = d['IFS']
+    new_loop_list = re.split(f'[{ifs}]+', d['HS_LOOP_LIST'])
     return new_loop_list
 
 @dataclass

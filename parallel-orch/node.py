@@ -15,13 +15,9 @@ import util
 import analysis
 
 STATE_LOG = '[STATE_LOG] '
-OVERHEAD_LOG = '[OVERHEAD_LOG] '
 
 def state_log(s):
     logging.info(STATE_LOG + s)
-
-def overhead_log(s):
-    logging.info(OVERHEAD_LOG + s)
 
 class NodeState(Enum):
     INIT = auto()
@@ -431,6 +427,14 @@ class ConcreteNode:
 
     def trace_state(self):
         state_log(f'{self.cnid}: {state_pstr(self.state)}')
+        if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING, NodeState.COMMITTED, NodeState.SPECULATED]:
+            state_log("id: {}, pre_env: {}, sandbox: {}, out_fd_dir: {}, trace: {}".format(
+                self.cnid,
+                self.exec_ctxt.pre_env_file,
+                self.exec_ctxt.sandbox_dir,
+                self.exec_ctxt.outfds,
+                self.exec_ctxt.trace_file
+            ))
 
     def kill(self):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
@@ -486,7 +490,7 @@ class ConcreteNode:
             "EPOCHREALTIME", "OLDPWD", "exit_code", "BASHPID", "BASH_COMMAND", "BASH_ARGV0",
             "cmd", "BASH_ARGC", "BASH_ARGV", "BASH_SUBSHELL", "LINENO", "GROUPS", "BASH_SOURCE",
             "PREVIOUS_SHELL_EC", "pash_previous_exit_status", "filter_vars_file", "pash_spec_loop_id",
-            "pash_loop_iters",
+            "pash_loop_iters", "LINES", "COLUMNS",
         ])
 
         ignore_prefix = "pash_loop_"
@@ -532,18 +536,18 @@ class ConcreteNode:
         with open(other_env, 'r') as file:
             other_env_vars = parse_env(file.read())
 
-        logging.debug(f"Comparing env files {self.exec_ctxt.pre_env_file} and {other_env}")
+        util.env_log(f"Comparing env files {self.exec_ctxt.pre_env_file} and {other_env}")
 
         conflict_exists = False
         for key in set(node_env_vars.keys()).union(other_env_vars.keys()):
             if key not in node_env_vars:
-                logging.debug(f"Variable {key} missing in node environment")
+                util.env_log(f"Variable {key} missing in node environment")
                 conflict_exists = True
             elif key not in other_env_vars:
-                logging.debug(f"Variable {key} missing in other environment")
+                util.env_log(f"Variable {key} missing in other environment")
                 conflict_exists = True
             elif node_env_vars[key] != other_env_vars[key]:
-                logging.debug(f"Variable {key} differs: node environment has {node_env_vars[key]}, other has {other_env_vars[key]}")
+                util.env_log(f"Variable {key} differs: node environment has {node_env_vars[key]}, other has {other_env_vars[key]}")
                 conflict_exists = True
 
         with open(self.exec_ctxt.pre_env_file + '.fds', 'r') as file1, open(other_env + '.fds', 'r') as file2:
@@ -559,7 +563,7 @@ class ConcreteNode:
         return conflict_exists
 
     def kill_children(self):
-        overhead_log(f"KILL|{self.cnid}")
+        util.overhead_log(f"KILL|{self.cnid}")
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         process = self.exec_ctxt.process
         try:
@@ -567,7 +571,7 @@ class ConcreteNode:
         except ProcessLookupError:
             pass
         process.wait()
-        overhead_log(f"KILL_END|{self.cnid}")
+        util.overhead_log(f"KILL_END|{self.cnid}")
 
     def commit_fd_writes(self):
         with open(self.exec_ctxt.pre_env_file + '.fds', 'r') as f:
@@ -600,10 +604,12 @@ class ConcreteNode:
         self.spec_pre_env = spec_pre_env
         # self.spec_pre_env = ConcreteAssignmentNode.execute_assignments_and_get_most_recent_spec_pre_env(assignments)
         # Also, probably unroll here?
+        self.trace_state()
 
     def transition_from_ready_to_unsafe(self):
         assert self.state == NodeState.READY
         self.state = NodeState.UNSAFE
+        self.trace_state()
 
     def try_reset_to_ready(self, spec_pre_env: str=None):
         if self.state in [NodeState.READY, NodeState.UNSAFE]:
@@ -615,7 +621,7 @@ class ConcreteNode:
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
                               NodeState.SPECULATED]
 
-        logging.info(f"Resetting node {self.id_} to ready {self.exec_id}")
+        state_log(f"Resetting node {self.id_} to ready {self.exec_id}")
         # We reset the exec id so if we receive a message
         # due to a race condition, we will ignore it.
         self.exec_id = None
@@ -623,9 +629,9 @@ class ConcreteNode:
         # TODO: make this more sophisticated
         if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
             self.kill_children()
-        overhead_log(f"DELETE_SANDBOX|{self.cnid}")
+        util.overhead_log(f"DELETE_SANDBOX|{self.cnid}")
         util.delete_sandbox(self.exec_ctxt.sandbox_dir)
-        overhead_log(f"DELETE_SANDBOX_END|{self.cnid}")
+        util.overhead_log(f"DELETE_SANDBOX_END|{self.cnid}")
         self.exec_ctxt = None
         self.exec_result = None
         if spec_pre_env is not None:
@@ -640,6 +646,7 @@ class ConcreteNode:
 
     def start_executing(self, env_file):
         assert self.state == NodeState.READY
+
         self.start_command(env_file)
         self.state = NodeState.EXECUTING
         self.init_trace_lines()
@@ -671,10 +678,10 @@ class ConcreteNode:
             self.trace_fd = None
             self.trace_ctx = None
         self.update_loop_list_context()
-        overhead_log(f"COMMIT|{self.cnid}")
+        util.overhead_log(f"COMMIT|{self.cnid}")
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
         # self.commit_fd_writes()
-        overhead_log(f"COMMIT_END|{self.cnid}")
+        util.overhead_log(f"COMMIT_END|{self.cnid}")
         # util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.fixup_fds()
         self.state = NodeState.COMMITTED
@@ -696,10 +703,10 @@ class ConcreteNode:
 
     def commit_speculated(self):
         assert self.state == NodeState.SPECULATED
-        overhead_log(f"COMMIT|{self.cnid}")
+        util.overhead_log(f"COMMIT|{self.cnid}")
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
         # self.commit_fd_writes()
-        overhead_log(f"COMMIT_END|{self.cnid}")
+        util.overhead_log(f"COMMIT_END|{self.cnid}")
         # util.delete_sandbox(self.exec_ctxt.sandbox_dir)
         self.state = NodeState.COMMITTED
         self.trace_state()

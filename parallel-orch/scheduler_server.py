@@ -83,14 +83,14 @@ class Scheduler:
     def handle_init(self, input_cmd: str):
         assert(input_cmd.startswith("Init"))
         partial_order_file = input_cmd.split(":")[1].rstrip()
-        logging.debug(f'Scheduler: Received partial_order_file: {partial_order_file}')
+        util.debug_log(f'Scheduler: Received partial_order_file: {partial_order_file}')
         self.partial_program_order = util.parse_partial_program_order_from_file(partial_order_file)
         util.debug_log(str(self.partial_program_order.hsprog))
 
     def handle_wait(self, input_cmd: str, connection):
         concrete_node_id, env_file = self.__parse_wait(input_cmd)
         self.waiting_for_response[concrete_node_id] = connection
-        logging.info(f'Scheduler: Received wait message - {concrete_node_id}.')
+        util.debug_log(f'Scheduler: Received wait message - {concrete_node_id}.')
         self.latest_env = env_file
         if self.partial_program_order.pre_handle_wait(concrete_node_id, env_file):
             self.partial_program_order.handle_wait(concrete_node_id, env_file)
@@ -112,13 +112,13 @@ class Scheduler:
             connection.close()
             self.handle_init(input_cmd)
         elif (input_cmd.startswith("Daemon Start") or input_cmd == ""):
-            logging.info(f'Scheduler: Received daemon start message.')
+            util.debug_log(f'Scheduler: Received daemon start message.')
             connection.close()
         elif (input_cmd.startswith("CommandExecComplete:")):
             node_id, exec_id, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
             connection.close()
             if self.partial_program_order.get_concrete_node(node_id).exec_id == exec_id:
-                logging.info(f'Scheduler: Received command exec complete message - {node_id}.')
+                util.debug_log(f'Scheduler: Received command exec complete message - {node_id}.')
                 self.partial_program_order.handle_complete(node_id, node_id in self.waiting_for_response, self.latest_env)
 
                 if self.partial_program_order.get_concrete_node(node_id).is_committed():
@@ -128,7 +128,7 @@ class Scheduler:
                     self.partial_program_order.finish_wait_unsafe(node_id, self.latest_env)
                     self.respond_to_wait_on_unsafe(node_id)
             else:
-                logging.info(f'Scheduler: Received command exec complete message for a killed instance, ignoring - {node_id}.')
+                util.debug_log(f'Scheduler: Received command exec complete message for a killed instance, ignoring - {node_id}.')
         elif (input_cmd.startswith("Wait")):
             self.handle_wait(input_cmd, connection)
         elif (input_cmd.startswith("Done")):
@@ -216,8 +216,7 @@ class Scheduler:
 
     def terminate_pending_commands(self):
         for node in self.partial_program_order.get_executing_normal_and_spec_nodes():
-            proc, _trace_file, _stdout, _stderr, _variable_file, _ = node.get_main_sandbox()
-            logging.debug(f'Killing: {proc}')
+            node.reset_to_ready()
             # proc.terminate()
 
 def main():

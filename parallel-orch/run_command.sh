@@ -34,7 +34,7 @@ ${RUNTIME_LIBRARY_DIR}/fd_util -f "${LATEST_ENV_FILE}.fds" -p ${STDOUT_FILE} bas
 exit_code=$?
 ## Only used for debugging
 # ls -R "${SANDBOX_DIR}/upperdir" 1>&2
-out=`head -3 $SANDBOX_DIR/upperdir/$TRACE_FILE`
+# out=`head -3 $SANDBOX_DIR/upperdir/$TRACE_FILE`
 ## Send a message to the scheduler socket
 ## Assumes "${PASH_SPEC_SCHEDULER_SOCKET}" is set and exported
 

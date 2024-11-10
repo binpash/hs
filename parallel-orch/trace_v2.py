@@ -23,6 +23,19 @@ w_fd_path_set = set(['unlinkat', 'utimensat', 'mkdirat', 'mknodat', 'fchownat', 
                      'unlinkat', 'linkat', 'fchmodat', 'utimensat'])
 ignore_set = set(['getpid', 'getcwd'])
 
+# This matches strings that do not include newline or commas, unless the commas are surrounded
+# by quotes or brackets
+arg_regex = r"((?:\"[^\"\n]*\"|<[^>\n]*>|{[^}\n]*}|[^,\n])+)"
+
+# assumption here is that we are only dealing with strings inside the parans
+def split_args(args):
+    return re.findall(arg_regex, args)
+
+def take_first_arg(args):
+    match = re.search(arg_regex, args)
+    arg = match.group(0)
+    rest = args[match.end()+len(','):]
+    return arg, rest
 
 @dataclass
 class ExitStatus:
@@ -122,6 +135,8 @@ def parse_string(s):
         return ''
     if s.endswith('...'):
         s = s[:-len('...')]
+    if not (s[0] == '"' and s[-1] == '"'):
+        breakpoint()
     assert s[0] == '"' and s[-1] == '"'
     return bytes(s[1:-1], "utf-8").decode("unicode_escape")
 
@@ -149,7 +164,7 @@ def convert_absolute(cur_dir, path):
         return os.path.join(cur_dir, path)
 
 def get_path_first_path(pid, args, ctx):
-    a = parse_string(args.split(sep=',', maxsplit=1)[0])
+    a = parse_string(split_args(args)[0])
     return convert_absolute(ctx.get_dir(pid), a)
 
 def parse_r_first_path(pid, args, ret, ctx):
@@ -169,7 +184,7 @@ def parse_w_first_path(pid, args, ret, ctx):
         return WFile(path)
 
 def get_path_at(pid, positions, args, ctx):
-    args = args.split(sep=',')
+    args = split_arg(args)
     if isinstance(positions, list):
         rets = []
         for x in args:
@@ -208,10 +223,7 @@ def handle_open_common(total_path, flags, ret):
         return [WFile(total_path), WFile(get_ret_file_path(ret))]
 
 def parse_openat(args, ret):
-    if args.count(',') <= 2:
-        dfd, path, flags = args.split(',', maxsplit=2)
-    else:
-        dfd, path, flags, _ = args.split(',', maxsplit=3)
+    dfd, path, flags, *_ = split_args(args)
     path = parse_string(path)
     if len(path) == 0:
         return []
@@ -228,11 +240,11 @@ def parse_open(pid, args, ret, ctx):
         total_path = get_path_first_path(pid, args, ctx)
     except AssertionError:
         return []
-    flags = args.split(',')[1]
+    flags = split_args(args)[1]
     return handle_open_common(total_path, flags, ret)
     
 def get_path_from_fd_path(args):
-    a0, a1, *_ = args.split(sep=',', maxsplit=2)
+    a0, a1, *_ = split_args(args)
     a1 = parse_string(a1)
     if len(a1) and a1[0] == '/':
         return a1
@@ -243,7 +255,7 @@ def get_path_from_fd_path(args):
 
 def parse_renameat(pid, args, ret, ctx):
     path_a = get_path_from_fd_path(args)
-    path_b = get_path_from_fd_path(','.join(args.split(',')[2:]))
+    path_b = get_path_from_fd_path(','.join(split_args(args)[2:]))
     return [WFile(path_a), WFile(path_b)]
 
 def parse_r_fd_path(args, ret):
@@ -268,7 +280,7 @@ def parse_clone(pid, args, ret, ctx):
         child = -1
     if child < 0:
         return
-    arg_list = [x.strip() for x in args.split(',')]
+    arg_list = [x.strip() for x in split_args(args)]
     flags = [arg for arg in arg_list if arg.startswith('flags=')][0]
     flags = flags[len('flags='):]
     if has_clone_fs(flags):
@@ -276,11 +288,11 @@ def parse_clone(pid, args, ret, ctx):
     return []
 
 def parse_symlinkat(pid, args, ret):
-    a0, rest = args.split(sep=',', maxsplit=1)
+    a0, rest = take_first_arg(args)
     return parse_w_fd_path(rest, ret)
 
 def parse_symlink(pid, args, ret, ctx):
-    a0, rest = args.split(sep=',', maxsplit=1)
+    a0, rest = take_first_arg(args)
     return parse_w_first_path(pid, rest, ret, ctx)
 
 def parse_syscall(pid, syscall, args, ret, ctx):

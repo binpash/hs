@@ -144,8 +144,7 @@ def between(s, d1, d2):
     return s.find(d1) + len(d1), s.rfind(d2)
 
 def is_absolute(path):
-    assert len(path)
-    return path[0] == '/'
+    return len(path) > 0 and path[0] == '/'
 
 def is_ret_err(ret: str):
     ret = ret.strip()
@@ -296,6 +295,10 @@ def parse_symlink(pid, args, ret, ctx):
     a0, rest = take_first_arg(args)
     return parse_w_first_path(pid, rest, ret, ctx)
 
+def parse_inotify_add_watch(pid, args, ret, ctx):
+    _, rest = take_first_arg(args)
+    return parse_r_first_path(pid, rest, ret, ctx)
+
 def parse_syscall(pid, syscall, args, ret, ctx):
     if syscall in r_first_path_set:
         return parse_r_first_path(pid, args, ret, ctx)
@@ -321,6 +324,8 @@ def parse_syscall(pid, syscall, args, ret, ctx):
         return parse_symlink(pid, args, ret, ctx)
     elif syscall == 'clone':
         return parse_clone(pid, args, ret, ctx)
+    elif syscall == 'inotify_add_watch':
+        return parse_inotify_add_watch(pid, args, ret, ctx)
     elif syscall in ignore_set:
         return []
     else:
@@ -334,9 +339,9 @@ def strip_pid(l):
         raise ValueError('expect pid')
 
 def handle_info(l):
-    if '+++' in l:
+    if l.endswith('+++'):
         return True, parse_info(l)
-    elif '---' in l:
+    elif l.endswith('---'):
         return True, None
     else:
         return False, None
@@ -403,7 +408,7 @@ def main(fname):
     ctx = Context()
     ctx.set_dir(os.getcwd())
     with open(fname) as f:
-        for l in f:
+        for i, l in enumerate(f):
             record = parse_line(l, ctx)
             if record: 
                 print(record)

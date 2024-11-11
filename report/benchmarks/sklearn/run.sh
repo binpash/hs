@@ -1,10 +1,7 @@
 #!/bin/bash
 
-PYTHON="python3"
-DIR=$PWD
-SCRIPTS=$DIR/scripts
+export TMP=$OUTPUT_DIR
 
-# Ideally, we'll move on to piping rather than writing to a file
 MODEL=$TMP/model.obj
 X=$TMP/X_train.obj
 y=$TMP/y_train.obj
@@ -26,9 +23,6 @@ echo "MAX_SQ_SUM: $MAX_SQ_SUM" >&2
 echo "WARM_COEF: $WARM_COEF" >&2
 echo "C_: $C_" >&2
 
-# TODO: Try this out on a larger dataset
-# TODO: Benchmark each phase
-
 # Generating model & samples
 $PYTHON $SCRIPTS/gen_model.py 100
 $PYTHON $SCRIPTS/gen_samples.py
@@ -42,9 +36,6 @@ $PYTHON $SCRIPTS/val_data.py $MODEL $X $y
 $PYTHON $SCRIPTS/classes.py $MODEL $y # This should return a classes with just the unique classes in y
 echo "$PYTHON $SCRIPTS/check_multiclass.py $MODEL" >&2
 multiclass=$($PYTHON $SCRIPTS/check_multiclass.py $MODEL)
-echo "------" >&2
-# TODO: Benchmark each step of the pipeline
-# Make a modified pipeline where each step writes its output to a file
 
 # Calculations functions
 $PYTHON $SCRIPTS/rownorm.py $X
@@ -66,4 +57,4 @@ $PYTHON $SCRIPTS/parallel.py $MODEL $X $y $C_ $WARM_COEF $MAX_SQ_SUM $multiclass
 $PYTHON $SCRIPTS/parallel.py $MODEL $X $y $C_ $WARM_COEF $MAX_SQ_SUM $multiclass $penalty 7
 
 $PYTHON $SCRIPTS/zip_coef.py $MODEL
-$PYTHON $SCRIPTS/adjust_coef.py $MODEL $X $multiclass $n_classes $RESULT/trained_model.obj
+$PYTHON $SCRIPTS/adjust_coef.py $MODEL $X $multiclass $n_classes $OUTPUT_DIR/trained_model.obj

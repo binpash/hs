@@ -11,6 +11,7 @@ EVENT_LOG = '[EVENT_LOG] '
 
 def event_log(s):
     logging.info(EVENT_LOG + s)
+    pass
 
 def progress_log(s):
     # logging.info(PROG_LOG + s)
@@ -22,7 +23,7 @@ def simulate_loop_iter_env(env, var, loop_list_context, loop_iters):
         val = loop_list[loop_iters[0]-1]
     except IndexError:
         return env
-    cmd = f'{var}={val}'
+    cmd = f'{var}="{val}"'
     return run_assignment_and_return_env_file(cmd, env)
 
 class PartialProgramOrder:
@@ -484,6 +485,7 @@ class PartialProgramOrder:
                 if has_pending_wait:
                     self.current_loop_list = node.loop_list_context
                     node.commit_speculated()
+                    util.good_log(f"{concrete_node_id} speculation committed")
                     self.adjust_to_be_resolved_dict()
         else:
             assert False
@@ -516,6 +518,7 @@ class PartialProgramOrder:
         
     def handle_wait(self, concrete_node_id: ConcreteNodeId, env_file: str):
         event_log(f"handle_wait {concrete_node_id}")
+        util.env_log(f"wait for {concrete_node_id}, incoming env {env_file}")
 
         if len(self.spec_exec_order) and concrete_node_id == self.spec_exec_order[0]:
             self.spec_exec_order.pop(0)
@@ -556,26 +559,27 @@ class PartialProgramOrder:
             # Check if env conflicts exist
             if node.has_env_conflict_with(env_file):
                 util.debug_log(f'prev_env: {node.exec_ctxt.pre_env_file}, real: {env_file}')
-                node.reset_to_ready()
+                node.reset_to_ready(loop_list_context=self.current_loop_list)
                 node.start_executing(env_file)
                 self.reset_speculation()
             # Optimization: It would make sense to perform the checks independently,
             # and if fs conflict, then update the run after dict.
             elif self.has_fs_deps(concrete_node_id):
-                node.reset_to_ready()
+                node.reset_to_ready(loop_list_context=self.current_loop_list)
                 node.start_executing(env_file)
             else:
                 node.commit_speculated()
+                util.good_log(f"{concrete_node_id} speculation committed")
                 self.current_loop_list = node.loop_list_context
                 self.adjust_to_be_resolved_dict()
         elif node.is_executing():
             if node.has_env_conflict_with(env_file):
-                node.reset_to_ready()
+                node.reset_to_ready(loop_list_context=self.current_loop_list)
                 node.start_executing(env_file)
                 self.reset_speculation()
         elif node.is_spec_executing():
             if node.has_env_conflict_with(env_file):
-                node.reset_to_ready()
+                node.reset_to_ready(loop_list_context=self.current_loop_list)
                 node.start_executing(env_file)
                 self.reset_speculation()
         else:

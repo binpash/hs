@@ -352,6 +352,12 @@ test_cd()
     $shell $2/test_cd.sh
 }
 
+test_ifs()
+{
+    local shell=$1
+    $shell $2/test_IFS.sh
+}
+
 test_loop()
 {
     local shell=$1
@@ -561,6 +567,7 @@ else
     run_test test_comments
     run_test test_function
     run_test test_loop
+    run_test test_ifs
     run_test test_fd_1
     run_test test_commandline_args
     run_test test_break

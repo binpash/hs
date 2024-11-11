@@ -48,17 +48,17 @@ EOF
 fi
 
 ## Initialize temporary files
-file_initial=$(mktemp)
-file_bytes=$(mktemp)
-file_hosts=$(mktemp)
-file_sorted_hosts=$(mktemp)
-file_unique_hosts=$(mktemp)
-file_domains=$(mktemp)
-file_requests=$(mktemp)
-file_times=$(mktemp)
-file_bytes=$(mktemp)
-file_day_count=$(mktemp)
-file_dates=$(mktemp)
+file_initial="$OUTPUT_DIR/file1.txt"
+file_bytes="$OUTPUT_DIR/file2.txt"
+file_hosts="$OUTPUT_DIR/file3.txt"
+file_sorted_hosts="$OUTPUT_DIR/file4.txt"
+file_unique_hosts="$OUTPUT_DIR/file5.txt"
+file_domains="$OUTPUT_DIR/file6.txt"
+file_requests="$OUTPUT_DIR/file7.txt"
+file_times="$OUTPUT_DIR/file8.txt"
+file_day_count="$OUTPUT_DIR/file9.txt"
+file_dates="$OUTPUT_DIR/file10.txt"
+
 # This file will capture a large portion of the processed data to be reused in subsequent parts
 cat $INPUT_FILE > "$file_initial"
 

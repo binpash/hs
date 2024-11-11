@@ -27,13 +27,17 @@
 #  limitations under the License.
 #
 
-## Initialize the necessary temporary files
-file1=$(mktemp)
-file2=$(mktemp)
-file3=$(mktemp)
+REPO_DIR="$REPO_DIR"
+OUTPUT_DIR="$OUTPUT_DIR"
+
+# Output files
+file1="$OUTPUT_DIR/file1.txt"
+file2="$OUTPUT_DIR/file2.txt"
+file3="$OUTPUT_DIR/file3.txt"
+
 
 # Find object files and print defined symbols
-find $INPUT -type f -name "*.o" | xargs nm > "$file1"
+find $REPO_DIR -type f -name "*.o" | xargs nm > "$file1"
 
 # List all defined (exported) symbols
 awk 'NF == 3 && $2 ~ /[A-Z]/ {print $3}' "$file1" | sort > "$file2"

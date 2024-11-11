@@ -8,12 +8,16 @@
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(realpath $(dirname $0))}
 export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
 
-sudo mkdir -p /sys/fs/cgroup/frontier
-total_mem=$(free | awk '/Mem:/ { print $2 }')
-protected_mem=$(python3 -c "print(int(${total_mem}*0.75) << 10)")
-sudo chmod 666 /sys/fs/cgroup/cgroup.procs
-sudo chmod 666 /sys/fs/cgroup/frontier/cgroup.procs
-sudo bash -c "echo $protected_mem > /sys/fs/cgroup/frontier/memory.min"
+if [ -w /sys/fs/cgroup/ ]; then
+    mkdir -p /sys/fs/cgroup/frontier
+    total_mem=$(free | awk '/Mem:/ { print $2 }')
+    protected_mem=$(python3 -c "print(int(${total_mem}*0.75) << 10)")
+    chmod 666 /sys/fs/cgroup/cgroup.procs
+    chmod 666 /sys/fs/cgroup/frontier/cgroup.procs
+    if [ $(whoami) == "root" ]; then
+	bash -c "echo $protected_mem > /sys/fs/cgroup/frontier/memory.min"
+    fi
+fi
 
 if [ -n "$PASH_TMP_DIR" ]; then
     mkdir -p $PASH_TMP_DIR/tmp/pash_spec
@@ -34,5 +38,7 @@ export PASH_SPEC_SCHEDULER_SOCKET="${PASH_SPEC_TMP_PREFIX}/scheduler_socket"
 "$PASH_TOP/pa.sh" --speculative "$@"
 EXITCODE=$?
 
-sudo rmdir /sys/fs/cgroup/frontier
+if [ -w /sys/fs/cgroup/ ]; then
+    rmdir /sys/fs/cgroup/frontier
+fi
 exit $EXITCODE

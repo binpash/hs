@@ -38,13 +38,20 @@
 #  limitations under the License.
 #
 
-# Temporary files
-file1=$(mktemp)
-file2=$(mktemp)
-file3=$(mktemp)
-file4=$(mktemp)
+# Input and Output directories from environment variables
+INPUT_FILE="$INPUT_FILE"
+OUTPUT_DIR="$OUTPUT_DIR"
 
-cat $INPUT_FILE > $file1
+# Output files
+file1="$OUTPUT_DIR/file1.txt"
+file2="$OUTPUT_DIR/file2.txt"
+file3="$OUTPUT_DIR/file3.txt"
+
+cat "$INPUT_FILE" > "$file1"
+# Ensure output directory exists
+mkdir -p "$OUTPUT_DIR"
+
+cat "$INPUT_FILE" > "$file1"
 
 # Split input one word per line
 tr -cs a-zA-Z '\n' < "$file1" > "$file2"
@@ -71,7 +78,6 @@ awk '{count[$1]++} END {for (i in count) print count[i], i}' < "$file2" |
 sort -rn
 
 # Store number of characters to use in awk below
-
 nchars=$(wc -c < "$file1")
 
 # Character frequency
@@ -83,6 +89,6 @@ sort -rn | tee "$file3"
 
 # Print relative
 echo "Relative character frequency"
-awk -v NCHARS=$nchars 'BEGIN {
+awk -v NCHARS="$nchars" 'BEGIN {
 		OFMT = "%.2g%%"}
 		{print $1, $2, $1 / NCHARS * 100}' "$file3"

@@ -16,8 +16,9 @@ def run_benchmarks(window, target, log):
     for entry in os.scandir(script_dir):
         if entry.is_dir():
             run_script_path = os.path.join(entry.path, "run")
-            if os.path.isfile(run_script_path):
-                cmd = ["python3", run_script_path]
+            if os.path.isfile(run_script_path) and os.access(run_script_path, os.X_OK):
+                # Construct command with arguments
+                cmd = [run_script_path]
                 if window is not None:
                     cmd.extend(["--window", str(window)])
                 if target is not None:
@@ -25,7 +26,9 @@ def run_benchmarks(window, target, log):
                 if log is not None:
                     cmd.extend(["--log", log])
 
+                # Execute the command
                 try:
+                    print(f"> Running benchmark {entry.path}")
                     subprocess.run(cmd, check=True)
                     print(f"Successfully ran benchmark in {entry.path}")
                 except subprocess.CalledProcessError as e:

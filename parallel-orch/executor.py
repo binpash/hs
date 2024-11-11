@@ -72,7 +72,7 @@ def run_trace_sandboxed(args: ExecArgs):
 def commit_workspace(workspace_path):
     ## Call commit-sandbox.sh to commit the uncommitted sandbox to the main workspace
     run_script = f'{config.PASH_SPEC_TOP}/deps/try/try'
-    args = ["/bin/bash", run_script, "commit", workspace_path]
+    args = ["/bin/bash", run_script, "-i", "/run/mount", "commit", workspace_path]
     process = subprocess.check_output(args)
     return process
 

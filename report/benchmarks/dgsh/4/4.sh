@@ -2,8 +2,10 @@
 #!/bin/bash
 
 ## Initialize the necessary temporary files
-file1=$(mktemp)
-file2=$(mktemp)
+REPO_DIR="$REPO_DIR"
+OUTPUT_DIR="$OUTPUT_DIR"
+file1="$OUTPUT_DIR/file1.txt"
+file2="$OUTPUT_DIR/file2.txt"
 
 # Create list of files
 find "$REPO_DIR" -type f |

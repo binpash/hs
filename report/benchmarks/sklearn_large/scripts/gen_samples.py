@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import os
 
-X, y = datasets.fetch_kddcup99(data_home="inputs", percent10=False, return_X_y=True, as_frame=True, download_if_missing=True)
+X, y = datasets.fetch_kddcup99(data_home=f"{os.environ.get('DATA')}", percent10=False, return_X_y=True, as_frame=True, download_if_missing=True)
 X = pd.DataFrame(X).drop(columns=["protocol_type", "service", "flag"]).astype(float)
 X[X.columns] = MinMaxScaler().fit_transform(X[X.columns])
 X = X.to_numpy()

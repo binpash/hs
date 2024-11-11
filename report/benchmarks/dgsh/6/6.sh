@@ -31,15 +31,15 @@
 #  limitations under the License.
 #
 
-# Consitent sorting across machines
+INPUT_FILE="$INPUT_FILE"
+OUTPUT_DIR="$OUTPUT_DIR"
 
-## Initialize the necessary temporary files
-file1=$(mktemp)
-file2=$(mktemp)
-file3=$(mktemp)
-file4=$(mktemp)
-file5=$(mktemp)
-
+# Output files
+file1="$OUTPUT_DIR/file1.txt"
+file2="$OUTPUT_DIR/file2.txt"
+file3="$OUTPUT_DIR/file3.txt"
+file4="$OUTPUT_DIR/file4.txt"
+file5="$OUTPUT_DIR/file5.txt"
 cat $INPUT_FILE > $file1
 
 # Stream input from file and split input one word per line

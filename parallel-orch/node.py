@@ -17,7 +17,8 @@ import analysis
 STATE_LOG = '[STATE_LOG] '
 
 def state_log(s):
-    logging.info(STATE_LOG + s)
+    # logging.info(STATE_LOG + s)
+    pass
 
 class NodeState(Enum):
     INIT = auto()
@@ -152,7 +153,14 @@ class HSLoopListContext:
 def get_loop_list_from_env(env):
     with open(env) as f:
         d = util.parse_env_string_to_dict(f.read())
-    new_loop_list = d['HS_LOOP_LIST'].split()
+    if 'IFS' in d:
+        ifs = d['IFS']
+    else:
+        ifs = ' \t\n'
+    ifs_ws = ' ' if ' ' in ifs else ''
+    ifs_ws += '\t' if '\t' in ifs else ''
+    ifs_ws += '\n' if '\n' in ifs else ''
+    new_loop_list = re.split(f'[{ifs_ws}]*[{ifs}][{ifs_ws}]*', d['HS_LOOP_LIST'].strip(ifs_ws))
     return new_loop_list
 
 @dataclass
@@ -275,6 +283,10 @@ class ConcreteNode:
     # into COMMITTED or SPEC_F
     loop_list_context: HSLoopListContext
 
+    # read-only, the value of initial loop_list_context
+    # used when reset_to_ready
+    init_loop_list_context: HSLoopListContext
+    
     spec_pre_env: str
 
     # Exists when node is in READY
@@ -300,6 +312,7 @@ class ConcreteNode:
         self.exec_id = None
         self.spec_pre_env = spec_pre_env
         self.loop_list_context = loop_list_context
+        self.init_loop_list_context = loop_list_context
         self.trace_fd = None
         self.init_trace_lines()
 
@@ -404,11 +417,13 @@ class ConcreteNode:
         return not analysis.safe_to_execute(self.asts, {})
 
     def update_loop_list_context(self):
-        if self.abstract_node.is_loop_list_change():
+        if self.abstract_node.is_loop_list_push():
             real_env_path = util.sandboxed_path(self.exec_ctxt.sandbox_dir,
                                                 self.exec_ctxt.post_env_file)
             new_loop_list = get_loop_list_from_env(real_env_path)
             self.loop_list_context = self.loop_list_context.push(new_loop_list)
+        elif self.abstract_node.is_loop_list_pop():
+            self.loop_list_context = self.loop_list_context.pop()
 
     def guess_post_env(self):
         if self.command_unsafe() or self.is_unsafe():
@@ -462,8 +477,6 @@ class ConcreteNode:
         stop_parse = len(self.trace_lines)-1
         read_set, write_set = trace_v2.parse_and_gather_cmd_rw_sets(
             self.trace_lines[start_parse:stop_parse], self.trace_ctx)
-        # if self.cnid == ConcreteNodeId.parse("4@"):
-        #     breakpoint()
         self.update_rw_set(read_set, write_set)
 
     def get_rw_set(self):
@@ -611,13 +624,13 @@ class ConcreteNode:
         self.state = NodeState.UNSAFE
         self.trace_state()
 
-    def try_reset_to_ready(self, spec_pre_env: str=None):
+    def try_reset_to_ready(self, spec_pre_env: str=None, loop_list_context=None):
         if self.state in [NodeState.READY, NodeState.UNSAFE]:
             return
         else:
-            self.reset_to_ready(spec_pre_env)
+            self.reset_to_ready(spec_pre_env, loop_list_context)
 
-    def reset_to_ready(self, spec_pre_env: str = None):
+    def reset_to_ready(self, spec_pre_env: str = None, loop_list_context: HSLoopListContext = None):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING,
                               NodeState.SPECULATED]
 
@@ -634,6 +647,9 @@ class ConcreteNode:
         util.overhead_log(f"DELETE_SANDBOX_END|{self.cnid}")
         self.exec_ctxt = None
         self.exec_result = None
+        if loop_list_context is not None:
+            self.init_loop_list_context = loop_list_context
+        self.loop_list_context = self.init_loop_list_context
         if spec_pre_env is not None:
             self.spec_pre_env = spec_pre_env
         self.init_trace_lines()

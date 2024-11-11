@@ -45,11 +45,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     test_base = Path(__file__).parent.resolve()
     hs_base = test_base.parent.parent.parent
-    print(f'Running {test_base}')
-    print(f'Running {hs_base}')
     #######################
     # SPECIFY ENV VARS HERE
     env['INPUT'] = "800000"
+    env['BENCH_DIR'] = str(test_base)
     #######################
 
     bench_base = test_base.parent

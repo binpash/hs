@@ -6,8 +6,8 @@ benchmark_dir="$PASH_SPEC_TOP/report/benchmarks/sklearn"
 
 cd "$(realpath $(dirname "$0"))"
 mkdir -p "$PASH_SPEC_TOP/report/resources/sklearn"
-mkdir -p "$PASH_SPEC_TOP/report/output/sklearn"
+mkdir -p "$PASH_SPEC_TOP/report/output/sklearn/sh"
+mkdir -p "$PASH_SPEC_TOP/report/output/sklearn/hs"
 
-# Currently just dumped the entire dataset, but ideally we actually download it
 
 pip install -r requirements.txt

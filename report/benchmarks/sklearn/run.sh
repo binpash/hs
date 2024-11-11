@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Ideally, we'll move on to piping rather than writing to a file
+export TMP=$OUTPUT_DIR
+
 MODEL=$TMP/model.obj
 X=$TMP/X_train.obj
 y=$TMP/y_train.obj

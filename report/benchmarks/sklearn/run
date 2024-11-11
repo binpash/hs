@@ -10,7 +10,6 @@ RESOURCE_DIR="$HS_BASE/report/resources/sklearn"
 SCRIPT_NAME="run.sh"
 
 ENV_VARS=(
-    "TMP=$HS_BASE/report/output/sklearn"
     "OUTPUT_DIR=$HS_BASE/report/output/sklearn"
     "SCRIPTS=$TEST_BASE/scripts"
     "PYTHON=python3"

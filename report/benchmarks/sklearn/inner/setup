@@ -9,5 +9,10 @@ mkdir -p "$PASH_SPEC_TOP/report/resources/sklearn"
 mkdir -p "$PASH_SPEC_TOP/report/output/sklearn/sh"
 mkdir -p "$PASH_SPEC_TOP/report/output/sklearn/hs"
 
-
-pip install -r requirements.txt
+apt update
+apt install -y python3-joblib
+apt install -y python3-numpy
+apt install -y python3-scikit-learn
+apt install -y python3-scipy
+apt install -y python3-threadpoolctl
+# pip install -r requirements.txt

@@ -16,6 +16,7 @@ from config import PASH_SPEC_TMP_PREFIX
 
 DEBUG_LOG = '[DEBUG_LOG] '
 ENV_LOG = '[ENV_LOG] '
+GOOD_LOG = '[GOOD_LOG] '
 
 def debug_log(s):
     logging.info(DEBUG_LOG + s)
@@ -26,6 +27,9 @@ def env_log(s):
 def overhead_log(s):
     # logging.debug(DEBUG_LOG + s)
     pass
+
+def good_log(s):
+    logging.info(GOOD_LOG + s)
 
 def ptempfile(prefix=''):
     fd, name = tempfile.mkstemp(dir=config.PASH_SPEC_TMP_PREFIX, prefix=prefix+'_')

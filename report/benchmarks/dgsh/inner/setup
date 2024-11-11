@@ -61,22 +61,22 @@ if [[ ! -d FFmpeg ]]; then
     git clone https://github.com/FFmpeg/FFmpeg.git
 fi
 
-pushd $benchmark_dir/9
-docker build . -t hs_benchmark_ffmpeg_build
-popd
+# pushd $benchmark_dir/9
+# docker build . -t hs_benchmark_ffmpeg_build
+# popd
 
-docker run --rm -v ./FFmpeg:/root/FFmpeg hs_benchmark_ffmpeg_build /bin/bash -c 'cd FFmpeg; ./configure \
-  --enable-gpl \
-  --enable-nonfree \
-  --enable-libx264 \
-  --enable-libx265 \
-  --enable-libvpx \
-  --enable-libfdk-aac \
-  --enable-libopus \
-  --enable-libass \
-  --enable-libfreetype \
-  --enable-libmp3lame \
-  --enable-libxvid \
-  --enable-libvorbis \
-  --enable-libtheora; make -j$(nproc)'
+# docker run --rm -v ./FFmpeg:/root/FFmpeg hs_benchmark_ffmpeg_build /bin/bash -c 'cd FFmpeg; ./configure \
+#   --enable-gpl \
+#   --enable-nonfree \
+#   --enable-libx264 \
+#   --enable-libx265 \
+#   --enable-libvpx \
+#   --enable-libfdk-aac \
+#   --enable-libopus \
+#   --enable-libass \
+#   --enable-libfreetype \
+#   --enable-libmp3lame \
+#   --enable-libxvid \
+#   --enable-libvorbis \
+#   --enable-libtheora; make -j$(nproc)'
 

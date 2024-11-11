@@ -2,10 +2,9 @@
 
 export PATH=$PATH:$HOME/.local/bin
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
-
 export BIODIR="${PASH_SPEC_TOP}/report/benchmarks/bio4"
 
-download_dir="${PASH_SPEC_TOP}/report/benchmarks/bio4/input"
+download_dir="${PASH_SPEC_TOP}/report/resources/bio4/"
 mkdir -p "$download_dir"
 # INPUT_LIST=$1
 INPUT_LIST="input_full.txt"

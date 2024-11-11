@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -e # dliu
-
 cd /root/TERA-Seq_manuscript/samples # dliu
 
 source ../PARAMS.sh
@@ -16,9 +14,7 @@ for i in "${samples[@]}"; do
     sdir=$SAMPLE_DIR/$i
     echo " Working for" $i
 
-    mkdir -p $sdir/logfiles || true # dliu
-    mkdir $sdir/align || true # dliu
-    mkdir $sdir/db || true # dliu
+    mkdir -p $sdir/{logfiles,align,db}
 done
 
 echo ">>> CHECK FASTQ <<<"
@@ -32,8 +28,8 @@ for i in "${samples[@]}"; do
     else
         echo "$sdir/fastq/reads.1.fastq.gz does not exist, trying to download."
         download=$(cat README.md | grep download | grep $i | cut -d '|' -f 6 | cut -d '(' -f2  | sed 's/)//' | sed 's#https://##')
-        mkdir $sdir/fastq || true # dliu
-        wget $download --progress=bar:force -O $sdir/fastq/reads.1.fastq.gz
+        mkdir -p $sdir/fastq
+        curl -o $sdir/fastq/reads.1.fastq.gz $download
     fi
 done
 

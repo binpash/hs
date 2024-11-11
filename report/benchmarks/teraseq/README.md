@@ -23,3 +23,5 @@ Manual:
 2. `docker build -t teraseq-data .`
 3. `cd ../../..`
 4. `docker build -t teraseq-hs . -f report/benchmarks/teraseq/Dockerfile.hs`
+
+We build the hs image on top of the data image to allow for quick iteration on our tool.

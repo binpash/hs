@@ -10,8 +10,8 @@ download_dir="$PASH_SPEC_TOP/report/resources/max_temp" # Adjust the path as nec
 # ftp_server="ftp://ftp.ncdc.noaa.gov/pub/data/noaa"
 # ftp_dir="./"
 
-IN=${IN:-'https://atlas-group.cs.brown.edu/data/noaa/'}
-fetch=${fetch:-"curl -s"}
+IN=${IN:-'https://atlas.cs.brown.edu/data/noaa/'}
+fetch=${fetch:-"curl -s -k"}
 
 # Start and end dates
 start_year=${1:-2000}
@@ -35,5 +35,5 @@ xargs -I {} -P 10 -n1 sh -c '
   year=$(echo "$filename" | grep -oP "\d{4}(?=\.gz$)")
   target_dir="'$download_dir'/$year"
   mkdir -p "$target_dir"
-  curl -s -o "${target_dir}/${filename}" "{}"
+  curl -s -k -o "${target_dir}/${filename}" "{}"
 '

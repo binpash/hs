@@ -1,5 +1,5 @@
 #!/bin/bash
 
-base="$(dirname "${BASH_SOURCE[0]}"
+base=$(dirname "${BASH_SOURCE[0]}")
 cd $base
-docker built . -t hs/max_temp
+docker build . -t hs/max_temp

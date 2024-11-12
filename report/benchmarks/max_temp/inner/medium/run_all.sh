@@ -2,9 +2,9 @@
 
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
 
-output_dir="$PASH_SPEC_TOP/report/output/max_temp" # Adjust the path as necessary
+output_dir="$PASH_SPEC_TOP/report/output/max_temp/medium" # Adjust the path as necessary
 download_dir="$PASH_SPEC_TOP/report/resources/max_temp"
-result_dir="$PASH_SPEC_TOP/results/max_temp"
+result_dir="$PASH_SPEC_TOP/results/max_temp/medium"
 echo $output_dir
 echo $download_dir
 echo $result_dir

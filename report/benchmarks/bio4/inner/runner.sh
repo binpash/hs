@@ -3,7 +3,7 @@
 export PATH=$PATH:$HOME/.local/bin
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
 export BIODIR="${PASH_SPEC_TOP}/report/benchmarks/bio4"
-export OUTBASE="${PASH_SPEC_TOP}/report/output/bio4-$SIZE"
+export OUTBASE="${PASH_SPEC_TOP}/report/output/bio4/$SIZE"
 export INPUT_LIST=$SIZE/list
 
 cd "$BIODIR"

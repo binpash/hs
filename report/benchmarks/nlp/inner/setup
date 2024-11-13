@@ -2,8 +2,6 @@
 
 SPEC_TOP="$(git rev-parse --show-toplevel)"
 RESOURCE_DIR="${SPEC_TOP}/report/resources/nlp/"
-INFLATE_SCRIPT="${SPEC_TOP}/report/util/inflate.sh"
-INFLATE_SIZE="10M"
 
 mkdir -p $RESOURCE_DIR
 cd $RESOURCE_DIR
@@ -49,22 +47,3 @@ if [ ! -e ./pg-small ]; then
         wget --no-check-certificate -q "$full_url"
     done
 fi
-
-# Inflate the files
-cd $RESOURCE_DIR
-for file in *; do
-    if [ -f $file ] && [ "$file" != "book_links.txt" ]; then
-        echo "Inflating $file"
-        $INFLATE_SCRIPT $file $INFLATE_SIZE 2>/dev/null
-        mv "$INFLATE_SIZE-$file" "$file"
-    fi
-done
-
-cd $RESOURCE_DIR/pg
-for file in *; do
-    if [ -f $file ]; then
-        echo "Inflating $file"
-        $INFLATE_SCRIPT $file $INFLATE_SIZE 2>/dev/null
-        mv "$INFLATE_SIZE-$file" "$file"
-    fi
-done

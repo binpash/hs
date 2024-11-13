@@ -5,8 +5,8 @@ HS_BASE="$(git rev-parse --show-toplevel)"
 TEST_BASE="$HS_BASE/report/benchmarks/max_temp/medium"
 TEST_UPPER="$HS_BASE/report"
 RESOURCE_DIR="$HS_BASE/report/resources/max_temp"
-FROM='2000'
-TO='2010'
+FROM='1980'
+TO='1989'
 
 # Script to run
 SCRIPT_NAME="max_temp.sh"

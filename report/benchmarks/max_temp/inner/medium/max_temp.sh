@@ -1,5 +1,4 @@
 #!/bin/bash
-PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
 
 ## Processing files and data per year
 for year in $(seq $FROM $TO); do

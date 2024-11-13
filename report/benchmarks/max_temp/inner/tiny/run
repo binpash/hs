@@ -2,7 +2,7 @@
 
 # Base directories
 HS_BASE="$(git rev-parse --show-toplevel)"
-TEST_BASE="$HS_BASE/report/benchmarks/max_temp/inner/tiny"
+TEST_BASE="$HS_BASE/report/benchmarks/max_temp/tiny"
 TEST_UPPER="$HS_BASE/report"
 RESOURCE_DIR="$HS_BASE/report/resources/max_temp"
 FROM='1930'

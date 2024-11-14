@@ -1,12 +1,12 @@
 #!/bin/bash
 
-$OUTPUT_DIR="$OUTPUT_DIR"
+OUTPUT_DIR="$OUTPUT_DIR"
 extract_text="$SCRIPT_DIR/extract_text.sh"
 bigrams_aux="$SCRIPT_DIR/bigrams_aux.sh"
 trigrams_aux="$SCRIPT_DIR/trigrams_aux.sh"
 
 cat $INPUT_FILE |
-  sed "s#^#$WIKI/#" | head |
+  sed "s#^#$WIKI/#" |
   $extract_text |
   tr -cs A-Za-z '\n' |
   tr A-Z a-z |

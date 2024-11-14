@@ -15,7 +15,6 @@ ENV_VARS=(
     "INPUT_FILE=$RESOURCE_DIR/index100m.txt"
     "WEB_INDEX_DIR=$TEST_BASE/.."
     "SCRIPT_DIR=$TEST_BASE"
-    "OUTPUT_DIR=$TEST_BASE/output"
     "WIKI=$RESOURCE_DIR/articles100m"
 )
 

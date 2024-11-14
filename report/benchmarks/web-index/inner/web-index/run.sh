@@ -1,6 +1,6 @@
 #!/bin/bash
 
-$OUTPUT_DIR="$OUTPUT_DIR"
+OUTPUT_DIR="$OUTPUT_DIR"
 extract_text="$SCRIPT_DIR/extract_text.sh"
 bigrams_aux="$SCRIPT_DIR/bigrams_aux.sh"
 trigrams_aux="$SCRIPT_DIR/trigrams_aux.sh"

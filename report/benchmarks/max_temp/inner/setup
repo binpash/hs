@@ -10,7 +10,7 @@ download_dir="$PASH_SPEC_TOP/report/resources/max_temp"
 mkdir -p "$download_dir"
 
 # Base URL for downloading the tar file
-IN=${IN:-'https://atlas.cs.brown.edu/data/noaa/'}
+IN=${IN:-'https://atlas-group.cs.brown.edu/data/noaa/'}
 fetch=${fetch:-"curl -s -k"}
 
 # Function to fetch data for a specified year range

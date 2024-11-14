@@ -24,7 +24,7 @@ echo "Preparing unix_50 datasets..."
 inflate="python3 $PASH_SPEC_TOP/report/util/inflate.py"
 
 echo "Downloading unix_50 datasets..."
-wget --no-check-certificate -r -np -nH --cut-dirs=3 -R "index.html*, robots.txt" https://atlas.cs.brown.edu/data/unix50/
+wget -r -np -nH --cut-dirs=3 -R "index.html*, robots.txt" https://atlas-group.cs.brown.edu/data/unix50/
 
 for i in ${inputs[@]}; do
     $inflate "$i.txt" 10M

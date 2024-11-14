@@ -28,5 +28,4 @@ if [ ! -d node_modules ]; then
     npm install
 fi
 
-# Call with --small to use a smaller input file
 "$BENCH_TOP/report/benchmarks/web-index/input.sh"

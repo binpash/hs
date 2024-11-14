@@ -44,11 +44,11 @@ echo -n 'FNAMELEN: '
 
 tr \\0 \\n <"$file1" |
 sed 's|^.*/||' |
-awk '{s += length($1); n++} END {
+awk "{s += length(\$1); n++} END {
     if (n>0)
         print s / n;
     else
-        print 0; }'
+        print 0; }"
 
 xargs -0 /bin/cat <"$file1" >"$file2"
 

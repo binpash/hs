@@ -2,7 +2,7 @@
 
 # These need to be set up:
 BIODIR="${BIODIR:-$PASH_SPEC_TOP/report/benchmarks/bio4}"
-IN="${IN:-$BIODIR/input}"
+IN="${IN:-$BIODIR/../../resources/bio4}"
 IN_NAME=$1
 OUT="${OUT:-$BIODIR/output}"
 

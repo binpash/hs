@@ -1,25 +1,25 @@
 #!/bin/bash
 IN=$IN
-IN1=$IN/1.txt
-IN2=$IN/2.txt
-IN3=$IN/3.txt
-IN4=$IN/4.txt
-IN5=$IN/5.txt
-IN6=$IN/6.txt
-IN7=$IN/7.txt
-IN8=$IN/8.txt
-IN91=$IN/9.1.txt
-IN92=$IN/9.2.txt
-IN93=$IN/9.3.txt
-IN94=$IN/9.4.txt
-IN95=$IN/9.5.txt
-IN96=$IN/9.6.txt
-IN97=$IN/9.7.txt
-IN98=$IN/9.8.txt
-IN99=$IN/9.9.txt
-IN10=$IN/10.txt
-IN11=$IN/11.txt
-IN12=$IN/12.txt
+IN1=$IN/100M-1.txt
+IN2=$IN/100M-2.txt
+IN3=$IN/100M-3.txt
+IN4=$IN/100M-4.txt
+IN5=$IN/100M-5.txt
+IN6=$IN/100M-6.txt
+IN7=$IN/100M-7.txt
+IN8=$IN/100M-8.txt
+IN91=$IN/100M-9.1.txt
+IN92=$IN/100M-9.2.txt
+IN93=$IN/100M-9.3.txt
+IN94=$IN/100M-9.4.txt
+IN95=$IN/100M-9.5.txt
+IN96=$IN/100M-9.6.txt
+IN97=$IN/100M-9.7.txt
+IN98=$IN/100M-9.8.txt
+IN99=$IN/100M-9.9.txt
+IN10=$IN/100M-10.txt
+IN11=$IN/100M-11.txt
+IN12=$IN/100M-12.txt
 
 #1.sh 1.0: extract the last name
 cat $IN1 | cut -d ' ' -f 2

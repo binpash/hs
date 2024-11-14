@@ -5,33 +5,22 @@ RESOURCES_DIR=${RESOURCES_DIR:-$BENCH_TOP/report/resources/web-index/}
 
 mkdir -p $RESOURCES_DIR
 
-if [ "$1" = "--small" ]; then
-	if [[ ! -f "$RESOURCES_DIR/wikipedia-small.tar.gz" ]]; then
-		# 1000 entries
-		echo "Downloading the small dataset."
-		wget --no-check-certificate -O $RESOURCES_DIR/wikipedia-small.tar.gz https://atlas.cs.brown.edu/data/wikipedia/input_small/articles.tar.gz
-		wget --no-check-certificate -O $RESOURCES_DIR/index_small.txt https://atlas.cs.brown.edu/data/wikipedia/input_small/index.txt 
-	fi
-else
-	if [[ ! -f "$RESOURCES_DIR/wikipedia.tar.gz" ]]; then
-		# full dataset
-		echo "Downloading the full dataset. Caution!! Extracted size >200GB"
-		wget --no-check-certificate -O $RESOURCES_DIR/wikipedia.tar.gz https://atlas.cs.brown.edu/data/wikipedia/input/articles.tar.gz
-		wget --no-check-certificate -O $RESOURCES_DIR/index.txt https://atlas.cs.brown.edu/data/wikipedia/input/index.txt
-	fi
-fi
+# echo "Downloading the full dataset. Caution!! Extracted size >200GB"
+# wget --no-check-certificate -O $RESOURCES_DIR/wikipedia.tar.gz https://atlas.cs.brown.edu/data/wikipedia/input/articles.tar.gz
+# wget --no-check-certificate -O $RESOURCES_DIR/index.txt https://atlas.cs.brown.edu/data/wikipedia/input/index.txt
+# tar -xf $RESOURCES_DIR/wikipedia.tar.gz -C $RESOURCES_DIR
 
-if [[ ! -d "$RESOURCES_DIR/articles" ]]; then
-	if [ "$1" = "--small" ]; then
-		# 1000 entries
-		echo "Extracting the small dataset."
-		tar -xf $RESOURCES_DIR/wikipedia-small.tar.gz -C $RESOURCES_DIR
-	else
-		# full dataset
-		echo "Extracting the full dataset. Caution!! Extracted size >200GB"
-		tar -xf $RESOURCES_DIR/wikipedia.tar.gz -C $RESOURCES_DIR
-	fi
-else
-	echo "Did not extract data because of existing data."
-	echo "Please rm -r $RESOURCES_DIR/articles manually and rerun this script."
-fi
+echo "Downloading the 100MB dataset"
+wget --no-check-certificate -O $RESOURCES_DIR/wikipedia100m.tar.gz https://atlas.cs.brown.edu/data/wikipedia/wikipedia100m.tar.gz
+wget --no-check-certificate -O $RESOURCES_DIR/index100m.txt https://atlas.cs.brown.edu/data/wikipedia/index100m.txt
+tar -xf $RESOURCES_DIR/wikipedia100m.tar.gz -C $RESOURCES_DIR
+
+echo "Downloading the 1G dataset"
+wget --no-check-certificate -O $RESOURCES_DIR/wikipedia1g.tar.gz https://atlas.cs.brown.edu/data/wikipedia/wikipedia1g.tar.gz
+wget --no-check-certificate -O $RESOURCES_DIR/index1g.txt https://atlas.cs.brown.edu/data/wikipedia/index1g.txt
+tar -xf $RESOURCES_DIR/wikipedia1g.tar.gz -C $RESOURCES_DIR
+
+echo "Downloading the 10G dataset"
+wget --no-check-certificate -O $RESOURCES_DIR/wikipedia10g.tar.gz https://atlas.cs.brown.edu/data/wikipedia/wikipedia10g.tar.gz
+wget --no-check-certificate -O $RESOURCES_DIR/index10g.txt https://atlas.cs.brown.edu/data/wikipedia/index10g.txt
+tar -xf $RESOURCES_DIR/wikipedia10g.tar.gz -C $RESOURCES_DIR

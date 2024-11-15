@@ -1,19 +1,18 @@
 #!/bin/bash
 
-BENCHMARK_NO="17"
-
 # Base directories
 HS_BASE="$(git rev-parse --show-toplevel)"
-TEST_BASE="$HS_BASE/report/benchmarks/dgsh/$BENCHMARK_NO"
+TEST_BASE="$HS_BASE/report/benchmarks/sklearn_large"
 TEST_UPPER="$HS_BASE/report"
-RESOURCE_DIR="$HS_BASE/report/resources/dgsh"
+RESOURCE_DIR="$HS_BASE/report/resources/sklearn_large"
 
 # Script to run
-SCRIPT_NAME="$BENCHMARK_NO.sh"
+SCRIPT_NAME="run.sh"
 
-# Environment variables
 ENV_VARS=(
-    "INPUT_FILE=$RESOURCE_DIR/goods_classification.csv"
+    "OUTPUT_DIR=$HS_BASE/report/output/sklearn_large"
+    "SCRIPTS=$TEST_BASE/scripts"
+    "PYTHON=python3"
 )
 
 # Pass arguments to the global script

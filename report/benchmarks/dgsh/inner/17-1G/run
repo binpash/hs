@@ -13,7 +13,7 @@ SCRIPT_NAME="$BENCHMARK_NO.sh"
 
 # Environment variables
 ENV_VARS=(
-    "INPUT_FILE=$RESOURCE_DIR/1G-goods-classification.csv"
+    "INPUT_FILE=$RESOURCE_DIR/1G-goods_classification.csv"
 )
 
 # Pass arguments to the global script

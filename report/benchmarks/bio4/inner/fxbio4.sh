@@ -32,8 +32,7 @@ do
     samtools index -b "${OUT}/$sample"_corrected.bam
 
     ### Isolating each relevant chromosome based on Gene_locs
-    chromosomes=$(cut -f 2 "$BIODIR"/Gene_locs.txt | sort | uniq)
-    for chr in $chromosomes; do
+    for chr in $(cut -f 2 "$BIODIR"/Gene_locs.txt | sort | uniq); do
 	    echo "Isolating Chromosome $chr from sample ${OUT}/$sample"
 	    samtools view -b "${OUT}/$sample"_corrected.bam chr"$chr" > "${OUT}/$pop"_"$sample"_"$chr".bam
 	    echo "Indexing Sample $pop'_'${OUT}/$sample"

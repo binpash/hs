@@ -484,6 +484,7 @@ class ConcreteNode:
         #     self.gather_fs_actions()
         return self.rwset
 
+    fd_line = re.compile(r'(\d+) ([rwd]) (\d+) (.+)')
     def has_env_conflict_with(self, other_env) -> bool:
         # Early return if paths are the same
         if self.exec_ctxt.pre_env_file == other_env:
@@ -566,12 +567,20 @@ class ConcreteNode:
         with open(self.exec_ctxt.pre_env_file + '.fds', 'r') as file1, open(other_env + '.fds', 'r') as file2:
             # Since we assume stdin, stdout, and stderr don't change during the script
             # We are omitting them from the comparison
-            s1 = file1.read().split('\n')
-            s2 = file2.read().split('\n')
-            s1[2] = ''
-            s2[2] = ''
-            if s1 != s2:
+            s1 = file1.read().strip().split('\n')
+            s1 = [ConcreteNode.fd_line.match(line).groups() for line in s1]
+            s2 = file2.read().strip().split('\n')
+            s2 = [ConcreteNode.fd_line.match(line).groups() for line in s2]
+            if len(s1) != len(s2):
+                util.env_log(f"fds diff: \n{s1}\n{s2}")
                 conflict_exists = True
+            else:
+                for a, b in zip(s1, s2):
+                    if (a[0] != b[0] or a[1] != b[1] or (a[1] == 'r' and a[2] != b[2])
+                        or a[3] != b[3]):
+                        util.env_log(f"fds diff: \n{s1}\n{s2}")
+                        conflict_exists = True
+                        break
 
         return conflict_exists
 

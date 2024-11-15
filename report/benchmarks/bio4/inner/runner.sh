@@ -22,21 +22,18 @@ hs_r() {
 		cmd="$cmd -d 2"
 	fi
 	cmd="$cmd fxbio4.sh $size"
-	/usr/bin/time -f '%e' -o "$OUTBASE/hs_time" $cmd &> "$OUTBASE/hs_log"
-	md5sum $BIODIR/output/* > "$OUTBASE/hs_hash"
+	/usr/bin/time -f '%e' -o "$OUTBASE/hs_time" $cmd > "$OUTBASE/hs_output" 2>"$OUTBASE/hs_log"
+	md5sum $OUTBASE/hs_output > "$OUTBASE/hs_hash"
 
-	rm -rf output
-	diff "$OUTBASE/hs_hash" "$OUTBASE/sh_hash" > "$OUTBASE/error"
 }
 
 sh_r() {
 	local size=$1
 
 	echo Running sh baseline for $size
-	/usr/bin/time -f '%e' -o "$OUTBASE/sh_time" sh fxbio4.sh $size &> "$OUTBASE/sh_log"
-	md5sum $BIODIR/output/* > "$OUTBASE/sh_hash"
+	/usr/bin/time -f '%e' -o "$OUTBASE/sh_time" sh fxbio4.sh $size > "$OUTBASE/sh_output" 2>"$OUTBASE/sh_log"
+	md5sum $OUTBASE/sh_output > "$OUTBASE/sh_hash"
 
-	rm -rf output
 }
 
 usage() {
@@ -100,4 +97,8 @@ fi
 if $run_hs
 then
 hs_r $INPUT_LIST $window $log
+fi
+
+if [ $run_sh && $run_hs ]; then
+   diff "$OUTBASE/sh_hash" "$OUTBASE/hs_hash" > "$OUTBASE/error"
 fi

@@ -29,3 +29,4 @@ if [ ! -d node_modules ]; then
 fi
 
 "$BENCH_TOP/report/benchmarks/web-index/input.sh"
+"$BENCH_TOP/report/benchmarks/web-index/inflate_html.sh"

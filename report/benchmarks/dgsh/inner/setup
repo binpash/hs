@@ -6,7 +6,7 @@ export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-sup
 export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
 export REPORT_DIR=${REPORT_DIR:-$PASH_SPEC_TOP/report}
 
-inflate="$PASH_SPEC_TOP/report/util/inflate.sh"
+inflate="python3 $PASH_SPEC_TOP/report/util/inflate.py"
 
 ## Set the size of the inflated files
 ## e.g. 1k, 100M, 1G, 10G

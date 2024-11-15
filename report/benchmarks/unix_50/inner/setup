@@ -20,7 +20,6 @@ inputs=(
 
 echo "Preparing unix_50 datasets..."
 
-# inflate="$PASH_SPEC_TOP/report/util/inflate.sh"
 inflate="python3 $PASH_SPEC_TOP/report/util/inflate.py"
 
 echo "Downloading unix_50 datasets..."

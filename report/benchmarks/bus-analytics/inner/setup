@@ -6,7 +6,7 @@ export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
 
 resource_dir="$PASH_SPEC_TOP/report/resources"
 download_dir="$resource_dir/bus-analytics"
-inflate_script="$PASH_SPEC_TOP/report/util/inflate.sh"
+inflate_script="python3 $PASH_SPEC_TOP/report/util/inflate.py"
 
 mkdir -p "$download_dir"
 cd "$download_dir"

@@ -89,16 +89,16 @@ case "$target" in
         ;;
 esac
 
-if $run_sh
+if [ $run_sh == true ]
 then
 sh_r $INPUT_LIST
 fi
 
-if $run_hs
+if [ $run_hs == true ]
 then
 hs_r $INPUT_LIST $window $log
 fi
 
-if [ $run_sh && $run_hs ]; then
+if [ $run_sh == true ]  && [ $run_hs == true ]; then
    diff "$OUTBASE/sh_hash" "$OUTBASE/hs_hash" > "$OUTBASE/error"
 fi

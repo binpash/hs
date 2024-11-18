@@ -19,6 +19,7 @@ def parse_arguments():
     parser.add_argument('--hs_base', required=True, help='Base directory of hs')
     parser.add_argument('--env_vars', nargs='*', default=[], help='Environment variables to set')
     parser.add_argument('--suffix', help='Suffix for the output directory')
+    parser.add_argument('--script-args', nargs=argparse.REMAINDER, help='Arguments to pass to the script')
     return parser.parse_args()
 
 def cleanup_output_dir(output_base: Path):
@@ -27,12 +28,12 @@ def cleanup_output_dir(output_base: Path):
         shutil.rmtree(output_base)
     output_base.mkdir(parents=True, exist_ok=True)
 
-def do_sh_run(test_base: Path, output_base: Path, env: dict, script_name: str):
+def do_sh_run(test_base: Path, output_base: Path, env: dict, script_name: str, script_args: list):
     output_dir = output_base / 'sh'
     output_dir.mkdir(parents=True, exist_ok=True)
     env['OUTPUT_DIR'] = str(output_dir)
 
-    cmd = ['/bin/sh', test_base / script_name]
+    cmd = ['/bin/sh', str(test_base / script_name)] + script_args
     print(f"Running sh command: {' '.join([str(c) for c in cmd])}")
 
     before = time.time()
@@ -50,7 +51,7 @@ def do_sh_run(test_base: Path, output_base: Path, env: dict, script_name: str):
 
     return result.returncode
 
-def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, env: dict, log: bool, script_name: str):
+def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, env: dict, log: bool, script_name: str, script_args: list):
     output_dir = output_base / 'hs'
     output_dir.mkdir(parents=True, exist_ok=True)
     env['OUTPUT_DIR'] = str(output_dir)
@@ -65,6 +66,7 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
     if log:
         cmd.extend(['-d', '2'])
     cmd.append(str(test_base / script_name))
+    cmd.extend(script_args)
 
     print(f"Running hs command: {' '.join(cmd)}")
 
@@ -178,10 +180,12 @@ def main():
     # Cleanup previous outputs
     cleanup_output_dir(output_base)
 
+    script_args = args.script_args or []
+
     if run_sh:
-        sh_returncode = do_sh_run(test_base, output_base, env, script_name)
+        sh_returncode = do_sh_run(test_base, output_base, env, script_name, script_args)
     if run_hs:
-        hs_returncode = do_hs_run(test_base, output_base, hs_base, args.window, env, args.log == 'enable', script_name)
+        hs_returncode = do_hs_run(test_base, output_base, hs_base, args.window, env, args.log == 'enable', script_name, script_args)
     if run_sh and run_hs:
         compare_outputs(output_base)
 

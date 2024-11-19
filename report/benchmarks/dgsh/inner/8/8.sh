@@ -89,6 +89,6 @@ sort -rn | tee "$file3"
 
 # Print relative
 echo "Relative character frequency"
-awk -v NCHARS="$nchars" 'BEGIN {
+gawk -v NCHARS="$nchars" 'BEGIN {
 		OFMT = "%.2g%%"}
 		{print $1, $2, $1 / NCHARS * 100}' "$file3"

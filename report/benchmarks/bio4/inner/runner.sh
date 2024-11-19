@@ -99,6 +99,6 @@ then
 hs_r $INPUT_LIST $window $log
 fi
 
-if [ $run_sh && $run_hs ]; then
+if $run_sh && $run_hs ; then
    diff "$OUTBASE/sh_hash" "$OUTBASE/hs_hash" > "$OUTBASE/error"
 fi

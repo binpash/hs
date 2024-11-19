@@ -28,4 +28,6 @@ mkdir -p $benchmark_root/../output/$test_name
 docker cp $container_name:/srv/hs/report/output/$test_name/error $benchmark_root/../output/$test_name/error
 docker cp $container_name:/srv/hs/report/output/$test_name/hs_time $benchmark_root/../output/$test_name/hs_time
 docker cp $container_name:/srv/hs/report/output/$test_name/sh_time $benchmark_root/../output/$test_name/sh_time
+docker cp $container_name:/srv/hs/report/output/$test_name/hs/stderr $benchmark_root/../output/$test_name/stderr_hs
+docker cp $container_name:/srv/hs/report/output/$test_name/sh/stderr $benchmark_root/../output/$test_name/stderr_sh
 docker rm $container_name

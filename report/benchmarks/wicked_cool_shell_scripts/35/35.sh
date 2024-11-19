@@ -8,6 +8,6 @@ do
     /bin/echo -n "User $name exceeds disk quota. Disk usage is: "
     # You might need to modify the following list of directories to match
     # the layout of your disk. The most likely change is from /Users to /home.
-    find /etc /opt /tmp /usr /var /home -xdev -user $name -type f -ls | \
+    find /Users /users /home -xdev -user $name -type f -ls | \
     awk '{ sum += $7 } END { print sum / (1024*1024) " Mbytes" }'
 done | awk "\$9 > $MAXDISKUSAGE { print \$0 }"

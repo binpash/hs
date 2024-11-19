@@ -40,6 +40,13 @@ def do_sh_run(test_base: Path, output_base: Path, env: dict, script_name: str, s
     result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
     duration = time.time() - before
 
+    if result.returncode != 0:
+        print(f"Error: Non-zero return code from sh run")
+    if len(result.stderr) > 0:
+        print(f"Error: Non-empty stderr from sh run")
+    
+    
+
     with open(output_dir / "stdout", 'wb') as f:
         f.write(result.stdout)
 
@@ -121,6 +128,8 @@ def compare_outputs(output_base: Path):
         error_messages.append('Generated files differ between sh and hs runs.\n')
         error_messages.append(f'Files in sh run: {sorted(sh_file_names)}\n')
         error_messages.append(f'Files in hs run: {sorted(hs_file_names)}\n')
+    else:
+        print(f"Files in both runs: {len(sh_file_names)}")
 
     # Compare contents of files with the same names, but do not take intersection
     all_files = sh_file_names | hs_file_names

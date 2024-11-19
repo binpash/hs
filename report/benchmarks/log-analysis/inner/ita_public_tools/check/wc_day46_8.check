@@ -1,0 +1,45 @@
+    Total Requests: 1395085
+       Total Bytes: 5644664435
+Mean Transfer Size: 4046.107897
+     Min Client ID: 33
+     Max Client ID: 1375004
+     Min Object ID: 0
+     Max Object ID: 37253
+          Min Size: 0
+          Max Size: 2891887
+          Min Time: 897513798
+          Max Time: 897516000
+        Start Time: 897513798
+       Finish Time: 897516000
+      Out of Order: 0
+    Unique Servers: 27
+Server 0: 1419
+Server 1: 1326
+Server 2: 1418
+Server 3: 1395
+Server 4: 1450
+Server 5: 1416
+Server 33: 103264
+Server 34: 153313
+Server 35: 153696
+Server 36: 147845
+Server 37: 140276
+Server 38: 252887
+Server 39: 256857
+Server 40: 147368
+Server 64: 784
+Server 65: 745
+Server 66: 758
+Server 67: 828
+Server 68: 798
+Server 69: 740
+Server 70: 109
+Server 71: 824
+Server 72: 762
+Server 73: 871
+Server 98: 8294
+Server 99: 8362
+Server 101: 7280
+Check:
+Total Requests: 1395085
+Unique Servers: 27

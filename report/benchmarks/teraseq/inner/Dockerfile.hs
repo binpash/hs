@@ -12,7 +12,11 @@ RUN apt install -y vim strace make python3-cram file graphviz libtool python3-ma
 RUN apt install -y bc curl graphviz bsdmainutils libffi-dev locales locales-all netcat-openbsd pkg-config procps python3-pip python3-setuptools python3-testresources wamerican-insane
 # try deps
 RUN apt install -y expect mergerfs attr
-COPY . .
+COPY deps deps
+COPY parallel-orch parallel-orch
+COPY .git .git
+RUN mkdir -p /srv/hs/report/benchmarks/teraseq
+COPY report/benchmarks/teraseq/inner /srv/hs/report/benchmarks/teraseq
 RUN /srv/hs/report/benchmarks/teraseq/setup
 
 RUN git config --global --add safe.directory /srv
@@ -27,7 +31,9 @@ WORKDIR /srv/hs/deps/pash
 RUN ./scripts/setup-pash.sh
 
 WORKDIR /srv/hs
+COPY scripts scripts
+COPY entrypoint.sh entrypoint.sh
 RUN chmod +x entrypoint.sh
 
 RUN mv /srv/hs/report/benchmarks/teraseq/annotate-sqlite-with-fastq.R /root/TERA-Seq_manuscript/tools/utils/
-WORKDIR /root/TERA-Seq_manuscript/samples
+

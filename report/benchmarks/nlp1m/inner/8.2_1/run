@@ -4,10 +4,10 @@ SUB_BENCHMARK=8.2_1
 
 # Base directories
 HS_BASE="$(git rev-parse --show-toplevel)"
-TEST_BASE="$HS_BASE/report/benchmarks/nlp1m1m/$SUB_BENCHMARK"
+TEST_BASE="$HS_BASE/report/benchmarks/nlp1m/$SUB_BENCHMARK"
 TEST_UPPER="$HS_BASE/report"
 RESOURCE_DIR="$HS_BASE/report/resources/nlp1m"
-OUTPUT_DIR="$TEST_UPPER/output/nlp1m1m/$SUB_BENCHMARK"
+OUTPUT_DIR="$TEST_UPPER/output/nlp1m/$SUB_BENCHMARK"
 
 # Script to run
 SCRIPT_NAME="$SUB_BENCHMARK.sh"

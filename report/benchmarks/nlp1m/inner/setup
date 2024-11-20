@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SPEC_TOP="$(git rev-parse --show-toplevel)"
-RESOURCE_DIR="${SPEC_TOP}/report/resources/nlp1m1m/"
+RESOURCE_DIR="${SPEC_TOP}/report/resources/nlp1m/"
 INFLATE_SCRIPT="python3 ${SPEC_TOP}/report/util/inflate.py"
 INFLATE_SIZE="1M"
 

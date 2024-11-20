@@ -8,9 +8,8 @@
 # seven days. If duration is set to zero, the script will ignore that
 # particular set of log files.
 
-logdir="./log" # Your logfile directory could vary.
+logdir="$TEST_BASE/log" # Your logfile directory could vary.
 config="$logdir/rotatelogs.conf"
-mv="/bin/mv"
 default_duration=7 # We'll default to a 7-day rotation schedule.
 count=0
 duration=$default_duration
@@ -74,22 +73,22 @@ do
     # or more files simply don't exist yet.
     if [ -f "$back3" ] ; then
         echo "... $back3 -> $back4"
-        $mv -f "$back3" "$back4"
+        mv -f "$back3" "$back4"
     fi
 
     if [ -f "$back2" ] ; then
         echo "... $back2 -> $back3"
-        $mv -f "$back2" "$back3"
+        mv -f "$back2" "$back3"
     fi
 
     if [ -f "$back1" ] ; then
         echo "... $back1 -> $back2"
-        $mv -f "$back1" "$back2"
+        mv -f "$back1" "$back2"
     fi
 
     if [ -f "$name" ] ; then
         echo "... $name -> $back1"
-        $mv -f "$name" "$back1"
+        mv -f "$name" "$back1"
     fi
 
     touch "$name"

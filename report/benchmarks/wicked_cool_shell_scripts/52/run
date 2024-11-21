@@ -79,7 +79,6 @@ fi
 # Clean up uncompressed directories
 rm -rf "$OUTPUT_DIR/hs/uncompressed" "$OUTPUT_DIR/sh/uncompressed"
 
-
 ln -s $OUTPUT_DIR/hs/stderr $OUTPUT_DIR/hs_log
 
 # Clean up

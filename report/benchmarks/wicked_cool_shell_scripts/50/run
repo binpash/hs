@@ -27,7 +27,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Clean up previous runs
-rm -rf "$RESOURCE_DIR/hs" "$RESOURCE_DIR/sh" "$OUTPUT_DIR/hs" "$OUTPUT_DIR/sh"
+rm -rf "$RESOURCE_DIR/hs" "$RESOURCE_DIR/sh" "$OUTPUT_DIR"
 mkdir -p "$RESOURCE_DIR/hs" "$RESOURCE_DIR/sh" "$OUTPUT_DIR/hs" "$OUTPUT_DIR/sh"
 
 # Function to prepare log directory
@@ -49,16 +49,16 @@ echo "Running sh command: bash $SCRIPT"
 prepare_log
 { time bash "$SCRIPT" > "$RESOURCE_DIR/log/stdout" 2> "$OUTPUT_DIR/sh/stderr"; } 2> "$RESOURCE_DIR/time"
 mv "$RESOURCE_DIR/log" "$RESOURCE_DIR/sh"
-mv "$RESOURCE_DIR/time" "$OUTPUT_DIR/sh/time"
-extract_time "$OUTPUT_DIR/sh/time"
+mv "$RESOURCE_DIR/time" "$OUTPUT_DIR/sh_time"
+extract_time "$OUTPUT_DIR/sh_time"
 
 # hs run
 echo "Running hs command: $HS_BASE/pash-spec.sh -d 2 --window $WINDOW $SCRIPT"
 prepare_log
 { time "$HS_BASE/pash-spec.sh" -d 2 --window "$WINDOW" "$SCRIPT" > "$RESOURCE_DIR/log/stdout" 2> "$OUTPUT_DIR/hs/stderr"; } 2> "$RESOURCE_DIR/time"
 mv "$RESOURCE_DIR/log" "$RESOURCE_DIR/hs"
-mv "$RESOURCE_DIR/time" "$OUTPUT_DIR/hs/time"
-extract_time "$OUTPUT_DIR/hs/time"
+mv "$RESOURCE_DIR/time" "$OUTPUT_DIR/hs_time"
+extract_time "$OUTPUT_DIR/hs_time"
 
 # Move logs to output directory
 mv "$RESOURCE_DIR/sh/"* "$OUTPUT_DIR/sh/"
@@ -75,3 +75,5 @@ else
     echo "No differences found between hs and sh outputs."
     rm -f "$OUTPUT_DIR/error"  # Clean up if no differences
 fi
+
+ln -s $OUTPUT_DIR/hs/stderr $OUTPUT_DIR/hs_log

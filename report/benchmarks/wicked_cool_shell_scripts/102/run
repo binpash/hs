@@ -64,6 +64,7 @@ mv "$RESOURCE_DIR"/*.png "$RESOURCE_DIR/hs"
 mv "$RESOURCE_DIR/time" "$OUTPUT_DIR/hs_time"
 extract_time "$OUTPUT_DIR/hs_time"
 
+ln -s $OUTPUT_DIR/hs/stderr $OUTPUT_DIR/hs_log
 
 # Move logs to output directory
 mv "$RESOURCE_DIR/sh/"* "$OUTPUT_DIR/sh/"

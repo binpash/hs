@@ -4,7 +4,7 @@ BENCHMARK_NO="full"
 
 # Base directories
 HS_BASE="$(git rev-parse --show-toplevel)"
-TEST_BASE="$HS_BASE/report/benchmarks/web-index/web-index-100m"
+TEST_BASE="$HS_BASE/report/benchmarks/web-index/web-index-100m500k"
 TEST_UPPER="$HS_BASE/report"
 RESOURCE_DIR="$HS_BASE/report/resources/web-index"
 

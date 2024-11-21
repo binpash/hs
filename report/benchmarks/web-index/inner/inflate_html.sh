@@ -16,7 +16,7 @@ find "$RESOURCE_DIR/articles100m500k" -type f -name "*.html" | while read -r htm
     # Inflate the HTML file to 500KB
     $INFLATE_SCRIPT "$html_file" 500K
     filename=$(basename -- "$html_file")
-    mv "1M-$filename" "$html_file"
+    mv "500K-$filename" "$html_file"
 done
 
 rm -rf $RESOURCE_DIR/articles100m1m

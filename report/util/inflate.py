@@ -1,5 +1,6 @@
 import sys
 import os
+import shutil
 
 def convert_to_bytes(size_str):
     """Convert a size string (like '5M') to bytes."""
@@ -31,7 +32,10 @@ def inflate_file(input_file, target_size_str):
 
     # Check if target size is smaller than input file size
     if target_size_bytes <= input_size:
-        print(f"Error: Target size {target_size_str} must be greater than the size of the input file.")
+        output_file = f"{target_size_str}-{os.path.basename(input_file)}"
+        shutil.copy(input_file, output_file)
+        print(f"Warning: Target size {target_size_str} is smaller than or equal to input file size. "
+              f"Copied the file to {output_file} instead.")
         return
 
     # Duplicate content in memory to reach the target size

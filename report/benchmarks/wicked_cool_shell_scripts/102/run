@@ -73,10 +73,10 @@ mv "$RESOURCE_DIR/hs/"* "$OUTPUT_DIR/hs/"
 # Compare the output (ignore "stderr" files in diff)
 echo "Comparing outputs..."
 
-diff -r "$OUTPUT_DIR/hs" "$OUTPUT_DIR/sh" >"$OUTPUT_DIR/error"
+diff -r --exclude="hs_log" --exclude="stderr" --exclude="time" "$OUTPUT_DIR/hs" "$OUTPUT_DIR/sh" >"$OUTPUT_DIR/error"
 
 if [[ -s "$OUTPUT_DIR/error" ]]; then
     echo "Outputs are different"
 else
-    echo "Outputs are the same"
+    echo "PASS: Outputs match"
 fi

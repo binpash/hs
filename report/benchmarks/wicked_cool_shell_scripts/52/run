@@ -73,7 +73,7 @@ diff -r "$OUTPUT_DIR/hs/uncompressed" "$OUTPUT_DIR/sh/uncompressed" > "$OUTPUT_D
 if [[ -s "$OUTPUT_DIR/error" ]]; then
     echo "Differences found. See $OUTPUT_DIR/error for details."
 else
-    echo "PASS: Outputs match!"
+    echo "PASS: Outputs match"
 fi
 
 # Clean up uncompressed directories

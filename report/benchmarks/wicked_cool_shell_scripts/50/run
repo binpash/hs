@@ -72,7 +72,7 @@ diff -r --exclude=stderr --exclude=time "$OUTPUT_DIR/hs" "$OUTPUT_DIR/sh" > "$OU
 if [[ -s "$OUTPUT_DIR/error" ]]; then
     echo "Differences found. See $OUTPUT_DIR/error for details."
 else
-    echo "No differences found between hs and sh outputs."
+    echo "PASS: Outputs Match"
     rm -f "$OUTPUT_DIR/error"  # Clean up if no differences
 fi
 

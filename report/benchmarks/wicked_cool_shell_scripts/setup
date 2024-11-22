@@ -1,5 +1,1 @@
-#!/bin/sh
-
-export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
-
-docker build -t hs/wicked-cool-shell-scripts "$PASH_SPEC_TOP"/report/benchmarks/wicked_cool_shell_scripts
+../../setup_base

@@ -6,12 +6,16 @@
 # your boat).
 
 compress="bzip2" # Change to your favorite compression app.
-inclist="/tmp/backup.inclist.$(date +%d%m%y)"
-output="/tmp/backup.$(date +%d%m%y).bz2"
-tsfile="$HOME/.backup.timestamp"
-btype="incremental" # Default to an incremental backup.
+# inclist="/tmp/backup.inclist.$(date +%d%m%y)" # Changed this to custom file
+inclist="$1/backup.inclist.$$" # Change this to a local temp file.
+# output="/tmp/backup.$(date +%d%m%y).bz2" # Changed this to custom file
+output="$1/backup.$(date +%d%m%y).bz2"
+# tsfile="$HOME/.backup.timestamp" # Changed this to custom file
+tsfile="$2"
+# btype="incremental" # Default to an incremental backup.
+btype="full" # Default to a full backup.
 
-trap "/bin/rm -f $inclist" EXIT
+# trap "/bin/rm -f $inclist" EXIT
 
 ########## Main code section begins here ###########
 
@@ -30,12 +34,12 @@ if [ "$btype" = "incremental" ] ; then
         exit 1
     fi
 
-    find $HOME -depth -type f -newer $tsfile -user $(id -u) | \
-    pax -w -x tar | $compress > $output
+    find "$RESOURCE_DIR/h" -depth -type f -newer $tsfile -user $(id -u) | \
+    tar --format=posix -cf - -T - | $compress > $output
     failure="$?"
 else
-	find $HOME -depth -type f -user $(id -u) | \
-    pax -w -x tar | $compress > $output
+    find "$RESOURCE_DIR/h" -depth -type f -newer $tsfile -user $(id -u) | \
+    tar --format=posix -cf - -T - | $compress > $output
     failure="$?"
 fi
 

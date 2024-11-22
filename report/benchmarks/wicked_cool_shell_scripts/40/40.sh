@@ -13,7 +13,8 @@ if [ "$(id -un)" != "root" ] ; then
 fi
 
 echo "Add new user accounts to $(hostname)"
-read -p "Enter the file path containing usernames: " userfile
+# read -p "Enter the file path containing usernames: " userfile
+userfile="$1"
 
 if [ ! -f "$userfile" ]; then
     echo "Error: File '$userfile' not found." >&2
@@ -25,8 +26,10 @@ for login in $(cat "$userfile"); do
     homedir="$hdir/$login"
     gid="$uid"
 
-    read -p "Enter the full name for $login: " fullname
-    read -p "Enter the shell for $login: " shell
+    # read -p "Enter the full name for $login: " fullname
+    # read -p "Enter the shell for $login: " shell
+    fullname="New User"
+    shell="/bin/bash"
 
     echo "Setting up account $login for $fullname..."
     echo "${login}:x:${uid}:${gid}:${fullname}:${homedir}:$shell" >> "$pwfile"
@@ -39,5 +42,7 @@ for login in $(cat "$userfile"); do
     chown -R "${login}:${login}" "$homedir"
 
     # Setting an initial password
-    exec passwd "$login"
+    echo "$login:${login}123456789" > tmp_password
+    sudo chpasswd < tmp_password
+    rm tmp_password
 done

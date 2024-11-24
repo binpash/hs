@@ -5,6 +5,7 @@ from pathlib import Path
 import os
 import time
 from subprocess import run, PIPE
+import shutil
 
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser = argparse.ArgumentParser(description="Run benchmark")
@@ -96,15 +97,15 @@ if __name__ == '__main__':
     output_sh = do_sh_run(test_base, script_name, output_base, env)
     with open(output_base / f"{Path(script_name).stem}" / "sh_stdout", 'w') as f:
         f.write(output_sh[1].decode())
-    os.rmdir(output_base / "foo")
+    shutil.rmtree(output_base / "foo")
     output_hs = do_hs_run(test_base, script_name, output_base, hs_base, env)
     with open(output_base / f"{Path(script_name).stem}" / "hs_stdout", 'w') as f:
         f.write(output_hs[1].decode())    
-    os.rmdir(output_base / "foo")
+    shutil.rmtree(output_base / "foo")
     output_strace = do_strace_run(test_base, script_name, output_base, env)
     with open(output_base / f"{Path(script_name).stem}" / "strace_stdout", 'w') as f:
         f.write(output_strace[1].decode())
-    os.rmdir(output_base / "foo")
+    shutil.rmtree(output_base / "foo")
     output_trace_and_parse = do_strace_parse_run(test_base, script_name, output_base, env, tracev2_base)
     with open(output_base / f"{Path(script_name).stem}" / "strace_parsed_stdout", 'w') as f:
         f.write(output_trace_and_parse[1].decode())

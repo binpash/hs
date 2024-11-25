@@ -24,6 +24,9 @@ os.environ["INPUT_FILE"] = os.path.join(RESOURCE_DIR, "weblog.log")
 os.environ["STRACE"] = STRACE
 os.environ["OUTPUT_DIR"] = os.path.join(HS_BASE, "report/output/dgsh", f"{BENCHMARK_NO}")
 os.environ["PARSE"] = PARSE_CMD
+# Save the timing to try_time.sh
+output_dir = os.environ["OUTPUT_DIR"]
+os.makedirs(output_dir, exist_ok=True)  # Ensure the directory exists
 
 # Timing the script
 script_path = os.path.join(TEST_BASE, SCRIPT_NAME)
@@ -39,9 +42,6 @@ except subprocess.CalledProcessError as e:
 
 elapsed_time = time.time() - start_time
 
-# Save the timing to try_time.sh
-output_dir = os.environ["OUTPUT_DIR"]
-os.makedirs(output_dir, exist_ok=True)  # Ensure the directory exists
 timing_file = os.path.join(output_dir, "strace_time")
 
 with open(timing_file, "w") as f:

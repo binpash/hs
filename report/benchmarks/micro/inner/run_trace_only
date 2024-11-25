@@ -31,7 +31,8 @@ def do_sh_run(test_base: Path, script_name: str, output_base: Path, env: dict):
     return result.returncode, result.stdout
 
 def do_strace_run(test_base: Path, script_name: str, output_base: Path, env: dict):
-    cmd = ['strace']
+    # strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $TRACE_FILE env -i bash -c "$RUN"
+    cmd = ['strace', '-y', '-f', '--seccomp-bpf', '--trace=fork,clone,%file', '-o', output_base / f"{Path(script_name).stem}" / "strace_log"]
     cmd.append(test_base / "scripts" / script_name)
     print(f'Running {cmd}')
     before = time.time()
@@ -43,7 +44,7 @@ def do_strace_run(test_base: Path, script_name: str, output_base: Path, env: dic
     return result.returncode, result.stdout
 
 def do_strace_parse_run(test_base: Path, script_name: str, output_base: Path, env: dict, tracev2_base: Path):
-    cmd = ['strace']
+    cmd = ['strace', '-y', '-f', '--seccomp-bpf', '--trace=fork,clone,%file', '-o', output_base / f"{Path(script_name).stem}" / "trace_v2_log"]
     cmd.append(test_base / "scripts" / script_name)
     print(f'Running {cmd}')
     before = time.time()
@@ -51,10 +52,8 @@ def do_strace_parse_run(test_base: Path, script_name: str, output_base: Path, en
         result = run(cmd, stdout=PIPE, stderr=log, env=env)
     cmd2 = ["python3", tracev2_base, output_base / f"{Path(script_name).stem}" / "trace_v2_log"]
     print(f'Running {cmd2}')
-    before = time.time()
     with open(output_base / f"{Path(script_name).stem}" / "trace_v2_log_parsed", 'w') as log:
         result = run(cmd2, stdout=PIPE, stderr=log, env=env)
-    
     duration = time.time() - before
     with open(output_base / f"{Path(script_name).stem}" / "strace_parse_time", 'w') as f:
         f.write(f'{duration}\n')
@@ -69,6 +68,18 @@ def do_hs_run(test_base: Path, script_name: str, output_base: Path, hs_base: Pat
         result = run(cmd, stdout=PIPE, stderr=log, env=env)
     duration = time.time() - before
     with open(output_base / f"{Path(script_name).stem}" / "hs_time", 'w') as f:
+        f.write(f'{duration}\n')
+    return result.returncode, result.stdout
+
+def do_try_only_run(test_base: Path, script_name: str, output_base: Path, hs_base: Path, env: dict):
+    cmd = [hs_base / 'deps' / 'try' / 'try', '-y']
+    cmd.append(test_base / "scripts" / script_name)
+    print(f'Running {cmd}')
+    before = time.time()
+    with open(output_base / f"{Path(script_name).stem}" / "try_log", 'w') as log:
+        result = run(cmd, stdout=PIPE, stderr=log, env=env)
+    duration = time.time() - before
+    with open(output_base / f"{Path(script_name).stem}" / "try_time", 'w') as f:
         f.write(f'{duration}\n')
     return result.returncode, result.stdout
 
@@ -91,6 +102,7 @@ if __name__ == '__main__':
     env['PASH_SPEC_TOP'] = str(hs_base)
     env['SCRIPTS'] = str(scripts_dir)
     env['OUTPUT'] = str(output_base)
+    env['TRY'] = str(hs_base / 'deps' / 'try' / 'try')
 
     script_name = args.script
     (output_base / f"{Path(script_name).stem}").mkdir(exist_ok=True, parents=True)
@@ -98,15 +110,20 @@ if __name__ == '__main__':
     with open(output_base / f"{Path(script_name).stem}" / "sh_stdout", 'w') as f:
         f.write(output_sh[1].decode())
     shutil.rmtree(output_base / "foo")
-    output_hs = do_hs_run(test_base, script_name, output_base, hs_base, env)
-    with open(output_base / f"{Path(script_name).stem}" / "hs_stdout", 'w') as f:
-        f.write(output_hs[1].decode())    
-    shutil.rmtree(output_base / "foo")
-    output_strace = do_strace_run(test_base, script_name, output_base, env)
-    with open(output_base / f"{Path(script_name).stem}" / "strace_stdout", 'w') as f:
-        f.write(output_strace[1].decode())
-    shutil.rmtree(output_base / "foo")
-    output_trace_and_parse = do_strace_parse_run(test_base, script_name, output_base, env, tracev2_base)
-    with open(output_base / f"{Path(script_name).stem}" / "strace_parsed_stdout", 'w') as f:
-        f.write(output_trace_and_parse[1].decode())
+    # output_hs = do_hs_run(test_base, script_name, output_base, hs_base, env)
+    # with open(output_base / f"{Path(script_name).stem}" / "hs_stdout", 'w') as f:
+    #     f.write(output_hs[1].decode())    
+    # shutil.rmtree(output_base / "foo")
+    # output_strace = do_strace_run(test_base, script_name, output_base, env)
+    # with open(output_base / f"{Path(script_name).stem}" / "strace_stdout", 'w') as f:
+    #     f.write(output_strace[1].decode())
+    # shutil.rmtree(output_base / "foo")
+    # output_trace_and_parse = do_strace_parse_run(test_base, script_name, output_base, env, tracev2_base)
+    # with open(output_base / f"{Path(script_name).stem}" / "strace_parsed_stdout", 'w') as f:
+    #     f.write(output_trace_and_parse[1].decode())
+    # shutil.rmtree(output_base / "foo")
+    output_try = do_try_only_run(test_base, script_name, output_base, hs_base, env)
+    with open(output_base / f"{Path(script_name).stem}" / "try_stdout", 'w') as f:
+        f.write(output_try[1].decode())
+    
 

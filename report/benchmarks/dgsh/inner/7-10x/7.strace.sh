@@ -46,6 +46,7 @@ $STRACE cat "$INPUT_FILE" > "$file_initial"
 # Number of accesses
 logfile=$(generate_unique_file)
 $STRACE echo -n 'Number of accesses: '
+
 logfile=$(generate_unique_file)
 $STRACE wc -l < "$file_initial"
 
@@ -56,6 +57,7 @@ $STRACE awk "$cmd" "$file_initial" > "$file_bytes"
 
 logfile=$(generate_unique_file)
 $STRACE echo -n 'Number of Gbytes transferred: '
+
 cmd='{print $1 / 1024 / 1024 / 1024}'
 logfile=$(generate_unique_file)
 $STRACE awk "$cmd" "$file_bytes"
@@ -68,6 +70,7 @@ $STRACE awk "$cmd" "$file_initial" > "$file_hosts"
 # Number of accesses
 logfile=$(generate_unique_file)
 $STRACE echo -n 'Number of accesses: '
+
 logfile=$(generate_unique_file)
 $STRACE wc -l < "$file_hosts"
 
@@ -81,6 +84,7 @@ $STRACE uniq "$file_sorted_hosts" > "$file_unique_hosts"
 
 logfile=$(generate_unique_file)
 $STRACE echo -n 'Number of hosts: '
+
 logfile=$(generate_unique_file)
 $STRACE wc -l < "$file_unique_hosts"
 
@@ -88,32 +92,40 @@ $STRACE wc -l < "$file_unique_hosts"
 cmd='$NF !~ /[0-9]/ {print $NF}'
 logfile=$(generate_unique_file)
 $STRACE awk -F. "$cmd" "$file_unique_hosts" | sort -u | wc -l
+
 logfile=$(generate_unique_file)
 $STRACE echo -n 'Number of top level domains: '
 
 # Top 10 hosts
 logfile=$(generate_unique_file)
 $STRACE echo
+
 logfile=$(generate_unique_file)
 $STRACE echo "Top 10 Hosts"
+
 logfile=$(generate_unique_file)
 $STRACE echo "Top 10 Hosts" | sed 's/./-/g'
+
 logfile=$(generate_unique_file)
 $STRACE uniq -c "$file_sorted_hosts" | sort -rn | head -10
+
 logfile=$(generate_unique_file)
 $STRACE echo
 
 # Top 20 TLDs
 logfile=$(generate_unique_file)
 $STRACE echo
+
 logfile=$(generate_unique_file)
 $STRACE echo "Top 20 Level Domain Accesses"
+
 logfile=$(generate_unique_file)
 $STRACE echo "Top 20 Level Domain Accesses" | sed 's/./-/g'
 
 cmd='$NF !~ /^[0-9]/ {print $NF}'
 logfile=$(generate_unique_file)
 $STRACE awk -F. "$cmd" "$file_sorted_hosts" | sort | uniq -c | sort -rn | head -20
+
 logfile=$(generate_unique_file)
 $STRACE echo
 
@@ -125,26 +137,33 @@ $STRACE awk -F. "$cmd" "$file_sorted_hosts" | sort > "$file_domains"
 # Number of domains
 logfile=$(generate_unique_file)
 $STRACE echo -n 'Number of domains: '
+
 logfile=$(generate_unique_file)
 $STRACE uniq "$file_domains" | wc -l
 
 # Top 10 domains
 logfile=$(generate_unique_file)
 $STRACE echo
+
 logfile=$(generate_unique_file)
 $STRACE echo "Top 10 domains"
+
 logfile=$(generate_unique_file)
 $STRACE echo "Top 10 domains" | sed 's/./-/g'
+
 logfile=$(generate_unique_file)
 $STRACE uniq -c "$file_domains" | sort -rn | head -10
 
 # Hosts by volume
 logfile=$(generate_unique_file)
 $STRACE echo
+
 logfile=$(generate_unique_file)
 $STRACE echo "Top 10 Hosts by Transfer"
+
 logfile=$(generate_unique_file)
 $STRACE echo "Top 10 Hosts by Transfer" | sed 's/./-/g'
+
 cmd='{bytes[$1] += $NF} END {for (h in bytes) print bytes[h], h}'
 logfile=$(generate_unique_file)
 $STRACE awk "$cmd" "$file_initial" | sort -rn | head -10
@@ -157,10 +176,13 @@ $STRACE awk "$cmd" "$file_initial" | sort > "$file_requests"
 # Top 20 area requests (input is already sorted)
 logfile=$(generate_unique_file)
 $STRACE echo
+
 logfile=$(generate_unique_file)
 $STRACE echo "Top 20 area requests"
+
 logfile=$(generate_unique_file)
 $STRACE echo "Top 20 area requests" | sed 's/./-/g'
+
 cmd='{print $2}'
 logfile=$(generate_unique_file)
 $STRACE awk -F/ "$cmd" "$file_requests" | uniq -c | sort -rn | head -20
@@ -168,16 +190,20 @@ $STRACE awk -F/ "$cmd" "$file_requests" | uniq -c | sort -rn | head -20
 # Number of different pages
 logfile=$(generate_unique_file)
 $STRACE echo -n 'Number of different pages: '
+
 logfile=$(generate_unique_file)
 $STRACE uniq "$file_requests" | wc -l
 
 # Top 20 requests
 logfile=$(generate_unique_file)
 $STRACE echo
+
 logfile=$(generate_unique_file)
 $STRACE echo "Top 20 requests"
+
 logfile=$(generate_unique_file)
 $STRACE echo "Top 20 requests" | sed 's/./-/g'
+
 logfile=$(generate_unique_file)
 $STRACE uniq -c "$file_requests" | sort -rn | head -20
 
@@ -195,27 +221,36 @@ $STRACE awk -F: "$cmd" "$file_times" > "$file_dates"
 # Number of days
 logfile=$(generate_unique_file)
 $STRACE echo -n 'Accesses per day: '
+
 logfile=$(generate_unique_file)
 $STRACE uniq "$file_dates" | wc -l > "$file_day_count"
+
+logfile=$(generate_unique_file)
 cmd='{print NXBYTES / $1 / 1024 / 1024}'
 awk -v NXBYTES=$(<"$file_bytes") "$cmd" "$file_day_count"
+
 logfile=$(generate_unique_file)
 $STRACE echo
 
 logfile=$(generate_unique_file)
 $STRACE echo "Accesses by Date"
+
 logfile=$(generate_unique_file)
 $STRACE echo "Accesses by Date" | sed 's/./-/g'
+
 logfile=$(generate_unique_file)
 $STRACE uniq -c < "$file_dates"
 
 # Accesses by day of week
 logfile=$(generate_unique_file)
 $STRACE echo
+
 logfile=$(generate_unique_file)
 $STRACE echo "Accesses by Day of Week"
+
 logfile=$(generate_unique_file)
 $STRACE echo "Accesses by Day of Week" | sed 's/./-/g'
+
 cmd='s|/|-|g'
 logfile=$(generate_unique_file)
 $STRACE sed "$cmd" "$file_dates" | date -f - +%a 2>/dev/null | sort | uniq -c | sort -rn
@@ -223,10 +258,13 @@ $STRACE sed "$cmd" "$file_dates" | date -f - +%a 2>/dev/null | sort | uniq -c | 
 # Accesses by Local Hour
 logfile=$(generate_unique_file)
 $STRACE echo
+
 logfile=$(generate_unique_file)
 $STRACE echo "Accesses by Local Hour"
+
 logfile=$(generate_unique_file)
 $STRACE echo "Accesses by Local Hour" | sed 's/./-/g'
+
 cmd='{print $2}'
 logfile=$(generate_unique_file)
 $STRACE awk -F: "$cmd" "$file_times" | sort | uniq -c

@@ -289,6 +289,7 @@ logfile=$(generate_unique_file)
 $STRACE uniq "$file_dates" | wc -l > "$file_day_count"
 $PARSE $logfile > $(generate_unique_file)
 
+logfile=$(generate_unique_file)
 cmd='{print NXBYTES / $1 / 1024 / 1024}'
 awk -v NXBYTES=$(<"$file_bytes") "$cmd" "$file_day_count"
 $PARSE $logfile > $(generate_unique_file)

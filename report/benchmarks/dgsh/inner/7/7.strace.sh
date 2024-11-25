@@ -180,3 +180,53 @@ logfile=$(generate_unique_file)
 $STRACE echo "Top 20 requests" | sed 's/./-/g'
 logfile=$(generate_unique_file)
 $STRACE uniq -c "$file_requests" | sort -rn | head -20
+
+
+# Access time: dd/mmm/yyyy:hh:mm:ss
+cmd='{print substr($4, 2)}'
+logfile=$(generate_unique_file)
+$STRACE awk "$cmd" "$file_initial" > "$file_times"
+
+# Just dates
+cmd='{print $1}'
+logfile=$(generate_unique_file)
+$STRACE awk -F: "$cmd" "$file_times" > "$file_dates"
+
+# Number of days
+logfile=$(generate_unique_file)
+$STRACE echo -n 'Accesses per day: '
+logfile=$(generate_unique_file)
+$STRACE uniq "$file_dates" | wc -l > "$file_day_count"
+cmd='{print NXBYTES / $1 / 1024 / 1024}'
+awk -v NXBYTES=$(<"$file_bytes") "$cmd" "$file_day_count"
+logfile=$(generate_unique_file)
+$STRACE echo
+
+logfile=$(generate_unique_file)
+$STRACE echo "Accesses by Date"
+logfile=$(generate_unique_file)
+$STRACE echo "Accesses by Date" | sed 's/./-/g'
+logfile=$(generate_unique_file)
+$STRACE uniq -c < "$file_dates"
+
+# Accesses by day of week
+logfile=$(generate_unique_file)
+$STRACE echo
+logfile=$(generate_unique_file)
+$STRACE echo "Accesses by Day of Week"
+logfile=$(generate_unique_file)
+$STRACE echo "Accesses by Day of Week" | sed 's/./-/g'
+cmd='s|/|-|g'
+logfile=$(generate_unique_file)
+$STRACE sed "$cmd" "$file_dates" | date -f - +%a 2>/dev/null | sort | uniq -c | sort -rn
+
+# Accesses by Local Hour
+logfile=$(generate_unique_file)
+$STRACE echo
+logfile=$(generate_unique_file)
+$STRACE echo "Accesses by Local Hour"
+logfile=$(generate_unique_file)
+$STRACE echo "Accesses by Local Hour" | sed 's/./-/g'
+cmd='{print $2}'
+logfile=$(generate_unique_file)
+$STRACE awk -F: "$cmd" "$file_times" | sort | uniq -c

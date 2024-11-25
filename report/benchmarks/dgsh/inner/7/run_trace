@@ -9,7 +9,7 @@ BENCHMARK_NO = "7"
 
 # Base directories
 HS_BASE = subprocess.check_output(["git", "rev-parse", "--show-toplevel"]).decode("utf-8").strip()
-TEST_BASE = os.path.join(HS_BASE, "report/benchmarks/dgsh", f"{BENCHMARK_NO}-10x")
+TEST_BASE = os.path.join(HS_BASE, "report/benchmarks/dgsh", f"{BENCHMARK_NO}")
 TEST_UPPER = os.path.join(HS_BASE, "report")
 RESOURCE_DIR = os.path.join(HS_BASE, "report/resources/dgsh")
 STRACE = "strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $(mktemp) env -i bash -c"
@@ -18,9 +18,9 @@ STRACE = "strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $(mktemp) env 
 SCRIPT_NAME = f"{BENCHMARK_NO}.strace.sh"
 
 # Environment variables
-os.environ["INPUT_FILE"] = os.path.join(RESOURCE_DIR, "10x-weblog.log")
+os.environ["INPUT_FILE"] = os.path.join(RESOURCE_DIR, "weblog.log")
 os.environ["STRACE"] = STRACE
-os.environ["OUTPUT_DIR"] = os.path.join(HS_BASE, "report/output", SCRIPT_NAME)
+os.environ["OUTPUT_DIR"] = os.path.join(HS_BASE, "report/output/dgsh", f"{BENCHMARK_NO}")
 
 # Timing the script
 script_path = os.path.join(TEST_BASE, SCRIPT_NAME)
@@ -39,13 +39,10 @@ elapsed_time = time.time() - start_time
 # Save the timing to try_time.sh
 output_dir = os.environ["OUTPUT_DIR"]
 os.makedirs(output_dir, exist_ok=True)  # Ensure the directory exists
-timing_file = os.path.join(output_dir, "strace_time")
+timing_file = os.path.join(output_dir, "strace_parse_time")
 
 with open(timing_file, "w") as f:
-    f.write(f"#!/bin/bash\n")
-    f.write(f"# Execution time for {SCRIPT_NAME}\n")
-    f.write(f"ELAPSED_TIME={elapsed_time:.6f}\n")
-    f.write(f"SUCCESS={success}\n")
+    f.write("f{elapsed_time:.6f}")
 
 print(f"Elapsed time: {elapsed_time:.6f} seconds")
 print(f"Timing saved to: {timing_file}")

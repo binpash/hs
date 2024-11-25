@@ -22,7 +22,7 @@ SCRIPT_NAME = f"{BENCHMARK_NO}.strace.parse.sh"
 # Environment variables
 os.environ["INPUT_FILE"] = os.path.join(RESOURCE_DIR, "weblog.log")
 os.environ["STRACE"] = STRACE
-os.environ["OUTPUT_DIR"] = os.path.join(HS_BASE, "report/output", SCRIPT_NAME)
+os.environ["OUTPUT_DIR"] = os.path.join(HS_BASE, "report/output/dgsh", f"{BENCHMARK_NO}")
 os.environ["PARSE"] = PARSE_CMD
 
 # Timing the script
@@ -45,10 +45,7 @@ os.makedirs(output_dir, exist_ok=True)  # Ensure the directory exists
 timing_file = os.path.join(output_dir, "strace_time")
 
 with open(timing_file, "w") as f:
-    f.write(f"#!/bin/bash\n")
-    f.write(f"# Execution time for {SCRIPT_NAME}\n")
-    f.write(f"ELAPSED_TIME={elapsed_time:.6f}\n")
-    f.write(f"SUCCESS={success}\n")
+    f.write("f{elapsed_time:.6f}")
 
 print(f"Elapsed time: {elapsed_time:.6f} seconds")
 print(f"Timing saved to: {timing_file}")

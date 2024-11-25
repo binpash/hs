@@ -22,6 +22,10 @@ os.environ["INPUT_FILE"] = os.path.join(RESOURCE_DIR, "1000x-weblog.log")
 os.environ["STRACE"] = STRACE
 os.environ["OUTPUT_DIR"] = os.path.join(HS_BASE, "report/output/dgsh", f"{BENCHMARK_NO}-1000x")
 
+# Save the timing to try_time.sh
+output_dir = os.environ["OUTPUT_DIR"]
+os.makedirs(output_dir, exist_ok=True)  # Ensure the directory exists
+
 # Timing the script
 script_path = os.path.join(TEST_BASE, SCRIPT_NAME)
 start_time = time.time()
@@ -36,13 +40,10 @@ except subprocess.CalledProcessError as e:
 
 elapsed_time = time.time() - start_time
 
-# Save the timing to try_time.sh
-output_dir = os.environ["OUTPUT_DIR"]
-os.makedirs(output_dir, exist_ok=True)  # Ensure the directory exists
 timing_file = os.path.join(output_dir, "strace_time")
 
 with open(timing_file, "w") as f:
-    f.write("f{elapsed_time:.6f}")
+    f.write(f"{elapsed_time:.6f}")
 
 print(f"Elapsed time: {elapsed_time:.6f} seconds")
 print(f"Timing saved to: {timing_file}")

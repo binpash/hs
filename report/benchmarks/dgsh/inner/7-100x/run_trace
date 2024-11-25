@@ -42,7 +42,7 @@ elapsed_time = time.time() - start_time
 timing_file = os.path.join(output_dir, "strace_time")
 
 with open(timing_file, "w") as f:
-    f.write("f{elapsed_time:.6f}")
+    f.write(f"{elapsed_time:.6f}")
 
 print(f"Elapsed time: {elapsed_time:.6f} seconds")
 print(f"Timing saved to: {timing_file}")

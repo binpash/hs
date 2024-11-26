@@ -184,7 +184,7 @@ def parse_w_first_path(pid, args, ret, ctx):
         return WFile(path)
 
 def get_path_at(pid, positions, args, ctx):
-    args = split_arg(args)
+    args = split_args(args)
     if isinstance(positions, list):
         rets = []
         for x in args:

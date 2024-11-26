@@ -9,7 +9,7 @@ from subprocess import run, PIPE
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run benchmark")
-    parser.add_argument('--window', default=5, type=int, help='Window size to run hs with')
+    parser.add_argument('--window', default=16, type=int, help='Window size to run hs with')
     parser.add_argument('--target', choices=['hs-only', 'sh-only', 'both'],
                         default='both', help='To run with sh or hs')
     parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
@@ -19,6 +19,7 @@ def parse_arguments():
     parser.add_argument('--hs_base', required=True, help='Base directory of hs')
     parser.add_argument('--env_vars', nargs='*', default=[], help='Environment variables to set')
     parser.add_argument('--suffix', help='Suffix for the output directory')
+    parser.add_argument('--script-args', nargs=argparse.REMAINDER, help='Arguments to pass to the script')
     return parser.parse_args()
 
 def cleanup_output_dir(output_base: Path):
@@ -27,17 +28,24 @@ def cleanup_output_dir(output_base: Path):
         shutil.rmtree(output_base)
     output_base.mkdir(parents=True, exist_ok=True)
 
-def do_sh_run(test_base: Path, output_base: Path, env: dict, script_name: str):
+def do_sh_run(test_base: Path, output_base: Path, env: dict, script_name: str, script_args: list):
     output_dir = output_base / 'sh'
     output_dir.mkdir(parents=True, exist_ok=True)
     env['OUTPUT_DIR'] = str(output_dir)
 
-    cmd = ['/bin/sh', test_base / script_name]
+    cmd = ['/bin/sh', str(test_base / script_name)] + script_args
     print(f"Running sh command: {' '.join([str(c) for c in cmd])}")
 
     before = time.time()
     result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
     duration = time.time() - before
+
+    if result.returncode != 0:
+        print(f"Error: Non-zero return code from sh run")
+    if len(result.stderr) > 0:
+        print(f"Error: Non-empty stderr from sh run")
+    
+    
 
     with open(output_dir / "stdout", 'wb') as f:
         f.write(result.stdout)
@@ -50,7 +58,7 @@ def do_sh_run(test_base: Path, output_base: Path, env: dict, script_name: str):
 
     return result.returncode
 
-def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, env: dict, log: bool, script_name: str):
+def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, env: dict, log: bool, script_name: str, script_args: list):
     output_dir = output_base / 'hs'
     output_dir.mkdir(parents=True, exist_ok=True)
     env['OUTPUT_DIR'] = str(output_dir)
@@ -65,6 +73,7 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
     if log:
         cmd.extend(['-d', '2'])
     cmd.append(str(test_base / script_name))
+    cmd.extend(script_args)
 
     print(f"Running hs command: {' '.join(cmd)}")
 
@@ -100,41 +109,51 @@ def compare_outputs(output_base: Path):
 
     print(f"Comparing outputs in {sh_output_dir} and {hs_output_dir}")
 
-    # Compare stdout
-    with open(sh_output_dir / "stdout", 'rb') as f1, open(hs_output_dir / "stdout", 'rb') as f2:
-        sh_stdout = f1.read()
-        hs_stdout = f2.read()
+    # Helper function to recursively gather file paths relative to a base directory, excluding specific files
+    def get_all_files(base_dir: Path):
+        exclude_files = {'stderr', 'hs_log'}
+        return {
+            str(f.relative_to(base_dir))
+            for f in base_dir.rglob('*')
+            if f.is_file() and f.name not in exclude_files
+        }
 
-    if sh_stdout != hs_stdout:
-        outputs_match = False
-        error_messages.append('Stdout differs between sh and hs runs.\n')
+    # Gather all files (including in subdirectories) excluding `stderr` and `hs_log`
+    sh_files = get_all_files(sh_output_dir)
+    hs_files = get_all_files(hs_output_dir)
 
-    # Get lists of files in both sh and hs output directories, excluding hs_log
-    sh_file_names = {f.name for f in sh_output_dir.glob('*') if f.name not in ['stdout', 'stderr']}
-    hs_file_names = {f.name for f in hs_output_dir.glob('*') if f.name not in ['stdout', 'stderr', 'hs_log']}
-
-    # Check for differences in filenames
-    if sh_file_names != hs_file_names:
+    # Compare file lists
+    if sh_files != hs_files:
         outputs_match = False
         error_messages.append('Generated files differ between sh and hs runs.\n')
-        error_messages.append(f'Files in sh run: {sorted(sh_file_names)}\n')
-        error_messages.append(f'Files in hs run: {sorted(hs_file_names)}\n')
+        error_messages.append(f'Files in sh run: {sorted(sh_files)}\n')
+        error_messages.append(f'Files in hs run: {sorted(hs_files)}\n')
+    else:
+        print(f"All files (excluding stderr and hs_log) match: {len(sh_files)} files")
 
-    # Compare contents of files with the same names, but do not take intersection
-    all_files = sh_file_names | hs_file_names
-    for fname in all_files:
-        sh_file = sh_output_dir / fname
-        hs_file = hs_output_dir / fname
-        if sh_file.exists() and hs_file.exists():
-            with open(sh_file, 'rb') as f1, open(hs_file, 'rb') as f2:
-                sh_content = f1.read()
-                hs_content = f2.read()
-            if sh_content != hs_content:
-                outputs_match = False
-                error_messages.append(f'Contents of file {fname} differ between sh and hs runs.\n')
-        else:
+    # Compare contents of files present in both directories
+    common_files = sh_files & hs_files
+    for relative_path in common_files:
+        sh_file = sh_output_dir / relative_path
+        hs_file = hs_output_dir / relative_path
+
+        with open(sh_file, 'rb') as f1, open(hs_file, 'rb') as f2:
+            sh_content = f1.read()
+            hs_content = f2.read()
+
+        if sh_content != hs_content:
             outputs_match = False
-            error_messages.append(f'File {fname} missing in {"hs" if sh_file.exists() else "sh"} run.\n')
+            error_messages.append(f'Contents of file {relative_path} differ between sh and hs runs.\n')
+
+    # Check for missing files
+    missing_in_sh = hs_files - sh_files
+    missing_in_hs = sh_files - hs_files
+    for missing_file in missing_in_sh:
+        outputs_match = False
+        error_messages.append(f'File {missing_file} is missing in sh run.\n')
+    for missing_file in missing_in_hs:
+        outputs_match = False
+        error_messages.append(f'File {missing_file} is missing in hs run.\n')
 
     # Write errors or create an empty error file if no errors
     if outputs_match:
@@ -144,7 +163,6 @@ def compare_outputs(output_base: Path):
         with open(error_file, 'w') as errf:
             errf.writelines(error_messages)
             print("FAIL: Outputs differ")
-            
 
 def main():
     args = parse_arguments()
@@ -178,10 +196,12 @@ def main():
     # Cleanup previous outputs
     cleanup_output_dir(output_base)
 
+    script_args = args.script_args or []
+
     if run_sh:
-        sh_returncode = do_sh_run(test_base, output_base, env, script_name)
+        sh_returncode = do_sh_run(test_base, output_base, env, script_name, script_args)
     if run_hs:
-        hs_returncode = do_hs_run(test_base, output_base, hs_base, args.window, env, args.log == 'enable', script_name)
+        hs_returncode = do_hs_run(test_base, output_base, hs_base, args.window, env, args.log == 'enable', script_name, script_args)
     if run_sh and run_hs:
         compare_outputs(output_base)
 

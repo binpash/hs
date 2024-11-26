@@ -1,6 +1,0 @@
-mkdir log
-touch -d "2 days ago" log/file
-echo h > log/file
-echo file=1 > log/rotatelogs.conf
-./50.sh > result_sh_out
-mv log sh

@@ -45,22 +45,18 @@ OUTPUT_DIR="$OUTPUT_DIR"
 # Output files
 file1="$OUTPUT_DIR/file1.txt"
 file2="$OUTPUT_DIR/file2.txt"
-file3="$OUTPUT_DIR/file3.txt"
 
-cat "$INPUT_FILE" > "$file1"
 # Ensure output directory exists
 mkdir -p "$OUTPUT_DIR"
 
-cat "$INPUT_FILE" > "$file1"
-
 # Split input one word per line
-tr -cs a-zA-Z '\n' < "$file1" > "$file2"
+tr -cs a-zA-Z '\n' < "$INPUT_FILE" > "$file1"
 
 # Digram frequency
 echo "Digram frequency"
 perl -ne 'for ($i = 0; $i < length($_) - 2; $i++) {
 	print substr($_, $i, 2), "\n";
-}' < "$file2" |
+}' < "$file1" |
 awk '{count[$1]++} END {for (i in count) print count[i], i}' |
 sort -rn
 
@@ -68,27 +64,27 @@ sort -rn
 echo "Trigram frequency"
 perl -ne 'for ($i = 0; $i < length($_) - 3; $i++) {
 	print substr($_, $i, 3), "\n";
-}' < "$file2" |
+}' < "$file1" |
 awk '{count[$1]++} END {for (i in count) print count[i], i}' |
 sort -rn
 
 # Word frequency
 echo "Word frequency"
-awk '{count[$1]++} END {for (i in count) print count[i], i}' < "$file2" |
+awk '{count[$1]++} END {for (i in count) print count[i], i}' < "$file1" |
 sort -rn
 
 # Store number of characters to use in awk below
-nchars=$(wc -c < "$file1")
+nchars=$(wc -c < "$INPUT_FILE")
 
 # Character frequency
 # Print absolute
 echo "Character frequency"
-sed 's/./&\n/g' < "$file1" |
+sed 's/./&\n/g' < "$INPUT_FILE" |
 awk '{count[$1]++} END {for (i in count) print count[i], i}' |
-sort -rn | tee "$file3"
+sort -rn | tee "$file2"
 
 # Print relative
 echo "Relative character frequency"
-gawk -v NCHARS="$nchars" 'BEGIN {
+awk -v NCHARS="$nchars" 'BEGIN {
 		OFMT = "%.2g%%"}
-		{print $1, $2, $1 / NCHARS * 100}' "$file3"
+		{print $1, $2, $1 / NCHARS * 100}' "$file2"

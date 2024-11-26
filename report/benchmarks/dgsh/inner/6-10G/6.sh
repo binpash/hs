@@ -40,24 +40,23 @@ file2="$OUTPUT_DIR/file2.txt"
 file3="$OUTPUT_DIR/file3.txt"
 file4="$OUTPUT_DIR/file4.txt"
 file5="$OUTPUT_DIR/file5.txt"
-cat $INPUT_FILE > $file1
 
 # Stream input from file and split input one word per line
 # Create list of unique words
-tr -cs a-zA-Z '\n' < "$file1" |
-sort -u > "$file2"
+tr -cs a-zA-Z '\n' < "$INPUT_FILE" |
+sort -u > "$file1"
 
 # List two-letter palindromes
-sed 's/.*\(.\)\(.\)\2\1.*/p: \1\2-\2\1/;t;g' "$file2" > "$file3"
+sed 's/.*\(.\)\(.\)\2\1.*/p: \1\2-\2\1/;t;g' "$file1" > "$file2"
 
 # List four consecutive consonants
-sed -E 's/.*([^aeiouyAEIOUY]{4}).*/c: \1/;t;g' "$file2" > "$file4"
+sed -E 's/.*([^aeiouyAEIOUY]{4}).*/c: \1/;t;g' "$file1" > "$file3"
 
 # List length of words longer than 12 characters
 awk '{if (length($1) > 12) print "l:", length($1);
-	else print ""}' "$file2" > "$file5"
+	else print ""}' "$file1" > "$file4"
 
 # Paste the four streams side-by-side
 # List only words satisfying one or more properties
-paste "$file2" "$file3" "$file4" "$file5" | 
+paste "$file1" "$file2" "$file3" "$file4" | 
 fgrep :

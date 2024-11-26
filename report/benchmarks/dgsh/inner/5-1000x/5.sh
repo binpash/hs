@@ -35,23 +35,20 @@ OUTPUT_DIR="$OUTPUT_DIR"
 # Output files
 file1="$OUTPUT_DIR/file1.txt"
 file2="$OUTPUT_DIR/file2.txt"
-file3="$OUTPUT_DIR/file3.txt"
-
-cat $INPUT_FILE >"$file1"
 
 # Find errors
 
 # Obtain list of words in text
-cat "$file1" | 
+cat "$INPUT_FILE" | 
 tr '[:upper:]' '[:lower:]' | 
 sed 's/[^a-z]/\n/g' | 
 grep -v '^$' | 
 sort | 
 uniq | 
-grep -v '^$' > "$file2"
+grep -v '^$' > "$file1"
 
 # Ensure dictionary is compatibly sorted
-sort /usr/share/dict/words > "$file3"
+sort /usr/share/dict/words > "$file2"
 
 # List errors as a set difference
-comm -23 "$file2" "$file3" 
+comm -23 "$file1" "$file2" 

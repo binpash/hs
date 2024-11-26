@@ -32,6 +32,23 @@
 #  limitations under the License.
 #
 
+generate_unique_file() {
+    local dir="$OUTPUT_DIR"
+    local prefix="strace_log"
+    local counter_file="$dir/${prefix}"
+    if [ ! -f "$counter_file" ]; then
+        echo 0 > "$counter_file"
+    fi
+    local counter
+    counter=$(<"$counter_file")
+    counter=$((counter + 1))
+    echo "$counter" > "$counter_file"
+    local filename="$dir/${prefix}_${counter}"
+    echo "$filename"
+}
+
+export STRACE="strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i"
+
 INPUT_FILE="$INPUT_FILE"
 OUTPUT_DIR="$OUTPUT_DIR"
 
@@ -40,10 +57,13 @@ file1="$OUTPUT_DIR/file1.txt"
 file2="$OUTPUT_DIR/file2.txt"
 
 # Extract columns 5 and 6, save to temp1
-cut -d ',' -f 5-6 "$INPUT_FILE" > "$file1"
+logfile=$(generate_unique_file)
+$STRACE cut -d ',' -f 5-6 "$INPUT_FILE" > "$file1"
 
 # Extract columns 2, 3, and 4, save to temp2
-cut -d ',' -f 2-4 "$INPUT_FILE" > "$file2"
+logfile=$(generate_unique_file)
+$STRACE cut -d ',' -f 2-4 "$INPUT_FILE" > "$file2"
 
 # Combine the columns
-paste -d ',' "$file1" "$file2"
+logfile=$(generate_unique_file)
+$STRACE paste -d ',' "$file1" "$file2"

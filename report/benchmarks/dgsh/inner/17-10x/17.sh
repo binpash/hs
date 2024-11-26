@@ -38,16 +38,12 @@ OUTPUT_DIR="$OUTPUT_DIR"
 # Output files
 file1="$OUTPUT_DIR/file1.txt"
 file2="$OUTPUT_DIR/file2.txt"
-file3="$OUTPUT_DIR/file3.txt"
-file4="$OUTPUT_DIR/file4.txt"
-
-cat $INPUT_FILE > $file1
 
 # Extract columns 5 and 6, save to temp1
-cut -d ',' -f 5-6 "$file1" > "$file2"
+cut -d ',' -f 5-6 "$INPUT_FILE" > "$file1"
 
 # Extract columns 2, 3, and 4, save to temp2
-cut -d ',' -f 2-4 "$file1" > "$file3"
+cut -d ',' -f 2-4 "$INPUT_FILE" > "$file2"
 
 # Combine the columns
-paste -d ',' "$file2" "$file3"
+paste -d ',' "$file1" "$file2"

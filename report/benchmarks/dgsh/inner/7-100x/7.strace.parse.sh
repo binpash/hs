@@ -21,6 +21,8 @@ export PARSE=$PARSE
 # Consistent sorting
 export LC_ALL=C
 
+export TZ=$(date +%Z)
+
 # Print initial header only if DGSH_DRAW_EXIT is not set
 if [ -z "${DGSH_DRAW_EXIT}" ]
 then
@@ -265,6 +267,7 @@ $PARSE $logfile > $(generate_unique_file)
 
 logfile=$(generate_unique_file)
 strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i uniq -c "$file_requests" | sort -rn | head -20
+$PARSE $logfile > $(generate_unique_file)
 
 cmd='{print substr($4, 2)}'
 logfile=$(generate_unique_file)

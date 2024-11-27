@@ -3,7 +3,7 @@
 
 mkdir -p "$OUTPUT_DIR"
 
-INPUT2="$INPUT_TOP/exodus.txt"
+INPUT2="$INPUT_TOP/exodus"
 
 pure_func() {
     input=$1

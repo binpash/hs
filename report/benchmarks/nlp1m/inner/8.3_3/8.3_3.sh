@@ -1,9 +1,7 @@
 #!/bin/sh
 # tag: compare_exodus_genesis.sh
 
-mkdir -p "$OUTPUT_DIR"
-
-INPUT2="$INPUT_TOP/exodus.txt"
+INPUT2="$INPUT_TOP/exodus"
 
 pure_func() {
     input=$1
@@ -17,5 +15,5 @@ pure_func() {
 
 for input in $(ls $INPUT_FILE | xargs -I arg1 basename arg1)
 do
-    cat $IN/$input | tr -c 'A-Za-z' '[\n*]' | grep -v "^\s*$" | sort -u | pure_func $input $INPUT2 > $OUTPUT_DIR/$input.out
+    cat $INPUT_FILE/$input | tr -c 'A-Za-z' '[\n*]' | grep -v "^\s*$" | sort -u | pure_func $input $INPUT2 > $OUTPUT_DIR/$input.out
 done

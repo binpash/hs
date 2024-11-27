@@ -56,10 +56,10 @@ file1="$OUTPUT_DIR/file1.txt"
 file2="$OUTPUT_DIR/file2.txt"
 
 # Extract columns 5 and 6, save to temp1
-$STRACE cut -d ',' -f 5-6 "$INPUT_FILE" > "$file1"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i cut -d ',' -f 5-6 "$INPUT_FILE" > "$file1"
 
 # Extract columns 2, 3, and 4, save to temp2
-$STRACE cut -d ',' -f 2-4 "$INPUT_FILE" > "$file2"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i cut -d ',' -f 2-4 "$INPUT_FILE" > "$file2"
 
 # Combine the columns
-$STRACE paste -d ',' "$file1" "$file2"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i paste -d ',' "$file1" "$file2"

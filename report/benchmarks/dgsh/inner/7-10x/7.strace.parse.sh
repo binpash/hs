@@ -269,25 +269,25 @@ $PARSE $logfile > $(generate_unique_file)
 
 cmd='{print substr($4, 2)}'
 logfile=$(generate_unique_file)
-$STRACE awk "$cmd" "$file_initial" > "$file_times"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk "$cmd" "$file_initial" > "$file_times"
 $PARSE $logfile > $(generate_unique_file)
 
 
 # Just dates
 cmd='{print $1}'
 logfile=$(generate_unique_file)
-$STRACE awk -F: "$cmd" "$file_times" > "$file_dates"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk -F: "$cmd" "$file_times" > "$file_dates"
 $PARSE $logfile > $(generate_unique_file)
 
 
 # Number of days
 logfile=$(generate_unique_file)
-$STRACE echo -n 'Accesses per day: '
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo -n 'Accesses per day: '
 $PARSE $logfile > $(generate_unique_file)
 
 
 logfile=$(generate_unique_file)
-$STRACE uniq "$file_dates" | wc -l > "$file_day_count"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i uniq "$file_dates" | wc -l > "$file_day_count"
 $PARSE $logfile > $(generate_unique_file)
 
 logfile=$(generate_unique_file)
@@ -296,54 +296,54 @@ awk -v NXBYTES=$(<"$file_bytes") "$cmd" "$file_day_count"
 $PARSE $logfile > $(generate_unique_file)
 
 logfile=$(generate_unique_file)
-$STRACE echo
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo
 $PARSE $logfile > $(generate_unique_file)
 
 logfile=$(generate_unique_file)
-$STRACE echo "Accesses by Date"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Accesses by Date"
 $PARSE $logfile > $(generate_unique_file)
 
 logfile=$(generate_unique_file)
-$STRACE echo "Accesses by Date" | sed 's/./-/g'
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Accesses by Date" | sed 's/./-/g'
 $PARSE $logfile > $(generate_unique_file)
 
 logfile=$(generate_unique_file)
-$STRACE uniq -c < "$file_dates"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i uniq -c < "$file_dates"
 $PARSE $logfile > $(generate_unique_file)
 
 # Accesses by day of week
 logfile=$(generate_unique_file)
-$STRACE echo
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo
 $PARSE $logfile > $(generate_unique_file)
 
 logfile=$(generate_unique_file)
-$STRACE echo "Accesses by Day of Week"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Accesses by Day of Week"
 $PARSE $logfile > $(generate_unique_file)
 
 logfile=$(generate_unique_file)
-$STRACE echo "Accesses by Day of Week" | sed 's/./-/g'
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Accesses by Day of Week" | sed 's/./-/g'
 $PARSE $logfile > $(generate_unique_file)
 
 cmd='s|/|-|g'
 logfile=$(generate_unique_file)
-$STRACE sed "$cmd" "$file_dates" | date -f - +%a 2>/dev/null | sort | uniq -c | sort -rn
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i sed "$cmd" "$file_dates" | date -f - +%a 2>/dev/null | sort | uniq -c | sort -rn
 $PARSE $logfile > $(generate_unique_file)
 
 # Accesses by Local Hour
 logfile=$(generate_unique_file)
-$STRACE echo
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo
 $PARSE $logfile > $(generate_unique_file)
 
 logfile=$(generate_unique_file)
-$STRACE echo "Accesses by Local Hour"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Accesses by Local Hour"
 $PARSE $logfile > $(generate_unique_file)
 
 
 logfile=$(generate_unique_file)
-$STRACE echo "Accesses by Local Hour" | sed 's/./-/g'
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Accesses by Local Hour" | sed 's/./-/g'
 $PARSE $logfile > $(generate_unique_file)
 
 cmd='{print $2}'
 logfile=$(generate_unique_file)
-$STRACE awk -F: "$cmd" "$file_times" | sort | uniq -c
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk -F: "$cmd" "$file_times" | sort | uniq -c
 $PARSE $logfile > $(generate_unique_file)

@@ -33,6 +33,7 @@ RUN ./scripts/setup-pash.sh
 WORKDIR /srv/hs
 COPY scripts scripts
 COPY entrypoint.sh entrypoint.sh
+COPY pash-spec.sh pash-spec.sh
 RUN chmod +x entrypoint.sh
 
 RUN mv /srv/hs/report/benchmarks/teraseq/annotate-sqlite-with-fastq.R /root/TERA-Seq_manuscript/tools/utils/

@@ -35,6 +35,8 @@
 # Consistent sorting
 export LC_ALL=C
 
+export TZ=$(date +%Z)
+
 # Print initial header only if DGSH_DRAW_EXIT is not set
 if [ -z "${DGSH_DRAW_EXIT}" ]
 then

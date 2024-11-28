@@ -46,6 +46,10 @@ OUTPUT_DIR="$OUTPUT_DIR"
 file1="$OUTPUT_DIR/file1.txt"
 file2="$OUTPUT_DIR/file2.txt"
 
+# Store number of characters to use in awk below
+nchars=$(wc -c < "$INPUT_FILE")
+
+
 # Ensure output directory exists
 mkdir -p "$OUTPUT_DIR"
 
@@ -72,9 +76,6 @@ sort -rn
 echo "Word frequency"
 awk '{count[$1]++} END {for (i in count) print count[i], i}' < "$file1" |
 sort -rn
-
-# Store number of characters to use in awk below
-nchars=$(wc -c < "$INPUT_FILE")
 
 # Character frequency
 # Print absolute

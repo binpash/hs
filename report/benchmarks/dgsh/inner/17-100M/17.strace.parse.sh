@@ -58,15 +58,15 @@ file2="$OUTPUT_DIR/file2.txt"
 
 # Extract columns 5 and 6, save to temp1
 logfile=$(generate_unique_file)
-$STRACE cut -d ',' -f 5-6 "$INPUT_FILE" > "$file1"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i cut -d ',' -f 5-6 "$INPUT_FILE" > "$file1"
 $PARSE $logfile > $(generate_unique_file)
 
 # Extract columns 2, 3, and 4, save to temp2
 logfile=$(generate_unique_file)
-$STRACE cut -d ',' -f 2-4 "$INPUT_FILE" > "$file2"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i cut -d ',' -f 2-4 "$INPUT_FILE" > "$file2"
 $PARSE $logfile > $(generate_unique_file)
 
 # Combine the columns
 logfile=$(generate_unique_file)
-$STRACE paste -d ',' "$file1" "$file2"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i paste -d ',' "$file1" "$file2"
 $PARSE $logfile > $(generate_unique_file)

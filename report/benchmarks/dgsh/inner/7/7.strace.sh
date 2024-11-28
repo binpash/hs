@@ -26,7 +26,7 @@ export TZ=$(date +%Z)
 if [ -z "${DGSH_DRAW_EXIT}" ]
 then
     logfile=$(generate_unique_file)
-    $STRACE echo -e "\t\tWWW server statistics\n\t\t=====================\n\nSummary\n======="
+    strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo -e "\t\tWWW server statistics\n\t\t=====================\n\nSummary\n======="
 fi
 
 ## Initialize temporary files
@@ -43,230 +43,230 @@ file_dates="$OUTPUT_DIR/file10.txt"
 
 # This file will capture a large portion of the processed data to be reused in subsequent parts
 logfile=$(generate_unique_file)
-$STRACE cat "$INPUT_FILE" > "$file_initial"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i cat "$INPUT_FILE" > "$file_initial"
 
 # Number of accesses
 logfile=$(generate_unique_file)
-$STRACE echo -n 'Number of accesses: '
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo -n 'Number of accesses: '
 
 logfile=$(generate_unique_file)
-$STRACE wc -l < "$file_initial"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i wc -l < "$file_initial"
 
 # Total transferred bytes
 cmd='{s += $NF} END {print s}'
 logfile=$(generate_unique_file)
-$STRACE awk "$cmd" "$file_initial" > "$file_bytes"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk "$cmd" "$file_initial" > "$file_bytes"
 
 logfile=$(generate_unique_file)
-$STRACE echo -n 'Number of Gbytes transferred: '
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo -n 'Number of Gbytes transferred: '
 
 cmd='{print $1 / 1024 / 1024 / 1024}'
 logfile=$(generate_unique_file)
-$STRACE awk "$cmd" "$file_bytes"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk "$cmd" "$file_bytes"
 
 # Process Host names
 cmd='{print $1}'
 logfile=$(generate_unique_file)
-$STRACE awk "$cmd" "$file_initial" > "$file_hosts"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk "$cmd" "$file_initial" > "$file_hosts"
 
 # Number of accesses
 logfile=$(generate_unique_file)
-$STRACE echo -n 'Number of accesses: '
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo -n 'Number of accesses: '
 
 logfile=$(generate_unique_file)
-$STRACE wc -l < "$file_hosts"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i wc -l < "$file_hosts"
 
 # Sorted hosts
 logfile=$(generate_unique_file)
-$STRACE sort "$file_hosts" > "$file_sorted_hosts"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i sort "$file_hosts" > "$file_sorted_hosts"
 
 # Unique hosts
 logfile=$(generate_unique_file)
-$STRACE uniq "$file_sorted_hosts" > "$file_unique_hosts"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i uniq "$file_sorted_hosts" > "$file_unique_hosts"
 
 logfile=$(generate_unique_file)
-$STRACE echo -n 'Number of hosts: '
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo -n 'Number of hosts: '
 
 logfile=$(generate_unique_file)
-$STRACE wc -l < "$file_unique_hosts"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i wc -l < "$file_unique_hosts"
 
 # Number of TLDs
 cmd='$NF !~ /[0-9]/ {print $NF}'
 logfile=$(generate_unique_file)
-$STRACE awk -F. "$cmd" "$file_unique_hosts" | sort -u | wc -l
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk -F. "$cmd" "$file_unique_hosts" | sort -u | wc -l
 
 logfile=$(generate_unique_file)
-$STRACE echo -n 'Number of top level domains: '
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo -n 'Number of top level domains: '
 
 # Top 10 hosts
 logfile=$(generate_unique_file)
-$STRACE echo
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo
 
 logfile=$(generate_unique_file)
-$STRACE echo "Top 10 Hosts"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Top 10 Hosts"
 
 logfile=$(generate_unique_file)
-$STRACE echo "Top 10 Hosts" | sed 's/./-/g'
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Top 10 Hosts" | sed 's/./-/g'
 
 logfile=$(generate_unique_file)
-$STRACE uniq -c "$file_sorted_hosts" | sort -rn | head -10
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i uniq -c "$file_sorted_hosts" | sort -rn | head -10
 
 logfile=$(generate_unique_file)
-$STRACE echo
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo
 
 # Top 20 TLDs
 logfile=$(generate_unique_file)
-$STRACE echo
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo
 
 logfile=$(generate_unique_file)
-$STRACE echo "Top 20 Level Domain Accesses"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Top 20 Level Domain Accesses"
 
 logfile=$(generate_unique_file)
-$STRACE echo "Top 20 Level Domain Accesses" | sed 's/./-/g'
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Top 20 Level Domain Accesses" | sed 's/./-/g'
 
 cmd='$NF !~ /^[0-9]/ {print $NF}'
 logfile=$(generate_unique_file)
-$STRACE awk -F. "$cmd" "$file_sorted_hosts" | sort | uniq -c | sort -rn | head -20
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk -F. "$cmd" "$file_sorted_hosts" | sort | uniq -c | sort -rn | head -20
 
 logfile=$(generate_unique_file)
-$STRACE echo
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo
 
 # Domains
 cmd='BEGIN {OFS = "."} $NF !~ /^[0-9]/ {$1 = ""; print}'
 logfile=$(generate_unique_file)
-$STRACE awk -F. "$cmd" "$file_sorted_hosts" | sort > "$file_domains"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk -F. "$cmd" "$file_sorted_hosts" | sort > "$file_domains"
 
 # Number of domains
 logfile=$(generate_unique_file)
-$STRACE echo -n 'Number of domains: '
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo -n 'Number of domains: '
 
 logfile=$(generate_unique_file)
-$STRACE uniq "$file_domains" | wc -l
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i uniq "$file_domains" | wc -l
 
 # Top 10 domains
 logfile=$(generate_unique_file)
-$STRACE echo
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo
 
 logfile=$(generate_unique_file)
-$STRACE echo "Top 10 domains"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Top 10 domains"
 
 logfile=$(generate_unique_file)
-$STRACE echo "Top 10 domains" | sed 's/./-/g'
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Top 10 domains" | sed 's/./-/g'
 
 logfile=$(generate_unique_file)
-$STRACE uniq -c "$file_domains" | sort -rn | head -10
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i uniq -c "$file_domains" | sort -rn | head -10
 
 # Hosts by volume
 logfile=$(generate_unique_file)
-$STRACE echo
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo
 
 logfile=$(generate_unique_file)
-$STRACE echo "Top 10 Hosts by Transfer"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Top 10 Hosts by Transfer"
 
 logfile=$(generate_unique_file)
-$STRACE echo "Top 10 Hosts by Transfer" | sed 's/./-/g'
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Top 10 Hosts by Transfer" | sed 's/./-/g'
 
 cmd='{bytes[$1] += $NF} END {for (h in bytes) print bytes[h], h}'
 logfile=$(generate_unique_file)
-$STRACE awk "$cmd" "$file_initial" | sort -rn | head -10
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk "$cmd" "$file_initial" | sort -rn | head -10
 
 # Sorted page name requests
 cmd='{print $7}'
 logfile=$(generate_unique_file)
-$STRACE awk "$cmd" "$file_initial" | sort > "$file_requests"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk "$cmd" "$file_initial" | sort > "$file_requests"
 
 # Top 20 area requests (input is already sorted)
 logfile=$(generate_unique_file)
-$STRACE echo
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo
 
 logfile=$(generate_unique_file)
-$STRACE echo "Top 20 area requests"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Top 20 area requests"
 
 logfile=$(generate_unique_file)
-$STRACE echo "Top 20 area requests" | sed 's/./-/g'
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Top 20 area requests" | sed 's/./-/g'
 
 cmd='{print $2}'
 logfile=$(generate_unique_file)
-$STRACE awk -F/ "$cmd" "$file_requests" | uniq -c | sort -rn | head -20
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk -F/ "$cmd" "$file_requests" | uniq -c | sort -rn | head -20
 
 # Number of different pages
 logfile=$(generate_unique_file)
-$STRACE echo -n 'Number of different pages: '
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo -n 'Number of different pages: '
 
 logfile=$(generate_unique_file)
-$STRACE uniq "$file_requests" | wc -l
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i uniq "$file_requests" | wc -l
 
 # Top 20 requests
 logfile=$(generate_unique_file)
-$STRACE echo
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo
 
 logfile=$(generate_unique_file)
-$STRACE echo "Top 20 requests"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Top 20 requests"
 
 logfile=$(generate_unique_file)
-$STRACE echo "Top 20 requests" | sed 's/./-/g'
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Top 20 requests" | sed 's/./-/g'
 
 logfile=$(generate_unique_file)
-$STRACE uniq -c "$file_requests" | sort -rn | head -20
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i uniq -c "$file_requests" | sort -rn | head -20
 
 
 # Access time: dd/mmm/yyyy:hh:mm:ss
 cmd='{print substr($4, 2)}'
 logfile=$(generate_unique_file)
-$STRACE awk "$cmd" "$file_initial" > "$file_times"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk "$cmd" "$file_initial" > "$file_times"
 
 # Just dates
 cmd='{print $1}'
 logfile=$(generate_unique_file)
-$STRACE awk -F: "$cmd" "$file_times" > "$file_dates"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk -F: "$cmd" "$file_times" > "$file_dates"
 
 # Number of days
 logfile=$(generate_unique_file)
-$STRACE echo -n 'Accesses per day: '
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo -n 'Accesses per day: '
 
 logfile=$(generate_unique_file)
-$STRACE uniq "$file_dates" | wc -l > "$file_day_count"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i uniq "$file_dates" | wc -l > "$file_day_count"
 
 logfile=$(generate_unique_file)
 cmd='{print NXBYTES / $1 / 1024 / 1024}'
 awk -v NXBYTES=$(<"$file_bytes") "$cmd" "$file_day_count"
 
 logfile=$(generate_unique_file)
-$STRACE echo
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo
 
 logfile=$(generate_unique_file)
-$STRACE echo "Accesses by Date"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Accesses by Date"
 
 logfile=$(generate_unique_file)
-$STRACE echo "Accesses by Date" | sed 's/./-/g'
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Accesses by Date" | sed 's/./-/g'
 
 logfile=$(generate_unique_file)
-$STRACE uniq -c < "$file_dates"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i uniq -c < "$file_dates"
 
 # Accesses by day of week
 logfile=$(generate_unique_file)
-$STRACE echo
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo
 
 logfile=$(generate_unique_file)
-$STRACE echo "Accesses by Day of Week"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Accesses by Day of Week"
 
 logfile=$(generate_unique_file)
-$STRACE echo "Accesses by Day of Week" | sed 's/./-/g'
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Accesses by Day of Week" | sed 's/./-/g'
 
 cmd='s|/|-|g'
 logfile=$(generate_unique_file)
-$STRACE sed "$cmd" "$file_dates" | date -f - +%a 2>/dev/null | sort | uniq -c | sort -rn
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i sed "$cmd" "$file_dates" | date -f - +%a 2>/dev/null | sort | uniq -c | sort -rn
 
 # Accesses by Local Hour
 logfile=$(generate_unique_file)
-$STRACE echo
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo
 
 logfile=$(generate_unique_file)
-$STRACE echo "Accesses by Local Hour"
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Accesses by Local Hour"
 
 logfile=$(generate_unique_file)
-$STRACE echo "Accesses by Local Hour" | sed 's/./-/g'
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Accesses by Local Hour" | sed 's/./-/g'
 
 cmd='{print $2}'
 logfile=$(generate_unique_file)
-$STRACE awk -F: "$cmd" "$file_times" | sort | uniq -c
+strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i awk -F: "$cmd" "$file_times" | sort | uniq -c

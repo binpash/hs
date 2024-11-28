@@ -6,7 +6,7 @@ import time
 import shutil
 
 # Benchmark number
-BENCHMARK_NO = "7"
+BENCHMARK_NO = "8"
 
 # Base directories
 HS_BASE = subprocess.check_output(["git", "rev-parse", "--show-toplevel"]).decode("utf-8").strip()
@@ -19,7 +19,7 @@ TRY = os.path.join(HS_BASE, "deps/try/try")
 SCRIPT_NAME = f"{BENCHMARK_NO}.sh"
 
 # Environment variables
-os.environ["INPUT_FILE"] = os.path.join(RESOURCE_DIR, "100M-weblog.log")
+os.environ["INPUT_FILE"] = os.path.join(RESOURCE_DIR, "100M-pg100.txt")
 os.environ["TRY"] = TRY
 os.environ["OUTPUT_DIR"] = os.path.join(HS_BASE, "report/output/dgsh", f"{BENCHMARK_NO}-100M")
 

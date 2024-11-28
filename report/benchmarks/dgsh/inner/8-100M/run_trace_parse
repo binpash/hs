@@ -5,7 +5,7 @@ import subprocess
 import time
 
 # Benchmark number
-BENCHMARK_NO = "17"
+BENCHMARK_NO = "8"
 
 # Base directories
 HS_BASE = subprocess.check_output(["git", "rev-parse", "--show-toplevel"]).decode("utf-8").strip()
@@ -20,7 +20,7 @@ PARSE_CMD = f"python3 {PARSE}"
 SCRIPT_NAME = f"{BENCHMARK_NO}.strace.parse.sh"
 
 # Environment variables
-os.environ["INPUT_FILE"] = os.path.join(RESOURCE_DIR, "100M-goods_classification.csv")
+os.environ["INPUT_FILE"] = os.path.join(RESOURCE_DIR, "100M-pg100.txt")
 os.environ["STRACE"] = STRACE
 os.environ["OUTPUT_DIR"] = os.path.join(HS_BASE, "report/output/dgsh", f"{BENCHMARK_NO}-100M")
 os.environ["PARSE"] = PARSE_CMD

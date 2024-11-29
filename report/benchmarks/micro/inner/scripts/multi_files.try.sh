@@ -1,4 +1,5 @@
 #! /bin/sh
 OUTPUT=${OUTPUT:-.}
-SCRIPTS=${SCRIPTS:-./scripts}
-$try python3 "$SCRIPTS"/multi_files.py "$OUTPUT"/foo
+hs_base=$(git rev-parse --show-toplevel)
+SCRIPTS="${hs_base}/report/benchmarks/micro/scripts"
+"$hs_base/deps/try/try" -y python3 "$SCRIPTS"/multi_files.py "$OUTPUT"/foo

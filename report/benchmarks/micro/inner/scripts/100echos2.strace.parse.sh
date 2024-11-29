@@ -1,4 +1,4 @@
-
+#!/bin/bash
 generate_unique_file() {
     local dir="$OUTPUT_DIR"
     local prefix="strace_log"
@@ -20,203 +20,304 @@ PARSE="python3 $hs_base/parallel-orch/trace_v2.py"
 logfile=$(generate_unique_file)
 
 OUTPUT=${OUTPUT:-.}
+
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i echo "Hello World!" > "$OUTPUT"/foo.txt
+$PARSE $logfile > $(generate_unique_file)

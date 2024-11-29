@@ -12,4 +12,4 @@ mkdir -p "$(dirname "$output_file")"
 
 
 # Capture and save the real time
-{ time $run_script>/dev/null 2>/dev/null; }  2>&1 | grep real | awk '{print $2}' | awk -F'm' '{print ($1 * 60) + $2}' | sed 's/s//' | sed -i 's/^0://' > "$output_file"
+{ time $run_script >/dev/null; }  2>&1 | grep real | awk '{print $2}' | awk -F'm' '{print ($1 * 60) + $2}' | sed 's/s//' > "$output_file"

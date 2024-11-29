@@ -1,6 +1,7 @@
 #! /bin/sh
 OUTPUT=${OUTPUT:-.}
-SCRIPTS=${SCRIPTS:-./scripts}
+hs_base=$(git rev-parse --show-toplevel)
+SCRIPTS="${hs_base}/report/benchmarks/micro/scripts"
 generate_unique_file() {
     local dir="$OUTPUT_DIR"
     local prefix="strace_log"
@@ -14,7 +15,10 @@ generate_unique_file() {
     echo "$counter" > "$counter_file"
     local filename="$dir/${prefix}_${counter}"
     echo "$filename"
-}
+} 
+hs_base=$(git rev-parse --show-toplevel)
+PARSE="python3 $hs_base/parallel-orch/trace_v2.py"
+
 
 logfile=$(generate_unique_file)
 strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i python3 "$SCRIPTS"/multi_files.py "$OUTPUT"/foo

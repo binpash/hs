@@ -12,11 +12,15 @@ generate_unique_file() {
     echo "$counter" > "$counter_file"
     local filename="$dir/${prefix}_${counter}"
     echo "$filename"
-}
+} 
+hs_base=$(git rev-parse --show-toplevel)
+PARSE="python3 $hs_base/parallel-orch/trace_v2.py"
+
 
 OUTPUT=${OUTPUT:-.}
-SCRIPTS=${SCRIPTS:-./scripts}
+hs_base=$(git rev-parse --show-toplevel)
+SCRIPTS="${hs_base}/report/benchmarks/micro/scripts"
 touch "$OUTPUT"/giant
 logfile=$(generate_unique_file)
-strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i bash -c python3 "$SCRIPTS"/giant_file.py "$OUTPUT"/giant 100
+strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i python3 "$SCRIPTS"/giant_file.py "$OUTPUT"/giant 100
 $PARSE $logfile > $(generate_unique_file)

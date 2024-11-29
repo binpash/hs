@@ -1,101 +1,102 @@
+hs_base=$(git rev-parse --show-toplevel)
 OUTPUT=${OUTPUT:-.}
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
-$try echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt
+"$hs_base/deps/try/try" -y echo "Hello World!" > "$OUTPUT"/foo.txt

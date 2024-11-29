@@ -24,12 +24,6 @@ docker run --name $container_name --init --privileged --cgroupns=host -v /z/niko
 # docker run --name $container_name --init --privileged --cgroupns=host -v /z/nikos/tmp:/tmp -it hs/${benchmark_name} bash
 
 mkdir -p $benchmark_root/../output/$test_name
-docker cp $container_name:/srv/hs/report/output/$test_name/sh_time $benchmark_root/../output/$test_name/sh_time
-docker cp $container_name:/srv/hs/report/output/$test_name/hs_time $benchmark_root/../output/$test_name/hs_time
-docker cp $container_name:/srv/hs/report/output/$test_name/hs_log $benchmark_root/../output/$test_name/hs_log
-
-docker cp $container_name:/srv/hs/report/output/$test_name/strace_time $benchmark_root/../output/$test_name/strace_time
 docker cp $container_name:/srv/hs/report/output/$test_name/strace_parse_time $benchmark_root/../output/$test_name/strace_parse_time
-docker cp $container_name:/srv/hs/report/output/$test_name/try_time $benchmark_root/../output/$test_name/try_time
 
 docker rm $container_name

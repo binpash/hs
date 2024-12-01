@@ -19,8 +19,8 @@ IN_ROOT=${IN_ROOT:-'https://atlas-group.cs.brown.edu/data/web-logs/world-cup'}
 ( cd "${benchmark_dir}/ita_public_tools" && make && cp "$ita_public_tools_dir/bin/recreate" "$benchmark_dir" && cp "$ita_public_tools_dir/state/object_mappings.sort" "$benchmark_dir")
 
 # Read each line from links.txt and download the file
-# wget -r -np -nH --cut-dirs=6 -P "${download_dir}" "${IN_ROOT}/"
-# rm -rf ${download_dir}/robots.txt ${download_dir}/index.html* ${download_dir}/WorldCup_tools.tar
+wget -r -np -nH --cut-dirs=6 -P "${download_dir}" "${IN_ROOT}/"
+rm -rf ${download_dir}/robots.txt ${download_dir}/index.html* ${download_dir}/WorldCup_tools.tar
 
 # Download only the specific files
 files_to_copy_small=(

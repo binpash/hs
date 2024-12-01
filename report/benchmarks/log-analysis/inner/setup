@@ -16,6 +16,9 @@ mkdir -p "$download_dir_medium"
 
 IN_ROOT=${IN_ROOT:-'https://atlas-group.cs.brown.edu/data/web-logs/world-cup'}
 
+wget "${IN_ROOT}/WorldCup_tools.tar" -P "${benchmark_dir}"
+tar -xf "$benchmark_dir/WorldCup_tools.tar" -C "$benchmark_dir" && rm "$benchmark_dir/WorldCup_tools.tar"
+
 ( cd "${benchmark_dir}/ita_public_tools" && make && cp "$ita_public_tools_dir/bin/recreate" "$benchmark_dir" && cp "$ita_public_tools_dir/state/object_mappings.sort" "$benchmark_dir")
 
 # Read each line from links.txt and download the file

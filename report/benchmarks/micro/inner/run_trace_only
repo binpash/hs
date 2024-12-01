@@ -39,7 +39,7 @@ def do_strace_run(test_base: Path, script_name: str, output_base: Path, env: dic
     with open(output_base / f"{Path(script_name).stem}" / "strace_log", 'w') as log:
         result = run(cmd, stdout=PIPE, stderr=log, env=env)
     duration = time.time() - before
-    with open(output_base / f"{Path(script_name).stem}" / "strace_time", 'w') as f:
+    with open(output_base / f"{Path(script_name).stem}" / "sstrace_time", 'w') as f:
         f.write(f'{duration}\n')
     return result.returncode, result.stdout
 
@@ -55,7 +55,7 @@ def do_strace_parse_run(test_base: Path, script_name: str, output_base: Path, en
     with open(output_base / f"{Path(script_name).stem}" / "trace_v2_log_parsed", 'w') as log:
         result = run(cmd2, stdout=PIPE, stderr=log, env=env)
     duration = time.time() - before
-    with open(output_base / f"{Path(script_name).stem}" / "strace_parse_time", 'w') as f:
+    with open(output_base / f"{Path(script_name).stem}" / "sstrace_parse_time", 'w') as f:
         f.write(f'{duration}\n')
     return result.returncode, result.stdout
 

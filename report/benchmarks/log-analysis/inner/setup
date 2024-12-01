@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -x
 export PATH=$PATH:$HOME/.local/bin
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
 
@@ -7,6 +7,7 @@ download_dir="$PASH_SPEC_TOP/report/resources/log-analysis-full"
 download_dir_small="$PASH_SPEC_TOP/report/resources/log-analysis-small"
 download_dir_medium="$PASH_SPEC_TOP/report/resources/log-analysis-medium"
 benchmark_dir="$PASH_SPEC_TOP/report/benchmarks/log-analysis/"
+ita_public_tools_dir="$benchmark_dir/ita_public_tools"
 
 # Create the download directory if it doesn’t exist
 mkdir -p "$download_dir"
@@ -15,13 +16,11 @@ mkdir -p "$download_dir_medium"
 
 IN_ROOT=${IN_ROOT:-'https://atlas-group.cs.brown.edu/data/web-logs/world-cup'}
 
-wget "${IN_ROOT}/WorldCup_tools.tar" -P "${benchmark_dir}"
-tar -xf "$benchmark_dir/WorldCup_tools.tar" && rm $benchmark_dir/WorldCup_tools.tar
-( cd "${benchmark_dir}/ita_public_tools" && make && mv bin/recreate "${benchmark_dir}" && mv state/object_mappings.sort "${benchmark_dir}")
+( cd "${benchmark_dir}/ita_public_tools" && make && cp "$ita_public_tools_dir/bin/recreate" "$benchmark_dir" && cp "$ita_public_tools_dir/state/object_mappings.sort" "$benchmark_dir")
 
 # Read each line from links.txt and download the file
-wget -r -np -nH --cut-dirs=6 -P "${download_dir}" "${IN_ROOT}/"
-rm -rf ${download_dir}/robots.txt ${download_dir}/index.html* ${download_dir}/WorldCup_tools.tar
+# wget -r -np -nH --cut-dirs=6 -P "${download_dir}" "${IN_ROOT}/"
+# rm -rf ${download_dir}/robots.txt ${download_dir}/index.html* ${download_dir}/WorldCup_tools.tar
 
 # Download only the specific files
 files_to_copy_small=(

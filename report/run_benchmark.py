@@ -41,9 +41,9 @@ def do_sh_run(test_base: Path, output_base: Path, env: dict, script_name: str, s
     duration = time.time() - before
 
     if result.returncode != 0:
-        print(f"Error: Non-zero return code from sh run")
+        print(f"Non-zero return code from sh run")
     if len(result.stderr) > 0:
-        print(f"Error: Non-empty stderr from sh run")
+        print(f"Non-empty stderr from sh run")
     
     
 

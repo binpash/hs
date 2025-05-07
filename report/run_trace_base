@@ -20,8 +20,8 @@ fi
 
 docker rm -f $container_name 2>/dev/null
 
-docker run --name $container_name --init --privileged --cgroupns=host -v /z/nikos/tmp:/tmp hs/${benchmark_name} ./report/benchmarks/${test_name}/run_trace $@
-# docker run --name $container_name --init --privileged --cgroupns=host -v /z/nikos/tmp:/tmp -it hs/${benchmark_name} bash
+docker run --name $container_name --init --privileged --cgroupns=host -v /tmp:/tmp hs/${benchmark_name} ./report/benchmarks/${test_name}/run_trace $@
+# docker run --name $container_name --init --privileged --cgroupns=host -v /tmp:/tmp -it hs/${benchmark_name} bash
 
 mkdir -p $benchmark_root/../output/$test_name
 docker cp $container_name:/srv/hs/report/output/$test_name/strace_time $benchmark_root/../output/$test_name/strace_time

@@ -1,15 +1,44 @@
-## hs README
+## Artifact for `hs`
 
 ### Overview
 
-`hs` is a system for executing shell scripts out of order. It achieves this by tracing the script's execution, and if an error arises due to speculative execution, the script re-executes the necessary parts to ensure correct outcomes. The project aims to boost the parallel execution of shell scripts, reducing their runtime and enhancing efficiency.
+`hs` is a system for executing shell scripts out of order in a correct
+manner. This document describe how to run the evaluation of `hs` on
+different benchmarks in the paper.
 
 ### Security Warning
 
-Being an experimental project, we are currently using sudo to change permission of `/sys/fs/cgroup/cgroup.procs` to 666 (which by default is usually 644).
+We assume password-less `sudo` is available to the running account. It is needed for privileged docker feature as well as using cgroup.
 
-### Structure
+### System Requirement
 
+The evaluation process (especially if running all benchmarks) uses
+large amount of disk space for docker images (>700GB in total).  `hs`
+also requires the `/tmp` directory is large enough to store intermediate
+results (> 500GB).
+
+### Running Benchmarks
+
+First, make sure docker is installed.
+
+Then, at the root directory of the project, run `docker build . -t hs`.
+
+To run benchmarks, run `./report/run.sh`. It will take all the
+benchmarks in `./report/some_benchmarks' (which is a subset of
+`./report/all_benchmarks`) and run them. This subset is not
+particularly disk consumption heavy (~90GB).
+
+`./report/run.sh` first runs the setup for each benchmark set, then
+runs each individual benchmark. The results will be output into
+`dynamic-parallelizer/report/output/`.
+
+The `HSTMP` variable inside `./report/run.sh` can be set to use a
+different location for intermediate result storage. 
+
+Everything in `hs`'s README originally is below. But they are not
+required to run the evaluation.
+
+## Original `hs` README
 The project's top-level directory contains the following:
 
 - `deps`: Dependencies required by `hs`.

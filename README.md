@@ -36,10 +36,7 @@ runs each individual benchmark. The results will be output into
 The `HSTMP` variable inside `./report/run.sh` can be set to use a
 different location for intermediate result storage. 
 
-Everything in `hs`'s README originally is below. But they are not
-required to run the evaluation.
-
-### Used Benchmarks and Renaming
+### Used Benchmarks
 
 Not all benchmarks from Koala are used. The ones that are used in
 `hs`'s evaluation are:
@@ -79,6 +76,10 @@ The project's top-level directory contains the following:
 - `report`: Generated reports related to test runs and performance metrics.
 - `requirements.txt`: List of Python dependencies.
 - `Rikerfile`: Configuration file for Riker.
+
+
+Everything in `hs`'s README originally is below. But they are not
+required to run the evaluation.
 
 ### Installation
 

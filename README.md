@@ -1,4 +1,4 @@
-## Koala Artifact for `hs`
+## Run Koala with `hs` 
 
 ### Overview
 
@@ -37,6 +37,31 @@ different location for intermediate result storage.
 
 Everything in `hs`'s README originally is below. But they are not
 required to run the evaluation.
+
+### Used Benchmarks and Renaming
+
+Not all benchmarks from Koala are used. The ones that are used in
+`hs`'s evaluation are:
+
+- `bio`: in `report/benchmarks/bio4`
+- `covid-mts`: in `report/benchmarks/bus-analytics`
+- `log-analysis`: in `report/benchmarks/log-analysis`
+- `max-temp`: in `report/benchmarks/max_temp`
+- `nlp`: in `report/benchmarks/nlp`
+- `sklearn`: in `report/benchmarks{sklearn,sklearn_large}`
+- `unix50`: in `report/benchmarks/unix_50`
+- `web-index`: in `report/benchmarks/web-index`
+
+`hs` also selected different input sizes so some of the benchmarks might take
+longer to run. On a machine with 32 CPU cores, roughly
+- `bio` takes ~40 minutes
+- `covid-mts` takes <1 minute
+- `log-analysis` takes ~10 minutes
+- `max-temp` takes ~30 minutes
+- `nlp` takes 5 minutes
+- `sklearn` takes 3 minutes
+- `unix50` takes <1 minute
+- `web-index` takes 2 minutes
 
 ## Original `hs` README
 The project's top-level directory contains the following:

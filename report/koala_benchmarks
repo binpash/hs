@@ -1,4 +1,14 @@
+bio4/small
+bio4/medium
+bio4/large
 max_temp/tiny
+max_temp/small
+max_temp/medium
+max_temp/large
+bus-analytics/full
+log-analysis/small
+log-analysis/medium
+log-analysis/full
 nlp/1_1
 nlp/2_1
 nlp/2_2
@@ -23,3 +33,9 @@ nlp/8.2_2
 nlp/8.3_2
 nlp/8.3_3
 sklearn
+sklearn_large
+unix_50/full
+unix_50/full10m
+unix_50/full100m
+web-index/web-index-100m
+

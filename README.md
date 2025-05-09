@@ -25,8 +25,9 @@ Then, at the root directory of the project, run `docker build . -t hs`.
 
 To run benchmarks, run `./report/run.sh`. It will take all the
 benchmarks in `./report/koala_benchmarks` (which is a subset of
-`./report/all_benchmarks`) and run them. This subset is not
-particularly disk consumption heavy (~90GB).
+`./report/all_benchmarks`) and run them. This subset can use up to
+500GB of space. If you wish to run specific benchmark (sets), modify
+`./report/koala_benchmarks`.
 
 `./report/run.sh` first runs the setup for each benchmark set, then
 runs each individual benchmark. The results will be output into

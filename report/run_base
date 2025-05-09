@@ -29,9 +29,9 @@ docker rm -f $container_name 2>/dev/null
 docker run --name $container_name --init --privileged --cgroupns=host -v $tmp_path:/tmp hs/${benchmark_name} ./report/benchmarks/${test_name}/run $@
 # docker run --name $container_name --init --privileged --cgroupns=host -v /tmp:/tmp -it hs/${benchmark_name} bash
 mkdir -p $benchmark_root/../output/$test_name
-docker cp $container_name:/srv/hs/report/output/$test_name/error $benchmark_root/../output/$test_name/error
-docker cp $container_name:/srv/hs/report/output/$test_name/hs_time $benchmark_root/../output/$test_name/hs_time
-docker cp $container_name:/srv/hs/report/output/$test_name/sh_time $benchmark_root/../output/$test_name/sh_time
-docker cp $container_name:/srv/hs/report/output/$test_name/hs/stderr $benchmark_root/../output/$test_name/stderr_hs
-docker cp $container_name:/srv/hs/report/output/$test_name/sh/stderr $benchmark_root/../output/$test_name/stderr_sh
+docker cp $container_name:/srv/hs/report/output/$test_name/error $benchmark_root/../output/$test_name/error 2>/dev/null
+docker cp $container_name:/srv/hs/report/output/$test_name/hs_time $benchmark_root/../output/$test_name/hs_time 2>/dev/null
+docker cp $container_name:/srv/hs/report/output/$test_name/sh_time $benchmark_root/../output/$test_name/sh_time 2>/dev/null
+docker cp $container_name:/srv/hs/report/output/$test_name/hs/stderr $benchmark_root/../output/$test_name/stderr_hs 2>/dev/null
+docker cp $container_name:/srv/hs/report/output/$test_name/sh/stderr $benchmark_root/../output/$test_name/stderr_sh 2>/dev/null
 docker rm $container_name

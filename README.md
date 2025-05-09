@@ -63,6 +63,9 @@ longer to run. On a machine with 32 CPU cores, roughly
 - `unix50` takes <1 minute
 - `web-index` takes 2 minutes
 
+It is also worth noting that `bio` and `max-temp`'s setup script takes a long time as
+well due to the need of downloading large files and process them.
+
 ## Original `hs` README
 The project's top-level directory contains the following:
 

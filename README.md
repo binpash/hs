@@ -1,4 +1,4 @@
-## Artifact for `hs`
+## Koala Artifact for `hs`
 
 ### Overview
 
@@ -24,7 +24,7 @@ First, make sure docker is installed.
 Then, at the root directory of the project, run `docker build . -t hs`.
 
 To run benchmarks, run `./report/run.sh`. It will take all the
-benchmarks in `./report/some_benchmarks` (which is a subset of
+benchmarks in `./report/koala_benchmarks` (which is a subset of
 `./report/all_benchmarks`) and run them. This subset is not
 particularly disk consumption heavy (~90GB).
 

@@ -1,4 +1,4 @@
-## Run Koala with `hs` 
+## `hs` Characterization
 
 ### Overview
 
@@ -61,10 +61,9 @@ longer to run. On a machine with 32 CPU cores, roughly
 - `unix50` takes <1 minute
 - `web-index` takes 2 minutes
 
-It is also worth noting that `bio` and `max-temp`'s setup script takes a long time as
-well due to the need of downloading large files and process them.
+It is also worth noting that `bio` and `max-temp`'s setup script also takes a long time.
 
-## Original `hs` README
+## `hs` Overview
 The project's top-level directory contains the following:
 
 - `deps`: Dependencies required by `hs`.

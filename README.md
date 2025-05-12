@@ -17,7 +17,7 @@ large amount of disk space for docker images (>700GB in total).  `hs`
 also requires the `/tmp` directory is large enough to store intermediate
 results (> 500GB).
 
-### Running Benchmarks
+### Running the Koala Benchmarks
 
 First, make sure docker is installed.
 

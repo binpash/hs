@@ -8,12 +8,14 @@ version = "0.1.0"
 description = "Python HS"
 authors = [{name = "The PaSh Authors"}]
 requires-python = ">=3.11"
-dependencies = [] # besides hS, of course
+dependencies = [] # besides hS and the pash deps
 
 [project.optional-dependencies]
 dev = [
     "ruff",
     "pyright",
+    # just as a test runner; we want tests to run with no deps
+    "pytest",
 ]
 
 [tool.uv.build-backend]
@@ -37,7 +39,7 @@ select = [
 ]
 ignore = [
     "B011",
-    "E501"
+    "E501",
 ]
 
 [tool.ruff.format]
@@ -48,3 +50,7 @@ docstring-code-line-length = 72
 include = ["python_hs", "tests"]
 typeCheckingMode = "basic"
 pythonVersion = "3.11"
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "DEBUG"

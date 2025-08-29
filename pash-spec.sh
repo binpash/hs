@@ -35,7 +35,12 @@ export PASH_SPEC_SCHEDULER_SOCKET="${PASH_SPEC_TMP_PREFIX}/scheduler_socket"
 
 ## TODO: Replace this with a call to pa.sh (which will start the scheduler on its own).
 # python3 "$PASH_SPEC_TOP/parallel-orch/orch.py" "$@"
-"$PASH_TOP/pa.sh" --speculative "$@"
+if [ "$1" = "--python" ]; then
+    shift
+    "$PASH_SPEC_TOP/python_hs/entrypoint.sh" "$@"
+else
+    "$PASH_TOP/pa.sh" --speculative "$@"
+fi
 EXITCODE=$?
 
 if [ -w /sys/fs/cgroup/ ]; then

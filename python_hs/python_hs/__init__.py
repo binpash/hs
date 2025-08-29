@@ -1,3 +1,3 @@
-from .hs import run
+from python_hs.runtime import hs_run
 
-__all__ = ["run"]
+__all__ = ["hs_run"]

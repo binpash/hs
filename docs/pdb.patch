@@ -1,0 +1,106 @@
+diff --git a/compiler/orchestrator_runtime/speculative/pash_spec_init_setup.sh b/compiler/orchestrator_runtime/speculative/pash_spec_init_setup.sh
+index 0f692e96..b60db641 100644
+--- a/deps/pash/compiler/orchestrator_runtime/speculative/pash_spec_init_setup.sh
++++ b/deps/pash/compiler/orchestrator_runtime/speculative/pash_spec_init_setup.sh
+@@ -23,9 +23,14 @@ pash_spec_wait_until_scheduler_listening()
+ 
+ start_server()
+ {
+-    python3 -S "$PASH_SPEC_TOP/parallel-orch/scheduler_server.py" "$@" &
+-    export daemon_pid=$!
+-    ## Wait until daemon has established connection
++    python3 -S "$PASH_SPEC_TOP/parallel-orch/scheduler_server.py" "$@"
++    # export daemon_pid=$!
++    # # Wait until daemon has established connection
++    # pash_spec_wait_until_scheduler_listening
++}
++
++connect_server()
++{
+     pash_spec_wait_until_scheduler_listening
+ }
+ 
+@@ -47,4 +52,4 @@ export -f pash_spec_communicate_scheduler_just_send
+ export -f pash_spec_wait_until_scheduler_listening
+ export -f start_server
+ export -f cleanup_server
+-
++export -f connect_server
+diff --git a/pa.sh b/pa.sh
+index 30922f02..109f7505 100755
+--- a/deps/pash/pa.sh
++++ b/deps/pash/pa.sh
+@@ -48,22 +48,35 @@ mkfifo "$RUNTIME_IN_FIFO" "$RUNTIME_OUT_FIFO"
+ export DAEMON_SOCKET="${PASH_TMP_PREFIX}/daemon_socket"
+ export DSPASH_SOCKET="${PASH_TMP_PREFIX}/dspash_socket"
+ 
++s=$1
++shift
++echo first option is $s
++echo remaining is $@
+ ## Initialize all things necessary for pash to execute (logging/functions/etc)
+ source "$PASH_TOP/compiler/orchestrator_runtime/pash_init_setup.sh" "$@"
+ 
+ ## This starts a different server depending on the configuration
+-if [ "$show_version" -eq 0 ]; then
+-  ## Exports $daemon_pid
+-  start_server "$@"
++# if [ "$show_version" -eq 0 ]; then
++#   ## Exports $daemon_pid
++#   start_server "$@"
++# fi
++
++if [ $s == "--server" ]; then
++    echo here
++    start_server $@
++    exit
++else
++    echo there
++    connect_server
+ fi
+ 
+ ## Restore the umask before executing
+ umask "$old_umask"
+ PASH_FROM_SH="pa.sh" python3 -S "$PASH_TOP/compiler/pash.py" "$@"
+ pash_exit_code=$?
+-if [ "$show_version" -eq 0 ]; then
+-  cleanup_server "${daemon_pid}"
+-fi
++# if [ "$show_version" -eq 0 ]; then
++#   cleanup_server "${daemon_pid}"
++# fi
+ 
+ ## Don't delete the temporary directory if we are debugging
+ if [ "$PASH_DEBUG_LEVEL" -eq 0 ]; then
+diff --git a/pash-spec.sh b/pash-spec.sh
+index 8569e55..0852d1a 100755
+--- a/pash-spec.sh
++++ b/pash-spec.sh
+@@ -19,14 +19,8 @@ if [ -w /sys/fs/cgroup/ ]; then
+     fi
+ fi
+ 
+-if [ -n "$PASH_TMP_DIR" ]; then
+-    mkdir -p $PASH_TMP_DIR/tmp/pash_spec
+-    # echo $PASH_TMP_DIR >&2
+-    export PASH_SPEC_TMP_PREFIX="$(mktemp -d "$PASH_TMP_DIR/tmp/pash_spec/pash_XXXXXXX")"
+-else
+-    mkdir -p /tmp/pash_spec
+-    export PASH_SPEC_TMP_PREFIX="$(mktemp -d /tmp/pash_spec/pash_XXXXXXX)"
+-fi
++mkdir -p /tmp/pash_spec/pash_test
++export PASH_SPEC_TMP_PREFIX="/tmp/pash_spec/pash_test"
+ 
+ # echo "PASH_SPEC_TMP_PREFIX: $PASH_SPEC_TMP_PREFIX" >&2
+ 
+@@ -35,7 +29,9 @@ export PASH_SPEC_SCHEDULER_SOCKET="${PASH_SPEC_TMP_PREFIX}/scheduler_socket"
+ 
+ ## TODO: Replace this with a call to pa.sh (which will start the scheduler on its own).
+ # python3 "$PASH_SPEC_TOP/parallel-orch/orch.py" "$@"
+-"$PASH_TOP/pa.sh" --speculative "$@"
++a=$1
++shift
++"$PASH_TOP/pa.sh" $a --speculative "$@"
+ EXITCODE=$?
+ 
+ if [ -w /sys/fs/cgroup/ ]; then

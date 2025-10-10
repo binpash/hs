@@ -65,7 +65,6 @@ class TestInterface(unittest.TestCase):
                 )
 
                 hs_stdout, hs_time = self.run_script_with_shell(test_file, "hs")
-
                 self.assertEqual(
                     sub_stdout,
                     hs_stdout,
@@ -78,7 +77,7 @@ class TestInterface(unittest.TestCase):
                     f"HS ran in {hs_time:.4f}s < {MIN_HS_TIME}s, which is suspiscously short",
                 )
 
-                print(f"PASS: hS is {sub_time / hs_time:.2f}x the speed of bash")
+                print(f"PASS: hS is {sub_time / hs_time:.3f}x the speed of bash")
 
 
 if __name__ == "__main__":

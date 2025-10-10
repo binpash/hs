@@ -10,14 +10,6 @@ authors = [{name = "The PaSh Authors"}]
 requires-python = ">=3.11"
 dependencies = [] # besides hS and the pash deps
 
-[project.optional-dependencies]
-dev = [
-    "ruff",
-    "pyright",
-    # just as a test runner; we want tests to run with no deps
-    "pytest",
-]
-
 [tool.uv.build-backend]
 module-name = "python_hs"
 module-root = ""
@@ -54,3 +46,11 @@ pythonVersion = "3.11"
 [tool.pytest.ini_options]
 log_cli = true
 log_cli_level = "DEBUG"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.406",
+    # only for the test runner; tests are written with unittest
+    "pytest>=8.4.2",
+    "ruff>=0.14.0",
+]

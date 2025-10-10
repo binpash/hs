@@ -62,29 +62,21 @@ subprocess.run(["mkdir", "-p", out_dir], check=True)
 subprocess.run(["mkdir", "-p", reference_dir], check=True)
 
 
-def download_and_index_reference():
-    if all(
-        os.path.exists(f"{bwa_index_prefix}.{ext}")
-        for ext in ["amb", "ann", "bwt", "pac", "sa"]
-    ):
-        print("Reference genome already indexed for BWA.")
-        return
+print("Downloading and indexing reference genome for BWA...")
+url = "http://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz"
+compressed_fasta = genome_fasta + ".gz"
+subprocess.run(["wget", "-O", compressed_fasta, url], check=True)
+subprocess.run(["gunzip", compressed_fasta], check=True)
+subprocess.run(["bwa", "index", "-p", bwa_index_prefix, genome_fasta], check=True)
 
-    print("Downloading and indexing reference genome for BWA...")
-    url = "http://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz"
-    compressed_fasta = genome_fasta + ".gz"
-    try:
-        subprocess.run(["wget", "-O", compressed_fasta, url], check=True)
-        subprocess.run(["gunzip", compressed_fasta], check=True)
-        subprocess.run(
-            ["bwa", "index", "-p", bwa_index_prefix, genome_fasta], check=True
-        )
-    except subprocess.CalledProcessError as e:
-        print("Error downloading or indexing genome:", e)
-        raise
+# Process each sample
+for row in metadata:
+    run_id = row["runID"]
+    condition = row["condition"]
 
+    print(f"Processing {run_id} ({condition})...")
 
-def find_fastq_pairs(run_id):
+    # Find FASTQ pairs
     r1_result = subprocess.run(
         ["find", data_dir, "-name", f"{run_id}*_1.fastq.gz"],
         capture_output=True,
@@ -100,14 +92,9 @@ def find_fastq_pairs(run_id):
 
     r1_files = r1_result.stdout.strip().split("\n") if r1_result.stdout.strip() else []
     r2_files = r2_result.stdout.strip().split("\n") if r2_result.stdout.strip() else []
+    r1, r2 = r1_files[0], r2_files[0]
 
-    if r1_files and r2_files and r1_files[0] and r2_files[0]:
-        return r1_files[0], r2_files[0]
-    else:
-        raise FileNotFoundError(f"FASTQ pairs not found for {run_id}")
-
-
-def trim_reads(run_id, r1, r2):
+    # Trim reads
     trimmed_dir = os.path.join(out_dir, "trimmed")
     subprocess.run(["mkdir", "-p", trimmed_dir], check=True)
     trimmed_r1 = os.path.join(trimmed_dir, f"{run_id}_1.trimmed.fastq.gz")
@@ -126,10 +113,8 @@ def trim_reads(run_id, r1, r2):
         "MINLEN:36",
     ]
     subprocess.run(cmd, check=True)
-    return trimmed_r1, trimmed_r2
 
-
-def align_reads(run_id, trimmed_r1, trimmed_r2):
+    # Align reads
     aligned_dir = os.path.join(out_dir, "aligned")
     subprocess.run(["mkdir", "-p", aligned_dir], check=True)
     sam_output = os.path.join(aligned_dir, f"{run_id}.sam")
@@ -143,11 +128,10 @@ def align_reads(run_id, trimmed_r1, trimmed_r2):
     p2 = subprocess.Popen(cmd_sort, stdin=p1.stdout)
     p1.stdout.close()
     p2.communicate()
-    os.remove(sam_output)
-    return bam_output
+    subprocess.run(["rm", sam_output], check=True)
+    bam_file = bam_output
 
-
-def call_peaks(run_id, bam_file, condition):
+    # Call peaks
     peaks_dir = os.path.join(out_dir, "peaks")
     subprocess.run(["mkdir", "-p", peaks_dir], check=True)
     peak_output = os.path.join(peaks_dir, f"{run_id}_peaks.narrowPeak")
@@ -173,21 +157,6 @@ def call_peaks(run_id, bam_file, condition):
     if condition == "control":
         cmd += ["--nolambda"]
     subprocess.run(cmd, check=True)
-    return peak_output
+    peak_file = peak_output
 
-
-def run_pipeline():
-    download_and_index_reference()
-    for row in metadata:
-        run_id = row["runID"]
-        condition = row["condition"]
-        print(f"Processing {run_id} ({condition})...")
-        r1, r2 = find_fastq_pairs(run_id)
-        trimmed_r1, trimmed_r2 = trim_reads(run_id, r1, r2)
-        bam_file = align_reads(run_id, trimmed_r1, trimmed_r2)
-        peak_file = call_peaks(run_id, bam_file, condition)
-        print(f"Finished {run_id}, peaks at: {peak_file}")
-
-
-if __name__ == "__main__":
-    run_pipeline()
+    print(f"Finished {run_id}, peaks at: {peak_file}")

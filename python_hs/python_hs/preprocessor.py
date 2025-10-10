@@ -1,12 +1,16 @@
+#!/usr/bin/env python3
+
 from __future__ import annotations
 
 import ast
+import builtins
 import copy
+import os
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
-from ast import literal_eval
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, assert_never
@@ -77,7 +81,7 @@ class PreprocessState:
 
         for i, spec in enumerate(self.specs):
             # TODO: Use.
-            command, stdout_path = spec.create_command()
+            command, _stdout_path = spec.create_command()
             command_file = partial_order_path / str(i)
             command_file.write_text(command + "\n")
 
@@ -145,15 +149,13 @@ def _get_stdin_ind(node: ast.expr, preprocessed_command_vars: dict[str, int]) ->
 
 class PreprocessorTransformer(ast.NodeTransformer):
     def __init__(self) -> None:
-        self.constants: dict[str, ast.Assign] = {}
-        self.seen_names: set[str] = set()
         self.state: PreprocessState = PreprocessState()
         self.loop_id: int | None = None
         self.preprocessed_command_vars: dict[str, int] = {}
         self.name: str | None = None
-        self.loop_vars: dict[
-            str, Any
-        ] = {}  # Track loop variables for evaluating subprocess args
+        self.eval_context: dict[str, Any] = {"os": os}
+        for func in SAFE_STDLIB:
+            self.eval_context[func] = getattr(builtins, func)
         # lineno to transformer function (takes the loop id)
         self.transform_cache: dict[int, Callable[[], ast.expr]] = {}
 
@@ -166,14 +168,6 @@ class PreprocessorTransformer(ast.NodeTransformer):
             and isinstance(node.value, ast.Name)
             and node.value.id == "subprocess"
             and (node.attr in names)
-        )
-
-    @staticmethod
-    def _is_literal_constant(node: ast.expr) -> bool:
-        """Check if node represents a literal constant (list, string, number, etc.)."""
-        return isinstance(
-            node,
-            ast.Constant | ast.List | ast.Tuple | ast.Dict | ast.Set,
         )
 
     @staticmethod
@@ -214,16 +208,8 @@ class PreprocessorTransformer(ast.NodeTransformer):
         assert isinstance(node.target, ast.Name)
         loop_var = node.target.id
 
-        eval_context: dict[str, Any] = {"subprocess": subprocess}
-
-        for name, const_node in self.constants.items():
-            eval_context[name] = literal_eval(const_node.value)
-
-        for func in SAFE_STDLIB:
-            eval_context[func] = __builtins__[func]
-
         try:
-            iterator_values = eval_expr(node.iter, eval_context)
+            iterator_values = eval_expr(node.iter, self.eval_context)
         except Exception as e:
             raise ValueError(f"Cannot evaluate loop iterator: {e}") from e
 
@@ -236,7 +222,11 @@ class PreprocessorTransformer(ast.NodeTransformer):
             top_loop = False
 
         for value in iterator_values:
-            self.loop_vars[loop_var] = value
+            self.eval_context[loop_var] = value
+            # Won't work for "complex" iterators probably
+            unrolled_statements.append(
+                ast.Assign([node.target], ast.Constant(value), lineno=-1)
+            )
 
             for stmt in node.body:
                 stmt_copy = copy.deepcopy(stmt)
@@ -254,13 +244,13 @@ class PreprocessorTransformer(ast.NodeTransformer):
             return self.generic_visit(node)
 
         name = target.id
-        if isinstance(target.ctx, ast.Store) and self._is_literal_constant(node.value):
-            if name in self.seen_names:
-                raise ValueError(f"Name {name} appears more than once")
-
-            self.seen_names.add(name)
-            self.constants[name] = node
-            return ast.Expr(ast.Constant(None))
+        if isinstance(target.ctx, ast.Store):
+            try:
+                self.eval_context[name] = eval_expr(node.value, self.eval_context)
+            except Exception:
+                pass
+            else:
+                return self.generic_visit(node)
 
         old_name = self.name
         if isinstance(node.value, ast.Call) and self._is_subprocess_val(
@@ -294,13 +284,6 @@ class PreprocessorTransformer(ast.NodeTransformer):
             raise ValueError("subprocess.run requires at least one argument")
 
         cmd_ast = node.args[0]
-        eval_context: dict[str, Any] = {"subprocess": subprocess}
-
-        for name, const_node in self.constants.items():
-            eval_context[name] = literal_eval(const_node.value)
-
-        for func in SAFE_STDLIB:
-            eval_context[func] = __builtins__[func]
 
         kw_args = {kw.arg: kw.value for kw in node.keywords}
 
@@ -342,11 +325,9 @@ class PreprocessorTransformer(ast.NodeTransformer):
             raise ValueError(f"Extra kws {kw_args}")
 
         def transformer() -> ast.expr:
-            # move this out of the transformer to get the same cmd_id
-            # ---
-            eval_context.update(self.loop_vars)
-
-            evaluated_cmd = eval_expr(cmd_ast, eval_context)
+            evaluated_cmd = eval_expr(
+                cmd_ast, self.eval_context | {"subprocess": subprocess}
+            )
             if isinstance(evaluated_cmd, str | Path):
                 args = [str(evaluated_cmd)]
             else:
@@ -402,9 +383,6 @@ def preprocess(code: str) -> tuple[str, PreprocessState]:
         ast.ImportFrom("python_hs", [ast.alias("hs_run")], 0)
     ]
 
-    for const_node in transformer.constants.values():
-        new_statements.append(const_node)
-
     new_statements.extend(filter(not_none_statement, new_tree.body))
 
     result_tree = ast.Module(body=new_statements, type_ignores=[])
@@ -443,3 +421,8 @@ def preprocess_file(spec_runtime: Path | str, path: Path) -> Path:
     state.create_partial_order_file(spec_runtime)
 
     return Path(temp_file.name)
+
+
+if __name__ == "__main__":
+    with open(sys.argv[1]) as f:
+        print(preprocess(f.read())[0])

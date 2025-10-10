@@ -119,16 +119,6 @@ subprocess.run(['echo', 'hello'], shell=True)
         self.assertIn("Extra kws", str(cm.exception))
         self.assertIn("shell", str(cm.exception))
 
-    def test_duplicate_constant_names(self) -> None:
-        code = """
-CMD = ['echo']
-CMD = ['cat']
-"""
-        with self.assertRaises(ValueError) as cm:
-            preprocess(code)
-
-        self.assertIn("Name CMD appears more than once", str(cm.exception))
-
     def test_missing_subprocess_args(self) -> None:
         code = """
 subprocess.run()

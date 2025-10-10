@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import subprocess
 import time
 import unittest
@@ -19,6 +20,7 @@ INTERFACE_TESTS = (PYTHON_SPEC_TOP / "tests" / "interface_tests").rglob("*.py")
 
 MIN_HS_TIME = 0.1
 
+logger = logging.getLogger(__name__)
 
 class TestInterface(unittest.TestCase):
     def run_script_with_shell(
@@ -47,6 +49,9 @@ class TestInterface(unittest.TestCase):
 
         execution_time = end_time - start_time
         stdout = res.stdout
+
+        if res.stderr:
+            logger.warning("Stderr of test is not empty:\n%s", res.stderr)
 
         print(f"{shell_type} execution time: {execution_time:.4f} seconds")
 

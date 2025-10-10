@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import contextlib
 import subprocess
 import time
 import unittest
-from io import StringIO
 from pathlib import Path
 from typing import TYPE_CHECKING, assert_never
 

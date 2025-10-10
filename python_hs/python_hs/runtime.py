@@ -75,22 +75,30 @@ def hs_run(cmd_id: int, loop_id: int | None, dest: Literal["output", "capture"])
     #     loop_id = 0
 
     # we unroll all loops currently
+    assert PASH_SPEC_TMP_PREFIX is not None
     loop_id = 0
     msg = f"Wait:{cmd_id}|Loop iters:{loop_id}|Variables file:{get_vars()}"
     res = communicate_with_scheduler(msg)
-    _, err_code, _, outfiles = res[:-1].split(" ")
 
-    # TODO: stderr
-    with open(os.path.join(outfiles, "1")) as stdout_file:
-        stdout = stdout_file.read()
+    type_, _ = res.split(":", maxsplit=1)
+    if type_ == "UNSAFE":
+        return subprocess.run(["bash", PASH_SPEC_TMP_PREFIX / "partial_order" / str(cmd_id)])
+    elif type_ == "OK":
+        _, err_code, _, outfiles = res[:-1].split(" ")
 
-    match dest:
-        case "output":
-            sys.stdout.write(stdout)
-            stdout = None
-        case "capture":
-            pass
-        case _:
-            assert_never(dest)
+        # TODO: stderr
+        with open(os.path.join(outfiles, "1")) as stdout_file:
+            stdout = stdout_file.read()
 
-    return CompletedProcess(int(err_code), stdout)
+        match dest:
+            case "output":
+                sys.stdout.write(stdout)
+                stdout = None
+            case "capture":
+                pass
+            case _:
+                assert_never(dest)
+
+        return CompletedProcess(int(err_code), stdout)
+    else:
+        raise NotImplementedError()

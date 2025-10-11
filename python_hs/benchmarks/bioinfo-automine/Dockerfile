@@ -2,7 +2,7 @@ FROM hs
 
 WORKDIR /srv/hs
 
-RUN apt update && apt install -y \
+RUN apt install -y \
     bwa \
     samtools \
     trimmomatic

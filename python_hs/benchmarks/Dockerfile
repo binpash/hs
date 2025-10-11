@@ -5,7 +5,8 @@ WORKDIR /srv/hs
 RUN apt install -y \
     bwa \
     samtools \
-    trimmomatic
+    trimmomatic \
+    hyperfine
 
 RUN source .venv/bin/activate && pip install MACS3
 

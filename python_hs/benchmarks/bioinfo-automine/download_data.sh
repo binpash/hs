@@ -13,9 +13,22 @@ sra_ids=(
     SRR26147715
     SRR26147716
 )
+# to top directory of this script
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")" || exit
+# to the benchmark directory
+cd .. || exit
+
+data_dir="$(readlink -f "data/bioinfo-automine")"
+
+if [ -d "$data_dir" ]; then
+    echo "directory $1 already exists, skipping download."
+fi
+
+mkdir -p "$data_dir"
+cd "$data_dir" || exit
 
 # Check if fasterq-dump is available
-if ! command -v fasterq-dump &> /dev/null; then
+if ! command -v fasterq-dump &>/dev/null; then
     echo "Error: fasterq-dump is not installed or not in PATH."
     exit 1
 fi

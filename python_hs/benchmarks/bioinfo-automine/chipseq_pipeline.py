@@ -43,7 +43,7 @@ Ensure all external tools are installed and accessible in the system environment
 import os
 import subprocess
 
-data_dir = "data/raw"
+data_dir = "../data/bioinfo-automine"
 out_dir = "results"
 reference_dir = "reference"
 genome_fasta = os.path.join(reference_dir, "hg38.fa")

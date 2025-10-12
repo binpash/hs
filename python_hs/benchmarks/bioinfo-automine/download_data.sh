@@ -28,10 +28,10 @@ fi
 mkdir -p "$data_dir"
 cd "$data_dir" || exit
 
-# Check if fasterq-dump is available
-if ! command -v fasterq-dump &>/dev/null; then
-    echo "Error: fasterq-dump is not installed or not in PATH."
-    exit 1
+
+# Install fasterq-dump if not available
+if ! dpkg -l | grep sra-toolkit > /dev/null; then
+    sudo apt-get update && sudo apt-get install -y sra-toolkit
 fi
 
 # Set number of threads

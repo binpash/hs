@@ -20,7 +20,7 @@ validate_benchmark() {
 if [ $# -gt 0 ]; then
   b="$1"
   if ! validate_benchmark "$b"; then
-    echo "Passed invalid benchmark; benchmarks are: ${benchmarks[*]}"
+    echo "Passed invalid benchmark "$b"; benchmarks are: ${benchmarks[*]}"
     exit 1
   fi
   bash "$b/download_data.sh"

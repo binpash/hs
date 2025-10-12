@@ -22,6 +22,7 @@ data_dir="$(readlink -f "data/bioinfo-automine")"
 
 if [ -d "$data_dir" ]; then
     echo "directory $1 already exists, skipping download."
+    exit
 fi
 
 mkdir -p "$data_dir"

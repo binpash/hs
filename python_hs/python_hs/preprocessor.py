@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import ast
 import builtins
 import copy
@@ -13,8 +14,9 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING
 
+from python_hs.constants import PASH_TOP
 from python_hs.logging_ import setup_logger
 from python_hs.runtime import get_vars
 
@@ -36,7 +38,7 @@ def eval_expr(node: ast.expr, *args: Any) -> Any:
 @dataclass
 class PreprocessedCommand:
     args: list[str]
-    stdout: Literal["capture", "output", "pipe"]
+    stdout: ast.Constant | Literal["pipe"]
     stdin: PreprocessedCommand | None
 
     def _get_all_commands(self) -> Iterator[PreprocessedCommand]:
@@ -49,22 +51,15 @@ class PreprocessedCommand:
     def _get_args_str(self) -> str:
         return f"{' '.join(shlex.quote(a) for a in self.args)}"
 
-    def create_command(self) -> tuple[str, Path | None]:
+    def create_command(self) -> str:
         """Write command to file and return shell command with stdout temp file path."""
 
-        stdout_path: Path | None = None
         pipes = self._get_all_commands()
         command = " | ".join(cmd._get_args_str() for cmd in pipes)
 
-        match self.stdout:
-            case "capture" | "output":
-                pass
-            case "pipe":
-                assert False, "pipe should not be ending a command"
-            case _:
-                assert_never(self.stdout)
+        assert self.stdout != "pipe", "pipe should not be ending a command"
 
-        return command, stdout_path
+        return command
 
 
 @dataclass
@@ -81,7 +76,7 @@ class PreprocessState:
 
         for i, spec in enumerate(self.specs):
             # TODO: Use.
-            command, _stdout_path = spec.create_command()
+            command = spec.create_command()
             command_file = partial_order_path / str(i)
             command_file.write_text(command + "\n")
 
@@ -104,7 +99,7 @@ class PreprocessState:
 
         partial_order_contents = [
             partial_order_path,
-            get_vars(),
+            get_vars(hs_runtime),
             len(self.specs),
             "Basic blocks:",
             "Basic block edges:",
@@ -119,7 +114,7 @@ class PreprocessState:
     def add(
         self,
         args: list[str],
-        stdout: Literal["capture", "output", "pipe"],
+        stdout: Literal["pipe"] | ast.Constant,
         stdin: int | None,
     ) -> int:
         """Add a command to specs and return its index."""
@@ -276,10 +271,6 @@ class PreprocessorTransformer(ast.NodeTransformer):
 
     def _transform_subprocess_call(self, node: ast.Call) -> ast.expr:
         """Transform subprocess.run/Popen call to hs_run call."""
-
-        if cached_transform := self.transform_cache.get(node.lineno):
-            return cached_transform()
-
         if not node.args:
             raise ValueError("subprocess.run requires at least one argument")
 
@@ -308,6 +299,9 @@ class PreprocessorTransformer(ast.NodeTransformer):
 
             dest = "pipe"
             return_none = True
+            # these don't matter for Popen pipes
+            check = ast.Constant(value=False)
+            text = ast.Constant(value=False)
         elif self._is_subprocess_val(node.func, "run"):
             try:
                 val = kw_args.pop("capture_output")
@@ -316,45 +310,56 @@ class PreprocessorTransformer(ast.NodeTransformer):
             else:
                 capture_output = ast.literal_eval(val)
 
-            dest = "capture" if capture_output else "output"
+            if capture_output:
+                dest = ast.Constant(value="capture")
+            else:
+                dest = kw_args.pop("stdout", ast.Constant("output"))
+
             return_none = False
+            try:
+                check = kw_args.pop("check")
+            except KeyError:
+                check = ast.Constant(value=False)
+
+            try:
+                text = kw_args.pop("text")
+            except KeyError:
+                text = ast.Constant(value=False)
         else:
             raise NotImplementedError(node)
 
         if kw_args:
             raise ValueError(f"Extra kws {kw_args}")
 
-        def transformer() -> ast.expr:
-            evaluated_cmd = eval_expr(
-                cmd_ast, self.eval_context | {"subprocess": subprocess}
-            )
-            if isinstance(evaluated_cmd, str | Path):
-                args = [str(evaluated_cmd)]
-            else:
-                args = [str(arg) for arg in evaluated_cmd]
+        evaluated_cmd = eval_expr(
+            cmd_ast, self.eval_context | {"subprocess": subprocess}
+        )
+        if isinstance(evaluated_cmd, str | Path):
+            args = [str(evaluated_cmd)]
+        else:
+            args = [str(arg) for arg in evaluated_cmd]
 
-            cmd_id = self.state.add(args, dest, source)
-            if self.name is not None:
-                self.preprocessed_command_vars[self.name] = cmd_id
+        cmd_id = self.state.add(args, dest, source)
+        if self.name is not None:
+            self.preprocessed_command_vars[self.name] = cmd_id
 
-            if return_none:
-                return ast.Constant(value=None)
-
-            ret = ast.Call(
-                func=ast.Name(id="hs_run", ctx=ast.Load()),
-                args=[
-                    ast.Constant(value=cmd_id),
-                    ast.Constant(value=self.loop_id),
-                    ast.Constant(value=dest),
-                ],
-                keywords=[],
-            )
-            if self.loop_id is not None:
-                self.loop_id += 1
-            return ret
-
-        self.transform_cache[node.lineno] = transformer
-        return transformer()
+        if return_none:
+            return ast.Constant(value=None)
+        assert dest != "pipe"
+        ret = ast.Call(
+            func=ast.Name(id="hs_run", ctx=ast.Load()),
+            args=[
+                ast.Constant(value=cmd_id),
+                ast.Constant(value=self.loop_id),
+                dest,
+                check,
+                text,
+            ],
+            keywords=[],
+        )
+        if self.loop_id is not None:
+            self.loop_id += 1
+        return ret
 
 
 def not_none_statement(v: ast.stmt) -> bool:
@@ -392,37 +397,84 @@ def preprocess(code: str) -> tuple[str, PreprocessState]:
     return result, transformer.state
 
 
-def preprocess_file(spec_runtime: Path | str, path: Path) -> Path:
+def preprocess_file(
+    spec_runtime: Path | str | None, path: Path, output: Path | None = None
+) -> Path:
     """Preprocess a Python file and return path to preprocessed temporary file."""
     logger.info(f"Preprocessing file: {path}")
 
-    spec_runtime = Path(spec_runtime)
+    if spec_runtime is not None:
+        spec_runtime = Path(spec_runtime)
+        shutil.rmtree(spec_runtime, ignore_errors=True)
+        spec_runtime.mkdir(parents=True, exist_ok=True)
 
     source_code = path.read_text()
 
     preprocessed_code, state = preprocess(source_code)
 
-    with tempfile.NamedTemporaryFile(
-        dir=spec_runtime,
-        prefix=f"python_hs_preprocessed_{path.stem}_",
-        suffix=".py",
-        delete=False,
-        mode="w",
-    ) as temp_file:
-        temp_file.write(preprocessed_code)
+    if output is None:
+        with tempfile.NamedTemporaryFile(
+            dir=spec_runtime,
+            prefix=f"python_hs_preprocessed_{path.stem}_",
+            suffix=".py",
+            delete=False,
+            mode="w",
+        ) as temp_file:
+            temp_file.write(preprocessed_code)
+
+        new_file_name = temp_file.name
+    else:
+        with output.open("w") as f:
+            f.write(preprocessed_code)
+        new_file_name = str(output)
+
+    logger.info(f"Preprocessed file: {new_file_name}")
 
     if shutil.which("ruff"):
-        subprocess.run(
-            ["ruff", "format", temp_file.name], check=True, capture_output=True
-        )
+        subprocess.run(["ruff", "format", new_file_name], check=True)
 
-    logger.info(f"Preprocessed file: {temp_file.name}")
-    state.create_partial_order_directory(spec_runtime)
-    state.create_partial_order_file(spec_runtime)
+    if spec_runtime is not None:
+        state.create_partial_order_directory(spec_runtime)
+        state.create_partial_order_file(spec_runtime)
 
-    return Path(temp_file.name)
+    return Path(new_file_name)
+
+
+@dataclass
+class Args:
+    file: Path
+    runtime_dir: Path | None
+    output: Path | None
+
+
+def parse_args() -> Args:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("file", help="File to preprocess", type=Path)
+    parser.add_argument(
+        "-r",
+        "--runtime-dir",
+        default=None,
+        help="Directory of runtime directory",
+        type=Path,
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default=None,
+        help="Output file",
+        type=Path,
+    )
+    args = parser.parse_args()
+    return Args(file=args.file, runtime_dir=args.runtime_dir, output=args.output)
+
+
+def main() -> None:
+    args = parse_args()
+    # to stub in pash vars for debugging
+    os.environ["RUNTIME_LIBRARY_DIR"] = str(PASH_TOP / "runtime")
+    out = preprocess_file(args.runtime_dir, args.file, args.output)
+    print(out)
 
 
 if __name__ == "__main__":
-    with open(sys.argv[1]) as f:
-        print(preprocess(f.read())[0])
+    main()

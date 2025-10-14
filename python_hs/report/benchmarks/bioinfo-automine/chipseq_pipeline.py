@@ -43,9 +43,11 @@ Ensure all external tools are installed and accessible in the system environment
 import os
 import subprocess
 
-data_dir = "../data/bioinfo-automine"
-out_dir = "results"
-reference_dir = "reference"
+# runs in python_hs/results
+
+data_dir = "data/bioinfo-automine"
+out_dir = "output/bioinfo-automine/results"
+reference_dir = "output/bioinfo-automine/reference"
 genome_fasta = os.path.join(reference_dir, "hg38.fa")
 bwa_index_prefix = os.path.join(reference_dir, "hg38")
 
@@ -65,7 +67,7 @@ subprocess.run(["mkdir", "-p", reference_dir], check=True)
 print("Downloading and indexing reference genome for BWA...")
 url = "http://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz"
 compressed_fasta = genome_fasta + ".gz"
-subprocess.run(["wget", "-O", compressed_fasta, url], check=True)
+subprocess.run(["wget", "-nv", "-O", compressed_fasta, url], check=True)
 subprocess.run(["gunzip", compressed_fasta], check=True)
 subprocess.run(["bwa", "index", "-p", bwa_index_prefix, genome_fasta], check=True)
 
@@ -77,22 +79,8 @@ for row in metadata:
     print(f"Processing {run_id} ({condition})...")
 
     # Find FASTQ pairs
-    r1_result = subprocess.run(
-        ["find", data_dir, "-name", f"{run_id}*_1.fastq.gz"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    r2_result = subprocess.run(
-        ["find", data_dir, "-name", f"{run_id}*_2.fastq.gz"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-
-    r1_files = r1_result.stdout.strip().split("\n") if r1_result.stdout.strip() else []
-    r2_files = r2_result.stdout.strip().split("\n") if r2_result.stdout.strip() else []
-    r1, r2 = r1_files[0], r2_files[0]
+    r1 = os.path.join(data_dir, f"{run_id}_1.fastq.gz")
+    r2 = os.path.join(data_dir, f"{run_id}_2.fastq.gz")
 
     # Trim reads
     trimmed_dir = os.path.join(out_dir, "trimmed")
@@ -125,9 +113,7 @@ for row in metadata:
     cmd_view = ["samtools", "view", "-bS", sam_output]
     cmd_sort = ["samtools", "sort", "-o", bam_output, "-"]
     p1 = subprocess.Popen(cmd_view, stdout=subprocess.PIPE)
-    p2 = subprocess.Popen(cmd_sort, stdin=p1.stdout)
-    p1.stdout.close()
-    p2.communicate()
+    subprocess.run(cmd_sort, stdin=p1.stdout)
     subprocess.run(["rm", sam_output], check=True)
     bam_file = bam_output
 

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+SCRIPT_DIR="$( dirname -- "${BASH_SOURCE[0]}" )"
+NAME="$SCRIPT_DIR/trimmomatic.jar"
+
+if [ ! -e "$NAME"  ]; then
+  echo "ERROR: Trimmomatic not found!" >&2
+  exit 1
+fi
+
+java -jar "$NAME" "$@"

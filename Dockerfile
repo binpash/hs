@@ -10,11 +10,9 @@ RUN apt install -y bc curl graphviz bsdmainutils libffi-dev locales locales-all 
 # try deps
 RUN apt install -y expect mergerfs attr
 RUN git config --global --add safe.directory /srv
-COPY . .
-RUN python3 -m venv .venv
-RUN source .venv/bin/activate
-ENV PASH_SPEC_TOP=/srv/hs
-ENV PASH_TOP=/srv/hs/deps/pash
+# pash, try
+COPY deps/ deps/
+COPY .git .git
 WORKDIR /srv/hs/deps/try
 RUN make -C utils
 RUN mv utils/try-commit /bin
@@ -22,5 +20,10 @@ RUN mv utils/try-summary /bin
 WORKDIR /srv/hs/deps/pash
 RUN ./scripts/setup-pash.sh
 WORKDIR /srv/hs
+COPY . .
+RUN python3 -m venv .venv
+RUN source .venv/bin/activate
+ENV PASH_SPEC_TOP=/srv/hs
+ENV PASH_TOP=/srv/hs/deps/pash
 RUN chmod +x entrypoint.sh
 ENTRYPOINT ["/srv/hs/entrypoint.sh"]

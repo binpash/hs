@@ -19,13 +19,14 @@ validate_benchmark() {
 
 if [ $# -gt 0 ]; then
   b="$1"
+  downloader="benchmarks/$b/download_data.sh"
   if ! validate_benchmark "$b"; then
     echo "Passed invalid benchmark "$b"; benchmarks are: ${benchmarks[*]}"
     exit 1
   fi
-  bash "$b/download_data.sh"
+  bash "$downloader"
 else 
   for b in "${benchmarks[@]}"; do
-    bash "$b/download_data.sh"
+    bash "$downloader"
   done
 fi

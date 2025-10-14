@@ -7,7 +7,7 @@ import string
 import subprocess
 import sys
 from pathlib import Path
-from typing import Literal, assert_never
+from typing import Any, Literal, TypeAlias
 
 from python_hs.constants import (
     PASH_SPEC_SCHEDULER_SOCKET,
@@ -28,11 +28,11 @@ def random_str(n: int = 8) -> str:
 @dataclasses.dataclass
 class CompletedProcess:
     returncode: int
-    stdout: str | None
+    stdout: str | bytes | None
 
 
-def get_vars() -> str:
-    bash_vars = str(PASH_SPEC_TMP_PREFIX / f"variables_{random_str()}")
+def get_vars(spec_dir: Path) -> str | None:
+    bash_vars = str(spec_dir / f"variables_{random_str()}")
     subprocess.run([f"{RUNTIME_DIR}/pash_declare_vars.sh", bash_vars], check=True)
     logger.info(f"Bash variables saved in {bash_vars!r}")
     return bash_vars
@@ -52,42 +52,61 @@ def communicate_socket(server_name: str, socket_path: str | Path, msg: str) -> s
     return response
 
 
-communicate_with_scheduler = functools.partial(
-    communicate_socket, "PaSh-Spec-scheduler", PASH_SPEC_SCHEDULER_SOCKET
+communicate_with_scheduler = (
+    functools.partial(
+        communicate_socket, "PaSh-Spec-scheduler", PASH_SPEC_SCHEDULER_SOCKET
+    )
+    if PASH_SPEC_SCHEDULER_SOCKET is not None
+    else None
 )
 
 
-def create_partial_order() -> Path:
-    path = PASH_SPEC_TMP_PREFIX / "partial_order_file"
+def create_partial_order(spec_dir: Path) -> Path:
+    path = spec_dir / "partial_order_file"
     path.touch()
     return path
 
 
-def init_scheduler():
-    partial_order_file = create_partial_order()
+def init_scheduler() -> None:
+    if PASH_SPEC_TMP_PREFIX is None or communicate_with_scheduler is None:
+        raise RuntimeError("Pash is not initialized!")
+    partial_order_file = create_partial_order(PASH_SPEC_TMP_PREFIX)
     communicate_with_scheduler(f"Init:{partial_order_file}")
 
 
-def hs_run(cmd_id: int, loop_id: int | None, dest: Literal["output", "capture"]):
+IO: TypeAlias = Any
+
+
+def hs_run(
+    cmd_id: int,
+    loop_id: int | None,
+    dest: Literal["output", "capture"] | IO,
+    check: bool,
+    text: bool,
+):
     # allowing it be None is conceptually clearer when preprocesing
     # code not in a loop but equivalent to the first iter of a loop
     # if loop_id is None:
     #     loop_id = 0
 
     # we unroll all loops currently
-    assert PASH_SPEC_TMP_PREFIX is not None
+    assert PASH_SPEC_TMP_PREFIX is not None and communicate_with_scheduler is not None
     loop_id = 0
-    msg = f"Wait:{cmd_id}|Loop iters:{loop_id}|Variables file:{get_vars()}"
+    msg = f"Wait:{cmd_id}|Loop iters:{loop_id}|Variables file:{get_vars(PASH_SPEC_TMP_PREFIX)}"
     res = communicate_with_scheduler(msg)
 
     type_, _ = res.split(":", maxsplit=1)
     if type_ == "UNSAFE":
-        return subprocess.run(["bash", PASH_SPEC_TMP_PREFIX / "partial_order" / str(cmd_id)])
+        return subprocess.run(
+            ["bash", PASH_SPEC_TMP_PREFIX / "partial_order" / str(cmd_id)], check=check
+        )
     elif type_ == "OK":
         _, err_code, _, outfiles = res[:-1].split(" ")
 
+        mode = "r" if text else "rb"
+
         # TODO: stderr
-        with open(os.path.join(outfiles, "1")) as stdout_file:
+        with open(os.path.join(outfiles, "1"), mode) as stdout_file:
             stdout = stdout_file.read()
 
         match dest:
@@ -96,8 +115,15 @@ def hs_run(cmd_id: int, loop_id: int | None, dest: Literal["output", "capture"])
                 stdout = None
             case "capture":
                 pass
-            case _:
-                assert_never(dest)
+            case file:
+                # inefficient
+                file.write(stdout)
+                stdout = None
+
+        if check and err_code != 0:
+            # TODO: Better error messages.
+            # The last argument is supposed to be the command The last argument is supposed to be the command.
+            raise subprocess.CalledProcessError(err_code, "hs_run")
 
         return CompletedProcess(int(err_code), stdout)
     else:

@@ -22,6 +22,7 @@ MIN_HS_TIME = 0.1
 
 logger = logging.getLogger(__name__)
 
+
 class TestInterface(unittest.TestCase):
     def run_script_with_shell(
         self, test_script_path: Path, shell_type: ShellType

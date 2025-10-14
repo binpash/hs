@@ -405,8 +405,14 @@ def preprocess_file(
 
     if spec_runtime is not None:
         spec_runtime = Path(spec_runtime)
-        shutil.rmtree(spec_runtime, ignore_errors=True)
         spec_runtime.mkdir(parents=True, exist_ok=True)
+
+        # Remove partial order artifacts from previous runs
+        partial_order_dir = spec_runtime / "partial_order"
+        shutil.rmtree(partial_order_dir, ignore_errors=True)
+
+        partial_order_file = spec_runtime / "partial_order_file"
+        partial_order_file.unlink(missing_ok=True)
 
     source_code = path.read_text()
 

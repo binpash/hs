@@ -61,16 +61,11 @@ communicate_with_scheduler = (
 )
 
 
-def create_partial_order(spec_dir: Path) -> Path:
-    path = spec_dir / "partial_order_file"
-    path.touch()
-    return path
-
 
 def init_scheduler() -> None:
     if PASH_SPEC_TMP_PREFIX is None or communicate_with_scheduler is None:
         raise RuntimeError("Pash is not initialized!")
-    partial_order_file = create_partial_order(PASH_SPEC_TMP_PREFIX)
+    partial_order_file = PASH_SPEC_TMP_PREFIX / "partial_order_file"
     communicate_with_scheduler(f"Init:{partial_order_file}")
 
 

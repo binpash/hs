@@ -11,12 +11,6 @@ from node import LoopStack, ConcreteNodeId
 ## A scheduler server
 ##
 
-def handler(signum, frame):
-    logging.debug(f'Signal: {signum} caught')
-    shutdown()
-
-signal.signal(signal.SIGTERM, handler)
-
 def parse_args():
     parser = argparse.ArgumentParser(add_help=False)
     ## TODO: Import the arguments so that they are not duplicated here and in orch
@@ -79,6 +73,12 @@ class Scheduler:
         ## A map containing connections for node_ids that are waiting for a response
         self.waiting_for_response = {}
         self.partial_program_order = None
+
+        def handler(signum, frame):
+            logging.debug(f'Signal: {signum} caught')
+            self.shutdown()
+
+        signal.signal(signal.SIGTERM, handler)
 
     def handle_init(self, input_cmd: str):
         assert(input_cmd.startswith("Init"))
@@ -215,6 +215,9 @@ class Scheduler:
         self.terminate_pending_commands()
 
     def terminate_pending_commands(self):
+        if self.partial_program_order is None:
+            return
+
         for node in self.partial_program_order.get_executing_normal_and_spec_nodes():
             node.reset_to_ready()
             # proc.terminate()

@@ -61,7 +61,6 @@ communicate_with_scheduler = (
 )
 
 
-
 def init_scheduler() -> None:
     if PASH_SPEC_TMP_PREFIX is None or communicate_with_scheduler is None:
         raise RuntimeError("Pash is not initialized!")
@@ -75,7 +74,7 @@ IO: TypeAlias = Any
 def hs_run(
     cmd_id: int,
     loop_id: int | None,
-    dest: Literal["output", "capture"] | IO,
+    dest: Literal["output", "capture"] | str,
     check: bool,
     text: bool,
 ):
@@ -93,26 +92,26 @@ def hs_run(
     type_, _ = res.split(":", maxsplit=1)
     if type_ == "UNSAFE":
         return subprocess.run(
-            ["bash", PASH_SPEC_TMP_PREFIX / "partial_order" / str(cmd_id)], check=check
+            ["bash", PASH_SPEC_TMP_PREFIX / "partial_order" / str(cmd_id)],
+            check=check,
+            text=text,
         )
     elif type_ == "OK":
         _, err_code, _, outfiles = res[:-1].split(" ")
-
-        mode = "r" if text else "rb"
+        err_code = int(err_code)
 
         # TODO: stderr
-        with open(os.path.join(outfiles, "1"), mode) as stdout_file:
+        with open(os.path.join(outfiles, "1"), "rb") as stdout_file:
             stdout = stdout_file.read()
 
         match dest:
             case "output":
-                sys.stdout.write(stdout)
+                sys.stdout.buffer.write(stdout)
                 stdout = None
             case "capture":
                 pass
-            case file:
-                # inefficient
-                file.write(stdout)
+            # file name, handled by the preprocessor
+            case _:
                 stdout = None
 
         if check and err_code != 0:

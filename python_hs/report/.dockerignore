@@ -39,3 +39,4 @@ outputs/
 
 ./download_data.sh
 ./benchmark.sh
+./times.sh

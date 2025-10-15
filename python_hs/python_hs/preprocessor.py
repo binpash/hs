@@ -38,7 +38,7 @@ def eval_expr(node: ast.expr, *args: Any) -> Any:
 @dataclass
 class PreprocessedCommand:
     args: list[str]
-    stdout: ast.Constant | Literal["pipe"]
+    stdout: Literal["pipe", "capture", "output"] | str
     stdin: PreprocessedCommand | None
 
     def _get_all_commands(self) -> Iterator[PreprocessedCommand]:
@@ -58,6 +58,8 @@ class PreprocessedCommand:
         command = " | ".join(cmd._get_args_str() for cmd in pipes)
 
         assert self.stdout != "pipe", "pipe should not be ending a command"
+        if self.stdout != "capture" and self.stdout != "output":
+            command += f" > {shlex.quote(self.stdout)}"
 
         return command
 
@@ -114,7 +116,7 @@ class PreprocessState:
     def add(
         self,
         args: list[str],
-        stdout: Literal["pipe"] | ast.Constant,
+        stdout: Literal["pipe", "capture", "output"] | str,
         stdin: int | None,
     ) -> int:
         """Add a command to specs and return its index."""
@@ -123,6 +125,7 @@ class PreprocessState:
         )
 
         if stdin is not None:
+            assert self.spec[stdin].stdout == "pipe"
             self.specs[stdin] = cmd
             return stdin
 
@@ -267,7 +270,49 @@ class PreprocessorTransformer(ast.NodeTransformer):
     def visit_For(self, node: ast.For) -> ast.AST | list[ast.stmt]:
         if self._can_safely_attempt_unroll(node):
             return self._unroll_loop(node)
+        else:
+            raise ValueError(f"Cannot safely unroll {node}")
         return node
+
+    def visit_With(self, node: ast.With) -> ast.stmt:
+        # sanity checks
+        if len(node.body) > 1:
+            raise ValueError("Cannot handle with block with multiple statements")
+
+        if not node.body:
+            return self.generic_visit(node)
+
+        body = node.body[0]
+        if not isinstance(body.value, ast.Call) or not self._is_subprocess_val(
+            body.value.func, "run"
+        ):
+            raise ValueError("Body of with is not subprocess.run")
+
+        if len(node.items) != 1:
+            raise ValueError("With statement with multiple items is not supported")
+
+        item = node.items[0]
+
+        target = item.optional_vars
+        if target is None or not isinstance(target, ast.Name):
+            raise ValueError(f"Unexpected target {target}")
+
+        var = target.id
+
+        open_call = item.context_expr
+        if not isinstance(open_call, ast.Call):
+            raise ValueError(
+                "With statement with item that is not call is not supported"
+            )
+        if not isinstance(open_call.func, ast.Name) or open_call.func.id != "open":
+            raise ValueError(
+                "With statement with function that is not open is not supported"
+            )
+
+        path = open_call.args[0]
+        self.eval_context[var] = eval_expr(path, self.eval_context)
+
+        return self.generic_visit(node)
 
     def _transform_subprocess_call(self, node: ast.Call) -> ast.expr:
         """Transform subprocess.run/Popen call to hs_run call."""
@@ -286,6 +331,7 @@ class PreprocessorTransformer(ast.NodeTransformer):
             source = _get_stdin_ind(stdin, self.preprocessed_command_vars)
 
         if self._is_subprocess_val(node.func, "Popen"):
+            return_none = True
             try:
                 pipe_node = kw_args.pop("stdout")
             except KeyError as e:
@@ -298,11 +344,11 @@ class PreprocessorTransformer(ast.NodeTransformer):
                 raise ValueError("Unnamed Popen")
 
             dest = "pipe"
-            return_none = True
             # these don't matter for Popen pipes
             check = ast.Constant(value=False)
             text = ast.Constant(value=False)
         elif self._is_subprocess_val(node.func, "run"):
+            return_none = False
             try:
                 val = kw_args.pop("capture_output")
             except KeyError:
@@ -311,11 +357,16 @@ class PreprocessorTransformer(ast.NodeTransformer):
                 capture_output = ast.literal_eval(val)
 
             if capture_output:
-                dest = ast.Constant(value="capture")
+                dest = "capture"
             else:
-                dest = kw_args.pop("stdout", ast.Constant("output"))
-
-            return_none = False
+                try:
+                    val = kw_args.pop("stdout")
+                except KeyError:
+                    dest = "output"
+                else:
+                    # to get the name of the file
+                    dest = eval_expr(val, self.eval_context)
+                    assert isinstance(dest, str)
             try:
                 check = kw_args.pop("check")
             except KeyError:
@@ -351,7 +402,7 @@ class PreprocessorTransformer(ast.NodeTransformer):
             args=[
                 ast.Constant(value=cmd_id),
                 ast.Constant(value=self.loop_id),
-                dest,
+                ast.Constant(dest),
                 check,
                 text,
             ],

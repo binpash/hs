@@ -23,6 +23,9 @@ while true; do
         shift
         break
         ;;
+    *)
+        break
+        ;;
     esac
 done
 

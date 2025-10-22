@@ -10,7 +10,6 @@ import os
 import shlex
 import shutil
 import subprocess
-import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -274,7 +273,7 @@ class PreprocessorTransformer(ast.NodeTransformer):
             raise ValueError(f"Cannot safely unroll {node}")
         return node
 
-    def visit_With(self, node: ast.With) -> ast.stmt:
+    def visit_With(self, node: ast.With) -> ast.AST:
         # sanity checks
         if len(node.body) > 1:
             raise ValueError("Cannot handle with block with multiple statements")

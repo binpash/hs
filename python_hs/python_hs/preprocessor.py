@@ -125,7 +125,7 @@ class PreprocessState:
         )
 
         if stdin is not None:
-            assert self.spec[stdin].stdout == "pipe"
+            assert self.specs[stdin].stdout == "pipe"
             self.specs[stdin] = cmd
             return stdin
 

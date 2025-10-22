@@ -100,9 +100,15 @@ def hs_run(
         _, err_code, _, outfiles = res[:-1].split(" ")
         err_code = int(err_code)
 
-        # TODO: stderr
         with open(os.path.join(outfiles, "1"), "rb") as stdout_file:
             stdout = stdout_file.read()
+
+        # TODO: Handle properly
+        with open(os.path.join(outfiles, "2"), "rb") as stdout_file:
+            stderr = stdout_file.read()
+
+        if stderr:
+            logger.warning("Stderr of %s:", stderr.decode(errors='replace'))
 
         match dest:
             case "output":

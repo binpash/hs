@@ -110,7 +110,7 @@ class PreprocessState:
             "0",
             *[f"{i - 1} -> {i}" for i in range(1, len(self.specs))],
         ]
-        partial_order_text = "\n".join(map(str, partial_order_contents))
+        partial_order_text = "\n".join(map(str, partial_order_contents)) + "\n"
         (hs_runtime / "partial_order_file").write_text(partial_order_text)
 
     def add(

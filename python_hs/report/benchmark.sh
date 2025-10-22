@@ -12,5 +12,6 @@ docker build -t python-hs-benchmarks .
 docker run --rm \
     --init --privileged --cgroupns=host \
     -v "$PWD/data:$DOCKER_ROOT/data" \
+    -v "$PWD/results:$DOCKER_ROOT/results"\
     python-hs-benchmarks \
     ./run_specific_benchmark.sh "$@"

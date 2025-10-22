@@ -4,7 +4,7 @@
 
 #Author: Hamid D. Ismail, Ph.D.
 #Book title: Bioinformatics of Autoimmune Diseases
-
+# TODO: Filter this to only the ones we end up using for the script.
 sra_ids=(
     SRR26147696
     SRR26147697
@@ -15,8 +15,8 @@ sra_ids=(
 )
 # to top directory of this script
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")" || exit
-# to the benchmark directory
-cd .. || exit
+# to the report directory
+cd ../../ || exit
 
 data_dir="$(readlink -f "data/bioinfo-automine")"
 

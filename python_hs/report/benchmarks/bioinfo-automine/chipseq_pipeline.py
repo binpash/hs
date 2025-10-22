@@ -43,7 +43,7 @@ Ensure all external tools are installed and accessible in the system environment
 import os
 import subprocess
 
-# runs in python_hs/results
+# runs in python_hs/report
 
 data_dir = "data/bioinfo-automine"
 out_dir = "output/bioinfo-automine/results"
@@ -53,10 +53,10 @@ bwa_index_prefix = os.path.join(reference_dir, "hg38")
 
 metadata = [
     {"runID": "SRR26147696", "condition": "control"},
-    {"runID": "SRR26147697", "condition": "control"},
-    {"runID": "SRR26147702", "condition": "control"},
-    {"runID": "SRR26147714", "condition": "treated"},
-    {"runID": "SRR26147715", "condition": "treated"},
+    # {"runID": "SRR26147697", "condition": "control"},
+    # {"runID": "SRR26147702", "condition": "control"},
+    # {"runID": "SRR26147714", "condition": "treated"},
+    # {"runID": "SRR26147715", "condition": "treated"},
     {"runID": "SRR26147716", "condition": "treated"},
 ]
 

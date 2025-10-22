@@ -1,4 +1,6 @@
 #!/bin/bash
+
+set -eu
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")" || exit
 
 HS_TOP="$(git rev-parse --show-toplevel)"
@@ -6,8 +8,15 @@ export HS_TOP
 
 WARMUP=0
 RUNS=1
+HS_WINDOW=16
+HS_DEBUG=0
 BENCHMARKS="$(find benchmarks/ -mindepth 1 -maxdepth 1 -type d -printf '%f ')"
 readonly BENCHMARKS
+
+RESULT_NUM=$(($(find results/ -maxdepth 1 -type d -name 'run_*' | sed 's/.*run_//' | sort -n | tail -1) + 1))
+RESULT_DIR="$(readlink -f "./results/run_$RESULT_NUM")"
+export RESULT_DIR
+mkdir "$RESULT_DIR"
 
 while true; do
     case "$1" in
@@ -17,6 +26,10 @@ while true; do
         ;;
     -r | --runs)
         RUNS="$2"
+        shift 2
+        ;;
+    -d | --debug)
+        HS_DEBUG="$2"
         shift 2
         ;;
     --)
@@ -29,13 +42,16 @@ while true; do
     esac
 done
 
+export HS_DEBUG
+export HS_WINDOW
+
 readonly METHOD="$1"
 shift
 readonly BENCHMARK="$1"
 shift
 
 if [ -z "$METHOD" ] || [ -z "$BENCHMARK" ]; then
-    echo "Usage: $0 [--warmup N] [--runs N] {spec|subprocess|full|hyperfine-spec|hyperfine-subprocess|hyperfine-full} {benchmark|all}"
+    echo "Usage: $0 [--warmup N] [--runs N] [--debug N] {spec|subprocess|full|hyperfine-spec|hyperfine-subprocess|hyperfine-full} {benchmark|all}"
     echo "Available benchmarks: ${BENCHMARKS[*]}"
     exit 1
 fi
@@ -44,6 +60,36 @@ if [[ $METHOD != hyperfine* ]] && { [ "$WARMUP" -ne 0 ] || [ "$RUNS" -ne 1 ]; };
     echo "Error: --warmup and --runs can only be used with hyperfine-* methods"
     exit 1
 fi
+
+# NOTE: If I want to check for equality of stdout, redirect in spec and sub.
+spec() {
+    local bench="${1:?No benchmark provided}"
+    shift
+    "$HS_TOP/pash-spec.sh" --python "$bench" --window "$HS_WINDOW" -d "$HS_DEBUG" "$@"
+}
+export -f spec
+
+sub() {
+    python3 "${1:?No benchmark provided}"
+}
+export -f sub
+
+hyperfine_with_args() {
+    local bench="${1:?No benchmark provided}"
+    shift
+    local type="${1:?Type is not provided}"
+    shift
+    hyperfine --show-output --shell=bash --warmup "$WARMUP" --runs "$RUNS" --export-json "$RESULT_DIR/$type-$bench.json" --export-markdown "$RESULT_DIR/$type-$bench.md" "$@"
+}
+
+move_result() {
+    local bench="${1:?No benchmark provided}"
+    local type="${2:?No type provided}"
+    local out_dir="$RESULT_DIR/${bench}-output/"
+    mkdir -p "$out_dir"
+    mv "outputs/$bench" "$out_dir/$type" || true
+}
+export -f move_result
 
 run_benchmark() {
     local bench="$1"
@@ -65,33 +111,36 @@ run_benchmark() {
     fi
 
     local script="${python_files[0]}"
-
-    rm -rf "./output/$bench/"
-
-    local spec_cmd=(bash "$HS_TOP/pash-spec.sh" --python "$script" )
-    local sub_cmd=(python3 "$script")
+    local stdout_prefix="$RESULT_DIR/$bench"
 
     case "$METHOD" in
     spec)
-        "${spec_cmd[@]}" "$@"
+        spec "$script" "$@"
+        move_result "$bench" spec
         ;;
     subprocess)
-        "${sub_cmd[@]}" "$@"
+        sub "$script"
+        move_result "$bench" sub
         ;;
     full)
-        "${spec_cmd[@]}" "$@"
-        "${sub_cmd[@]}"
+        spec "$script" "$@"
+        move_result "$bench" spec
+        sub "$script"
+        move_result "$bench" sub
         ;;
     hyperfine-spec)
-        hyperfine --warmup "$WARMUP" --runs "$RUNS" --export-json "results-spec-$bench.json" --export-markdown "results-spec-$bench.md" "${spec_cmd[*]} "$*
+        hyperfine_with_args "$bench" spec "spec $script $*"
+        move_result "$bench" spec
         ;;
     hyperfine-subprocess)
-        hyperfine --warmup "$WARMUP" --runs "$RUNS" --export-json "results-subprocess-$bench.json" --export-markdown "results-subprocess-$bench.md" "${sub_cmd[*]} $*"
+        hyperfine_with_args "$bench" sub "sub $script"
+        move_result "$bench" sub
         ;;
     hyperfine-full)
-        hyperfine --warmup "$WARMUP" --runs "$RUNS" --export-json "results-$bench.json" --export-markdown "results-$bench.md" \
-            -n spec "${spec_cmd[*]} $*" \
-            -n subprocess "${sub_cmd[*]} $*"
+        hyperfine_with_args "$bench" spec "spec $script $*"
+        move_result "$bench" spec
+        hyperfine_with_args "$bench" sub "sub $script"
+        move_result "$bench" sub
         ;;
     *)
         echo "Error: Invalid method '$METHOD'"
@@ -99,13 +148,33 @@ run_benchmark() {
         exit 1
         ;;
     esac
+
+    rm -rf "./output/$bench/"
 }
 
 if [ "$BENCHMARK" = "all" ]; then
-    for bench in "${BENCHMARKS[@]}"; do
+    for bench in $BENCHMARKS; do
         echo "Running benchmark: $bench"
         run_benchmark "$bench" "$@"
     done
 else
     run_benchmark "$BENCHMARK" "$@"
 fi
+
+MISMATCHES=0
+for bench_output_dir in "$RESULT_DIR"/*-output/; do
+    spec_out="$bench_output_dir/spec"
+    sub_out="$bench_output_dir/sub"
+    if ! diff -rq "$spec_out" "$sub_out"; then
+        echo "Mismatch: $bench_output_dir"
+        MISMATCHES=$((MISMATCHES + 1))
+    fi
+done
+
+if [ $MISMATCHES -ne 0 ]; then
+    echo "$MISMATCHES mismatches."
+    exit 1
+fi
+
+echo "No mismatches."
+exit 0

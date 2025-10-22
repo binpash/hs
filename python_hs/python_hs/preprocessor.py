@@ -349,6 +349,12 @@ class PreprocessorTransformer(ast.NodeTransformer):
         elif self._is_subprocess_val(node.func, "run"):
             return_none = False
             try:
+                shell_ast = kw_args.pop("shell")
+            except KeyError:
+                shell = False
+            else:
+                shell = ast.literal_eval(shell_ast)
+            try:
                 val = kw_args.pop("capture_output")
             except KeyError:
                 capture_output = False
@@ -385,7 +391,8 @@ class PreprocessorTransformer(ast.NodeTransformer):
             cmd_ast, self.eval_context | {"subprocess": subprocess}
         )
         if isinstance(evaluated_cmd, str | Path):
-            args = [str(evaluated_cmd)]
+            cmd = str(evaluated_cmd)
+            args = shlex.split(cmd) if shell else [cmd]
         else:
             args = [str(arg) for arg in evaluated_cmd]
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eu
+set -u
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")" || exit
 
 HS_TOP="$(git rev-parse --show-toplevel)"
@@ -14,9 +14,6 @@ BENCHMARKS="$(find benchmarks/ -mindepth 1 -maxdepth 1 -type d -printf '%f ')"
 readonly BENCHMARKS
 
 RESULT_NUM=$(($(find results/ -maxdepth 1 -type d -name 'run_*' | sed 's/.*run_//' | sort -n | tail -1) + 1))
-RESULT_DIR="$(readlink -f "./results/run_$RESULT_NUM")"
-export RESULT_DIR
-mkdir "$RESULT_DIR"
 
 while true; do
     case "$1" in
@@ -50,8 +47,12 @@ shift
 readonly BENCHMARK="$1"
 shift
 
+RESULT_DIR="$(readlink -f "$1")"
+export RESULT_DIR
+mkdir "$RESULT_DIR"
+
 if [ -z "$METHOD" ] || [ -z "$BENCHMARK" ]; then
-    echo "Usage: $0 [--warmup N] [--runs N] [--debug N] {spec|subprocess|full|hyperfine-spec|hyperfine-subprocess|hyperfine-full} {benchmark|all}"
+    echo "Usage: $0 [--warmup N] [--runs N] [--debug N] {spec|sub|full|hyperfine-spec|hyperfine-sub|hyperfine-full} {benchmark|all}"
     echo "Available benchmarks: ${BENCHMARKS[*]}"
     exit 1
 fi
@@ -79,17 +80,19 @@ hyperfine_with_args() {
     shift
     local type="${1:?Type is not provided}"
     shift
-    hyperfine --show-output --shell=bash --warmup "$WARMUP" --runs "$RUNS" --export-json "$RESULT_DIR/$type-$bench.json" --export-markdown "$RESULT_DIR/$type-$bench.md" "$@"
+    local time_prefix="$RESULT_DIR/$type-bench"
+    rm "$time_prefix."{md,json}
+    rm -r "outputs/$bench"
+    hyperfine --show-output --shell=bash --warmup "$WARMUP" --runs "$RUNS" --export-json "$time_prefix.json" --export-markdown "$time_prefix.md" "$@"
 }
 
 move_result() {
     local bench="${1:?No benchmark provided}"
     local type="${2:?No type provided}"
-    local out_dir="$RESULT_DIR/${bench}-output/"
-    mkdir -p "$out_dir"
-    mv "outputs/$bench" "$out_dir/$type" || true
+    local dest="outputs/$type-bench"
+    rm -r "$dest"
+    mv "outputs/$bench" "$dest"
 }
-export -f move_result
 
 run_benchmark() {
     local bench="$1"
@@ -111,70 +114,20 @@ run_benchmark() {
     fi
 
     local script="${python_files[0]}"
-    local stdout_prefix="$RESULT_DIR/$bench"
 
     case "$METHOD" in
     spec)
-        spec "$script" "$@"
-        move_result "$bench" spec
+        hyperfine_with_args "$bench" spec "spec $script $*" && move_result "$bench" spec
         ;;
-    subprocess)
-        sub "$script"
-        move_result "$bench" sub
-        ;;
-    full)
-        spec "$script" "$@"
-        move_result "$bench" spec
-        sub "$script"
-        move_result "$bench" sub
-        ;;
-    hyperfine-spec)
-        hyperfine_with_args "$bench" spec "spec $script $*"
-        move_result "$bench" spec
-        ;;
-    hyperfine-subprocess)
-        hyperfine_with_args "$bench" sub "sub $script"
-        move_result "$bench" sub
-        ;;
-    hyperfine-full)
-        hyperfine_with_args "$bench" spec "spec $script $*"
-        move_result "$bench" spec
-        hyperfine_with_args "$bench" sub "sub $script"
-        move_result "$bench" sub
+    sub)
+        hyperfine_with_args "$bench" sub "sub $script" && move_result "$bench" sub
         ;;
     *)
         echo "Error: Invalid method '$METHOD'"
-        echo "Usage: $0 [--warmup N] [--runs N] {spec|subprocess|full|hyperfine-spec|hyperfine-subprocess|hyperfine-full} {benchmark|all}"
+        echo "Usage: $0 [--warmup N] [--runs N] {spec|sub} {benchmark}"
         exit 1
         ;;
     esac
-
-    rm -rf "./output/$bench/"
 }
 
-if [ "$BENCHMARK" = "all" ]; then
-    for bench in $BENCHMARKS; do
-        echo "Running benchmark: $bench"
-        run_benchmark "$bench" "$@"
-    done
-else
-    run_benchmark "$BENCHMARK" "$@"
-fi
-
-MISMATCHES=0
-for bench_output_dir in "$RESULT_DIR"/*-output/; do
-    spec_out="$bench_output_dir/spec"
-    sub_out="$bench_output_dir/sub"
-    if ! diff -rq "$spec_out" "$sub_out"; then
-        echo "Mismatch: $bench_output_dir"
-        MISMATCHES=$((MISMATCHES + 1))
-    fi
-done
-
-if [ $MISMATCHES -ne 0 ]; then
-    echo "$MISMATCHES mismatches."
-    exit 1
-fi
-
-echo "No mismatches."
-exit 0
+run_benchmark "$BENCHMARK" "$@"

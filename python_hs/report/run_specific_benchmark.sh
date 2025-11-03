@@ -13,8 +13,6 @@ HS_DEBUG=0
 BENCHMARKS="$(find benchmarks/ -mindepth 1 -maxdepth 1 -type d -printf '%f ')"
 readonly BENCHMARKS
 
-RESULT_NUM=$(($(find results/ -maxdepth 1 -type d -name 'run_*' | sed 's/.*run_//' | sort -n | tail -1) + 1))
-
 while true; do
     case "$1" in
     -w | --warmup)
@@ -47,9 +45,9 @@ shift
 readonly BENCHMARK="$1"
 shift
 
-RESULT_DIR="$(readlink -f "$1")"
+RESULT_DIR="$(readlink -f "${1:-results}")"
 export RESULT_DIR
-mkdir "$RESULT_DIR"
+mkdir -p "$RESULT_DIR"
 
 if [ -z "$METHOD" ] || [ -z "$BENCHMARK" ]; then
     echo "Usage: $0 [--warmup N] [--runs N] [--debug N] {spec|sub|full|hyperfine-spec|hyperfine-sub|hyperfine-full} {benchmark|all}"
@@ -80,9 +78,9 @@ hyperfine_with_args() {
     shift
     local type="${1:?Type is not provided}"
     shift
-    local time_prefix="$RESULT_DIR/$type-bench"
-    rm "$time_prefix."{md,json}
-    rm -r "outputs/$bench"
+    local time_prefix="$RESULT_DIR/$type-$bench"
+    rm -f "$time_prefix."{md,json}
+    rm -rf "outputs/$bench"
     hyperfine --show-output --shell=bash --warmup "$WARMUP" --runs "$RUNS" --export-json "$time_prefix.json" --export-markdown "$time_prefix.md" "$@"
 }
 
@@ -90,7 +88,7 @@ move_result() {
     local bench="${1:?No benchmark provided}"
     local type="${2:?No type provided}"
     local dest="outputs/$type-bench"
-    rm -r "$dest"
+    rm -rf "$dest"
     mv "outputs/$bench" "$dest"
 }
 

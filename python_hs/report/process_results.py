@@ -9,7 +9,7 @@ from typing import Any
 
 
 def check_output_correctness(benchmark: str) -> bool:
-    """Check if spec and sub outputs match for a benchmark.
+    """Check if spec and sub output match for a benchmark.
 
     Args:
         benchmark: Benchmark name (e.g., 'bioinfo-automine')
@@ -17,8 +17,8 @@ def check_output_correctness(benchmark: str) -> bool:
     Returns:
         True if outputs match, False otherwise
     """
-    spec_output = Path("outputs/spec-bench") / benchmark
-    sub_output = Path("outputs/sub-bench") / benchmark
+    spec_output = Path("output/spec-bench") / benchmark
+    sub_output = Path("output/sub-bench") / benchmark
 
     if not spec_output.exists() or not sub_output.exists():
         print(f"Warning: Missing output directories for {benchmark}", file=sys.stderr)
@@ -42,7 +42,7 @@ def check_output_correctness(benchmark: str) -> bool:
     is_correct = check_dircmp(comparison)
 
     if not is_correct:
-        print(f"Mismatch detected in {benchmark} outputs", file=sys.stderr)
+        print(f"Mismatch detected in {benchmark} output", file=sys.stderr)
 
     return is_correct
 

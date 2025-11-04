@@ -27,7 +27,7 @@ plots/runtimes_plot.png: results/processed.json runtime_plot.py | plots/
 data/ results/ plots/:
 	mkdir -p $@
 clean:
-	rm -rf results/ plots/ outputs/
+	rm -rf results/ plots/ output/
 
 clean_data:
 	rm -rf data/

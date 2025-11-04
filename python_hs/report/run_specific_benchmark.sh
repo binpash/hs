@@ -80,16 +80,16 @@ hyperfine_with_args() {
     shift
     local time_prefix="$RESULT_DIR/$type-$bench"
     rm -f "$time_prefix."{md,json}
-    rm -rf "outputs/$bench"
+    rm -rf "output/$bench"
     hyperfine --show-output --shell=bash --warmup "$WARMUP" --runs "$RUNS" --export-json "$time_prefix.json" --export-markdown "$time_prefix.md" "$@"
 }
 
 move_result() {
     local bench="${1:?No benchmark provided}"
     local type="${2:?No type provided}"
-    local dest="outputs/$type-bench"
+    local dest="output/$type-bench"
     rm -rf "$dest"
-    mv "outputs/$bench" "$dest"
+    mv "output/$bench" "$dest"
 }
 
 run_benchmark() {

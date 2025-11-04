@@ -8,7 +8,7 @@ image_name = "watermark.png"
 video_name = "hi_chitanda_eru.mp4"
 
 data_dir = "./data/rainbowcake-python-video-processing/"
-output_dir = "./outputs/rainbowcake-python-video-processing/"
+output_dir = "./output/rainbowcake-python-video-processing/"
 
 duration = 10
 

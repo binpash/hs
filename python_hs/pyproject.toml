@@ -36,6 +36,7 @@ ignore = [
     "B011",
     "E501",
 ]
+exclude = ["report/benchmarks/*/**.py"]
 
 [tool.ruff.format]
 docstring-code-format = true

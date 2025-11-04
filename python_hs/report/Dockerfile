@@ -14,6 +14,7 @@ RUN apt update \
         default-jre \
         curl \
         unzip \
+        ffmpeg \
     && rm -rf /var/lib/apt/lists/
 
 WORKDIR /srv/hs/python_hs/report/

@@ -87,7 +87,7 @@ hyperfine_with_args() {
 move_result() {
     local bench="${1:?No benchmark provided}"
     local type="${2:?No type provided}"
-    local dest="output/$type-bench"
+    local dest="output/$type-$bench"
     rm -rf "$dest"
     mv "output/$bench" "$dest"
 }

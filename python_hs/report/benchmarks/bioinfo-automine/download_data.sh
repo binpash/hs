@@ -20,9 +20,9 @@ cd ../../ || exit
 
 data_dir="$(readlink -f "data/bioinfo-automine")"
 
-if [ -d "$data_dir" ]; then
-    echo "directory $1 already exists, skipping download."
-    exit
+if [ -f "$data_dir/.downloaded" ]; then
+    echo "Data already downloaded, skipping."
+    exit 0
 fi
 
 mkdir -p "$data_dir"
@@ -44,3 +44,4 @@ for sra_id in "${sra_ids[@]}"; do
 done
 
 echo "Download completed."
+touch "$data_dir/.downloaded"

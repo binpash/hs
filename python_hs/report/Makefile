@@ -9,13 +9,13 @@ ALL_JSON_RESULTS := $(foreach type,$(TYPES),$(foreach bench,$(BENCHMARKS),result
 
 all: plots/runtimes_plot.png
 
-data/%: benchmarks/%/download_data.sh | data/
+data/%/.downloaded: benchmarks/%/download_data.sh | data/
 	cd benchmarks/$* && ./download_data.sh
 
-results/sub-%.md results/sub-%.json &: data/% $(SRC_FILES) | results/
+results/sub-%.md results/sub-%.json &: data/%/.downloaded $(SRC_FILES) | results/
 	./benchmark.sh sub $* results/
 
-results/spec-%.md results/spec-%.json &: data/% $(SRC_FILES) | results/
+results/spec-%.md results/spec-%.json &: data/%/.downloaded $(SRC_FILES) | results/
 	./benchmark.sh spec $* results/
 
 results/processed.json: $(ALL_JSON_RESULTS) process_results.py | results/

@@ -14,6 +14,11 @@ ALIGN_NAME_PATHS=benchmarks/biostars-multiprocessing/aligned_sequence_names.txt
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 cd ../../ || exit
 
+if [ -f "$OUTPUT_DIR/.downloaded" ]; then
+    echo "Data already downloaded, skipping."
+    exit 0
+fi
+
 rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR/omm_filtered_NT_CDS"
 
@@ -33,3 +38,4 @@ find omm_filtered_NT_CDS -name "*.fasta" | xargs -P "$PCORE" -I {} sh -c '
 rm -rf omm_filtered_NT_CDS
 
 echo "Unaligned files created: $(find . -maxdepth 1 -name "*.fa" | wc -l)"
+touch .downloaded

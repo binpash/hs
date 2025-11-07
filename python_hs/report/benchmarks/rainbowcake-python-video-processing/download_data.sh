@@ -9,6 +9,11 @@ cd ../../ || exit
 mkdir -p data/$BENCHMARK
 cd data/$BENCHMARK
 
+if [ -f .downloaded ]; then
+  echo "Data already downloaded, skipping."
+  exit 0
+fi
+
 if [ ! -f watermark.png ]; then
   curl -LO "$DOWNLOAD_PATH/watermark.png"
 fi
@@ -16,4 +21,6 @@ fi
 if [ ! -f hi_chitanda_eru.mp4 ]; then
   curl -LO "$DOWNLOAD_PATH/hi_chitanda_eru.mp4"
 fi
+
+touch .downloaded
 

@@ -4,6 +4,14 @@
 
 FROM hs
 
+# Fix permissions, so we can run as a non root user
+# so the results aren't owned by root
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+RUN groupadd -g ${GROUP_ID} hs && \
+    useradd -u ${USER_ID} -g ${GROUP_ID} -m hs && \
+    chown -R hs:hs /srv/hs/
+
 RUN source .venv/bin/activate && pip install MACS3
 
 RUN apt update \
@@ -17,9 +25,11 @@ RUN apt update \
         ffmpeg \
     && rm -rf /var/lib/apt/lists/
 
+USER hs
+
 WORKDIR /srv/hs/python_hs/report/
 
-COPY --parents benchmarks tools run_specific_benchmark.sh .
+COPY --chown=hs:hs --parents benchmarks tools run_specific_benchmark.sh .
 
 RUN curl -L https://github.com/usadellab/Trimmomatic/releases/download/v0.40/Trimmomatic-0.40.zip -o Trimmomatic.zip \
     && unzip Trimmomatic.zip -d trimmomatic \

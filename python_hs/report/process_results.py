@@ -59,7 +59,7 @@ def parse_hyperfine_json(filepath: Path) -> float:
     with open(filepath) as f:
         data: dict[str, Any] = json.load(f)
 
-    assert len(data["results"] == 1)
+    assert len(data["results"]) == 1
     return float(data["results"][0]["mean"])
 
 
@@ -92,6 +92,7 @@ def main() -> int:
                 "sub_mean": sub_mean,
                 "spec_mean": spec_mean,
                 "correct": correct,
+                "times_speedup": sub_mean / spec_mean,
             }
         )
 

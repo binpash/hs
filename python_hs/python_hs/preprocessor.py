@@ -6,6 +6,7 @@ import argparse
 import ast
 import builtins
 import copy
+import glob
 import os
 import shlex
 import shutil
@@ -150,7 +151,7 @@ class PreprocessorTransformer(ast.NodeTransformer):
         self.loop_id: int | None = None
         self.preprocessed_command_vars: dict[str, int] = {}
         self.name: str | None = None
-        self.eval_context: dict[str, Any] = {"os": os}
+        self.eval_context: dict[str, Any] = {"os": os, "glob": glob}
         for func in SAFE_STDLIB:
             self.eval_context[func] = getattr(builtins, func)
         # lineno to transformer function (takes the loop id)

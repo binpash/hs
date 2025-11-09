@@ -1,22 +1,20 @@
-import os
-import stat
+import glob
 import subprocess
-
-ITERS = 100
-
-image_name = "watermark.png"
-video_name = "hi_chitanda_eru.mp4"
+import os
 
 data_dir = "./data/rainbowcake-python-video-processing/"
 output_dir = "./output/rainbowcake-python-video-processing/"
+
+image_path = os.path.join(data_dir, "watermark.png")
 
 duration = 10
 
 subprocess.run(["mkdir", "-p", output_dir], check=True)
 
 # loop is our only logical addition
-for i in range(ITERS):
-    output_name = f"processed_hi_chitanda_eru_{i}.mp4"
+for video_name in glob.glob(f"{data_dir}/*.mpg"):
+    basename = os.path.basename(video_name)
+    output_name = f"processed_{basename}"
     subprocess.run(
         [
             "ffmpeg",
@@ -25,9 +23,9 @@ for i in range(ITERS):
             "quiet",
             "-stats",
             "-i",
-            data_dir + video_name,
+            video_name,
             "-i",
-            data_dir + image_name,
+            image_path,
             "-t",
             f"{duration}",
             "-filter_complex",
@@ -41,4 +39,4 @@ for i in range(ITERS):
         check=True,
     )
 
-    print(f"{i}: Video {output_name} finished!")
+    print(f"Video {output_name} finished!")

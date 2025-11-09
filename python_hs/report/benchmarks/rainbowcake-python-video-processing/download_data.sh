@@ -9,18 +9,11 @@ cd ../../ || exit
 mkdir -p data/$BENCHMARK
 cd data/$BENCHMARK
 
-if [ -f .downloaded ]; then
-  echo "Data already downloaded, skipping."
-  exit 0
-fi
+curl -kLO https://www.crcv.ucf.edu/data/UCF11_updated_mpg.rar
 
-if [ ! -f watermark.png ]; then
-  curl -LO "$DOWNLOAD_PATH/watermark.png"
-fi
-
-if [ ! -f hi_chitanda_eru.mp4 ]; then
-  curl -LO "$DOWNLOAD_PATH/hi_chitanda_eru.mp4"
-fi
+unrar -f UCF11_updated_mpg.rar
+rm UCF11_updated_mpg.rar
+find UCF11_updated_mpg/ -type f -path 'UCF11_*.mpg' -exec mv {} . \;
 
 touch .downloaded
 

@@ -22,7 +22,4 @@ WORKDIR /srv/hs/deps/pash
 RUN ./scripts/setup-pash.sh
 WORKDIR /srv/hs
 COPY . .
-RUN python3 -m venv .venv
-RUN source .venv/bin/activate
-RUN chmod +x entrypoint.sh
 ENTRYPOINT ["/srv/hs/entrypoint.sh"]

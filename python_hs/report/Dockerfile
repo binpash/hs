@@ -12,7 +12,12 @@ RUN groupadd -g ${GROUP_ID} hs && \
     useradd -u ${USER_ID} -g ${GROUP_ID} -m hs && \
     chown -R hs:hs /srv/hs/
 
-RUN source .venv/bin/activate && pip install MACS3
+ENV UV_BREAK_SYSTEM_PACKAGES=true
+ENV UV_SYSTEM_PYTHON=true
+
+COPY --from=ghcr.io/astral-sh/uv:0.9.8 /uv /uvx /bin/
+
+RUN uv pip install MACS3
 
 RUN apt update \
     && apt install -y \
@@ -23,6 +28,7 @@ RUN apt update \
         curl \
         unzip \
         ffmpeg \
+        unrar-free \
     && rm -rf /var/lib/apt/lists/
 
 USER hs

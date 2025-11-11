@@ -29,6 +29,7 @@ RUN apt update \
         unzip \
         ffmpeg \
         unrar-free \
+        jq \
     && rm -rf /var/lib/apt/lists/
 
 USER hs

@@ -12,7 +12,7 @@ duration = 10
 subprocess.run(["mkdir", "-p", output_dir], check=True)
 
 # loop is our only logical addition
-for video_name in glob.glob(f"{data_dir}/*.mpg"):
+for video_name in glob.glob(f"{data_dir}/*.mkv"):
     basename = os.path.basename(video_name)
     output_name = f"processed_{basename}"
     subprocess.run(

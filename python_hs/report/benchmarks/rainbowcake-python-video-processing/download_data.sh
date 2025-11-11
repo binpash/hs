@@ -1,19 +1,46 @@
 #!/bin/bash
 
-BENCHMARK=rainbowcake-python-video-processing
-DOWNLOAD_PATH=https://raw.githubusercontent.com/IntelliSys-Lab/RainbowCake-ASPLOS24/684aa457038ce49ff299ba11fea6876f83c924f8/applications/python_video_processing/src/
+set -euo pipefail
 
-cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
-cd ../../ || exit
+readonly API_BASE="https://storage.googleapis.com/storage/v1/b/ugc-dataset/o?prefix=original_videos/&fields=items(name,size),nextPageToken"
+readonly RES=1080
 
-mkdir -p data/$BENCHMARK
-cd data/$BENCHMARK
+fetch_file_list() {
+  local token=""
+  
+  while true; do
+    local url="${API_BASE}${token:+&pageToken=$token}"
+    local response
+    response="$(curl -s "$url")"
+    
+    echo "$response" | jq -r ".items[] | select( .name | contains(\"${RES}P\") ) | [.size,.name] | @tsv"
+    
+    token="$(echo "$response" | jq -r '.nextPageToken // empty')"
+    [[ -z $token ]] && break
+  done
+}
 
-curl -kLO https://www.crcv.ucf.edu/data/UCF11_updated_mpg.rar
+curl_conf() {
+  awk -F$'\t' '{ print "url = https://storage.googleapis.com/ugc-dataset/"$2 }'
+}
 
-unrar -f UCF11_updated_mpg.rar
-rm UCF11_updated_mpg.rar
-find UCF11_updated_mpg/ -type f -path 'UCF11_*.mpg' -exec mv {} . \;
+download_files() {
+  curl -fLZ -C - --remote-name-all -K -
+  touch .downloaded
+}
 
-touch .downloaded
+download_watermark() {
+  local REPO="IntelliSys-Lab/RainbowCake-ASPLOS24"
+  local HASH="684aa457038ce49ff299ba11fea6876f83c924f8"
+  local PATH_="applications/python_video_processing/src/watermark.png"
+  curl -LO "https://raw.githubusercontent.com/$REPO/$HASH/$PATH_"
+}
 
+main() {
+  cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+  cd ../../data/rainbowcake-python-video-processing/
+  download_watermark
+  fetch_file_list | curl_conf | download_files
+}
+
+main

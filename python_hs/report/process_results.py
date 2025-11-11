@@ -6,6 +6,7 @@ import json
 import sys
 from pathlib import Path
 from typing import Any
+import statistics
 
 
 def check_output_correctness(benchmark: str) -> bool:
@@ -47,7 +48,7 @@ def check_output_correctness(benchmark: str) -> bool:
     return is_correct
 
 
-def parse_hyperfine_json(filepath: Path) -> float:
+def parse_hyperfine_json(filepath: Path) -> float | None:
     """Extract mean runtime from hyperfine JSON output.
 
     Args:
@@ -57,10 +58,25 @@ def parse_hyperfine_json(filepath: Path) -> float:
         Mean runtime in seconds
     """
     with open(filepath) as f:
-        data: dict[str, Any] = json.load(f)
+        try:
+            data: dict[str, Any] = json.load(f)
+        except json.JSONDecodeError:
+            return None
 
     assert len(data["results"]) == 1
     return float(data["results"][0]["mean"])
+
+
+def get_stats(data: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "geomean_speedup": statistics.geometric_mean(v["times_speedup"] for v in data),
+        "min_spec_time": min(v["spec_mean"] for v in data),
+        "max_spec_time": max(v["spec_mean"] for v in data),
+        "min_sub_time": min(v["sub_mean"] for v in data),
+        "max_sub_time": max(v["sub_mean"] for v in data),
+        "min_speedup": max(v["times_speedup"] for v in data),
+        "max_speedup": max(v["times_speedup"] for v in data),
+    }
 
 
 def main() -> int:
@@ -82,6 +98,8 @@ def main() -> int:
         # Parse timing data
         sub_mean = parse_hyperfine_json(sub_file)
         spec_mean = parse_hyperfine_json(spec_file)
+        if sub_mean is None or spec_mean is None:
+            continue
 
         # Check output correctness
         correct = check_output_correctness(benchmark)
@@ -96,10 +114,14 @@ def main() -> int:
             }
         )
 
+    # get statistics
+    stats = get_stats(processed_data)
+    stats["data"] = processed_data
+
     # Write processed results
     output_file = results_dir / "processed.json"
     with open(output_file, "w") as f:
-        json.dump(processed_data, f, indent=2)
+        json.dump(stats, f, indent=2)
 
     print(f"Processed {len(processed_data)} benchmarks -> {output_file}")
 

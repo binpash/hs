@@ -8,6 +8,7 @@
 # ///
 
 import argparse
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -21,6 +22,7 @@ TYPE_ALIASES = {
 
 
 dpi = 300
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Plot benchmark runtimes")
@@ -44,7 +46,10 @@ def parse_args() -> argparse.Namespace:
 def parse_results_to_df(processed_json: Path) -> pd.DataFrame:
     """Parse processed benchmark JSON into a long/tidy DataFrame."""
 
-    df = pd.read_json(processed_json)
+    with processed_json.open() as f:
+        raw = json.load(f)
+
+    df = pd.DataFrame(raw["data"])
 
     long = df.melt(
         id_vars=["benchmark", "correct", "times_speedup"],

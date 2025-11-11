@@ -21,5 +21,6 @@ RUN mv utils/try-summary /bin
 WORKDIR /srv/hs/deps/pash
 RUN ./scripts/setup-pash.sh
 WORKDIR /srv/hs
+RUN python3 -m venv .venv
 COPY . .
 ENTRYPOINT ["/srv/hs/entrypoint.sh"]

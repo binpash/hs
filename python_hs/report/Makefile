@@ -24,6 +24,9 @@ results/processed.json: $(ALL_JSON_RESULTS) process_results.py | results/
 plots/runtimes_plot.png: results/processed.json runtime_plot.py | plots/
 	./runtime_plot.py -o $@ results/processed.json
 
+benchmark_table.tex: table.py benchmarks/**/*.py data/*/.downloaded
+	./table.py > benchmark_table.tex
+
 data/ results/ plots/:
 	mkdir -p $@
 clean:

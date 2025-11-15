@@ -39,4 +39,5 @@ outputs/
 
 ./download_data.sh
 ./benchmark.sh
+./run-docker.sh
 ./times.sh

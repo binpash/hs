@@ -16,9 +16,9 @@ BENCHMARK_NAMES = {
 }
 
 BENCHMARK_CITATIONS = {
-    "bioinfo-automine": "TODO1",
-    "biostars-multiprocessing": "TODO2",
-    "rainbowcake-python-video-processing": "TODO3",
+    "bioinfo-automine": "ismail2026bioinformatics",
+    "biostars-multiprocessing": "biostars-multiprocessing",
+    "rainbowcake-python-video-processing": "yu2020characterizing",
 }
 
 
@@ -85,7 +85,6 @@ def generate_table() -> None:
     for idx, benchmark_name in enumerate(benchmark_dirs, start=1):
         # Get readable name
         readable_name = BENCHMARK_NAMES[benchmark_name]
-        short_label = SHORT_LABELS[benchmark_name]
         citation = rf"\cite{{{BENCHMARK_CITATIONS[benchmark_name]}}}"
 
         script_path = next((benchmarks_dir / benchmark_name).glob("*.py"))
@@ -100,7 +99,6 @@ def generate_table() -> None:
             {
                 "num": idx,
                 "name": readable_name,
-                "label": short_label,
                 "loc": loc,
                 "input": size_formatted,
                 "cit": citation,
@@ -109,15 +107,15 @@ def generate_table() -> None:
 
     # Generate LaTeX table
     table_rows = "\n".join(
-        rf"  {r['num']} & {r['name']:<40} & {r['label']:<20} & {r['loc']:<6} & {r['input']:<10} & {r['cit']} \\"
+        rf"  {r['num']} & {r['name']:<40} & {r['loc']:<6} & {r['input']:<10} & {r['cit']} \\"
         for r in rows
     )
 
     table = rf"""\begin{{table*}}[ht]
   \centering
-  \caption{{Python benchmark summary. Summary of all Python benchmarks used to evaluate \sys and their characteristics.}}
+  \caption{{Summary of all Python benchmarks used to evaluate \sys and their characteristics.}}
   \small
-  \begin{{tabularx}}{{\textwidth}}{{llRRl}}
+  \begin{{tabularx}}{{\textwidth}}{{llrrl}}
   \toprule
   \textbf{{~}} & \textbf{{Benchmark Set}} & \textbf{{LOC}} & \textbf{{Input}} & \textbf{{Source}} \\
   \midrule

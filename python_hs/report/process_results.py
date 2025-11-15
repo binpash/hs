@@ -1,12 +1,25 @@
 #!/usr/bin/env python3
 """Process benchmark results and validate output correctness."""
 
+import argparse
 import filecmp
 import json
+import statistics
 import sys
 from pathlib import Path
 from typing import Any
-import statistics
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Generate results/processed.json")
+    parser.add_argument(
+        "-i",
+        "--input",
+        type=Path,
+        default=Path("results/"),
+        help="Results directory",
+    )
+    return parser.parse_args()
 
 
 def check_output_correctness(benchmark: str) -> bool:
@@ -74,13 +87,13 @@ def get_stats(data: list[dict[str, Any]]) -> dict[str, Any]:
         "max_spec_time": max(v["spec_mean"] for v in data),
         "min_sub_time": min(v["sub_mean"] for v in data),
         "max_sub_time": max(v["sub_mean"] for v in data),
-        "min_speedup": max(v["times_speedup"] for v in data),
+        "min_speedup": min(v["times_speedup"] for v in data),
         "max_speedup": max(v["times_speedup"] for v in data),
     }
 
 
 def main() -> int:
-    results_dir = Path("results")
+    results_dir: Path = parse_args().input
 
     # Find all benchmark names by looking at sub-*.json files
     sub_files = list(results_dir.glob("sub-*.json"))

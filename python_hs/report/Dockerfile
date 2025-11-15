@@ -4,22 +4,16 @@
 
 FROM hs
 
-# Fix permissions, so we can run as a non root user
-# so the results aren't owned by root
-ARG USER_ID=1000
-ARG GROUP_ID=1000
-RUN groupadd -g ${GROUP_ID} hs && \
-    useradd -u ${USER_ID} -g ${GROUP_ID} -m hs && \
-    chown -R hs:hs /srv/hs/
-
 ENV UV_BREAK_SYSTEM_PACKAGES=true
 ENV UV_SYSTEM_PYTHON=true
 
 COPY --from=ghcr.io/astral-sh/uv:0.9.8 /uv /uvx /bin/
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install MACS3
 
-RUN uv pip install MACS3
-
-RUN apt update \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt update \
     && apt install -y \
         bwa \
         samtools \
@@ -29,14 +23,11 @@ RUN apt update \
         unzip \
         ffmpeg \
         unrar-free \
-        jq \
-    && rm -rf /var/lib/apt/lists/
-
-USER hs
+        jq
 
 WORKDIR /srv/hs/python_hs/report/
 
-COPY --chown=hs:hs --parents benchmarks tools run_specific_benchmark.sh .
+COPY --parents benchmarks tools run_specific_benchmark.sh .
 
 RUN curl -L https://github.com/usadellab/Trimmomatic/releases/download/v0.40/Trimmomatic-0.40.zip -o Trimmomatic.zip \
     && unzip Trimmomatic.zip -d trimmomatic \

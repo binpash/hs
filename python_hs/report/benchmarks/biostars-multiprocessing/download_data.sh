@@ -14,11 +14,6 @@ ALIGN_NAME_PATHS=benchmarks/biostars-multiprocessing/aligned_sequence_names.txt
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 cd ../../ || exit
 
-if [ -f "$OUTPUT_DIR/.downloaded" ]; then
-    echo "Data already downloaded, skipping."
-    exit 0
-fi
-
 rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR/omm_filtered_NT_CDS"
 

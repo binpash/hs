@@ -20,11 +20,6 @@ cd ../../ || exit
 
 data_dir="$(readlink -f "data/bioinfo-automine")"
 
-if [ -f "$data_dir/.downloaded" ]; then
-    echo "Data already downloaded, skipping."
-    exit 0
-fi
-
 mkdir -p "$data_dir"
 cd "$data_dir" || exit
 

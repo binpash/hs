@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -u
+shopt -s extglob
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")" || exit
 
 HS_TOP="$(git rev-parse --show-toplevel)"
@@ -47,7 +48,6 @@ shift
 
 RESULT_DIR="$(readlink -f "${1:-results}")"
 export RESULT_DIR
-mkdir -p "$RESULT_DIR"
 
 if [ -z "$METHOD" ] || [ -z "$BENCHMARK" ]; then
     echo "Usage: $0 [--warmup N] [--runs N] [--debug N] {spec|sub|full|hyperfine-spec|hyperfine-sub|hyperfine-full} {benchmark|all}"
@@ -107,11 +107,13 @@ run_benchmark() {
 
     # check if there's precisely one found python file
     if [[ ! -e "${python_files[*]}" ]]; then
-        printf "Weird benchmarking files: %s" "${python_files[*]}"
+        printf "Weird benchmarking files: %s\n" "${python_files[*]}"
         exit 1
     fi
 
     local script="${python_files[0]}"
+
+    mkdir -p "$RESULT_DIR/$bench"
 
     case "$METHOD" in
     spec)

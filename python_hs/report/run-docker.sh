@@ -11,7 +11,14 @@ cd "$HS_ROOT/python_hs/report"
 
 docker build -t hs "$HS_ROOT"
 docker build -t python-hs-benchmarks .
-docker run --rm \
+
+extra=()
+if [[ "$1" == "-i" ]]; then
+    extra=(-it)
+    shift
+fi
+
+docker run "${extra[@]}" --rm \
     --init --privileged --cgroupns=host \
     -v "$PWD/data:$DOCKER_ROOT/data" \
     -v "$PWD/results:$DOCKER_ROOT/results" \

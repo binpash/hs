@@ -7,6 +7,7 @@ import ast
 import builtins
 import copy
 import glob
+import json
 import os
 import shlex
 import shutil
@@ -26,7 +27,20 @@ if TYPE_CHECKING:
 
 logger = setup_logger(__name__)
 
-SAFE_STDLIB = {"range", "len", "str", "int", "hex", "min", "max", "abs", "ord", "chr"}
+# "open" should only be used to read files
+SAFE_STDLIB = {
+    "range",
+    "len",
+    "str",
+    "int",
+    "hex",
+    "min",
+    "max",
+    "abs",
+    "ord",
+    "chr",
+    "open",
+}
 
 
 def eval_expr(node: ast.expr, *args: Any) -> Any:
@@ -151,7 +165,7 @@ class PreprocessorTransformer(ast.NodeTransformer):
         self.loop_id: int | None = None
         self.preprocessed_command_vars: dict[str, int] = {}
         self.name: str | None = None
-        self.eval_context: dict[str, Any] = {"os": os, "glob": glob}
+        self.eval_context: dict[str, Any] = {"os": os, "glob": glob, "json": json}
         for func in SAFE_STDLIB:
             self.eval_context[func] = getattr(builtins, func)
         # lineno to transformer function (takes the loop id)
@@ -268,18 +282,29 @@ class PreprocessorTransformer(ast.NodeTransformer):
         return self.generic_visit(node)
 
     def visit_For(self, node: ast.For) -> ast.AST | list[ast.stmt]:
-        if self._can_safely_attempt_unroll(node):
-            return self._unroll_loop(node)
-        else:
-            raise ValueError(f"Cannot safely unroll {node}")
-        return node
+        for n in ast.walk(node):
+            if isinstance(n, ast.Call) and self._is_subprocess_val(
+                n.func, "subprocess", "run"
+            ):
+                if self._can_safely_attempt_unroll(node):
+                    return self._unroll_loop(node)
+
+                raise ValueError(f"Cannot safely unroll {node}")
+
+        return self.generic_visit(node)
 
     def visit_With(self, node: ast.With) -> ast.AST:
         # sanity checks
         if len(node.body) > 1:
             raise ValueError("Cannot handle with block with multiple statements")
 
-        if not node.body:
+        # if there are no subprocess calls, no need to transform
+        for n in ast.walk(node):
+            if isinstance(n, ast.Call) and self._is_subprocess_val(
+                n.func, "subprocess", "run"
+            ):
+                break
+        else:
             return self.generic_visit(node)
 
         body = node.body[0]

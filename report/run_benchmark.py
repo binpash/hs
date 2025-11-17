@@ -10,8 +10,8 @@ from subprocess import run, PIPE
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run benchmark")
     parser.add_argument('--window', default=16, type=int, help='Window size to run hs with')
-    parser.add_argument('--target', choices=['hs-only', 'sh-only', 'both'],
-                        default='both', help='To run with sh or hs')
+    parser.add_argument('--target', choices=['hs-only', 'sh-only', 'pash-only', 'both', 'all'],
+                        default='both', help='To run with sh, hs, pash, or combinations')
     parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                         help='Whether to enable logging for hs')
     parser.add_argument('--script_name', required=True, help='Name of the script to run')
@@ -99,15 +99,62 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
 
     return result.returncode
 
-def compare_outputs(output_base: Path):
-    sh_output_dir = output_base / 'sh'
-    hs_output_dir = output_base / 'hs'
-    error_file = output_base / 'error'
+def do_pash_run(test_base: Path, output_base: Path, hs_base: Path, window: int, env: dict, script_name: str, script_args: list):
+    output_dir = output_base / 'pash'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    env['OUTPUT_DIR'] = str(output_dir)
+
+    # PaSh executable is at PASH_TOP/pa.sh, where PASH_TOP is /srv/hs/deps/pash
+    pash_executable = hs_base / 'deps' / 'pash' / 'pa.sh'
+
+    if not pash_executable.exists():
+        print(f"Error: The PaSh executable '{pash_executable}' does not exist.")
+        exit(1)
+
+    # Check for PaSh-compatible variant first (e.g., 1_1_pash.sh)
+    script_path = test_base / script_name
+    script_stem = script_path.stem  # e.g., "1_1" from "1_1.sh"
+    script_suffix = script_path.suffix  # e.g., ".sh"
+    pash_variant = test_base / f"{script_stem}_pash{script_suffix}"
+    
+    # Use PaSh variant if it exists, otherwise fall back to regular script
+    if pash_variant.exists():
+        script_to_run = pash_variant
+        print(f"Using PaSh-compatible variant: {pash_variant.name}")
+    else:
+        script_to_run = script_path
+        print(f"Using regular script: {script_name}")
+
+    cmd = [str(pash_executable), '--width', str(window)]
+    cmd.append(str(script_to_run))
+    cmd.extend(script_args)
+
+    print(f"Running pash command: {' '.join(cmd)}")
+
+    before = time.time()
+    result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
+    duration = time.time() - before
+
+    with open(output_dir / "stdout", 'wb') as f:
+        f.write(result.stdout)
+
+    with open(output_dir / "stderr", 'wb') as f:
+        f.write(result.stderr)
+
+    with open(output_base / "pash_time", 'w') as f:
+        f.write(f'{duration}\n')
+
+    return result.returncode
+
+def compare_outputs(output_base: Path, dir1_name: str, dir2_name: str, error_file_name: str = 'error'):
+    dir1_output_dir = output_base / dir1_name
+    dir2_output_dir = output_base / dir2_name
+    error_file = output_base / error_file_name
 
     outputs_match = True
     error_messages = []
 
-    print(f"Comparing outputs in {sh_output_dir} and {hs_output_dir}")
+    print(f"Comparing outputs in {dir1_output_dir} and {dir2_output_dir}")
 
     # Helper function to recursively gather file paths relative to a base directory, excluding specific files
     def get_all_files(base_dir: Path):
@@ -119,50 +166,50 @@ def compare_outputs(output_base: Path):
         }
 
     # Gather all files (including in subdirectories) excluding `stderr` and `hs_log`
-    sh_files = get_all_files(sh_output_dir)
-    hs_files = get_all_files(hs_output_dir)
+    dir1_files = get_all_files(dir1_output_dir)
+    dir2_files = get_all_files(dir2_output_dir)
 
     # Compare file lists
-    if sh_files != hs_files:
+    if dir1_files != dir2_files:
         outputs_match = False
-        error_messages.append('Generated files differ between sh and hs runs.\n')
-        error_messages.append(f'Files in sh run: {sorted(sh_files)}\n')
-        error_messages.append(f'Files in hs run: {sorted(hs_files)}\n')
+        error_messages.append(f'Generated files differ between {dir1_name} and {dir2_name} runs.\n')
+        error_messages.append(f'Files in {dir1_name} run: {sorted(dir1_files)}\n')
+        error_messages.append(f'Files in {dir2_name} run: {sorted(dir2_files)}\n')
     else:
-        print(f"All files (excluding stderr and hs_log) match: {len(sh_files)} files")
+        print(f"All files (excluding stderr and hs_log) match: {len(dir1_files)} files")
 
     # Compare contents of files present in both directories
-    common_files = sh_files & hs_files
+    common_files = dir1_files & dir2_files
     for relative_path in common_files:
-        sh_file = sh_output_dir / relative_path
-        hs_file = hs_output_dir / relative_path
+        dir1_file = dir1_output_dir / relative_path
+        dir2_file = dir2_output_dir / relative_path
 
-        with open(sh_file, 'rb') as f1, open(hs_file, 'rb') as f2:
-            sh_content = f1.read()
-            hs_content = f2.read()
+        with open(dir1_file, 'rb') as f1, open(dir2_file, 'rb') as f2:
+            dir1_content = f1.read()
+            dir2_content = f2.read()
 
-        if sh_content != hs_content:
+        if dir1_content != dir2_content:
             outputs_match = False
-            error_messages.append(f'Contents of file {relative_path} differ between sh and hs runs.\n')
+            error_messages.append(f'Contents of file {relative_path} differ between {dir1_name} and {dir2_name} runs.\n')
 
     # Check for missing files
-    missing_in_sh = hs_files - sh_files
-    missing_in_hs = sh_files - hs_files
-    for missing_file in missing_in_sh:
+    missing_in_dir1 = dir2_files - dir1_files
+    missing_in_dir2 = dir1_files - dir2_files
+    for missing_file in missing_in_dir1:
         outputs_match = False
-        error_messages.append(f'File {missing_file} is missing in sh run.\n')
-    for missing_file in missing_in_hs:
+        error_messages.append(f'File {missing_file} is missing in {dir1_name} run.\n')
+    for missing_file in missing_in_dir2:
         outputs_match = False
-        error_messages.append(f'File {missing_file} is missing in hs run.\n')
+        error_messages.append(f'File {missing_file} is missing in {dir2_name} run.\n')
 
     # Write errors or create an empty error file if no errors
     if outputs_match:
         error_file.touch()
-        print("PASS: Outputs match")
+        print(f"PASS: Outputs match between {dir1_name} and {dir2_name}")
     else:
         with open(error_file, 'w') as errf:
             errf.writelines(error_messages)
-            print("FAIL: Outputs differ")
+            print(f"FAIL: Outputs differ between {dir1_name} and {dir2_name}")
 
 def main():
     args = parse_arguments()
@@ -186,10 +233,11 @@ def main():
     else:
         output_base = hs_base / "report" / "output" / local_name
 
-    run_hs = args.target in ["hs-only", "both"]
-    run_sh = args.target in ["sh-only", "both"]
+    run_hs = args.target in ["hs-only", "both", "all"]
+    run_sh = args.target in ["sh-only", "both", "all"]
+    run_pash = args.target in ["pash-only", "all"]
 
-    if not run_hs and not run_sh:
+    if not run_hs and not run_sh and not run_pash:
         print("Not running anything, please specify --target")
         exit(1)
 
@@ -202,8 +250,19 @@ def main():
         sh_returncode = do_sh_run(test_base, output_base, env, script_name, script_args)
     if run_hs:
         hs_returncode = do_hs_run(test_base, output_base, hs_base, args.window, env, args.log == 'enable', script_name, script_args)
-    if run_sh and run_hs:
-        compare_outputs(output_base)
+    if run_pash:
+        pash_returncode = do_pash_run(test_base, output_base, hs_base, args.window, env, script_name, script_args)
+    
+    # Comparison logic:
+    # - "both": compare hs vs sh
+    # - "all": compare hs vs sh and pash vs sh
+    if args.target == "both" and run_sh and run_hs:
+        compare_outputs(output_base, 'sh', 'hs')
+    elif args.target == "all":
+        if run_sh and run_hs:
+            compare_outputs(output_base, 'sh', 'hs', 'error_hs')
+        if run_sh and run_pash:
+            compare_outputs(output_base, 'sh', 'pash', 'error_pash')
 
 if __name__ == '__main__':
     main()

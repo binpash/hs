@@ -24,12 +24,21 @@ fi
 rm -rf $benchmark_root/../output/$test_name
 docker rm -f $container_name 2>/dev/null
 
-docker run --name $container_name --init --privileged --cgroupns=host -v /mydata/tmp:/tmp hs/${benchmark_name} ./report/benchmarks/${test_name}/run $@
+# Run the benchmark (may exit with non-zero, but we still want to copy output files)
+docker run --name $container_name --init --privileged --cgroupns=host -v /mydata/tmp:/tmp hs/${benchmark_name} ./report/benchmarks/${test_name}/run $@ || true
 # docker run --name $container_name --init --privileged --cgroupns=host -v /mydata/tmp:/tmp -it hs/${benchmark_name} bash
 mkdir -p $benchmark_root/../output/$test_name
-docker cp $container_name:/srv/hs/report/output/$test_name/error $benchmark_root/../output/$test_name/error
-docker cp $container_name:/srv/hs/report/output/$test_name/hs_time $benchmark_root/../output/$test_name/hs_time
-docker cp $container_name:/srv/hs/report/output/$test_name/sh_time $benchmark_root/../output/$test_name/sh_time
-docker cp $container_name:/srv/hs/report/output/$test_name/hs/stderr $benchmark_root/../output/$test_name/stderr_hs
-docker cp $container_name:/srv/hs/report/output/$test_name/sh/stderr $benchmark_root/../output/$test_name/stderr_sh
+# Copy all output files (will succeed even if files don't exist or container failed)
+docker cp $container_name:/srv/hs/report/output/$test_name/error $benchmark_root/../output/$test_name/error 2>/dev/null || true
+docker cp $container_name:/srv/hs/report/output/$test_name/error_hs $benchmark_root/../output/$test_name/error_hs 2>/dev/null || true
+docker cp $container_name:/srv/hs/report/output/$test_name/error_pash $benchmark_root/../output/$test_name/error_pash 2>/dev/null || true
+docker cp $container_name:/srv/hs/report/output/$test_name/hs_time $benchmark_root/../output/$test_name/hs_time 2>/dev/null || true
+docker cp $container_name:/srv/hs/report/output/$test_name/sh_time $benchmark_root/../output/$test_name/sh_time 2>/dev/null || true
+docker cp $container_name:/srv/hs/report/output/$test_name/pash_time $benchmark_root/../output/$test_name/pash_time 2>/dev/null || true
+docker cp $container_name:/srv/hs/report/output/$test_name/hs/stderr $benchmark_root/../output/$test_name/stderr_hs 2>/dev/null || true
+docker cp $container_name:/srv/hs/report/output/$test_name/sh/stderr $benchmark_root/../output/$test_name/stderr_sh 2>/dev/null || true
+docker cp $container_name:/srv/hs/report/output/$test_name/pash/stderr $benchmark_root/../output/$test_name/stderr_pash 2>/dev/null || true
+docker cp $container_name:/srv/hs/report/output/$test_name/hs/stdout $benchmark_root/../output/$test_name/stdout_hs 2>/dev/null || true
+docker cp $container_name:/srv/hs/report/output/$test_name/sh/stdout $benchmark_root/../output/$test_name/stdout_sh 2>/dev/null || true
+docker cp $container_name:/srv/hs/report/output/$test_name/pash/stdout $benchmark_root/../output/$test_name/stdout_pash 2>/dev/null || true
 docker rm $container_name

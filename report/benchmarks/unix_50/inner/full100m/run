@@ -3,7 +3,7 @@
 BENCHMARK_NO="full100m"
 
 # Base directories
-HS_BASE="$(git rev-parse --show-toplevel)"
+HS_BASE="$(git rev-parse --show-toplevel 2>/dev/null || echo "${PASH_SPEC_TOP:-/srv/hs}")"
 TEST_BASE="$HS_BASE/report/benchmarks/unix_50/$BENCHMARK_NO"
 TEST_UPPER="$HS_BASE/report"
 RESOURCE_DIR="$HS_BASE/report/resources/unix_50"

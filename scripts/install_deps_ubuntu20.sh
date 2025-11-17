@@ -15,3 +15,4 @@ git submodule update --init --recursive
 
 ## Install PaSh
 (cd deps/pash; ./scripts/distro-deps.sh; ./scripts/setup-pash.sh)
+python3 scripts/patch_pash.py

@@ -1,9 +1,11 @@
 SRC_DIR := ../python_hs
 BENCHMARKS := $(patsubst benchmarks/%/,%,$(wildcard benchmarks/*/))
-TYPES := sub spec
+MULTI_BENCHMARKS := $(patsubst benchmarks/%/multiprocess.py,%,$(wildcard benchmarks/*/multiprocess.py))
 
 SRC_FILES := $(wildcard $(SRC_DIR)/*)
-ALL_JSON_RESULTS := $(foreach type,$(TYPES),$(foreach bench,$(BENCHMARKS),results/$(type)-$(bench).json))
+
+ALL_JSON_RESULTS := $(foreach bench,$(BENCHMARKS),results/sub-$(bench).json results/spec-$(bench).json)
+ALL_JSON_RESULTS += $(foreach bench,$(MULTI_BENCHMARKS),results/multi-$(bench).json)
 
 .PHONY: all clean clean_data
 
@@ -12,11 +14,11 @@ all: plots/runtimes_plot.png
 data/%/.downloaded: benchmarks/%/download_data.sh | data/
 	cd benchmarks/$* && ./download_data.sh
 
-results/sub-%.md results/sub-%.json &: data/%/.downloaded $(SRC_FILES) | results/
-	./benchmark.sh sub $* results/
-
-results/spec-%.md results/spec-%.json &: data/%/.downloaded $(SRC_FILES) | results/
-	./benchmark.sh spec $* results/
+define type_rule
+results/$(1)-%.md results/$(1)-%.json &: data/%/.downloaded $$(SRC_FILES) | results/
+	./benchmark.sh $(1) $$* results/
+endef
+$(foreach t,sub spec multi,$(eval $(call type_rule,$(t))))
 
 results/processed.json: $(ALL_JSON_RESULTS) process_results.py | results/
 	./process_results.py

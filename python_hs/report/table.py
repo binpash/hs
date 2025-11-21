@@ -94,7 +94,7 @@ def generate_table() -> None:
         readable_name = BENCHMARK_NAMES[benchmark_name]
         citation = rf"\cite{{{BENCHMARK_CITATIONS[benchmark_name]}}}"
 
-        script_path = next((benchmarks_dir / benchmark_name).glob("*.py"))
+        script_path = benchmarks_dir / benchmark_name / "subprocess_.py"
         loc = get_loc(script_path)
 
         # Get dataset size

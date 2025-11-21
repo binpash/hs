@@ -18,6 +18,7 @@ import seaborn.objects as so
 TYPE_ALIASES = {
     "sub_mean": "Subprocess",
     "spec_mean": "Speculation",
+    "multi_mean": "Multiprocess",
 }
 
 
@@ -51,13 +52,30 @@ def parse_results_to_df(processed_json: Path) -> pd.DataFrame:
 
     df = pd.DataFrame(raw["data"])
 
+    # Determine which value_vars exist
+    value_vars = ["spec_mean", "sub_mean"]
+    if "multi_mean" in df.columns:
+        value_vars.append("multi_mean")
+
+    # Determine id_vars (exclude speedup columns as we'll recompute)
+    id_vars = ["benchmark", "correct"]
+
     long = df.melt(
-        id_vars=["benchmark", "correct", "times_speedup"],
-        value_vars=["spec_mean", "sub_mean"],
+        id_vars=id_vars,
+        value_vars=value_vars,
         var_name="method",
         value_name="runtime",
     )
-    long.loc[long["method"] == "sub_mean", "times_speedup"] = 1.0
+
+    # Drop rows with missing runtime (e.g., benchmarks without multiprocess.py)
+    long = long.dropna(subset=["runtime"])
+
+    # Compute speedup relative to spec (1.0 for spec itself)
+    spec_times = df.set_index("benchmark")["spec_mean"]
+    long["times_speedup"] = long.apply(
+        lambda row: row["runtime"] / spec_times[row["benchmark"]], axis=1
+    )
+    long.loc[long["method"] == "spec_mean", "times_speedup"] = 1.0
 
     long["method"] = long["method"].map(TYPE_ALIASES)
 
@@ -104,6 +122,7 @@ def create_plot(data: pd.DataFrame, output: Path) -> None:
                 {
                     "Subprocess": "#440154",
                     "Speculation": "#31688e",
+                    "Multiprocess": "#35b779",
                 }
             ),
             y=y_scale,
@@ -138,7 +157,8 @@ def create_speedup_plot(data: pd.DataFrame, output: Path) -> None:
 
     # Color scale matching the runtime plot
     color_scale = so.Nominal(
-        ["#440154", "#31688e"], order=["Subprocess", "Speculation"]
+        ["#440154", "#31688e", "#35b779"],
+        order=["Subprocess", "Speculation", "Multiprocess"],
     )
 
     # Build plot with side-by-side bars

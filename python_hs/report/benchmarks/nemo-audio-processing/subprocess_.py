@@ -20,7 +20,6 @@ import os
 import subprocess
 
 data_root = "data/nemo-audio-processing"
-dest_root = "output/nemo-audio-processing"
 
 all_entries = {}
 for v in json.load(open(os.path.join(data_root, "to_process.json"))):

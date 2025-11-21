@@ -80,55 +80,73 @@ def parse_hyperfine_json(filepath: Path) -> float | None:
     return float(data["results"][0]["mean"])
 
 
-def get_stats(data: list[dict[str, Any]]) -> dict[str, Any]:
+def get_stats(data: list[dict[str, Any]], version: str) -> dict[str, Any]:
+    """Get statistics for a specific version (sub or multi)."""
+    mean_key = f"{version}_mean"
+    speedup_key = f"{version}_speedup"
+    filtered = [v for v in data if mean_key in v and v[mean_key] is not None]
+    if not filtered:
+        return {}
     return {
-        "geomean_speedup": statistics.geometric_mean(v["times_speedup"] for v in data),
-        "min_spec_time": min(v["spec_mean"] for v in data),
-        "max_spec_time": max(v["spec_mean"] for v in data),
-        "min_sub_time": min(v["sub_mean"] for v in data),
-        "max_sub_time": max(v["sub_mean"] for v in data),
-        "min_speedup": min(v["times_speedup"] for v in data),
-        "max_speedup": max(v["times_speedup"] for v in data),
+        f"{version}_geomean_speedup": statistics.geometric_mean(
+            v[speedup_key] for v in filtered
+        ),
+        f"min_spec_time_{version}": min(v["spec_mean"] for v in filtered),
+        f"max_spec_time_{version}": max(v["spec_mean"] for v in filtered),
+        f"min_{version}_time": min(v[mean_key] for v in filtered),
+        f"max_{version}_time": max(v[mean_key] for v in filtered),
+        f"min_{version}_speedup": min(v[speedup_key] for v in filtered),
+        f"max_{version}_speedup": max(v[speedup_key] for v in filtered),
     }
 
 
 def main() -> int:
     results_dir: Path = parse_args().input
 
-    # Find all benchmark names by looking at sub-*.json files
-    sub_files = list(results_dir.glob("sub-*.json"))
+    # Find all benchmark names by looking at spec-*.json files (spec is required)
+    spec_files = list(results_dir.glob("spec-*.json"))
     processed_data = []
 
-    for sub_file in sub_files:
-        # Extract benchmark name from filename (e.g., sub-bioinfo-automine.json)
-        benchmark = sub_file.stem.replace("sub-", "")
-        spec_file = results_dir / f"spec-{benchmark}.json"
-
-        if not spec_file.exists():
-            print(f"Warning: Missing spec results for {benchmark}", file=sys.stderr)
-            continue
+    for spec_file in spec_files:
+        # Extract benchmark name from filename (e.g., spec-bioinfo-automine.json)
+        benchmark = spec_file.stem.replace("spec-", "")
+        sub_file = results_dir / f"sub-{benchmark}.json"
+        multi_file = results_dir / f"multi-{benchmark}.json"
 
         # Parse timing data
-        sub_mean = parse_hyperfine_json(sub_file)
         spec_mean = parse_hyperfine_json(spec_file)
-        if sub_mean is None or spec_mean is None:
+        if spec_mean is None:
+            print(f"Warning: Invalid spec results for {benchmark}", file=sys.stderr)
+            continue
+
+        sub_mean = parse_hyperfine_json(sub_file) if sub_file.exists() else None
+        multi_mean = parse_hyperfine_json(multi_file) if multi_file.exists() else None
+
+        if sub_mean is None:
+            print(f"Warning: Missing sub results for {benchmark}", file=sys.stderr)
             continue
 
         # Check output correctness
         correct = check_output_correctness(benchmark)
 
-        processed_data.append(
-            {
-                "benchmark": benchmark,
-                "sub_mean": sub_mean,
-                "spec_mean": spec_mean,
-                "correct": correct,
-                "times_speedup": sub_mean / spec_mean,
-            }
-        )
+        entry = {
+            "benchmark": benchmark,
+            "sub_mean": sub_mean,
+            "spec_mean": spec_mean,
+            "correct": correct,
+            "sub_speedup": sub_mean / spec_mean,
+        }
 
-    # get statistics
-    stats = get_stats(processed_data)
+        if multi_mean is not None:
+            entry["multi_mean"] = multi_mean
+            entry["multi_speedup"] = multi_mean / spec_mean
+
+        processed_data.append(entry)
+
+    # Get statistics for each version separately
+    stats = {}
+    stats.update(get_stats(processed_data, "sub"))
+    stats.update(get_stats(processed_data, "multi"))
     stats["data"] = processed_data
 
     # Write processed results

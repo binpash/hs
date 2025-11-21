@@ -50,7 +50,7 @@ RESULT_DIR="$(readlink -f "${1:-results}")"
 export RESULT_DIR
 
 if [ -z "$METHOD" ] || [ -z "$BENCHMARK" ]; then
-    echo "Usage: $0 [--warmup N] [--runs N] [--debug N] {spec|sub|full|hyperfine-spec|hyperfine-sub|hyperfine-full} {benchmark|all}"
+    echo "Usage: $0 [--warmup N] [--runs N] [--debug N] {spec|sub|multi} {benchmark|all}"
     echo "Available benchmarks: ${BENCHMARKS[*]}"
     exit 1
 fi
@@ -68,10 +68,10 @@ spec() {
 }
 export -f spec
 
-sub() {
+py() {
     python3 "${1:?No benchmark provided}"
 }
-export -f sub
+export -f py
 
 hyperfine_with_args() {
     local bench="${1:?No benchmark provided}"
@@ -103,28 +103,34 @@ run_benchmark() {
         exit 1
     fi
 
-    local python_files=("$bench_dir"/*.py)
+    local subprocess_script="$bench_dir/subprocess_.py"
+    local multiprocess_script="$bench_dir/multiprocess.py"
 
-    # check if there's precisely one found python file
-    if [[ ! -e "${python_files[*]}" ]]; then
-        printf "Weird benchmarking files: %s\n" "${python_files[*]}"
+    if [ ! -f "$subprocess_script" ]; then
+        echo "Error: $subprocess_script not found"
         exit 1
     fi
 
-    local script="${python_files[0]}"
 
     mkdir -p "$RESULT_DIR/$bench"
 
     case "$METHOD" in
     spec)
-        hyperfine_with_args "$bench" spec "spec $script $*" && move_result "$bench" spec
+        hyperfine_with_args "$bench" spec "spec $subprocess_script $*" && move_result "$bench" spec
         ;;
     sub)
-        hyperfine_with_args "$bench" sub "sub $script" && move_result "$bench" sub
+        hyperfine_with_args "$bench" sub "py $subprocess_script" && move_result "$bench" sub
+        ;;
+    multi)
+        if [ ! -f "$multiprocess_script" ]; then
+            echo "Error: $multiprocess_script not found"
+            exit 1
+        fi
+        hyperfine_with_args "$bench" multi "py $multiprocess_script" && move_result "$bench" multi
         ;;
     *)
         echo "Error: Invalid method '$METHOD'"
-        echo "Usage: $0 [--warmup N] [--runs N] {spec|sub} {benchmark}"
+        echo "Usage: $0 [--warmup N] [--runs N] {spec|sub|multi} {benchmark}"
         exit 1
         ;;
     esac

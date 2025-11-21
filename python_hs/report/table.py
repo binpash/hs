@@ -2,42 +2,45 @@
 """
 Generate LaTeX table for Python benchmarks.
 
-This script scans the benchmarks/ directory, uses sloccount to count LOC,
+This script scans the benchmarks/ directory, uses loccount to count LOC,
 calculates dataset sizes, and outputs a LaTeX table in the format of table-example.tex.
 """
 
 import subprocess
 from pathlib import Path
+import json
 
 BENCHMARK_NAMES = {
     "bioinfo-automine": "Bioinfo Automine",
     "biostars-multiprocessing": "Biostars Multiprocessing",
     "rainbowcake-python-video-processing": "Video Processing",
+    "kaggle-captk-brats-preprocessing": "CaPTk BraTS Preprocessing",
+    "nemo-audio-processing": "NeMo Audio Processing",
 }
 
 BENCHMARK_CITATIONS = {
     "bioinfo-automine": "ismail2026bioinformatics",
     "biostars-multiprocessing": "biostars-multiprocessing",
     "rainbowcake-python-video-processing": "yu2020characterizing",
+    "kaggle-captk-brats-preprocessing": "schettler2021captk",
+    "nemo-audio-processing": "nemo2024",
 }
 
 
 def get_loc(script_path: Path) -> int:
-    """Get lines of code for a script using sloccount."""
-    result = subprocess.run(
-        ["sloccount", script_path],
+    """Get lines of code for a script using loccount."""
+    data = subprocess.run(
+        ["loccount", "-j", script_path],
         capture_output=True,
         text=True,
         check=True,
-    )
-    # Parse sloccount output to find the total LOC
-    # sloccount outputs lines like "python:         148"
-    for line in result.stdout.split("\n"):
-        if "python:" in line:
-            loc = int(line.split()[1])
-            return loc
+    ).stdout
+    for line in data.splitlines():
+        lang_data = json.loads(line)
+        if lang_data["language"] == "Python":
+            return lang_data["sloc"]
 
-    raise RuntimeError("Can't get LOC")
+    raise RuntimeError("Can't Parse LOC")
 
 
 def get_directory_size(path) -> int:
@@ -78,7 +81,11 @@ def generate_table() -> None:
     benchmarks_dir = script_dir / "benchmarks"
     data_dir = script_dir / "data"
 
-    benchmark_dirs = sorted([d.name for d in benchmarks_dir.iterdir() if d.is_dir()])
+    benchmark_dirs = sorted([
+        d.name
+        for d in benchmarks_dir.iterdir()
+        if d.is_dir() and not d.name.startswith(".")
+    ])
 
     # Collect data for each benchmark
     rows = []
@@ -95,15 +102,13 @@ def generate_table() -> None:
         size_bytes = get_directory_size(dataset_path)
         size_formatted = format_size(size_bytes)
 
-        rows.append(
-            {
-                "num": idx,
-                "name": readable_name,
-                "loc": loc,
-                "input": size_formatted,
-                "cit": citation,
-            }
-        )
+        rows.append({
+            "num": idx,
+            "name": readable_name,
+            "loc": loc,
+            "input": size_formatted,
+            "cit": citation,
+        })
 
     # Generate LaTeX table
     table_rows = "\n".join(

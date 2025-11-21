@@ -7,10 +7,10 @@
 # TODO: Filter this to only the ones we end up using for the script.
 sra_ids=(
     SRR26147696
-    SRR26147697
-    SRR26147702
-    SRR26147714
-    SRR26147715
+    # SRR26147697
+    # SRR26147702
+    # SRR26147714
+    # SRR26147715
     SRR26147716
 )
 # to top directory of this script

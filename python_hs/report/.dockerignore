@@ -37,7 +37,7 @@ data/
 *results/
 output/
 
-./download_data.sh
+./download_data
 ./benchmark.sh
 ./run-docker.sh
 ./times.sh

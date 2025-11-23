@@ -11,8 +11,8 @@ ALL_JSON_RESULTS += $(foreach bench,$(MULTI_BENCHMARKS),results/multi-$(bench).j
 
 all: plots/runtimes_plot.png
 
-data/%/.downloaded: benchmarks/%/download_data.sh | data/
-	cd benchmarks/$* && ./download_data.sh
+data/%/.downloaded: benchmarks/%/download_data | data/
+	cd benchmarks/$* && ./download_data
 
 define type_rule
 results/$(1)-%.md results/$(1)-%.json &: data/%/.downloaded $$(SRC_FILES) | results/

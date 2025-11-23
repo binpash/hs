@@ -519,9 +519,6 @@ def preprocess_file(
 
     logger.info(f"Preprocessed file: {new_file_name}")
 
-    if shutil.which("ruff"):
-        subprocess.run(["ruff", "format", new_file_name], check=True)
-
     if spec_runtime is not None:
         state.create_partial_order_directory(spec_runtime)
         state.create_partial_order_file(spec_runtime)

@@ -5,3 +5,4 @@ report/archive
 .venv
 python_hs/.venv
 python_hs/report/
+.git/

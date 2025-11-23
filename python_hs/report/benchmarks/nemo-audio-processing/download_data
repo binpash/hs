@@ -4,7 +4,7 @@ set -eu
 
 REPO=MLCommons/speech-wikimedia
 OUT=data/nemo-audio-processing/
-N=64
+N=256
 
 # to top directory of this script
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")" || exit

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -eu
+
 # Setup script with inlined data file for benchmark
 
 #Author: Hamid D. Ismail, Ph.D.
@@ -28,6 +30,9 @@ cd "$data_dir" || exit
 threads=8
 # Download paired-end FASTQ files using fasterq-dump
 for sra_id in "${sra_ids[@]}"; do
+    if [[ -e "${sra_id}_1.downsampled.fastq.gz" ]]; then
+        continue
+    fi
     echo "Downloading $sra_id with $threads threads..."
     fasterq-dump --split-files --threads "$threads" --verbose "$sra_id"
     seqtk sample -s100 "${sra_id}_1.fastq" 0.25 > "${sra_id}_1.downsampled.fastq"

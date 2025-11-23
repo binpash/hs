@@ -1,43 +1,46 @@
-import functools
-import json
-import logging
 import multiprocessing
 import os
 import subprocess
+import json
+import glob
 
-data_root = "data/nemo-audio-processing"
 num_workers = 16
+input_dir = "data/nemo-audio-processing/"
+output_dir = "output/nemo-audio-processing/"
 
 
-def __process_transcript(v):
-    subprocess.run(["mkdir", "-p", os.path.dirname(v[2])])
-    subprocess.run(["sox", v[1], v[2]], check=True)
+paths = (
+    (
+        flac_path,
+        os.path.join(
+            output_dir, os.path.splitext(os.path.basename(flac_path))[0] + ".wav"
+        ),
+    )
+    for flac_path in glob.glob(os.path.join(input_dir, "**/*.flac"), recursive=True)
+)
+
+subprocess.run(["mkdir", "-p", output_dir], check=True)
+
+
+def __process_transcript(paths):
+    flac_path, wav_path = paths
+    subprocess.run(["sox", flac_path, wav_path], check=True)
     duration = subprocess.run(
-        f"soxi -D {v[2]}", check=True, shell=True, capture_output=True
+        ["soxi", "-D", wav_path],
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout
     return {
-        "audio_filepath": os.path.abspath(v[2]),
+        "audio_filepath": os.path.abspath(wav_path),
         "duration": float(duration),
-        "text": v[0],
-        "manifest": v[3],
     }
 
 
-files = json.load(open(os.path.join(data_root, "to_process.json")))
-all_entries = {}
+results = []
 
 with multiprocessing.Pool(num_workers) as p:
-    processing_func = functools.partial(__process_transcript)
-    results = p.imap(processing_func, files)
-    for result in results:
-        if result["manifest"] not in all_entries:
-            all_entries[result["manifest"]] = []
-        all_entries[result["manifest"]].append(result)
+    results.extend(p.map(__process_transcript, paths))
 
-for manifest_file, entries in all_entries.items():
-    with open(manifest_file, "w") as fout:
-        for m in entries:
-            del m["manifest"]
-            fout.write(json.dumps(m) + "\n")
-
-logging.info("Done!")
+with open(os.path.join(output_dir, "mainfest.json"), "w") as f:
+    json.dump(results, f)

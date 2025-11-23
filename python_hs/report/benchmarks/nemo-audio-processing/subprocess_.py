@@ -1,47 +1,28 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# NOTE: The script has been factored into two for loops, rather than one.
-# This is for the preprocessor's sake -- otherwise it spends a lot of time inlining
-# all the audio metadata
-import json
-import logging
-import os
+import glob
 import subprocess
+import os
+import json
 
-data_root = "data/nemo-audio-processing"
+input_dir = "data/nemo-audio-processing/"
+output_dir = "output/nemo-audio-processing/"
 
-all_entries = {}
-for v in json.load(open(os.path.join(data_root, "to_process.json"))):
-    # v: transcript_text, flac, wav, and manifest_file
-    # Convert FLAC file to WAV
-    subprocess.run(["mkdir", "-p", os.path.dirname(v[2])])
-    subprocess.run(["sox", v[1], v[2]], check=True)
+subprocess.run(["mkdir", "-p", output_dir], check=True)
+
+results = []
+
+for flac_path in glob.glob(os.path.join(input_dir, "**/*.flac"), recursive=True):
+    wav_path = os.path.join(
+        output_dir, os.path.splitext(os.path.basename(flac_path))[0] + ".wav"
+    )
+    subprocess.run(["sox", flac_path, wav_path], check=True)
     duration = subprocess.run(
-        f"soxi -D {v[2]}", check=True, shell=True, capture_output=True
+        ["soxi", "-D", wav_path], check=True, capture_output=True, text=True
     ).stdout
-    entry = {}
-    entry["audio_filepath"] = os.path.abspath(v[2])
-    entry["duration"] = float(duration)
-    entry["text"] = v[0]
-    if v[3] not in all_entries:
-        all_entries[v[3]] = []
-    all_entries[v[3]].append(entry)
+    results.append({
+        "audio_filepath": os.path.abspath(wav_path),
+        "duration": float(duration),
+    })
 
-# Write all manifest files
-for manifest_file, entries in all_entries.items():
-    with open(manifest_file, "w") as fout:
-        for m in entries:
-            fout.write(json.dumps(m) + "\n")
 
-logging.info("Done!")
+with open(os.path.join(output_dir, "mainfest.json"), "w") as f:
+    json.dump(results, f)

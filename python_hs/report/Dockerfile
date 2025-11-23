@@ -8,7 +8,7 @@ ENV UV_COMPILE_BYTECODE=true
 
 COPY --from=ghcr.io/astral-sh/uv:0.9.8 /uv /uvx /bin/
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install MACS3 kaggle
+    uv pip install MACS3 kaggle datasetes soundfile torchcodec torch
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -25,7 +25,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         unrar-free \
         jq \
         sox \
-        python-is-python3
+        python-is-python3 \
+        seqtk \
+        sra-toolkit
 
 WORKDIR /srv/hs/python_hs/report/
 

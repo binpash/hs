@@ -1,54 +1,20 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 
-set -euo pipefail
+from datasets import load_dataset
+import soundfile as sf
 
-URLS=(
-    "http://www.openslr.org/resources/12/train-clean-100.tar.gz"
-    "http://www.openslr.org/resources/12/train-clean-360.tar.gz"
-    "http://www.openslr.org/resources/12/train-other-500.tar.gz"
-    "http://www.openslr.org/resources/12/dev-clean.tar.gz"
-    "http://www.openslr.org/resources/12/dev-other.tar.gz"
-    "http://www.openslr.org/resources/12/test-clean.tar.gz"
-    "http://www.openslr.org/resources/12/test-other.tar.gz"
-    "https://www.openslr.org/resources/31/dev-clean-2.tar.gz"
-    "https://www.openslr.org/resources/31/train-clean-5.tar.gz"
-)
+ds = load_dataset("MLCommons/speech-wikimedia", split="train", streaming=True)
 
-setup() {
-    # to top directory of this script
-    cd -- "$(dirname -- "${BASH_SOURCE[0]}")" || exit
-    # to the report directory
-    cd ../../ || exit
+long_files = []
 
-    local data_dir="data/nemo-audio-processing"
-    mkdir -p "$data_dir"
-    cd "$data_dir" || exit
-}
+for i, example in enumerate(ds):
+    # example["audio"]["path"] points to the local FLAC after download
+    path = example["audio"]["path"]
+    data, sr = sf.read(path)   # 16 kHz mono
+    duration_min = len(data) / sr / 60.0
+    if duration_min >= 45:
+        long_files.append((path, duration_min))
+        if len(long_files) >= 20:
+            break
 
-curl_conf() {
-    printf 'url = %s\n' "${URLS[@]}"
-}
-
-download() {
-    curl -fLZ -C - --remote-name-all --progress-bar -K -
-}
-
-extract() {
-    for url in "${URLS[@]}"; do
-        local filename="${url##*/}"
-        [[ -f "$filename" ]] && tar -xzf "$filename"
-    done
-}
-preprocess() {
-    ./preprocess
-}
-
-main() {
-    setup
-    curl_conf | download
-    extract
-    preprocess
-}
-
-main
-
+print(long_files)

@@ -104,7 +104,7 @@ run_benchmark() {
     fi
 
     local subprocess_script="$bench_dir/subprocess_.py"
-    local multiprocess_script="$bench_dir/multiprocess.py"
+    local multiprocess_script="$bench_dir/multiprocess_.py"
 
     if [ ! -f "$subprocess_script" ]; then
         echo "Error: $subprocess_script not found"

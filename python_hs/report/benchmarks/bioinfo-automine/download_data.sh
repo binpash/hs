@@ -7,10 +7,10 @@
 # TODO: Filter this to only the ones we end up using for the script.
 sra_ids=(
     SRR26147696
-    # SRR26147697
-    # SRR26147702
-    # SRR26147714
-    # SRR26147715
+    SRR26147697
+    SRR26147702
+    SRR26147714
+    SRR26147715
     SRR26147716
 )
 # to top directory of this script
@@ -24,18 +24,15 @@ mkdir -p "$data_dir"
 cd "$data_dir" || exit
 
 
-# Install fasterq-dump if not available
-if ! dpkg -l | grep sra-toolkit > /dev/null; then
-    sudo apt-get update && sudo apt-get install -y sra-toolkit
-fi
-
 # Set number of threads
 threads=8
 # Download paired-end FASTQ files using fasterq-dump
 for sra_id in "${sra_ids[@]}"; do
     echo "Downloading $sra_id with $threads threads..."
     fasterq-dump --split-files --threads "$threads" --verbose "$sra_id"
-    gzip "${sra_id}_1.fastq" "${sra_id}_2.fastq"
+    seqtk sample -s100 "${sra_id}_1.fastq" 0.25 > "${sra_id}_1.downsampled.fastq"
+    seqtk sample -s100 "${sra_id}_2.fastq" 0.25 > "${sra_id}_2.downsampled.fastq"
+    gzip "${sra_id}_1.downsampled.fastq" "${sra_id}_2.downsampled.fastq"
 done
 
 echo "Download completed."

@@ -34,8 +34,8 @@ ehthumbs.db
 Thumbs.db
 
 data/
-results/
-outputs/
+*results/
+output/
 
 ./download_data.sh
 ./benchmark.sh

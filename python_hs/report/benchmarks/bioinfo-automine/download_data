@@ -33,6 +33,7 @@ for sra_id in "${sra_ids[@]}"; do
     seqtk sample -s100 "${sra_id}_1.fastq" 0.25 > "${sra_id}_1.downsampled.fastq"
     seqtk sample -s100 "${sra_id}_2.fastq" 0.25 > "${sra_id}_2.downsampled.fastq"
     gzip "${sra_id}_1.downsampled.fastq" "${sra_id}_2.downsampled.fastq"
+    rm "${sra_id}_1.fastq" "${sra_id}_2.fastq"
 done
 
 echo "Download completed."

@@ -79,8 +79,8 @@ for row in metadata:
     print(f"Processing {run_id} ({condition})...")
 
     # Find FASTQ pairs
-    r1 = os.path.join(data_dir, f"{run_id}_1.fastq.gz")
-    r2 = os.path.join(data_dir, f"{run_id}_2.fastq.gz")
+    r1 = os.path.join(data_dir, f"{run_id}_1.downsampled.fastq.gz")
+    r2 = os.path.join(data_dir, f"{run_id}_2.downsampled.fastq.gz")
 
     # Trim reads
     trimmed_dir = os.path.join(out_dir, "trimmed")

@@ -139,6 +139,8 @@ for row in metadata:
         "-q",
         "0.01",
         "--nomodel",
+        "--seed",
+        "42",
     ]
     if condition == "control":
         cmd += ["--nolambda"]

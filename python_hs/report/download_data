@@ -3,9 +3,7 @@
 # to top directory of this script
 cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" || exit
 
-benchmarks=(
-  bioinfo-automine
-)
+benchmarks=(benchmarks/*)
 
 validate_benchmark() {
     local bench="$1"

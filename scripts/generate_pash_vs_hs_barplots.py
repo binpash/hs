@@ -240,7 +240,7 @@ def main():
     num_benchmarks = len(df)
     width = 0.3  # Slightly narrower bars for compact style
     
-    fig, ax = plt.subplots(figsize=(18, 5))  # Shorter plot
+    fig, ax = plt.subplots(figsize=(16, 3.5))  # Shorter plot
     
     # Create custom x positions that group benchmarks by family
     # Smaller spacing within families, larger spacing between families
@@ -302,8 +302,8 @@ def main():
     # ax.set_yscale('log', base=2)
     
     # Set y-axis limits
-    ax.set_ylim(0, 9)
-    ax.set_ylabel("Speedup over sh", fontsize=14)
+    ax.set_ylim(0, 10)
+    ax.set_ylabel("Speedup vs bash", fontsize=14)
 
     
     # Set y-axis ticks including 0.125, 0.25, 0.5, 1, 2, 4, 8, 16
@@ -333,7 +333,7 @@ def main():
     ax.tick_params(axis='y', labelsize=13)
         
     # Baseline line at y=1 (more compact style)
-    ax.axhline(y=1.0, color='black', linestyle='--', linewidth=1.2, label='Baseline (sh)')
+    ax.axhline(y=1.0, color='black', linestyle='--', linewidth=1.2, label='Baseline (bash)')
 
     # No y-axis label (using Speedup/Slowdown instead)
     # No title
@@ -369,7 +369,7 @@ def main():
                 group_end_x = indices[i - 1]
                 group_center = (group_start_x + group_end_x) / 2
                 # Add the hyperlabel lower (moved down a couple of mm) - same size as bold labels
-                ax.text(group_center, -0.09, current_category, 
+                ax.text(group_center, -0.12, current_category, 
                        transform=ax.get_xaxis_transform(),
                        ha='center', va='top', fontsize=11, fontweight='bold')
             

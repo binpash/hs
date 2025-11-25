@@ -4,6 +4,7 @@
 # dependencies = [
 #   "pandas>=2.3.3",
 #   "seaborn>=0.13.2",
+#   "matplotlib>=3.8.0",
 # ]
 # ///
 
@@ -11,9 +12,10 @@ import argparse
 import json
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
-import seaborn.objects as so
 
 TYPE_ALIASES = {
     "sub_mean": "Subprocess",
@@ -21,8 +23,22 @@ TYPE_ALIASES = {
     "multi_mean": "Multiprocess",
 }
 
+BENCHMARK_NAMES = {
+    "bioinfo-automine": "Bioinfo Automine",
+    "biostars-multiprocessing": "Biostars Multiprocessing",
+    "rainbowcake-python-video-processing": "Video Processing",
+    "kaggle-captk-brats-preprocessing": "CaPTk BraTS Preprocessing",
+    "nemo-audio-processing": "NeMo Audio Processing",
+}
 
 dpi = 300
+# Roughly ACM single-column footprint in inches
+ACM_COLUMN_SIZE = (3.35 * 2, 3.2 * 1.5)
+COLOR_PALETTE = {
+    "Subprocess": "#440154",
+    "Speculation": "#31688e",
+    "Multiprocess": "#35b779",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -52,10 +68,12 @@ def parse_results_to_df(processed_json: Path) -> pd.DataFrame:
 
     df = pd.DataFrame(raw["data"])
 
-    # Determine which value_vars exist
-    value_vars = ["spec_mean", "sub_mean"]
-    if "multi_mean" in df.columns:
-        value_vars.append("multi_mean")
+    # Determine which value_vars exist (keep explicit ordering)
+    value_vars = [
+        col for col in ["sub_mean", "spec_mean", "multi_mean"] if col in df.columns
+    ]
+    if not value_vars:
+        raise ValueError("No runtime columns found in processed results.")
 
     # Determine id_vars (exclude speedup columns as we'll recompute)
     id_vars = ["benchmark", "correct"]
@@ -70,113 +88,100 @@ def parse_results_to_df(processed_json: Path) -> pd.DataFrame:
     # Drop rows with missing runtime (e.g., benchmarks without multiprocess.py)
     long = long.dropna(subset=["runtime"])
 
-    # Compute speedup relative to spec (1.0 for spec itself)
-    spec_times = df.set_index("benchmark")["spec_mean"]
-    long["times_speedup"] = long.apply(
-        lambda row: row["runtime"] / spec_times[row["benchmark"]], axis=1
+    # Compute speedup relative to subprocess baseline (or first available runtime)
+    baseline_column = "sub_mean" if "sub_mean" in df.columns else value_vars[0]
+    baselines = df.set_index("benchmark")[baseline_column]
+    long["speedup"] = long.apply(
+        lambda row: baselines[row["benchmark"]] / row["runtime"]
+        if row["runtime"]
+        else float("nan"),
+        axis=1,
     )
-    long.loc[long["method"] == "spec_mean", "times_speedup"] = 1.0
 
+    long["runtime_str"] = long["runtime"].map(lambda v: f"{v:.2f}s")
+    long["speedup_str"] = long["speedup"].map(lambda v: f"{v:.2f}×")
     long["method"] = long["method"].map(TYPE_ALIASES)
+    long["benchmark_name"] = (
+        long["benchmark"].map(BENCHMARK_NAMES).fillna(long["benchmark"])
+    )
 
     return long
 
 
-def create_plot(data: pd.DataFrame, output: Path) -> None:
-    """Create and save runtime comparison plot with correctness indicators.
-
-    Args:
-        data: DataFrame with method, runtime, benchmark, correct columns
-        output: Output file path
-        show_correctness: If True, display correctness symbols above bars
-    """
-    title = "Benchmark Runtime Comparison\n(shorter is better)"
-
-    max_runtime = data["runtime"].max()
-    data["runtime_str"] = data["runtime"].round(2).astype(str) + "s"
-
-    # Set positioning and limits for linear scale
-    y_offset_speedup = data["runtime"] + max_runtime * 0.02
-    y_limits = (0, max_runtime * 1.2)
-    y_label = "Runtime (seconds)"
-    y_scale = so.Continuous()
-
-    # Build base plot with bars and runtime labels
-    plot = (
-        so.Plot(data, x="benchmark", y="runtime", color="method")
-        .add(so.Bar(), so.Dodge())
-        .add(
-            so.Text(color="black", fontsize=10, valign="bottom"),
-            so.Dodge(),
-            y=y_offset_speedup,
-            x="benchmark",
-            text="runtime_str",
-            color="method",
-        )
+def _benchmark_order(data: pd.DataFrame) -> list[str]:
+    """Order benchmarks using readable names from table.py mapping."""
+    present_ids = list(data["benchmark"].unique())
+    ordered_names = [
+        BENCHMARK_NAMES[b_id] for b_id in BENCHMARK_NAMES if b_id in present_ids
+    ]
+    ordered_names.sort(
+        key=lambda v: data.loc[
+            (data["benchmark_name"] == v) & (data["method"] == "Subprocess"), "runtime"
+        ].iloc[0]
     )
+    extra_names = [
+        data.loc[data["benchmark"] == b_id, "benchmark_name"].iat[0]
+        for b_id in present_ids
+        if data.loc[data["benchmark"] == b_id, "benchmark_name"].iat[0]
+        not in ordered_names
+    ]
+    return ordered_names + extra_names
 
-    # Apply scales, labels, theme, and limits
-    plot = (
-        plot.scale(
-            color=so.Nominal(
-                {
-                    "Subprocess": "#440154",
-                    "Speculation": "#31688e",
-                    "Multiprocess": "#35b779",
-                }
-            ),
-            y=y_scale,
-        )
-        .label(title=title, x="Benchmark", y=y_label)
-        .theme(sns.axes_style("whitegrid"))
-        .limit(y=y_limits)
-        .layout(size=(10, 6))
-    )
 
-    plot.save(output, dpi=dpi, bbox_inches="tight")
-    print(f"Runtime plot saved to {output}")
+def get_runtime_labels(
+    data: pd.DataFrame, benchmark_order: list[str], method: str
+) -> list[str]:
+    """Get runtime labels for a specific method in benchmark order."""
+    labels = []
+    for bench in benchmark_order:
+        mask = (data["benchmark_name"] == bench) & (data["method"] == method)
+        runtime = data.loc[mask, "runtime"]
+        labels.append(f"{runtime.iloc[0]:.1f}s" if not runtime.empty else "")
+    return labels
 
 
 def create_speedup_plot(data: pd.DataFrame, output: Path) -> None:
-    """Create and save speedup comparison plot.
+    """Create and save speedup comparison plot."""
+    sns.set_theme(style="whitegrid", rc={"figure.dpi": dpi})
 
-    Shows how many times faster speculation is compared to subprocess (normalized to 1.0).
+    benchmark_order = _benchmark_order(data)
+    methods = [m for m in TYPE_ALIASES.values() if m in data["method"].unique()]
+    hue_order = [
+        m for m in ["Subprocess", "Speculation", "Multiprocess"] if m in methods
+    ]
 
-    Args:
-        data: DataFrame with method, runtime, benchmark, correct columns
-        output: Output file path
-        show_correctness: If True, display correctness symbols above bars
-    """
-    title = "Speculation Speedup vs Subprocess\n(higher is better)"
-
-    max_speedup = data["times_speedup"].max()
-
-    y_limits = (0, max_speedup * 1.2)
-    y_label = "Speedup (×)"
-    data["times_speedup"] = data["times_speedup"].round(2)
-
-    # Color scale matching the runtime plot
-    color_scale = so.Nominal(
-        ["#440154", "#31688e", "#35b779"],
-        order=["Subprocess", "Speculation", "Multiprocess"],
+    fig, ax = plt.subplots(figsize=ACM_COLUMN_SIZE)
+    barplot = sns.barplot(
+        data=data,
+        x="benchmark_name",
+        y="speedup",
+        hue="method",
+        hue_order=hue_order,
+        order=benchmark_order,
+        palette=COLOR_PALETTE,
+        ax=ax,
+        width=0.65,
     )
 
-    # Build plot with side-by-side bars
-    plot = (
-        so.Plot(data, x="benchmark", y="times_speedup", color="method")
-        .add(so.Bar(), so.Dodge())
-        .scale(color=color_scale)
-    )
+    ax.margins(y=0.1)
 
-    # Apply labels, theme, and limits
-    plot = (
-        plot.label(title=title, x="Benchmark", y=y_label)
-        .theme(sns.axes_style("whitegrid"))
-        .limit(y=y_limits)
-        .layout(size=(10, 6))
-    )
+    for container, method in zip(ax.containers, hue_order):
+        ax.bar_label(
+            container,
+            labels=get_runtime_labels(data, benchmark_order, method),
+            fontsize=7,
+        )
 
-    plot.save(output, dpi=dpi, bbox_inches="tight")
+    max_speedup = data["speedup"].max()
+    ax.set_ylim(0, max_speedup * 1.3)
+    ax.set_ylabel("Speedup vs subprocess (×)", fontsize=9)
+    ax.set_xlabel("")
+    tick_positions = np.arange(len(benchmark_order))
+    ax.set_xticks(tick_positions, benchmark_order, rotation=20, ha="right", fontsize=8)
+    ax.set_title("Speedup comparison (higher is better)", fontsize=9, pad=8)
+    ax.legend(title="Execution mode", fontsize=7, title_fontsize=8, loc="upper right")
+    fig.tight_layout()
+    fig.savefig(output, dpi=dpi, bbox_inches="tight")
     print(f"Speedup plot saved to {output}")
 
 
@@ -186,14 +191,11 @@ def main() -> None:
     # Parse benchmark results
     df = parse_results_to_df(args.processed_json)
 
-    num_benchmarks = len(df) // 2  # Each benchmark has 2 rows (sub and spec)
+    num_benchmarks = df["benchmark"].nunique()
     print(f"Loaded {num_benchmarks} benchmark(s) with {len(df)} data points")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    # Generate runtime comparison plot
-    create_plot(df, args.output)
 
-    # Generate speedup plot
     speedup_output = args.output.with_stem(f"{args.output.stem}_speedup")
     create_speedup_plot(df, speedup_output)
 

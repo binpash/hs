@@ -31,9 +31,11 @@ threads=8
 # Download paired-end FASTQ files using fasterq-dump
 for sra_id in "${sra_ids[@]}"; do
     if [[ -e "${sra_id}_1.downsampled.fastq.gz" ]]; then
+        echo "Skipping done id $sra_id"
         continue
     fi
     echo "Downloading $sra_id with $threads threads..."
+    prefetch "$sra_id"
     fasterq-dump --split-files --threads "$threads" --verbose "$sra_id"
     seqtk sample -s100 "${sra_id}_1.fastq" 0.25 > "${sra_id}_1.downsampled.fastq"
     seqtk sample -s100 "${sra_id}_2.fastq" 0.25 > "${sra_id}_2.downsampled.fastq"

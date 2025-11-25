@@ -6,6 +6,10 @@ import numpy as np
 import re
 from matplotlib.ticker import FuncFormatter
 
+## Run with:
+## ython3 scripts/generate_pash_vs_hs_barplots.py data_w30/results_w30.csv hs_pash_plot.pdf
+
+
 # Set global font properties - sans serif for compact style
 plt.rcParams.update({
     'font.size': 10,
@@ -18,6 +22,46 @@ plt.rcParams.update({
     'legend.fontsize': 10,
     'figure.titlesize': 12
 })
+
+dgsh_name_mappings = {
+    "1": "1",
+    "2": "2",
+    "3": "3",
+    "4": "4",
+    "5": "5",
+    "6": "6",
+    "7": "7",
+    "8": "8",
+    "9": "9",
+    "17": "10",
+}
+
+nlp_name_mappings = {
+    "1_1": "1",
+    "2_1": "2",
+    "2_2": "3",
+    "3_1": "4",
+    "3_2": "5",
+    "3_3": "6",
+    "4_3": "7",
+    "4_3b": "8",
+    "6_1": "9",
+    "6_1_1": "10",
+    "6_1_2": "11",
+    "6_2": "12",
+    "6_3": "13",
+    "6_4": "14",
+    "6_5": "15",
+    "6_7": "16",
+    "7_1": "17",
+    "7_2": "18",
+    "8_1": "19",
+    "8_2_1": "20",
+    "8_2_2": "21",
+    "8_3_2": "22",
+    "8_3_3": "23",
+}
+
 
 def get_category(benchmark_name):
     """Get category name for group labels."""
@@ -64,7 +108,9 @@ def get_display_name(benchmark_name):
     if 'dgsh' in name:
         match = re.search(r'dgsh[_-](\d+)', name)
         if match:
-            return match.group(1)  # Just the number
+            number = match.group(1)  # Just the number
+            return dgsh_name_mappings[number]
+        assert(False)
         return ''
     
     # NLP - return script ID with dots instead of underscores
@@ -77,8 +123,11 @@ def get_display_name(benchmark_name):
             # Convert underscores to dots for display
             # e.g., "7_1" -> "7.1", "8.2_1" -> "8.2.1", "6_1_1" -> "6.1.1"
             # Handle both underscores and existing dots
-            display_id = script_id.replace('_', '.')
+            # display_id = script_id.replace('_', '.')
+            clean_script_id = script_id.replace('.', '_')
+            display_id = nlp_name_mappings[clean_script_id]
             return display_id
+        assert(False)
         return ''
     
     # NOAA
@@ -197,8 +246,8 @@ def main():
     # Smaller spacing within families, larger spacing between families
     indices = []
     current_pos = 0
-    spacing_within_family = 0.6  # Tighter spacing within same family
-    spacing_between_families = 1.0  # Tighter spacing between different families
+    spacing_within_family = 0.7  # Tighter spacing within same family
+    spacing_between_families = 1.1  # Tighter spacing between different families
     
     prev_category = None
     for i in range(num_benchmarks):
@@ -222,48 +271,67 @@ def main():
     rects2 = ax.bar(indices + width/2, df['speedup_hs'], width, 
                     label='hS', color='#ADD8E6', edgecolor='black', linewidth=0.4)
     
+    # # --- Existing speedup bars ---
+    # rects1 = ax.bar(indices - width, df['speedup_pash'], width,
+    #                 label='PaSh', color='#FFDAB9', edgecolor='black', linewidth=0.4)
+    # rects2 = ax.bar(indices, df['speedup_hs'], width,
+    #                 label='hS', color='#ADD8E6', edgecolor='black', linewidth=0.4)
+
+    # # --- Add secondary axis for absolute sh_time ---
+    # ax2 = ax.twinx()
+
+    # # Plot sh_time as a third bar (shifted to the right)
+    # rects3 = ax2.bar(indices + width, df['sh_time'], width,
+    #                 label='sh time', edgecolor='black', linewidth=0.4)
+
+    # # Label for right y-axis
+    # ax2.set_ylabel("sh time (s)", fontsize=12)
+
+    # # Make right y-axis ticks match left style
+    # ax2.tick_params(axis='y', labelsize=13)
+
+    # # Optional: automatically scale time axis
+    # ax2.set_ylim(0, df['sh_time'].max() * 1.15)
+
+
     # Set x-axis limits to remove whitespace on left and right
     # Add small padding (0.5) on each side
     ax.set_xlim(indices[0] - 0.5, indices[-1] + 0.5)
 
     # Configure Y-axis (Log scale with base 2)
-    ax.set_yscale('log', base=2)
+    # ax.set_yscale('log', base=2)
     
     # Set y-axis limits
-    ax.set_ylim(0.125, 16)
+    ax.set_ylim(0, 9)
+    ax.set_ylabel("Speedup over sh", fontsize=14)
+
     
     # Set y-axis ticks including 0.125, 0.25, 0.5, 1, 2, 4, 8, 16
-    ticks = []
-    power = -3  # Start from 0.125 (2^-3)
-    while 2 ** power <= 16:
-        ticks.append(2 ** power)
-        power += 1
-    ax.set_yticks(ticks)
+    # ticks = []
+    # power = -3  # Start from 0.125 (2^-3)
+    # while 2 ** power <= 16:
+    #     ticks.append(2 ** power)
+    #     power += 1
+    # ax.set_yticks(ticks)
     
     # Format y-axis labels
-    def format_tick(x, pos):
-        if x >= 1:
-            return f"{int(x)}"
-        elif x == 0.125:
-            return "0.125"
-        elif x == 0.25:
-            return "0.25"
-        elif x == 0.5:
-            return "0.5"
-        else:
-            return f"{x:.2f}"
+    # def format_tick(x, pos):
+    #     if x >= 1:
+    #         return f"{int(x)}"
+    #     elif x == 0.125:
+    #         return "0.125"
+    #     elif x == 0.25:
+    #         return "0.25"
+    #     elif x == 0.5:
+    #         return "0.5"
+    #     else:
+    #         return f"{x:.2f}"
     
-    ax.yaxis.set_major_formatter(FuncFormatter(format_tick))
+    # ax.yaxis.set_major_formatter(FuncFormatter(format_tick))
     
     # Make y-axis labels larger
     ax.tick_params(axis='y', labelsize=13)
-    
-    # Add Speedup/Slowdown labels on y-axis (like reference image) - larger font
-    ax.text(-0.12, 0.75, 'Speedup', transform=ax.transAxes, 
-            rotation=90, va='center', ha='center', fontsize=14, fontweight='bold')
-    ax.text(-0.12, 0.25, 'Slowdown', transform=ax.transAxes, 
-            rotation=90, va='center', ha='center', fontsize=14, fontweight='bold')
-    
+        
     # Baseline line at y=1 (more compact style)
     ax.axhline(y=1.0, color='black', linestyle='--', linewidth=1.2, label='Baseline (sh)')
 
@@ -319,6 +387,16 @@ def main():
                ha='center', va='top', fontsize=11, fontweight='bold')
     
     ax.legend(fontsize=13, loc='upper right', frameon=True, fancybox=False, edgecolor='black', ncol=3)
+
+    # Combine legends from both axes
+    # handles1, labels1 = ax.get_legend_handles_labels()
+    # handles2, labels2 = ax2.get_legend_handles_labels()
+    # ax.legend(handles1 + handles2, labels1 + labels2,
+    #           fontsize=13, loc='upper right',
+    #           frameon=True, fancybox=False, edgecolor='black', ncol=3)
+
+
+
     ax.grid(axis='y', linestyle='--', alpha=0.25, linewidth=0.5)
 
     # Tighten margins - more compact

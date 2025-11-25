@@ -20,15 +20,14 @@ subprocess.run(["mkdir", "-p", AA_align_file_dir])
 
 # -XX:-DumpPrivateMappingsInCore and -XX:-DumpSharedMappingsInCore
 # stops java from changing the core dump settings in /procs/self/coredump
-def prevent_java_conflicts(perf_dir: str) -> str:
-    return (
-        f"-XX:PerfDataDir={perf_dir} "
-        "-XX:-CreateCoredumpOnCrash "
-        "-XX:ErrorFile=/dev/null "
-        "-XX:+UnlockDiagnosticVMOptions "
-        "-XX:-DumpPrivateMappingsInCore "
-        "-XX:-DumpSharedMappingsInCore "
-    )
+prevent_java_conflicts = (
+    "-XX:-UsePerfData "
+    "-XX:-CreateCoredumpOnCrash "
+    "-XX:ErrorFile=/dev/null "
+    "-XX:+UnlockDiagnosticVMOptions "
+    "-XX:-DumpPrivateMappingsInCore "
+    "-XX:-DumpSharedMappingsInCore "
+)
 
 
 for currentFile in os.listdir(Orig_file_dir):
@@ -37,5 +36,5 @@ for currentFile in os.listdir(Orig_file_dir):
         NT_output_file = NT_align_file_dir + currentFile[:-3] + "_NT_aligned.fa"
         AA_output_file = AA_align_file_dir + currentFile[:-3] + "_AA_aligned.fa"
         perf_dir = f"/tmp/hsperfdata_{os.path.splitext(currentFile)[0]}"
-        MACSE_command = f"java {prevent_java_conflicts(perf_dir)} -jar tools/macse_v1.01b.jar -prog alignSequences -seq {input_file} -out_NT {NT_output_file} -out_AA {AA_output_file}"
+        MACSE_command = f"java {prevent_java_conflicts} -jar tools/macse_v1.01b.jar -prog alignSequences -seq {input_file} -out_NT {NT_output_file} -out_AA {AA_output_file}"
         subprocess.run(MACSE_command, shell=True)

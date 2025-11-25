@@ -269,7 +269,7 @@ def main():
     rects1 = ax.bar(indices - width/2, df['speedup_pash'], width, 
                     label='PaSh', color='#FFDAB9', edgecolor='black', linewidth=0.4)
     rects2 = ax.bar(indices + width/2, df['speedup_hs'], width, 
-                    label='hS', color='#ADD8E6', edgecolor='black', linewidth=0.4)
+                    label='Sys', color='#ADD8E6', edgecolor='black', linewidth=0.4)
     
     # # --- Existing speedup bars ---
     # rects1 = ax.bar(indices - width, df['speedup_pash'], width,

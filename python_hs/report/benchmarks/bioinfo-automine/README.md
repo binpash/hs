@@ -3,5 +3,6 @@ Taken from https://github.com/hamiddi/bioinfo-autoimmune/blob/main/ch7/chipseq_p
 Changes made manually:
 - Inlined all the functions
 - Inlined metadata object listing files to run
-- Commented out all but two datasets to analyze to reduce runtime.
 - Converting all python file IO functions into subprocess.run based ones (ex: `os.remove` -> `run(["rm", ...])`)
+- Seeded macs3 callpeaks
+- Used data downsampled to 1/4 by the download script

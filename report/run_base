@@ -35,6 +35,7 @@ docker cp $container_name:/srv/hs/report/output/$test_name/error_pash $benchmark
 docker cp $container_name:/srv/hs/report/output/$test_name/hs_time $benchmark_root/../output/$test_name/hs_time 2>/dev/null || true
 docker cp $container_name:/srv/hs/report/output/$test_name/sh_time $benchmark_root/../output/$test_name/sh_time 2>/dev/null || true
 docker cp $container_name:/srv/hs/report/output/$test_name/pash_time $benchmark_root/../output/$test_name/pash_time 2>/dev/null || true
+docker cp $container_name:/srv/hs/report/output/$test_name/hs_log $benchmark_root/../output/$test_name/hs_log 2>/dev/null || true
 docker cp $container_name:/srv/hs/report/output/$test_name/hs/stderr $benchmark_root/../output/$test_name/stderr_hs 2>/dev/null || true
 docker cp $container_name:/srv/hs/report/output/$test_name/sh/stderr $benchmark_root/../output/$test_name/stderr_sh 2>/dev/null || true
 docker cp $container_name:/srv/hs/report/output/$test_name/pash/stderr $benchmark_root/../output/$test_name/stderr_pash 2>/dev/null || true

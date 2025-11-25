@@ -7,10 +7,9 @@ import time
 from subprocess import run, PIPE
 
 parser = argparse.ArgumentParser(description="Run benchmark")
-parser = argparse.ArgumentParser(description="Run benchmark")
 parser.add_argument('--window', default=5, type=int, help='window size to run hs with')
-parser.add_argument('--target', choices=['original', 'hs-only', 'sh-only', 'both'],
-                    help='to run with sh or hs or both sh and hs or run the original manual parallelization using & and wait')
+parser.add_argument('--target', choices=['original', 'hs-only', 'sh-only', 'pash-only', 'both', 'all'],
+                    help='to run with sh, hs, pash, or combinations, or run the original manual parallelization using & and wait')
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
 
@@ -63,6 +62,34 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, lo
     hs_hashes = hash_result(test_base, output_base)
     return result.returncode, result.stdout, hs_hashes
 
+def do_pash_run(test_base: Path, output_base: Path, hs_base: Path, window: int):
+    os.chdir(teraseq_samples)
+    clean_outputs(test_base)
+    # PaSh executable is at PASH_TOP/pa.sh, where PASH_TOP is /srv/hs/deps/pash
+    pash_executable = hs_base / 'deps' / 'pash' / 'pa.sh'
+    
+    if not pash_executable.exists():
+        print(f"Error: The PaSh executable '{pash_executable}' does not exist.")
+        exit(1)
+    
+    # Use run.sh for pash (same as sh)
+    script_to_run = test_base / 'run.sh'
+    
+    cmd = [str(pash_executable), '--width', str(window)]
+    cmd.append(str(script_to_run))
+    
+    print(f"Running pash command: {' '.join([str(c) for c in cmd])}")
+    
+    before = time.time()
+    result = run(cmd, stdout=PIPE, stderr=PIPE)
+    duration = time.time() - before
+    
+    with open(output_base / "pash_time", 'w') as f:
+        f.write(f'{duration}\n')
+    
+    pash_hashes = hash_result(test_base, output_base)
+    return result.returncode, result.stdout, pash_hashes
+
 if __name__ == '__main__':
     args = parser.parse_args()
     test_base = Path(__file__).parent.resolve()
@@ -70,24 +97,40 @@ if __name__ == '__main__':
     bench_base = test_base.parent
     local_name = os.sep.join(test_base.parts[-2:])
     output_base = hs_base / "report" / "output" / local_name
+    
+    print(f"Starting benchmark: target={args.target}, window={args.window}")
+    print(f"test_base={test_base}, hs_base={hs_base}, output_base={output_base}")
     if args.target in ["original"]:
         output_base.mkdir(parents=True, exist_ok=True)
         output_orig = do_original_run(test_base, output_base)
         exit(0)
-    run_hs = False
-    run_sh = False
-    if args.target in ["hs-only", "both"]:
-        run_hs = True
-    if args.target in ["sh-only", "both"]:
-        run_sh = True
-    if not run_hs and not run_sh:
-        raise("Not running anything, add --target argument")
+    run_hs = args.target in ["hs-only", "both", "all"]
+    run_sh = args.target in ["sh-only", "both", "all"]
+    run_pash = args.target in ["pash-only", "all"]
+    
+    if not run_hs and not run_sh and not run_pash:
+        print("Not running anything, please specify --target")
+        exit(1)
+    
     output_base.mkdir(parents=True, exist_ok=True)
+    
     if run_sh:
+        print("Running sh benchmark...")
         output_sh = do_sh_run(test_base, output_base)
+        print("Sh benchmark completed")
     if run_hs:
+        print("Running hs benchmark...")
         output_hs = do_hs_run(test_base, output_base, hs_base, args.window, args.log == 'enable')
-    if run_sh and run_hs:
+        print("Hs benchmark completed")
+    if run_pash:
+        print("Running pash benchmark...")
+        output_pash = do_pash_run(test_base, output_base, hs_base, args.window)
+        print("Pash benchmark completed")
+    
+    # Comparison logic:
+    # - "both": compare hs vs sh
+    # - "all": compare hs vs sh and pash vs sh
+    if args.target == "both" and run_sh and run_hs:
         with open(output_base / 'error', 'w') as errf:
             if output_sh == output_hs:
                 errf.write('')
@@ -100,3 +143,30 @@ if __name__ == '__main__':
                 errf.write(f'==== output hs ====\n')
                 errf.write(output_hs[1].decode('UTF-8'))
                 errf.write(output_hs[2].decode('UTF-8'))
+    elif args.target == "all":
+        if run_sh and run_hs:
+            with open(output_base / 'error_hs', 'w') as errf:
+                if output_sh == output_hs:
+                    errf.write('')
+                else:
+                    errf.write('error\n')
+                    errf.write(f'return code {output_sh[0]} vs {output_hs[0]}\n')
+                    errf.write(f'==== output sh ====\n')
+                    errf.write(output_sh[1].decode('UTF-8'))
+                    errf.write(output_sh[2].decode('UTF-8'))
+                    errf.write(f'==== output hs ====\n')
+                    errf.write(output_hs[1].decode('UTF-8'))
+                    errf.write(output_hs[2].decode('UTF-8'))
+        if run_sh and run_pash:
+            with open(output_base / 'error_pash', 'w') as errf:
+                if output_sh == output_pash:
+                    errf.write('')
+                else:
+                    errf.write('error\n')
+                    errf.write(f'return code {output_sh[0]} vs {output_pash[0]}\n')
+                    errf.write(f'==== output sh ====\n')
+                    errf.write(output_sh[1].decode('UTF-8'))
+                    errf.write(output_sh[2].decode('UTF-8'))
+                    errf.write(f'==== output pash ====\n')
+                    errf.write(output_pash[1].decode('UTF-8'))
+                    errf.write(output_pash[2].decode('UTF-8'))

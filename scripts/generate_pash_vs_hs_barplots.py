@@ -231,10 +231,39 @@ def main():
     df['display_name'] = df['benchmark_name'].apply(get_display_name)
     df['category'] = df['benchmark_name'].apply(get_category)
     
+
     # Sort according to Table 1 order
     df['sort_key'] = df['benchmark_name'].apply(get_category_order)
     df = df.sort_values('sort_key')
     df = df.reset_index(drop=True)
+
+    ## Statistics:
+    print("Statistics:")
+    print("|- hs slower than bash:")
+    for index, row in df.iterrows():
+        # print(index, row["column_name"])
+        if row['speedup_hs'] < 1:
+            print("   |-", row["category"], row['display_name'])
+    
+    short_time=20
+    print(f"|- less than {short_time}s for bash:")
+    for index, row in df.iterrows():
+        # print(index, row["column_name"])
+        if row['sh_time'] < short_time:
+            print("   |-", row["category"], row['display_name'])
+
+    print("|- hs slower than pash (but not short running):")
+    for index, row in df.iterrows():
+        # print(index, row["column_name"])
+        if row['speedup_hs'] < row['speedup_pash'] and not (row['sh_time'] < short_time):
+            print("   |-", row["category"], row['display_name'])
+    
+    print("|- limited parallelizability (but not short running):")
+    for index, row in df.iterrows():
+        # print(index, row["column_name"])
+        if not (row['sh_time'] < short_time) and (row['speedup_hs'] < 1.1) and row['speedup_hs'] > 0.8:
+            print("   |-", row["category"], row['display_name'])
+
 
     # Setup plot - more compact
     num_benchmarks = len(df)

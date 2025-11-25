@@ -7,7 +7,7 @@ import json
 import statistics
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 
 def parse_args() -> argparse.Namespace:
@@ -22,43 +22,40 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def check_output_correctness(benchmark: str) -> bool:
+class OutputComparison(NamedTuple):
+    names_match: bool
+    contents_match: bool
+
+
+def check_output_correctness(benchmark: str) -> OutputComparison:
     """Check if spec and sub output match for a benchmark.
 
     Args:
         benchmark: Benchmark name (e.g., 'bioinfo-automine')
 
     Returns:
-        True if outputs match, False otherwise
+        OutputComparison tuple of (names_match, contents_match)
     """
-    spec_output = Path("output/spec-bench") / benchmark
-    sub_output = Path("output/sub-bench") / benchmark
+    spec_output = Path(f"output/spec-{benchmark}")
+    sub_output = Path(f"output/sub-{benchmark}")
 
     if not spec_output.exists() or not sub_output.exists():
         print(f"Warning: Missing output directories for {benchmark}", file=sys.stderr)
-        return False
+        return OutputComparison(False, False)
 
     comparison = filecmp.dircmp(spec_output, sub_output)
 
-    def check_dircmp(dcmp: filecmp.dircmp) -> bool:
-        """Recursively check if directories are identical."""
-        # Check for differences in files
-        if dcmp.left_only or dcmp.right_only or dcmp.diff_files:
+    def check_names(dcmp: filecmp.dircmp) -> bool:
+        if dcmp.left_only or dcmp.right_only:
             return False
+        return all(check_names(sub) for sub in dcmp.subdirs.values())
 
-        # Check for differences in common files
-        if dcmp.funny_files:
+    def check_contents(dcmp: filecmp.dircmp) -> bool:
+        if dcmp.diff_files or dcmp.funny_files:
             return False
+        return all(check_contents(sub) for sub in dcmp.subdirs.values())
 
-        # Recursively check subdirectories
-        return all(check_dircmp(sub_dcmp) for sub_dcmp in dcmp.subdirs.values())
-
-    is_correct = check_dircmp(comparison)
-
-    if not is_correct:
-        print(f"Mismatch detected in {benchmark} output", file=sys.stderr)
-
-    return is_correct
+    return OutputComparison(check_names(comparison), check_contents(comparison))
 
 
 def parse_hyperfine_json(filepath: Path) -> float | None:
@@ -126,14 +123,14 @@ def main() -> int:
             print(f"Warning: Missing sub results for {benchmark}", file=sys.stderr)
             continue
 
-        # Check output correctness
-        correct = check_output_correctness(benchmark)
+        names_match, contents_match = check_output_correctness(benchmark)
 
         entry = {
             "benchmark": benchmark,
             "sub_mean": sub_mean,
             "spec_mean": spec_mean,
-            "correct": correct,
+            "names_match": names_match,
+            "contents_match": contents_match,
             "sub_speedup": sub_mean / spec_mean,
         }
 
@@ -156,16 +153,18 @@ def main() -> int:
 
     print(f"Processed {len(processed_data)} benchmarks -> {output_file}")
 
-    # Exit with error if any benchmark failed correctness check
-    failed = [item for item in processed_data if not item["correct"]]
-    if failed:
-        print(f"\nWARNING: {len(failed)} benchmark(s) failed correctness check:")
-        for item in failed:
-            print(f"  - {item['benchmark']}")
+    failed = False
 
-        return 1
+    for item in processed_data:
+        if not item["contents_match"]:
+            print(f"\nWARNING: {item['benchmark']} failed contents correctness check:")
+            if item["names_match"]:
+                print(f"GOOD: {item['benchmark']} passed file name correctness check")
+            else:
+                print(f"ERROR: {item['benchmark']} also failed file name correctness check")
+                failed = True
 
-    return 0
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

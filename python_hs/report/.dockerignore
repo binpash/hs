@@ -41,3 +41,4 @@ output/
 ./benchmark.sh
 ./run-docker.sh
 ./times.sh
+plots/

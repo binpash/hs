@@ -8,4 +8,13 @@ if [ ! -e "$NAME"  ]; then
   exit 1
 fi
 
-java -jar "$NAME" "$@"
+# flags to prevent speculation conflicts, like with biostars-multiprocessing
+java \
+   -XX:-UsePerfData \
+   -XX:-CreateCoredumpOnCrash \
+   -XX:ErrorFile=/dev/null \
+   -XX:+UnlockDiagnosticVMOptions \
+   -XX:-DumpPrivateMappingsInCore \
+   -XX:-DumpSharedMappingsInCore \
+   -jar "$NAME" \
+   "$@"

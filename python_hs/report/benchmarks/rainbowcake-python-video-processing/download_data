@@ -4,16 +4,23 @@ set -euo pipefail
 
 readonly API_BASE="https://storage.googleapis.com/storage/v1/b/ugc-dataset/o?prefix=original_videos/&fields=items(name,size),nextPageToken"
 readonly RES=1080
+readonly MAX_GB=500
 
 fetch_file_list() {
   local token=""
+  local total_bytes=0
+  local max_bytes=$((MAX_GB * 1024 * 1024 * 1024))
   
   while true; do
     local url="${API_BASE}${token:+&pageToken=$token}"
     local response
     response="$(curl -s "$url")"
     
-    echo "$response" | jq -r ".items[] | select( .name | contains(\"${RES}P\") ) | [.size,.name] | @tsv"
+    local filter=".items[] | select(.name | contains(\"${RES}P\"))"
+    while IFS=$'\t' read -r size name; do
+      (( (total_bytes += size) > max_bytes )) && return
+      printf '%s\t%s\n' "$size" "$name"
+    done < <(echo "$response" | jq -r "$filter | [.size,.name] | @tsv")
     
     token="$(echo "$response" | jq -r '.nextPageToken // empty')"
     [[ -z $token ]] && break

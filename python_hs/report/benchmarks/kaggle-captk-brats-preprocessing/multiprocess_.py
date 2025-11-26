@@ -135,11 +135,9 @@ def run_captk(brats_id):
     }
 
     subprocess.run(["mkdir", "-p", output_base_dir])
-    env = os.environ.copy()
-    os.environ["LD_LIBRARY_PATH"] = os.path.join(data_dir, "./squashfs-root/usr/lib")
     subprocess.run(
         [
-            os.path.join(data_dir, "./squashfs-root/usr/bin/BraTSPipeline"),
+            "BraTSPipeline",
             "-t1c",
             modality_file_map["T1wCE"],
             "-t1",
@@ -160,7 +158,6 @@ def run_captk(brats_id):
             "0",
         ],
         check=True,
-        env=env,
     )
 
 

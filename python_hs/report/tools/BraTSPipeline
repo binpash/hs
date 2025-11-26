@@ -1,0 +1,5 @@
+#!/bin/bash
+
+TOOLS_DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd )"
+export LD_LIBRARY_PATH="$TOOLS_DIR/captk/usr/lib"
+exec "$TOOLS_DIR/captk/usr/bin/BraTSPipeline" "$@"

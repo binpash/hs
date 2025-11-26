@@ -135,12 +135,9 @@ for brats_id in train_brats_ids:
 
     subprocess.run(["mkdir", "-p", output_base_dir])
 
-    os.environ["LD_LIBRARY_PATH"] = os.path.join(data_dir, "./squashfs-root/usr/lib")
     subprocess.run(
         [
-            os.path.join(
-                data_dir, "./squashfs-root/usr/bin/BraTSPipeline"
-            ),  # Path to the CaPTk executable file
+            "BraTSPipeline",
             "-t1c",
             modality_file_map[
                 "T1wCE"
@@ -164,7 +161,6 @@ for brats_id in train_brats_ids:
         ],
         check=True,
     )
-    os.environ["LD_LIBRARY_PATH"] = ""
     print(
         f"\n... IT TOOK {time.time() - t1:.3f} SECONDS TO COMPLETE BRATSID={brats_id}...\n"
     )

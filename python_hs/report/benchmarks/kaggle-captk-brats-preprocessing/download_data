@@ -15,15 +15,5 @@ mkdir -p "$data_dir"
 cd "$data_dir" || exit
 
 kaggle competitions download -c "$COMPETITION"
-touch .downloaded
 unzip -q '*.zip'
-
-kaggle datasets download -d mpsampat/captk-181-installerbin
-
-unzip captk-181-installerbin.zip
-
-chmod +x CaPTk_1.8.1_Installer.bin
-echo Y | ./CaPTk_1.8.1_Installer.bin
- ./CaPTk/1.8.1/captk --appimage-extract
-
-rm captk-181-installerbin.zip CaPTk_1.8.1_Installer.bin
+touch .downloaded

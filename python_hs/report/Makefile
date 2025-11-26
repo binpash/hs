@@ -7,11 +7,16 @@ SRC_FILES := $(wildcard $(SRC_DIR)/*)
 ALL_JSON_RESULTS := $(foreach bench,$(BENCHMARKS),results/sub-$(bench).json results/spec-$(bench).json)
 ALL_JSON_RESULTS += $(foreach bench,$(MULTI_BENCHMARKS),results/multi-$(bench).json)
 
-.PHONY: all clean clean_data
+.PHONY: all clean clean_data download-tools
 
 all: plots/runtimes_plot.png
 
-data/%/.downloaded: benchmarks/%/download_data | data/
+download-tools: tools/.downloaded
+
+tools/.downloaded:
+	./download_tools
+
+data/%/.downloaded: benchmarks/%/download_data tools/.downloaded | data/
 	cd benchmarks/$* && ./download_data
 
 define type_rule

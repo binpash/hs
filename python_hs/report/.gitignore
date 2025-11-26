@@ -3,5 +3,8 @@ data/
 bioinfo-automine/reference
 bioinfo-automine/results
 output/
-squashfs-root/
 plots/
+tools/*.jar
+tools/captk
+tools/adapters
+tools/.downloaded

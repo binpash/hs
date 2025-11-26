@@ -7,8 +7,8 @@ cd -- "$(dirname -- "${BASH_SOURCE[0]}")" || exit
 HS_TOP="$(git rev-parse --show-toplevel)"
 export HS_TOP
 
-WARMUP=0
-RUNS=1
+HS_WARMUP=0
+HS_RUNS=3
 HS_WINDOW=16
 HS_DEBUG=0
 BENCHMARKS="$(find benchmarks/ -mindepth 1 -maxdepth 1 -type d -printf '%f ')"
@@ -17,11 +17,11 @@ readonly BENCHMARKS
 while true; do
     case "$1" in
     -w | --warmup)
-        WARMUP="$2"
+        HS_WARMUP="$2"
         shift 2
         ;;
     -r | --runs)
-        RUNS="$2"
+        HS_RUNS="$2"
         shift 2
         ;;
     -d | --debug)
@@ -40,6 +40,8 @@ done
 
 export HS_DEBUG
 export HS_WINDOW
+export HS_WARMUP
+export HS_RUNS
 
 readonly METHOD="$1"
 shift
@@ -52,11 +54,6 @@ export RESULT_DIR
 if [ -z "$METHOD" ] || [ -z "$BENCHMARK" ]; then
     echo "Usage: $0 [--warmup N] [--runs N] [--debug N] {spec|sub|multi} {benchmark|all}"
     echo "Available benchmarks: ${BENCHMARKS[*]}"
-    exit 1
-fi
-
-if [[ $METHOD != hyperfine* ]] && { [ "$WARMUP" -ne 0 ] || [ "$RUNS" -ne 1 ]; }; then
-    echo "Error: --warmup and --runs can only be used with hyperfine-* methods"
     exit 1
 fi
 
@@ -81,7 +78,7 @@ hyperfine_with_args() {
     local time_prefix="$RESULT_DIR/$type-$bench"
     rm -f "$time_prefix."{md,json}
     rm -rf "output/$bench"
-    hyperfine --show-output --shell=bash --warmup "$WARMUP" --runs "$RUNS" --export-json "$time_prefix.json" --export-markdown "$time_prefix.md" "$@"
+    hyperfine --show-output --shell=bash --warmup "$HS_WARMUP" --runs "$HS_RUNS" --export-json "$time_prefix.json" --export-markdown "$time_prefix.md" "$@"
 }
 
 move_result() {

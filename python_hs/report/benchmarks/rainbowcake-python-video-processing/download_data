@@ -38,6 +38,7 @@ download_watermark() {
 
 main() {
   cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+  mkdir -p ../../data/rainbowcake-python-video-processing
   cd ../../data/rainbowcake-python-video-processing/
   download_watermark
   fetch_file_list | curl_conf | download_files

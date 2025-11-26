@@ -23,6 +23,11 @@ plt.rcParams.update({
     'figure.titlesize': 12
 })
 
+sklearn_name_mappings = {
+    "": "1",
+    "large": "2"
+}
+
 dgsh_name_mappings = {
     "1": "1",
     "2": "2",
@@ -100,10 +105,20 @@ def get_display_name(benchmark_name):
     if 'genomics' in name:
         return 'Genomics'
     
-    # Sklearn
+    # Sklearn — treat like a grouped benchmark family
     if 'sklearn' in name:
+        # # Expect names like sklearn_small, sklearn-medium, sklearn_large, etc.
+        # match = re.search(r'sklearn[_-](.*)', name)
+        # if match:
+        #     sub = match.group(1)
+        #     sub = sub.replace('.', '_')
+        #     if sub in sklearn_name_mappings:
+        #         return sklearn_name_mappings[sub]
+        #     else:
+        #         return sub   # fallback        
+        # return ''
         return 'Sklearn'
-    
+
     # DGSH - return only the number
     if 'dgsh' in name:
         match = re.search(r'dgsh[_-](\d+)', name)
@@ -175,7 +190,20 @@ def get_category_order(name):
     if 'genomics' in name:
         return (2, name)
     if 'sklearn' in name:
+        # # e.g., sklearn_small, sklearn_large
+        # match = re.search(r'sklearn[_-](.*)', name)
+        # if match:
+        #     sub = match.group(1)
+        #     sub = sub.replace('.', '_')
+        #     order_map = {
+        #         '': 1,
+        #         'large': 2
+        #     }
+        #     sub_order = order_map.get(sub, 999)
+        #     return (3, sub_order, name)
+        # return (3, 999, name)
         return (3, name)
+
     if 'dgsh' in name:
         # Extract number for sub-ordering
         match = re.search(r'dgsh[_-](\d+)', name)

@@ -31,7 +31,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 WORKDIR /srv/hs/python_hs/report/
 
-COPY --parents tools/ run_specifc_benchmark.sh .
+COPY --parents tools/ .
+COPY run_specific_benchmark.sh .
 COPY --parents benchmarks .
 
 ENV PATH="/srv/hs/.venv/bin/:/srv/hs/python_hs/report/tools/:${PATH}"

@@ -63,6 +63,9 @@ metadata = [
 subprocess.run(["mkdir", "-p", out_dir], check=True)
 subprocess.run(["mkdir", "-p", reference_dir], check=True)
 
+# Create output subdirectories upfront
+for subdir in ["trimmed", "aligned", "peaks"]:
+    subprocess.run(["mkdir", "-p", os.path.join(out_dir, subdir)], check=True)
 
 print("Downloading and indexing reference genome for BWA...")
 url = "http://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz"
@@ -84,7 +87,6 @@ for row in metadata:
 
     # Trim reads
     trimmed_dir = os.path.join(out_dir, "trimmed")
-    subprocess.run(["mkdir", "-p", trimmed_dir], check=True)
     trimmed_r1 = os.path.join(trimmed_dir, f"{run_id}_1.trimmed.fastq.gz")
     trimmed_r2 = os.path.join(trimmed_dir, f"{run_id}_2.trimmed.fastq.gz")
     cmd = [
@@ -104,7 +106,6 @@ for row in metadata:
 
     # Align reads
     aligned_dir = os.path.join(out_dir, "aligned")
-    subprocess.run(["mkdir", "-p", aligned_dir], check=True)
     sam_output = os.path.join(aligned_dir, f"{run_id}.sam")
     bam_output = os.path.join(aligned_dir, f"{run_id}.bam")
     cmd_align = ["bwa", "mem", bwa_index_prefix, trimmed_r1, trimmed_r2]
@@ -119,7 +120,6 @@ for row in metadata:
 
     # Call peaks
     peaks_dir = os.path.join(out_dir, "peaks")
-    subprocess.run(["mkdir", "-p", peaks_dir], check=True)
     peak_output = os.path.join(peaks_dir, f"{run_id}_peaks.narrowPeak")
     cmd = [
         "macs3",

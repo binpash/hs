@@ -113,6 +113,11 @@ train_brats_ids = [
 t = time.time()
 
 
+for brats_id in train_brats_ids:
+    output_base_dir = os.path.join(output_dir, "train", brats_id)
+    subprocess.run(["mkdir", "-p", output_base_dir], check=True)
+
+
 print("\n\n\n... STARTING TRAIN IMAGES ...\n\n\n")
 for brats_id in train_brats_ids:
     t1 = time.time()
@@ -132,8 +137,6 @@ for brats_id in train_brats_ids:
         )
         for m in ["T1wCE", "T1w", "T2w", "FLAIR"]
     }
-
-    subprocess.run(["mkdir", "-p", output_base_dir])
 
     subprocess.run(
         [

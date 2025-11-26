@@ -163,6 +163,8 @@ def main() -> int:
             else:
                 print(f"ERROR: {item['benchmark']} also failed file name correctness check")
                 failed = True
+        else:
+            print(f"\nVERY GOOD: {item['benchmark']} passed contents correctness check")
 
     return 1 if failed else 0
 

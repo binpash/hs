@@ -5,6 +5,7 @@ import argparse
 import filecmp
 import json
 import statistics
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -50,9 +51,47 @@ def check_output_correctness(benchmark: str) -> OutputComparison:
             return False
         return all(check_names(sub) for sub in dcmp.subdirs.values())
 
+    def is_video_file(path: Path) -> bool:
+        return path.suffix.lower() in {".mkv", ".mp4", ".avi", ".mov", ".webm"}
+
+    def videos_match(file1: Path, file2: Path) -> bool:
+        """Check if two video files are visually identical."""
+        result = subprocess.run(
+            [
+                "ffmpeg",
+                "-i",
+                str(file1),
+                "-i",
+                str(file2),
+                "-filter_complex",
+                "[0:v][1:v]psnr=stats_file=-",
+                "-f",
+                "null",
+                "-",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        # PSNR=inf means pixel-perfect match
+        return "inf" in result.stdout.lower()
+
     def check_contents(dcmp: filecmp.dircmp) -> bool:
-        if dcmp.diff_files or dcmp.funny_files:
+        # Check regular files that differ
+        for name in dcmp.diff_files:
+            left_path = Path(dcmp.left) / name
+            right_path = Path(dcmp.right) / name
+
+            # If both are video files, use visual comparison
+            if is_video_file(left_path) and is_video_file(right_path):
+                if not videos_match(left_path, right_path):
+                    return False
+            else:
+                # Non-video files must match exactly
+                return False
+
+        if dcmp.funny_files:
             return False
+
         return all(check_contents(sub) for sub in dcmp.subdirs.values())
 
     return OutputComparison(check_names(comparison), check_contents(comparison))

@@ -200,7 +200,9 @@ def main() -> int:
             if item["names_match"]:
                 print(f"GOOD: {item['benchmark']} passed file name correctness check")
             else:
-                print(f"ERROR: {item['benchmark']} also failed file name correctness check")
+                print(
+                    f"ERROR: {item['benchmark']} also failed file name correctness check"
+                )
                 failed = True
         else:
             print(f"\nVERY GOOD: {item['benchmark']} passed contents correctness check")

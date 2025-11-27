@@ -4,7 +4,7 @@ import subprocess
 import json
 import glob
 
-num_workers = 16
+num_workers = 30
 input_dir = "data/nemo-audio-processing/"
 output_dir = "output/nemo-audio-processing/"
 

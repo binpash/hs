@@ -5,6 +5,10 @@ shopt -s extglob
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")" || exit
 
+REPORT_DIR="$PWD"
+readonly REPORT_DIR
+export REPORT_DIR
+
 HS_TOP="$(git rev-parse --show-toplevel)"
 readonly HS_TOP
 export HS_TOP
@@ -15,6 +19,7 @@ HS_DEBUG=0
 
 readonly DOCKER_ROOT=/srv/hs/python_hs/report
 readonly DOCKER_IMAGE=python-hs-benchmarks
+export DOCKER_ROOT DOCKER_IMAGE
 
 BENCHMARKS="$(find benchmarks/ -mindepth 1 -maxdepth 1 -type d -printf '%f ')"
 readonly BENCHMARKS
@@ -105,9 +110,9 @@ prepare_container() {
         --init \
         --privileged \
         --cgroupns=host \
-        -v "$PWD/data:$DOCKER_ROOT/data" \
-        -v "$PWD/results:$DOCKER_ROOT/results" \
-        -v "$PWD/output:$DOCKER_ROOT/output" \
+        -v "$REPORT_DIR/data:$DOCKER_ROOT/data" \
+        -v "$REPORT_DIR/results:$DOCKER_ROOT/results" \
+        -v "$REPORT_DIR/output:$DOCKER_ROOT/output" \
         "$DOCKER_IMAGE" \
         sleep infinity >/dev/null
 

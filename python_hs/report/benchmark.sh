@@ -25,7 +25,7 @@ BENCHMARKS="$(find benchmarks/ -mindepth 1 -maxdepth 1 -type d -printf '%f ')"
 readonly BENCHMARKS
 
 show_usage() {
-    echo "Usage: $0 [OPTIONS] {spec|sub|multi} BENCHMARK"
+    echo "Usage: $0 [OPTIONS] {spec|sub|multi|bad_spec} BENCHMARK"
     echo ""
     echo "Options:"
     echo "  -r, --runs N     Number of benchmark runs (default: 3)"
@@ -77,9 +77,9 @@ export HS_WINDOW
 export HS_RUNS
 
 case "$METHOD" in
-spec | sub | multi) ;;
+spec | sub | multi | bad_spec) ;;
 *)
-    echo "Error: Invalid method '$METHOD'. Must be one of: spec, sub, multi"
+    echo "Error: Invalid method '$METHOD'. Must be one of: spec, sub, multi, bad_spec"
     show_usage
     ;;
 esac
@@ -154,6 +154,7 @@ run_benchmark() {
     local bench_dir="benchmarks/$benchmark"
     local subprocess_script="$bench_dir/subprocess_.py"
     local multiprocess_script="$bench_dir/multiprocess_.py"
+    local bad_spec_script="$bench_dir/bad_spec.py"
 
     # Validate scripts exist
     if [ ! -f "$subprocess_script" ]; then
@@ -163,6 +164,11 @@ run_benchmark() {
 
     if [ "$method" = "multi" ] && [ ! -f "$multiprocess_script" ]; then
         echo "Error: $multiprocess_script not found"
+        exit 1
+    fi
+
+    if [ "$method" = "bad_spec" ] && [ ! -f "$bad_spec_script" ]; then
+        echo "Error: $bad_spec_script not found"
         exit 1
     fi
 
@@ -183,11 +189,14 @@ run_benchmark() {
     multi)
         script_path="$multiprocess_script"
         ;;
+    bad_spec)
+        script_path="$bad_spec_script"
+        ;;
     esac
 
     local benchmark_cmd
     case "$method" in
-    spec)
+    spec | bad_spec)
         benchmark_cmd="cd $DOCKER_ROOT && $DOCKER_ROOT/../../pash-spec.sh --python $script_path --window $HS_WINDOW -d $HS_DEBUG"
         ;;
     sub | multi)

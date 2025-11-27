@@ -5,7 +5,7 @@
 set -eu
 
 
-SEQUENCES_N=16
+SEQUENCES_N=8
 PCORE=$(( SEQUENCES_N / 2 ))
 DATASET_URL=https://orthomam.mbb.cnrs.fr/orthomam_v12/cds/omm_filtered_NT_CDS/
 OUTPUT_DIR=data/biostars-multiprocessing

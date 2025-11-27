@@ -109,6 +109,7 @@ train_brats_ids = [
     "00149",
 ]
 
+train_brats_ids = train_brats_ids[:100]
 
 t = time.time()
 

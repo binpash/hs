@@ -10,7 +10,7 @@ readonly HS_TOP
 export HS_TOP
 
 HS_RUNS=3
-HS_WINDOW=16
+HS_WINDOW=30
 HS_DEBUG=0
 
 readonly DOCKER_ROOT=/srv/hs/python_hs/report

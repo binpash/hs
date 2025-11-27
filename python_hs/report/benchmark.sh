@@ -16,6 +16,8 @@ export HS_TOP
 HS_RUNS=3
 HS_WINDOW=30
 HS_DEBUG=0
+USER_ID="$(id -u)"
+GROUP_ID="$(id -g)"
 
 readonly DOCKER_ROOT=/srv/hs/python_hs/report
 readonly DOCKER_IMAGE=python-hs-benchmarks
@@ -176,7 +178,11 @@ run_benchmark() {
 
     local result_prefix="$RESULT_DIR/$method-$benchmark"
     rm -f "$result_prefix."{md,json}
-    rm -rf "output/$benchmark"
+
+    docker run --rm \
+        -v "$PWD/output:$DOCKER_ROOT/output" \
+        "$DOCKER_IMAGE" \
+        rm -rf  "output/$benchmark"
 
     local script_path
     case "$method" in
@@ -235,7 +241,16 @@ run_benchmark() {
 
     local dest="output/$method-$benchmark"
     rm -rf "$dest"
-    mv "output/$benchmark" "$dest"
+
+    docker run --rm \
+        -v "$PWD/output:$DOCKER_ROOT/output" \
+        "$DOCKER_IMAGE" \
+        rm -rf "$dest"
+
+    docker run --rm \
+        -v "$PWD/output:$DOCKER_ROOT/output" \
+        "$DOCKER_IMAGE" \
+        mv "output/$benchmark" "$dest"
 
     echo "Results saved to $result_prefix.{json,md}"
     echo "Output saved to $dest"

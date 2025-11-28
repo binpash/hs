@@ -51,5 +51,5 @@ args = [
     if f.endswith(".fa")
 ]
 
-p = Pool(30)
+p = Pool(16)
 p.map(wrapRunMACSE, args)

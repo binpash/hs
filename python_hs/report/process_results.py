@@ -126,7 +126,11 @@ def parse_hyperfine_json(filepath: Path) -> float | None:
 def get_stats(data: list[dict[str, Any]], version: str) -> dict[str, Any]:
     """Get statistics for a specific version (sub or multi)."""
     mean_key = f"{version}_mean"
-    speedup_key = f"{version}_speedup"
+    speedup_key = (
+        "spec_speedup_compared_with_sub"
+        if version == "sub"
+        else "spec_slowdown_compared_with_multi"
+    )
     filtered = [v for v in data if mean_key in v and v[mean_key] is not None]
     if not filtered:
         return {}
@@ -138,6 +142,7 @@ def get_stats(data: list[dict[str, Any]], version: str) -> dict[str, Any]:
         f"max_spec_time_{version}": max(v["spec_mean"] for v in filtered),
         f"min_{version}_time": min(v[mean_key] for v in filtered),
         f"max_{version}_time": max(v[mean_key] for v in filtered),
+        f"{version}_speedup_key": speedup_key,
         f"min_{version}_speedup": min(v[speedup_key] for v in filtered),
         f"max_{version}_speedup": max(v[speedup_key] for v in filtered),
     }
@@ -167,7 +172,9 @@ def main() -> int:
 
         sub_mean = parse_hyperfine_json(sub_file) if sub_file.exists() else None
         multi_mean = parse_hyperfine_json(multi_file) if multi_file.exists() else None
-        bad_mean = parse_hyperfine_json(bad_spec_file) if multi_file.exists() else None
+        bad_mean = (
+            parse_hyperfine_json(bad_spec_file) if bad_spec_file.exists() else None
+        )
 
         if sub_mean is None:
             print(f"Warning: Missing sub results for {benchmark}", file=sys.stderr)
@@ -192,7 +199,7 @@ def main() -> int:
 
         if bad_mean is not None:
             entry["bad_mean"] = bad_mean
-            entry["bad_slowdown_compared_with_sub"] = bead_mean / sub_mean
+            entry["bad_slowdown_compared_with_sub"] = bad_mean / sub_mean
 
         processed_data.append(entry)
 

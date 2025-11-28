@@ -76,7 +76,7 @@ def parse_results_to_df(processed_json: Path) -> pd.DataFrame:
         raise ValueError("No runtime columns found in processed results.")
 
     # Determine id_vars (exclude speedup columns as we'll recompute)
-    id_vars = ["benchmark", "correct"]
+    id_vars = ["benchmark", "names_match", "contents_match"]
 
     long = df.melt(
         id_vars=id_vars,
@@ -131,7 +131,8 @@ def get_runtime_labels(
     for bench in benchmark_order:
         mask = (data["benchmark_name"] == bench) & (data["method"] == method)
         runtime = data.loc[mask, "runtime"]
-        labels.append(f"{runtime.iloc[0]:.1f}s" if not runtime.empty else "")
+        if not runtime.empty:
+            labels.append(f"{runtime.iloc[0]:.1f}s")
     return labels
 
 
@@ -173,7 +174,7 @@ def create_speedup_plot(data: pd.DataFrame, output: Path) -> None:
     ax.set_xlabel("")
     tick_positions = np.arange(len(benchmark_order))
     ax.set_xticks(tick_positions, benchmark_order, rotation=20, ha="right", fontsize=8)
-    ax.set_title("Speedup comparison (higher is better)", fontsize=9, pad=8)
+    ax.set_title("Python Speedup comparison (higher is better)", fontsize=9, pad=8)
     ax.legend(title="Execution mode", fontsize=7, title_fontsize=8, loc="upper right")
     fig.tight_layout()
     fig.savefig(output, dpi=dpi, bbox_inches="tight")

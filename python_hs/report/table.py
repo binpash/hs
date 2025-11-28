@@ -11,19 +11,19 @@ from pathlib import Path
 import json
 
 BENCHMARK_NAMES = {
-    "bioinfo-automine": "Bioinfo Automine",
     "biostars-multiprocessing": "Biostars Multiprocessing",
+    "bioinfo-automine": "Bioinfo Automine",
+    "nemo-audio-processing": "NeMo Audio Processing",
     "rainbowcake-python-video-processing": "Video Processing",
     "kaggle-captk-brats-preprocessing": "CaPTk BraTS Preprocessing",
-    "nemo-audio-processing": "NeMo Audio Processing",
 }
 
 BENCHMARK_CITATIONS = {
-    "bioinfo-automine": "ismail2026bioinformatics",
     "biostars-multiprocessing": "biostars-multiprocessing",
+    "bioinfo-automine": "ismail2026bioinformatics",
+    "nemo-audio-processing": "nemo2024",
     "rainbowcake-python-video-processing": "yu2020characterizing",
     "kaggle-captk-brats-preprocessing": "schettler2021captk",
-    "nemo-audio-processing": "nemo2024",
 }
 
 

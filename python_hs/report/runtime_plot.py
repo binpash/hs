@@ -24,11 +24,11 @@ TYPE_ALIASES = {
 }
 
 BENCHMARK_NAMES = {
-    "bioinfo-automine": "Bioinfo Automine",
     "biostars-multiprocessing": "Biostars Multiprocessing",
+    "bioinfo-automine": "Bioinfo Automine",
+    "nemo-audio-processing": "NeMo Audio Processing",
     "rainbowcake-python-video-processing": "Video Processing",
     "kaggle-captk-brats-preprocessing": "CaPTk BraTS Preprocessing",
-    "nemo-audio-processing": "NeMo Audio Processing",
 }
 
 dpi = 300
@@ -114,11 +114,6 @@ def _benchmark_order(data: pd.DataFrame) -> list[str]:
     ordered_names = [
         BENCHMARK_NAMES[b_id] for b_id in BENCHMARK_NAMES if b_id in present_ids
     ]
-    ordered_names.sort(
-        key=lambda v: data.loc[
-            (data["benchmark_name"] == v) & (data["method"] == "Subprocess"), "runtime"
-        ].iloc[0]
-    )
     extra_names = [
         data.loc[data["benchmark"] == b_id, "benchmark_name"].iat[0]
         for b_id in present_ids

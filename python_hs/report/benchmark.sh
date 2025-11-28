@@ -16,8 +16,8 @@ export HS_TOP
 HS_RUNS=3
 HS_WINDOW=16
 HS_DEBUG=0
-USER_ID="$(id -u)"
-GROUP_ID="$(id -g)"
+HS_USER_ID="$(id -u)"
+HS_GROUP_ID="$(id -g)"
 
 readonly DOCKER_ROOT=/srv/hs/python_hs/report
 readonly DOCKER_IMAGE=python-hs-benchmarks
@@ -77,6 +77,8 @@ export RESULT_DIR
 export HS_DEBUG
 export HS_WINDOW
 export HS_RUNS
+export HS_USER_ID
+export HS_GROUP_ID
 
 case "$METHOD" in
 spec | sub | multi | bad_spec) ;;
@@ -118,6 +120,12 @@ prepare_container() {
         "$DOCKER_IMAGE" \
         sleep infinity >/dev/null
 
+    local src="output/$HS_BENCHMARK"
+    docker run --rm \
+        -v "$PWD/output:$DOCKER_ROOT/output" \
+        "$DOCKER_IMAGE" \
+        sh -c "rm -rf '$src'"
+
     # Wait for container to be ready
     while ! docker exec "$container_name" test -d "$DOCKER_ROOT" &>/dev/null; do
         sleep 0.1
@@ -144,10 +152,29 @@ cleanup_container() {
     fi
 }
 
+
+move_results() {
+    local method="$HS_METHOD"
+    local benchmark="$HS_BENCHMARK"
+
+    # Deletes all but the last runs results
+    local src="output/$benchmark"
+    local dest="output/$method-$benchmark"
+
+    docker run --rm \
+        -v "$PWD/output:$DOCKER_ROOT/output" \
+        "$DOCKER_IMAGE" \
+        sh -c "rm -rf '$dest' \
+               && mv '$src' '$dest' \
+               && chown -R $HS_USER_ID:$HS_GROUP_ID '$dest'"
+}
+
+
 # Export functions so hyperfine can call them
 export -f prepare_container
 export -f run_benchmark_in_container
 export -f cleanup_container
+export -f move_results
 
 run_benchmark() {
     local method="$1"
@@ -233,27 +260,15 @@ run_benchmark() {
     hyperfine \
         --runs "$HS_RUNS" \
         --prepare "sync; echo 3 | sudo tee /proc/sys/vm/drop_caches >/dev/null; prepare_container" \
+        --conclude "move_results" \
         --export-json "$result_prefix.json" \
         --export-markdown "$result_prefix.md" \
         --show-output \
         --shell=bash \
         "run_benchmark_in_container"
 
-    local dest="output/$method-$benchmark"
-    rm -rf "$dest"
-
-    docker run --rm \
-        -v "$PWD/output:$DOCKER_ROOT/output" \
-        "$DOCKER_IMAGE" \
-        rm -rf "$dest"
-
-    docker run --rm \
-        -v "$PWD/output:$DOCKER_ROOT/output" \
-        "$DOCKER_IMAGE" \
-        mv "output/$benchmark" "$dest"
-
     echo "Results saved to $result_prefix.{json,md}"
-    echo "Output saved to $dest"
+    echo "Output saved to output/$method-$benchmark"
 }
 
 echo "==================================================================="

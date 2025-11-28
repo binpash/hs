@@ -14,7 +14,7 @@ readonly HS_TOP
 export HS_TOP
 
 HS_RUNS=3
-HS_WINDOW=30
+HS_WINDOW=16
 HS_DEBUG=0
 USER_ID="$(id -u)"
 GROUP_ID="$(id -g)"

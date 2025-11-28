@@ -20,6 +20,13 @@ def parse_args() -> argparse.Namespace:
         default=Path("results/"),
         help="Results directory",
     )
+    parser.add_argument(
+        "-n",
+        "--no-check",
+        dest="check",
+        action="store_false",
+        help="Skip correctness check",
+    )
     return parser.parse_args()
 
 
@@ -137,6 +144,8 @@ def get_stats(data: list[dict[str, Any]], version: str) -> dict[str, Any]:
 
 
 def main() -> int:
+    args = parse_args()
+    check = args.check
     results_dir: Path = parse_args().input
 
     # Find all benchmark names by looking at spec-*.json files (spec is required)
@@ -164,7 +173,9 @@ def main() -> int:
             print(f"Warning: Missing sub results for {benchmark}", file=sys.stderr)
             continue
 
-        names_match, contents_match = check_output_correctness(benchmark)
+        names_match, contents_match = (
+            check_output_correctness(benchmark) if check else (False, False)
+        )
 
         entry = {
             "benchmark": benchmark,

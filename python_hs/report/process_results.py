@@ -148,6 +148,7 @@ def main() -> int:
         benchmark = spec_file.stem.replace("spec-", "")
         sub_file = results_dir / f"sub-{benchmark}.json"
         multi_file = results_dir / f"multi-{benchmark}.json"
+        bad_spec_file = results_dir / f"bad_spec-{benchmark}.json"
 
         # Parse timing data
         spec_mean = parse_hyperfine_json(spec_file)
@@ -157,6 +158,7 @@ def main() -> int:
 
         sub_mean = parse_hyperfine_json(sub_file) if sub_file.exists() else None
         multi_mean = parse_hyperfine_json(multi_file) if multi_file.exists() else None
+        bad_mean = parse_hyperfine_json(bad_spec_file) if multi_file.exists() else None
 
         if sub_mean is None:
             print(f"Warning: Missing sub results for {benchmark}", file=sys.stderr)
@@ -170,12 +172,16 @@ def main() -> int:
             "spec_mean": spec_mean,
             "names_match": names_match,
             "contents_match": contents_match,
-            "sub_speedup": sub_mean / spec_mean,
+            "spec_speedup_compared_with_sub": sub_mean / spec_mean,
         }
 
         if multi_mean is not None:
             entry["multi_mean"] = multi_mean
-            entry["multi_speedup"] = multi_mean / spec_mean
+            entry["spec_slowdown_compared_with_multi"] = multi_mean / spec_mean
+
+        if bad_mean is not None:
+            entry["bad_mean"] = bad_mean
+            entry["bad_slowdown_compared_with_sub"] = bead_mean / sub_mean
 
         processed_data.append(entry)
 

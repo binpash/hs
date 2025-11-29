@@ -1,3 +1,3 @@
 | Command | Mean [s] | Min [s] | Max [s] | Relative |
 |:---|---:|---:|---:|---:|
-| `run_benchmark_in_container` | 391.466 ± 2.858 | 388.186 | 393.425 | 1.00 |
+| `run_benchmark_in_container` | 358.085 ± 1.979 | 356.785 | 360.363 | 1.00 |

@@ -4,7 +4,8 @@ set -eu
 
 REPO=MLCommons/speech-wikimedia
 OUT=data/nemo-audio-processing/
-N=256
+# we want 56, but one dataset isn't available
+N=257
 
 # to top directory of this script
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")" || exit
@@ -19,5 +20,5 @@ curl -s "https://huggingface.co/api/datasets/$REPO/tree/main?recursive=1" |
   sort -nr |
   head -n "$N" |
   cut -f2 |
-  xargs -I {} \
-        hf download --repo-type dataset --local-dir "$OUT" "$REPO" {}
+  xargs -P8 -I {} bash -c \
+        "hf download --repo-type dataset --local-dir '$OUT' '$REPO' '{}' || true"

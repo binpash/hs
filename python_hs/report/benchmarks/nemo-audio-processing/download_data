@@ -22,3 +22,5 @@ curl -s "https://huggingface.co/api/datasets/$REPO/tree/main?recursive=1" |
   cut -f2 |
   xargs -P8 -I {} bash -c \
         "hf download --repo-type dataset --local-dir '$OUT' '$REPO' '{}' || true"
+
+touch "$OUT/.downloaded"

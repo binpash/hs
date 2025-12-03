@@ -143,7 +143,7 @@ for row in metadata:
         "42",
     ]
     if condition == "control":
-        cmd += ["--nolambda"]
+        cmd = cmd + ["--nolambda"]
     subprocess.run(cmd, check=True)
     peak_file = peak_output
 

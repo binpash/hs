@@ -42,16 +42,9 @@ for patient_id in "${USED_IDS[@]}"; do
         [[ " ${USED_MODALITIES[*]} " != *" $modality "* ]] && rm -rf "$modality_dir"
     done
 
-    # Keep only first file in each modality
-    for modality in "${USED_MODALITIES[@]}"; do
-        modality_dir="$patient_dir/$modality"
-        [[ ! -d "$modality_dir" ]] && continue
-
-        readarray -t files < <(find "$modality_dir" -type f | sort -t- -k2 -n)
-        for ((i = 1; i < ${#files[@]}; i++)); do
-            rm -f "${files[i]}"
-        done
-    done
+    # Note: We keep ALL DICOM files within each modality directory because
+    # MRI volumes are stored as multiple 2D slices that BraTSPipeline needs
+    # to reconstruct the complete 3D brain volume for atlas registration
 done
 
 # Delete non-train directories and zip files

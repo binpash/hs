@@ -6,4 +6,4 @@ Changes made manually:
 - Converting all python file IO functions into subprocess.run based ones (ex: `os.remove` -> `run(["rm", ...])`)
 - Moved the directory making code to a separate for loop
 - Seeded macs3 callpeaks
-- Used data downsampled to 1/4 by the download script
+- Used data downsampled to .15 by the download script

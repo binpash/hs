@@ -339,6 +339,19 @@ class PreprocessorTransformer(ast.NodeTransformer):
 
         return self.generic_visit(node)
 
+    def visit_If(self, node: ast.If) -> ast.AST:
+        try:
+            if eval_expr(node.test, self.eval_context):
+                for stmt in node.body:
+                    self.visit(stmt)
+            else:
+                for stmt in node.orelse:
+                    self.visit(stmt)
+        except Exception:
+            pass
+
+        return node
+
     def _transform_subprocess_call(self, node: ast.Call) -> ast.expr:
         """Transform subprocess.run/Popen call to hs_run call."""
         if not node.args:

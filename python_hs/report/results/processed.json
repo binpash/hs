@@ -60,7 +60,7 @@
       "spec_mean": 1174.3111639844867,
       "names_match": true,
       "contents_match": true,
-      "spec_speedup_compared_with_sub": 8.402188222381518,
+      "spec_speedup_compared_with_sub": 8.402188222381518
     }
   ]
 }

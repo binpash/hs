@@ -9,13 +9,14 @@ calculates dataset sizes, and outputs a LaTeX table in the format of table-examp
 import subprocess
 from pathlib import Path
 import json
+import argparse
 
 BENCHMARK_NAMES = {
-    "biostars-multiprocessing": "Biostars Multiprocessing",
-    "bioinfo-automine": "Bioinfo Automine",
-    "nemo-audio-processing": "NeMo Audio Processing",
-    "rainbowcake-python-video-processing": "Video Processing",
-    "kaggle-captk-brats-preprocessing": "CaPTk BraTS Preprocessing",
+    "biostars-multiprocessing": "BioAlign",
+    "bioinfo-automine": "ProteinInt",
+    "nemo-audio-processing": "AudioProc",
+    "rainbowcake-python-video-processing": "VideoProc",
+    "kaggle-captk-brats-preprocessing": "MRIanalysis",
 }
 
 BENCHMARK_CITATIONS = {
@@ -75,17 +76,51 @@ def format_size(size_bytes):
         return f"{size:.1f}{units[unit_index]}"
 
 
-def generate_table() -> None:
+def format_time(seconds: float) -> str:
+    """Format time in seconds to human-readable format."""
+    if seconds < 1:
+        return f"{seconds * 1000:.0f}ms"
+    elif seconds < 60:
+        return f"{seconds:.1f}s"
+    elif seconds < 3600:
+        minutes = int(seconds // 60)
+        secs = int(seconds % 60)
+        return f"{minutes}m{secs}s"
+    else:
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        return f"{hours}h{minutes}m"
+
+
+def generate_table(processed_json_path: Path | None = None) -> None:
     """Generate LaTeX table for Python benchmarks."""
     script_dir = Path(__file__).parent
     benchmarks_dir = script_dir / "benchmarks"
     data_dir = script_dir / "data"
 
-    benchmark_dirs = sorted([
-        d.name
-        for d in benchmarks_dir.iterdir()
-        if d.is_dir() and not d.name.startswith(".")
-    ])
+    # Load processed.json if provided
+    perf_data = {}
+    if processed_json_path:
+        with open(processed_json_path) as f:
+            processed = json.load(f)
+            for entry in processed.get("data", []):
+                perf_data[entry["benchmark"]] = {
+                    "baseline": entry.get("sub_mean", 0),
+                    "speculative": entry.get("spec_mean", 0),
+                    "speedup": entry.get("spec_speedup_compared_with_sub", 0),
+                }
+
+    # Define the order of benchmarks to match the table
+    benchmark_order = [
+        "biostars-multiprocessing",
+        "bioinfo-automine",
+        "nemo-audio-processing",
+        "rainbowcake-python-video-processing",
+        "kaggle-captk-brats-preprocessing",
+    ]
+
+    # Use the predefined order
+    benchmark_dirs = benchmark_order
 
     # Collect data for each benchmark
     rows = []
@@ -102,36 +137,56 @@ def generate_table() -> None:
         size_bytes = get_directory_size(dataset_path)
         size_formatted = format_size(size_bytes)
 
+        # Get performance data if available
+        perf = perf_data.get(benchmark_name, {})
+        baseline_time = perf.get("baseline", 0)
+        spec_time = perf.get("speculative", 0)
+        speedup = perf.get("speedup", 0)
+
         rows.append({
             "num": idx,
             "name": readable_name,
             "loc": loc,
             "input": size_formatted,
+            "baseline_time": format_time(baseline_time) if baseline_time else "-",
+            "spec_time": format_time(spec_time) if spec_time else "-",
+            "speedup": f"{speedup:.2f}$\\times$" if speedup else "-",
             "cit": citation,
         })
 
     # Generate LaTeX table
     table_rows = "\n".join(
-        rf"  {r['num']} & {r['name']:<40} & {r['loc']:<6} & {r['input']:<10} & {r['cit']} \\"
+        rf"  {r['num']} & {r['name']}~{r['cit']:<45} & {r['loc']:<6} & {r['input']:<8} & {r['baseline_time']:<10} & {r['spec_time']:<10} & {r['speedup']} \\"
         for r in rows
     )
 
-    table = rf"""\begin{{table*}}[ht]
+    table = rf"""\label{{tab:python-benchmark-summary}}
+\begin{{table}}[t]
   \centering
-  \caption{{Summary of all Python benchmarks used to evaluate \sys and their characteristics.}}
+  \caption{{Summary of all Python benchmarks used to evaluate \sys and their characteristics. Exec. Time indicates the execution time of the script with standard Python and Speedup indicates the speedup of \sys.}}
   \small
-  \begin{{tabularx}}{{\textwidth}}{{llrrl}}
+  \begin{{tabular}}{{llYYYYY}}
   \toprule
-  \textbf{{~}} & \textbf{{Benchmark Set}} & \textbf{{LOC}} & \textbf{{Input}} & \textbf{{Source}} \\
+  \textbf{{~}} & \textbf{{Benchmark}} & \textbf{{LOC}} & \textbf{{Input}} & \textbf{{Baseline Time}} & \textbf{{Spec. Time}} & \textbf{{Speedup (\sys)}} \\
   \midrule
 {table_rows}
   \bottomrule
-  \end{{tabularx}}
+  \end{{tabular}}
   \label{{tab:python_benchmark_summary}}
-\end{{table*}}"""
+\end{{table}}"""
 
     print(table)
 
 
 if __name__ == "__main__":
-    generate_table()
+    parser = argparse.ArgumentParser(
+        description="Generate LaTeX table for Python benchmarks"
+    )
+    parser.add_argument(
+        "--processed-json",
+        type=Path,
+        default=Path(__file__).parent / "results" / "processed.json",
+        help="Path to processed.json file containing benchmark results (default: results/processed.json)",
+    )
+    args = parser.parse_args()
+    generate_table(args.processed_json)

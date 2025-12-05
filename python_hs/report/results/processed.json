@@ -1,20 +1,20 @@
 {
-  "sub_geomean_speedup": 2.573509689923331,
+  "sub_geomean_speedup": 3.2551589899548485,
   "min_spec_time_sub": 66.01214340520669,
-  "max_spec_time_sub": 8139.303840122132,
+  "max_spec_time_sub": 8181.058987586907,
   "min_sub_time": 263.16459616164667,
-  "max_sub_time": 18484.921914744322,
+  "max_sub_time": 18424.905669753487,
   "sub_speedup_key": "spec_speedup_compared_with_sub",
   "min_sub_speedup": 1.7542865349274648,
-  "max_sub_speedup": 3.9866088659816135,
-  "multi_geomean_speedup": 0.44573008599571634,
+  "max_sub_speedup": 8.402188222381518,
+  "multi_geomean_speedup": 1.1859953852614904,
   "min_spec_time_multi": 66.01214340520669,
   "max_spec_time_multi": 6539.583690164821,
   "min_multi_time": 19.545615502033332,
-  "max_multi_time": 4388.018841555861,
+  "max_multi_time": 9860.258230414334,
   "multi_speedup_key": "spec_slowdown_compared_with_multi",
   "min_multi_speedup": 0.29609121131024624,
-  "max_multi_speedup": 0.6709936059317053,
+  "max_multi_speedup": 8.396631602273173,
   "data": [
     {
       "benchmark": "rainbowcake-python-video-processing",
@@ -26,11 +26,11 @@
     },
     {
       "benchmark": "bioinfo-automine",
-      "sub_mean": 18484.921914744322,
-      "spec_mean": 8139.303840122132,
+      "sub_mean": 18424.905669753487,
+      "spec_mean": 8181.058987586907,
       "names_match": true,
-      "contents_match": false,
-      "spec_speedup_compared_with_sub": 2.271069157490372
+      "contents_match": true,
+      "spec_speedup_compared_with_sub": 2.2521418923527543
     },
     {
       "benchmark": "nemo-audio-processing",
@@ -53,6 +53,16 @@
       "spec_slowdown_compared_with_multi": 0.6709936059317053,
       "bad_mean": 11422.657521398627,
       "bad_slowdown_compared_with_sub": 0.9956725264629327
+    },
+    {
+      "benchmark": "kaggle-captk-brats-preprocessing",
+      "sub_mean": 9866.783431441587,
+      "spec_mean": 1174.3111639844867,
+      "names_match": true,
+      "contents_match": true,
+      "spec_speedup_compared_with_sub": 8.402188222381518,
+      "multi_mean": 9860.258230414334,
+      "spec_slowdown_compared_with_multi": 8.396631602273173
     }
   ]
 }

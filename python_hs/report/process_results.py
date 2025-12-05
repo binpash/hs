@@ -10,6 +10,15 @@ import sys
 from pathlib import Path
 from typing import Any, NamedTuple
 
+# Benchmark name aliasing: map directory names to readable display names
+BENCHMARK_NAMES = {
+    "biostars-multiprocessing": "BioAlign",
+    "bioinfo-automine": "ProteinInt",
+    "nemo-audio-processing": "AudioProc",
+    "rainbowcake-python-video-processing": "VideoProc",
+    "kaggle-captk-brats-preprocessing": "MRIanalysis",
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate results/processed.json")
@@ -184,8 +193,11 @@ def main() -> int:
             check_output_correctness(benchmark) if check else (False, False)
         )
 
+        # Apply name aliasing for display
+        display_name = BENCHMARK_NAMES.get(benchmark, benchmark)
+
         entry = {
-            "benchmark": benchmark,
+            "benchmark": display_name,
             "sub_mean": sub_mean,
             "spec_mean": spec_mean,
             "names_match": names_match,

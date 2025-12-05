@@ -17,33 +17,15 @@
   "max_multi_speedup": 0.6709936059317053,
   "data": [
     {
-      "benchmark": "rainbowcake-python-video-processing",
-      "sub_mean": 890.5492525964601,
-      "spec_mean": 322.4699347901333,
+      "benchmark": "MRIanalysis",
+      "sub_mean": 9866.783431441587,
+      "spec_mean": 1174.3111639844867,
       "names_match": true,
       "contents_match": true,
-      "spec_speedup_compared_with_sub": 2.761650487435483
+      "spec_speedup_compared_with_sub": 8.402188222381518
     },
     {
-      "benchmark": "bioinfo-automine",
-      "sub_mean": 18424.905669753487,
-      "spec_mean": 8181.058987586907,
-      "names_match": true,
-      "contents_match": true,
-      "spec_speedup_compared_with_sub": 2.2521418923527543
-    },
-    {
-      "benchmark": "nemo-audio-processing",
-      "sub_mean": 263.16459616164667,
-      "spec_mean": 66.01214340520669,
-      "names_match": true,
-      "contents_match": true,
-      "spec_speedup_compared_with_sub": 3.9866088659816135,
-      "multi_mean": 19.545615502033332,
-      "spec_slowdown_compared_with_multi": 0.29609121131024624
-    },
-    {
-      "benchmark": "biostars-multiprocessing",
+      "benchmark": "BioAlign",
       "sub_mean": 11472.303611687406,
       "spec_mean": 6539.583690164821,
       "names_match": true,
@@ -55,12 +37,30 @@
       "bad_slowdown_compared_with_sub": 0.9956725264629327
     },
     {
-      "benchmark": "kaggle-captk-brats-preprocessing",
-      "sub_mean": 9866.783431441587,
-      "spec_mean": 1174.3111639844867,
+      "benchmark": "AudioProc",
+      "sub_mean": 263.16459616164667,
+      "spec_mean": 66.01214340520669,
       "names_match": true,
       "contents_match": true,
-      "spec_speedup_compared_with_sub": 8.402188222381518
+      "spec_speedup_compared_with_sub": 3.9866088659816135,
+      "multi_mean": 19.545615502033332,
+      "spec_slowdown_compared_with_multi": 0.29609121131024624
+    },
+    {
+      "benchmark": "VideoProc",
+      "sub_mean": 890.5492525964601,
+      "spec_mean": 322.4699347901333,
+      "names_match": true,
+      "contents_match": true,
+      "spec_speedup_compared_with_sub": 2.761650487435483
+    },
+    {
+      "benchmark": "ProteinInt",
+      "sub_mean": 18424.905669753487,
+      "spec_mean": 8181.058987586907,
+      "names_match": true,
+      "contents_match": true,
+      "spec_speedup_compared_with_sub": 2.2521418923527543
     }
   ]
 }

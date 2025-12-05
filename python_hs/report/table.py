@@ -11,20 +11,22 @@ from pathlib import Path
 import json
 import argparse
 
-BENCHMARK_NAMES = {
-    "biostars-multiprocessing": "BioAlign",
-    "bioinfo-automine": "ProteinInt",
-    "nemo-audio-processing": "AudioProc",
-    "rainbowcake-python-video-processing": "VideoProc",
-    "kaggle-captk-brats-preprocessing": "MRIanalysis",
+# Map readable benchmark names to their citations
+BENCHMARK_CITATIONS = {
+    "BioAlign": "biostars-multiprocessing",
+    "ProteinInt": "ismail2026bioinformatics",
+    "AudioProc": "nemo2024",
+    "VideoProc": "yu2020characterizing",
+    "MRIanalysis": "schettler2021captk",
 }
 
-BENCHMARK_CITATIONS = {
-    "biostars-multiprocessing": "biostars-multiprocessing",
-    "bioinfo-automine": "ismail2026bioinformatics",
-    "nemo-audio-processing": "nemo2024",
-    "rainbowcake-python-video-processing": "yu2020characterizing",
-    "kaggle-captk-brats-preprocessing": "schettler2021captk",
+# Map readable names back to directory names for file operations
+BENCHMARK_DIR_NAMES = {
+    "BioAlign": "biostars-multiprocessing",
+    "ProteinInt": "bioinfo-automine",
+    "AudioProc": "nemo-audio-processing",
+    "VideoProc": "rainbowcake-python-video-processing",
+    "MRIanalysis": "kaggle-captk-brats-preprocessing",
 }
 
 
@@ -110,34 +112,33 @@ def generate_table(processed_json_path: Path | None = None) -> None:
                     "speedup": entry.get("spec_speedup_compared_with_sub", 0),
                 }
 
-    # Define the order of benchmarks to match the table
+    # Define the order of benchmarks to match the table (using readable names)
     benchmark_order = [
-        "biostars-multiprocessing",
-        "bioinfo-automine",
-        "nemo-audio-processing",
-        "rainbowcake-python-video-processing",
-        "kaggle-captk-brats-preprocessing",
+        "BioAlign",
+        "ProteinInt",
+        "AudioProc",
+        "VideoProc",
+        "MRIanalysis",
     ]
 
     # Use the predefined order
-    benchmark_dirs = benchmark_order
+    benchmark_names = benchmark_order
 
     # Collect data for each benchmark
     rows = []
-    for idx, benchmark_name in enumerate(benchmark_dirs, start=1):
-        # Get readable name
-        readable_name = BENCHMARK_NAMES[benchmark_name]
+    for idx, benchmark_name in enumerate(benchmark_names, start=1):
+        # benchmark_name is already the readable name (from processed.json)
+        # Get directory name for file operations
+        dir_name = BENCHMARK_DIR_NAMES[benchmark_name]
         citation = rf"\cite{{{BENCHMARK_CITATIONS[benchmark_name]}}}"
 
-        script_path = benchmarks_dir / benchmark_name / "subprocess_.py"
+        script_path = benchmarks_dir / dir_name / "subprocess_.py"
         loc = get_loc(script_path)
 
-        # Get dataset size
-        dataset_path = data_dir / benchmark_name
+        dataset_path = data_dir / dir_name
         size_bytes = get_directory_size(dataset_path)
         size_formatted = format_size(size_bytes)
 
-        # Get performance data if available
         perf = perf_data.get(benchmark_name, {})
         baseline_time = perf.get("baseline", 0)
         spec_time = perf.get("speculative", 0)
@@ -145,7 +146,7 @@ def generate_table(processed_json_path: Path | None = None) -> None:
 
         rows.append({
             "num": idx,
-            "name": readable_name,
+            "name": benchmark_name,
             "loc": loc,
             "input": size_formatted,
             "baseline_time": format_time(baseline_time) if baseline_time else "-",

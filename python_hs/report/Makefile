@@ -2,7 +2,7 @@ SRC_DIR := ../python_hs
 SRC_FILES := $(wildcard $(SRC_DIR)/*)
 
 BENCHMARKS := nemo-audio-processing rainbowcake-python-video-processing bioinfo-automine biostars-multiprocessing kaggle-captk-brats-preprocessing
-MULTI_BENCHMARKS := nemo-audio-processing biostars-multiprocessing kaggle-captk-brats-preprocessing
+MULTI_BENCHMARKS := nemo-audio-processing biostars-multiprocessing
 BAD_BENCHMARKS := biostars-multiprocessing
 
 results = $(foreach t,$(2),results/$(t)-$(1).json)

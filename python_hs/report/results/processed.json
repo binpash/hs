@@ -7,14 +7,14 @@
   "sub_speedup_key": "spec_speedup_compared_with_sub",
   "min_sub_speedup": 1.7542865349274648,
   "max_sub_speedup": 8.402188222381518,
-  "multi_geomean_speedup": 1.1859953852614904,
+  "multi_geomean_speedup": 0.44573008599571634,
   "min_spec_time_multi": 66.01214340520669,
   "max_spec_time_multi": 6539.583690164821,
   "min_multi_time": 19.545615502033332,
-  "max_multi_time": 9860.258230414334,
+  "max_multi_time": 4388.018841555861,
   "multi_speedup_key": "spec_slowdown_compared_with_multi",
   "min_multi_speedup": 0.29609121131024624,
-  "max_multi_speedup": 8.396631602273173,
+  "max_multi_speedup": 0.6709936059317053,
   "data": [
     {
       "benchmark": "rainbowcake-python-video-processing",
@@ -61,8 +61,6 @@
       "names_match": true,
       "contents_match": true,
       "spec_speedup_compared_with_sub": 8.402188222381518,
-      "multi_mean": 9860.258230414334,
-      "spec_slowdown_compared_with_multi": 8.396631602273173
     }
   ]
 }

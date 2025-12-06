@@ -14,7 +14,9 @@ ALL_JSON_RESULTS := \
   $(call results,biostars-multiprocessing,multi spec sub bad_spec) \
   $(call results,kaggle-captk-brats-preprocessing,multi spec sub)
 
-.PHONY: all clean clean_data download-tools download-data download-all
+$(foreach b,$(BENCHMARKS),$(eval $(b): $(filter %-$(b).json,$(ALL_JSON_RESULTS))))
+
+.PHONY: all clean clean_data download-tools download-data download-all $(BENCHMARKS)
 
 all: plots/runtimes_plot.png
 

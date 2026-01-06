@@ -1,5 +1,6 @@
 scripts/vars.sh
 *__pycache__*
+*egg-info*
 .DS_Store
 *~
 \#*\#
@@ -9,3 +10,4 @@ report/output/
 test/output_bash/
 test/output_orch/
 test/results/
+build/

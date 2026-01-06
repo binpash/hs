@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec "$(dirname -- "${BASH_SOURCE[0]}")"/../pash-spec.sh --python "$@"

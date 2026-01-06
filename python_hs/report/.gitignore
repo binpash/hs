@@ -1,0 +1,10 @@
+data/
+# *results/
+bioinfo-automine/reference
+bioinfo-automine/results
+output/
+plots/
+tools/*.jar
+tools/captk
+tools/adapters
+tools/.downloaded

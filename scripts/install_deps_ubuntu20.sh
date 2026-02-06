@@ -5,7 +5,7 @@ sudo apt-get update
 sudo apt install -y make git python3-cram file graphviz libtool python3-matplotlib libcap2-bin mergerfs strace
 
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
-export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash}
+export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash/src/pash}
 
 ## Download submodule dependencies
 git submodule update --init --recursive
@@ -15,3 +15,6 @@ git submodule update --init --recursive
 
 ## Install PaSh
 (cd deps/pash; ./scripts/distro-deps.sh; ./scripts/setup-pash.sh)
+
+## Build fd_util for speculative execution
+(cd parallel-orch; make)

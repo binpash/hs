@@ -15,7 +15,7 @@ LOWER_DIRS=${11?No lower dirs}
 
 ## KK 2023-04-24: Not sure this should be run every time we run a command
 ## GL 2023-07-08: Tests seem to pass without it
-source "$PASH_TOP/compiler/orchestrator_runtime/speculative/pash_spec_init_setup.sh"
+source "$PASH_TOP/jit_runtime/speculative/pash_spec_init_setup.sh"
 
 if [ "standard" == "$EXEC_MODE" ]; then
     echo $$ > /sys/fs/cgroup/frontier/cgroup.procs

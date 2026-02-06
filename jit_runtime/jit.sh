@@ -17,7 +17,7 @@ pash_redir_output echo "$$: (1) Pre-ec, pre-set, jit-set: ($pash_previous_exit_s
 ## (2) Speculative execution - ask scheduler
 ##
 export pash_speculative_command_id=$pash_spec_command_id
-source "$RUNTIME_DIR/speculative_runtime.sh"
+source "$RUNTIME_DIR/speculative/speculative_runtime.sh"
 
 ## Exit with the result
 (exit "$pash_runtime_final_status")

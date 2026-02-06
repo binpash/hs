@@ -18,7 +18,7 @@ LOWER_DIRS=${11?No lower dirs}
 source "$PASH_SPEC_TOP/jit_runtime/pash_spec_init_setup.sh"
 
 if [ "standard" == "$EXEC_MODE" ]; then
-    echo $$ > /sys/fs/cgroup/frontier/cgroup.procs
+    [ -w /sys/fs/cgroup/frontier/cgroup.procs ] && echo $$ > /sys/fs/cgroup/frontier/cgroup.procs
 elif [ "speculate" == "$EXEC_MODE" ]; then
     renice 20 -p $$ >/dev/null
 fi

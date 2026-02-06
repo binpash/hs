@@ -16,13 +16,4 @@ filter_vars_file()
     # | grep -v "LS_COLORS"
 }
 
-## TODO: Error handling if the argument is empty?
-if [ "$PASH_DEBUG_LEVEL" -eq 0 ]; then
-    > /dev/null 2>&1 source <(filter_vars_file "$1")
-else
-    if [ "$PASH_REDIR" == '&2' ]; then
-        >&2 source <(filter_vars_file "$1")
-    else
-        >>"$PASH_REDIR" 2>&1 source <(filter_vars_file "$1")
-    fi
-fi
+filter_vars_file "$1"

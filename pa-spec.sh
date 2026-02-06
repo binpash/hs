@@ -278,11 +278,14 @@ pash_setup_communication() {
 ###############################################################################
 
 get_pash_python() {
-    # Check for PaSh venv
-    local venv_python="${PASH_TOP}/../../python_pkgs/bin/python"
-    if [ -x "$venv_python" ]; then
-        echo "$venv_python"
+    # Check for PaSh venv - use explicit path from PASH_SPEC_TOP
+    local venv_dir="$PASH_SPEC_TOP/deps/pash/python_pkgs/bin"
+    if [ -x "$venv_dir/python" ]; then
+        echo "$venv_dir/python"
+    elif [ -x "$venv_dir/python3" ]; then
+        echo "$venv_dir/python3"
     else
+        # Fallback to system python
         echo "python3"
     fi
 }

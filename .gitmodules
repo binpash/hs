@@ -1,7 +1,7 @@
 [submodule "deps/pash"]
 	path = deps/pash
 	url = https://github.com/binpash/pash.git
-	branch = hs-spec-fixes
+	branch = hs-fixes
 [submodule "deps/try"]
 	path = deps/try
 	url = https://github.com/binpash/try.git

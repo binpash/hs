@@ -38,19 +38,33 @@ if [ -z "$PASH_PYTHON" ]; then
     exit 1
 fi
 
+# Use absolute path for venv
+PASH_VENV="$PASH_SPEC_TOP/deps/pash/python_pkgs"
+
 # Create venv with the correct Python version before running PaSh setup
-if [ ! -d "deps/pash/python_pkgs" ]; then
-    echo "Creating virtual environment with $PASH_PYTHON..."
-    "$PASH_PYTHON" -m venv deps/pash/python_pkgs
+if [ ! -d "$PASH_VENV" ]; then
+    echo "Creating virtual environment with $PASH_PYTHON at $PASH_VENV..."
+    "$PASH_PYTHON" -m venv "$PASH_VENV"
+    if [ ! -f "$PASH_VENV/bin/pip" ]; then
+        echo "Error: Failed to create virtual environment. pip not found at $PASH_VENV/bin/pip"
+        exit 1
+    fi
 fi
 
-# Now run PaSh setup (it will detect existing venv and use it)
-(cd deps/pash; ./scripts/setup-pash.sh)
+# Upgrade pip and install PaSh dependencies manually (skip setup-pash.sh venv creation)
+echo "Upgrading pip..."
+"$PASH_VENV/bin/pip" install --upgrade pip
+
+echo "Installing PaSh and dependencies..."
+"$PASH_VENV/bin/pip" install -e "$PASH_SPEC_TOP/deps/pash"
 
 ## Install psutil for parallel-orch scheduler
-source deps/pash/python_pkgs/bin/activate
-pip install psutil
-deactivate
+echo "Installing psutil..."
+"$PASH_VENV/bin/pip" install psutil
+
+# Generate input files for tests (from setup-pash.sh)
+echo "Generating input files..."
+"$PASH_SPEC_TOP/deps/pash/evaluation/tests/input/setup.sh"
 
 ## Build fd_util for speculative execution
 (cd parallel-orch; make)

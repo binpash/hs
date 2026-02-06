@@ -8,10 +8,6 @@
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(realpath $(dirname $0))}
 export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash/src/pash}
 
-## Set runtime directories for NEW PaSh structure
-export RUNTIME_DIR="$PASH_TOP/jit_runtime"
-export RUNTIME_LIBRARY_DIR="$PASH_SPEC_TOP/parallel-orch"
-
 if [ -w /sys/fs/cgroup/ ]; then
     mkdir -p /sys/fs/cgroup/frontier
     total_mem=$(free | awk '/Mem:/ { print $2 }')
@@ -37,9 +33,8 @@ fi
 ## Initialize the scheduler-server
 export PASH_SPEC_SCHEDULER_SOCKET="${PASH_SPEC_TMP_PREFIX}/scheduler_socket"
 
-## TODO: Replace this with a call to pa.sh (which will start the scheduler on its own).
-# python3 "$PASH_SPEC_TOP/parallel-orch/orch.py" "$@"
-"$PASH_TOP/pa.sh" --speculative "$@"
+## Call the simplified pa-spec.sh entry point
+"$PASH_SPEC_TOP/pa-spec.sh" "$@"
 EXITCODE=$?
 
 if [ -w /sys/fs/cgroup/ ]; then

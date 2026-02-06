@@ -13,16 +13,8 @@ git submodule update --init --recursive
 # Install try
 (cd deps/try; ./setup.sh)
 
-## Install PaSh
+## Install PaSh (only needed for preprocessor and Python libraries)
 (cd deps/pash; ./scripts/distro-deps.sh; ./scripts/setup-pash.sh)
-
-## Fix pash_spec_init_setup.sh (remove broken source line for pash_orch_lib.sh)
-## The functions are now exported from pa.sh
-SPEC_INIT_FILE="$PASH_TOP/jit_runtime/speculative/pash_spec_init_setup.sh"
-if grep -q "pash_orch_lib.sh" "$SPEC_INIT_FILE"; then
-    sed -i '/source.*pash_orch_lib.sh/d' "$SPEC_INIT_FILE"
-    echo "Fixed pash_spec_init_setup.sh (removed broken source line)"
-fi
 
 ## Install psutil for parallel-orch scheduler
 source deps/pash/python_pkgs/bin/activate

@@ -29,5 +29,14 @@ IFS=$' \t\n'
 export pash_speculative_command_id=$pash_spec_command_id
 source "$RUNTIME_DIR/speculative/speculative_runtime.sh"
 
+##
+## Restore IFS before returning to caller (matching fae47999 pattern)
+##
+if [ -z "${PASH_OLD_IFS+x}" ]; then
+    unset IFS
+else
+    IFS="$PASH_OLD_IFS"
+fi
+
 ## Exit with the result
 (exit "$pash_runtime_final_status")

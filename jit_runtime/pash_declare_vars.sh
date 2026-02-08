@@ -6,6 +6,8 @@ vars_file="${1?File not given}"
 
 echo "cd \"${PWD}\"" > "$vars_file"
 declare -p >> "$vars_file"
+# Explicitly save IFS since it's a special variable that may not be captured by declare -p
+printf 'IFS=%q\n' "$IFS" >> "$vars_file"
 declare -f >> "$vars_file"
 trap >> "$vars_file"
 echo "BASH_ARGV0=\"$0\"" >> "$vars_file"

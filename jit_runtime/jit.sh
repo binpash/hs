@@ -20,7 +20,7 @@ pash_redir_output echo "$$: [JIT] Before save - IFS=$(declare -p IFS 2>&1 || ech
 if [ -z "${IFS+x}" ]; then
     unset PASH_OLD_IFS
 else
-    PASH_OLD_IFS="$IFS"
+    export PASH_OLD_IFS="$IFS"
 fi
 pash_redir_output echo "$$: [JIT] Saved PASH_OLD_IFS=$(declare -p PASH_OLD_IFS 2>&1 || echo 'unset')"
 IFS=$' \t\n'

@@ -33,15 +33,10 @@ export pash_speculative_command_id=$pash_spec_command_id
 source "$RUNTIME_DIR/speculative/speculative_runtime.sh"
 
 ##
-## Restore IFS before returning to caller (matching fae47999 pattern)
+## IFS is NOT restored here - it's handled by sourcing output_variable_file in speculative_runtime.sh
+## This matches the fae47999 implementation pattern
 ##
-pash_redir_output echo "$$: [JIT] Before restore - IFS=$(declare -p IFS 2>&1 || echo 'unset'), PASH_OLD_IFS=$(declare -p PASH_OLD_IFS 2>&1 || echo 'unset')"
-if [ -z "${PASH_OLD_IFS+x}" ]; then
-    unset IFS
-else
-    IFS="$PASH_OLD_IFS"
-fi
-pash_redir_output echo "$$: [JIT] After restore - IFS=$(declare -p IFS 2>&1 || echo 'unset')"
+pash_redir_output echo "$$: [JIT] End of speculative execution - IFS=$(declare -p IFS 2>&1 || echo 'unset'), PASH_OLD_IFS=$(declare -p PASH_OLD_IFS 2>&1 || echo 'unset')"
 
 pash_redir_output echo "$$: [JIT] End of jit.sh (returning to caller) - IFS=$(declare -p IFS 2>&1 || echo 'unset')"
 

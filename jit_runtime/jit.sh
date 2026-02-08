@@ -14,6 +14,16 @@ source "$RUNTIME_DIR/pash_set_from_to.sh" "$pash_previous_set_status" "${DEFAULT
 pash_redir_output echo "$$: (1) Pre-ec, pre-set, jit-set: ($pash_previous_exit_status, $pash_previous_set_status, $-)"
 
 ##
+## Save IFS for proper restoration in speculative_runtime.sh (matching fae47999 pattern)
+##
+if [ -z "${IFS+x}" ]; then
+    unset PASH_OLD_IFS
+else
+    PASH_OLD_IFS="$IFS"
+fi
+IFS=$' \t\n'
+
+##
 ## (2) Speculative execution - ask scheduler
 ##
 export pash_speculative_command_id=$pash_spec_command_id

@@ -48,7 +48,6 @@ jobs:
           sudo apt install -y make git python3-cram file graphviz libtool python3-matplotlib libcap2-bin mergerfs strace python3-venv python3-pip
           export PASH_SPEC_TOP=$(pwd)
           git submodule update --init --recursive deps/try
-          (cd deps/try; ./setup.sh)
           python3.12 -m venv python_pkgs
           python_pkgs/bin/pip install --upgrade pip
           python_pkgs/bin/pip install -r requirements.txt

@@ -1,0 +1,47 @@
+#!/bin/bash
+
+set -eu
+
+# Setup script with inlined data file for benchmark
+
+#Author: Hamid D. Ismail, Ph.D.
+#Book title: Bioinformatics of Autoimmune Diseases
+# TODO: Filter this to only the ones we end up using for the script.
+sra_ids=(
+    SRR26147696
+    SRR26147697
+    SRR26147702
+    SRR26147714
+    SRR26147715
+    SRR26147716
+)
+# to top directory of this script
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")" || exit
+# to the report directory
+cd ../../ || exit
+
+data_dir="$(readlink -f "data/bioinfo-automine")"
+
+mkdir -p "$data_dir"
+cd "$data_dir" || exit
+
+
+# Set number of threads
+threads=8
+# Download paired-end FASTQ files using fasterq-dump
+for sra_id in "${sra_ids[@]}"; do
+    if [[ -e "${sra_id}_1.downsampled.fastq.gz" ]]; then
+        echo "Skipping done id $sra_id"
+        continue
+    fi
+    echo "Downloading $sra_id with $threads threads..."
+    prefetch "$sra_id"
+    fasterq-dump --split-files --threads "$threads" --verbose "$sra_id"
+    seqtk sample -s100 "${sra_id}_1.fastq" 0.15 > "${sra_id}_1.downsampled.fastq"
+    seqtk sample -s100 "${sra_id}_2.fastq" 0.15 > "${sra_id}_2.downsampled.fastq"
+    gzip "${sra_id}_1.downsampled.fastq" "${sra_id}_2.downsampled.fastq"
+    rm "${sra_id}_1.fastq" "${sra_id}_2.fastq"
+done
+
+echo "Download completed."
+touch "$data_dir/.downloaded"

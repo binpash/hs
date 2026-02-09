@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+set -eu
+shopt -s nullglob
+
+COMPETITION="rsna-miccai-brain-tumor-radiogenomic-classification"
+
+# to top directory of this script
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")" || exit
+# to the report directory
+cd ../../ || exit
+
+data_dir="$(readlink -f "data/kaggle-captk-brats-preprocessing")"
+
+mkdir -p "$data_dir"
+cd "$data_dir" || exit
+
+kaggle competitions download -c "$COMPETITION"
+unzip -q '*.zip'
+
+USED_IDS=("00000" "00002" "00003" "00005" "00006" "00008" "00009" "00011" "00012" "00014" "00017" "00018" "00019" "00020" "00021" "00022" "00024" "00025" "00026" "00028" "00030" "00031" "00032" "00033" "00035" "00036" "00043" "00044" "00045" "00046" "00048" "00049" "00052" "00053" "00054" "00056" "00058" "00059" "00060" "00061" "00062" "00063" "00064" "00066" "00068" "00070" "00071" "00072" "00074" "00077" "00078" "00081" "00084" "00085" "00087" "00088" "00089" "00090" "00094" "00095" "00096" "00097" "00098" "00099" "00100" "00102" "00104" "00105" "00106" "00107" "00108" "00109" "00110" "00111" "00112" "00113" "00116" "00117" "00120" "00121" "00122" "00123" "00124" "00128" "00130" "00132" "00133" "00134" "00136" "00137" "00138" "00139" "00140" "00142" "00143" "00144" "00146" "00147" "00148" "00149")
+USED_MODALITIES=("T1wCE" "T1w" "T2w" "FLAIR")
+
+# Delete unused patient directories
+for patient_dir in train/*/; do
+    patient_id="${patient_dir#train/}"
+    patient_id="${patient_id%/}"
+    if [[ " ${USED_IDS[*]} " != *" $patient_id "* ]]; then
+        rm -rf "$patient_dir"
+    fi
+done
+
+# For each used patient, clean up modalities and files
+for patient_id in "${USED_IDS[@]}"; do
+    patient_dir="train/$patient_id"
+    [[ ! -d "$patient_dir" ]] && continue
+
+    # Delete unused modalities
+    for modality_dir in "$patient_dir"/*/; do
+        modality="${modality_dir#"$patient_dir"/}"
+        modality="${modality%/}"
+        [[ " ${USED_MODALITIES[*]} " != *" $modality "* ]] && rm -rf "$modality_dir"
+    done
+
+    # Note: We keep ALL DICOM files within each modality directory because
+    # MRI volumes are stored as multiple 2D slices that BraTSPipeline needs
+    # to reconstruct the complete 3D brain volume for atlas registration
+done
+
+# Delete non-train directories and zip files
+for dir in */; do
+    if [[ "$dir" != "train/" ]]; then
+        rm -rf "$dir"
+    fi
+done
+rm -f ./*.zip
+
+touch .downloaded

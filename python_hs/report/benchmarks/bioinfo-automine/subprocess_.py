@@ -1,0 +1,150 @@
+"""
+The following script has been modified to work with python hs.
+
+Author: Hamid D. Ismail, Ph.D.
+Book: Bioinformatics of Autoimmune Diseases
+
+This Python script implements a ChIP-Seq data analysis pipeline for identifying DNA-protein interaction sites.
+It automates key steps including downloading and indexing the reference genome, trimming raw reads, aligning
+paired-end sequences using BWA, converting and sorting SAM/BAM files with SAMtools, and calling peaks with MACS3.
+The script is designed to process multiple samples based on metadata provided in a CSV file.
+
+Required Python Packages:
+- os
+- subprocess
+- pandas
+- glob
+
+External Tools Required:
+- wget
+- gunzip
+- BWA
+- SAMtools
+- Trimmomatic
+- MACS3
+
+Input Files:
+- Metadata CSV file: `meta/metadata.csv` (must include `runID` and `condition` columns)
+- Paired-end FASTQ files: stored in `data/raw/`, named as `{runID}_1.fastq.gz` and `{runID}_2.fastq.gz`
+- Reference genome: downloaded from UCSC (hg38.fa.gz) and indexed for BWA alignment
+
+Output Files:
+- Trimmed FASTQ files: `results/trimmed/{runID}_1.trimmed.fastq.gz`, `{runID}_2.trimmed.fastq.gz`
+- Aligned BAM files: `results/aligned/{runID}.bam`
+- Peak files: `results/peaks/{runID}_peaks.narrowPeak`
+- BWA reference index: generated in the `reference/` directory
+
+Note:
+This pipeline is tailored for ChIP-Seq experiments and assumes paired-end sequencing data.
+MACS3 is configured for broad and sharp peak detection using BAMPE mode with optional control-based adjustments.
+Ensure all external tools are installed and accessible in the system environment.
+"""
+
+import os
+import subprocess
+
+# runs in python_hs/report
+
+data_dir = "data/bioinfo-automine"
+out_dir = "output/bioinfo-automine/results"
+reference_dir = "output/bioinfo-automine/reference"
+genome_fasta = os.path.join(reference_dir, "hg38.fa")
+bwa_index_prefix = os.path.join(reference_dir, "hg38")
+
+metadata = [
+    {"runID": "SRR26147696", "condition": "control"},
+    {"runID": "SRR26147697", "condition": "control"},
+    {"runID": "SRR26147702", "condition": "control"},
+    {"runID": "SRR26147714", "condition": "treated"},
+    {"runID": "SRR26147715", "condition": "treated"},
+    {"runID": "SRR26147716", "condition": "treated"},
+]
+
+subprocess.run(["mkdir", "-p", out_dir], check=True)
+subprocess.run(["mkdir", "-p", reference_dir], check=True)
+
+# Create output subdirectories upfront
+for subdir in ["trimmed", "aligned", "peaks"]:
+    subprocess.run(["mkdir", "-p", os.path.join(out_dir, subdir)], check=True)
+
+print("Downloading and indexing reference genome for BWA...")
+url = "http://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz"
+compressed_fasta = genome_fasta + ".gz"
+subprocess.run(["wget", "-nv", "-O", compressed_fasta, url], check=True)
+subprocess.run(["gunzip", compressed_fasta], check=True)
+subprocess.run(["bwa", "index", "-p", bwa_index_prefix, genome_fasta], check=True)
+
+# Process each sample
+for row in metadata:
+    run_id = row["runID"]
+    condition = row["condition"]
+
+    print(f"Processing {run_id} ({condition})...")
+
+    # Find FASTQ pairs
+    r1 = os.path.join(data_dir, f"{run_id}_1.downsampled.fastq.gz")
+    r2 = os.path.join(data_dir, f"{run_id}_2.downsampled.fastq.gz")
+
+    # Trim reads
+    trimmed_dir = os.path.join(out_dir, "trimmed")
+    trimmed_r1 = os.path.join(trimmed_dir, f"{run_id}_1.trimmed.fastq.gz")
+    trimmed_r2 = os.path.join(trimmed_dir, f"{run_id}_2.trimmed.fastq.gz")
+    cmd = [
+        "trimmomatic",
+        "PE",
+        "-phred33",
+        r1,
+        r2,
+        trimmed_r1,
+        "/dev/null",
+        trimmed_r2,
+        "/dev/null",
+        "SLIDINGWINDOW:4:20",
+        "MINLEN:36",
+    ]
+    subprocess.run(cmd, check=True)
+
+    # Align reads
+    aligned_dir = os.path.join(out_dir, "aligned")
+    sam_output = os.path.join(aligned_dir, f"{run_id}.sam")
+    bam_output = os.path.join(aligned_dir, f"{run_id}.bam")
+    cmd_align = ["bwa", "mem", bwa_index_prefix, trimmed_r1, trimmed_r2]
+    with open(sam_output, "w") as samfile:
+        subprocess.run(cmd_align, stdout=samfile, check=True)
+    cmd_view = ["samtools", "view", "-bS", sam_output]
+    cmd_sort = ["samtools", "sort", "-o", bam_output, "-"]
+    p1 = subprocess.Popen(cmd_view, stdout=subprocess.PIPE)
+    subprocess.run(cmd_sort, stdin=p1.stdout)
+    subprocess.run(["rm", sam_output], check=True)
+    bam_file = bam_output
+
+    # Call peaks
+    peaks_dir = os.path.join(out_dir, "peaks")
+    peak_output = os.path.join(peaks_dir, f"{run_id}_peaks.narrowPeak")
+    cmd = [
+        "macs3",
+        "callpeak",
+        "-t",
+        bam_file,
+        "-n",
+        run_id,
+        "--outdir",
+        peaks_dir,
+        "-f",
+        "BAMPE",
+        "-g",
+        "hs",
+        "--keep-dup",
+        "all",
+        "-q",
+        "0.01",
+        "--nomodel",
+        "--seed",
+        "42",
+    ]
+    if condition == "control":
+        cmd = cmd + ["--nolambda"]
+    subprocess.run(cmd, check=True)
+    peak_file = peak_output
+
+    print(f"Finished {run_id}, peaks at: {peak_file}")

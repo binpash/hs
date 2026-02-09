@@ -14,9 +14,10 @@ import logging
 import socket
 from datetime import datetime
 
-from shell_ast import transformation_options, ast_to_ast
+import transformation
+import ast_transform
+import spec_util
 from parse import parse_shell_to_asts, from_ast_objects_to_shell
-from speculative import util_spec
 from util import log, logging_prefix, print_time_delta
 
 
@@ -24,7 +25,7 @@ LOGGING_PREFIX = "PaSh Preprocessor: "
 
 ## Increase the recursion limit (it seems that the parser/unparser needs it for bigger scripts)
 sys.setrecursionlimit(10000)
-## Note: The preprocessor is very slow for very large recursive scripts
+
 
 def config_from_args(pash_args):
     """Configure logging based on command-line arguments."""
@@ -78,14 +79,6 @@ class Parser(argparse.ArgumentParser):
             help="(experimental) interpret the input as a bash script file",
             action="store_true",
         )
-        self.add_argument(
-            "--speculative",
-            help="(experimental) use the speculative execution preprocessing and runtime",
-            action="store_true",
-            default=False,
-        )
-
-        self.set_defaults(preprocess_mode="pash")
 
 
 @logging_prefix(LOGGING_PREFIX)
@@ -116,13 +109,6 @@ def preprocess(input_script_path, args):
     1. Parses the shell script to ASTs
     2. Preprocesses ASTs by replacing candidate dataflow regions
     3. Unparses the ASTs back to shell syntax
-
-    Args:
-        input_script_path: Path to the input shell script
-        args: Parsed command-line arguments
-
-    Returns:
-        The preprocessed shell script as a string
     """
     # 1. Parse shell to AST
     preprocessing_parsing_start_time = datetime.now()
@@ -158,41 +144,24 @@ def preprocess(input_script_path, args):
 
 
 def preprocess_asts(ast_objects, args):
-    """
-    Preprocess AST objects based on the transformation mode.
-
-    Args:
-        ast_objects: List of parsed AST objects
-        args: Parsed command-line arguments
-
-    Returns:
-        List of preprocessed AST objects
-    """
-    trans_mode = transformation_options.TransformationType(args.preprocess_mode)
-
-    if trans_mode is transformation_options.TransformationType.SPECULATIVE:
-        trans_options = transformation_options.SpeculativeTransformationState(
-            po_file=args.partial_order_file
-        )
-        util_spec.initialize(trans_options)
-    elif trans_mode is transformation_options.TransformationType.AIRFLOW:
-        trans_options = transformation_options.AirflowTransformationState()
-    else:
-        trans_options = transformation_options.TransformationState()
+    """Preprocess AST objects using speculative transformation."""
+    trans_options = transformation.TransformationState(
+        po_file=args.partial_order_file
+    )
+    spec_util.initialize(trans_options)
 
     # Preprocess ASTs by replacing regions with calls to PaSh runtime
-    preprocessed_asts = ast_to_ast.replace_ast_regions(ast_objects, trans_options)
+    preprocessed_asts = ast_transform.replace_ast_regions(ast_objects, trans_options)
 
-    # For speculative mode, finalize the partial order file
-    if trans_mode is transformation_options.TransformationType.SPECULATIVE:
-        util_spec.serialize_partial_order(trans_options)
+    # Finalize the partial order file
+    spec_util.serialize_partial_order(trans_options)
 
-        # Inform the scheduler that the partial order file is ready
-        unix_socket_file = os.getenv("PASH_SPEC_SCHEDULER_SOCKET")
-        msg = util_spec.scheduler_server_init_po_msg(
-            trans_options.get_partial_order_file()
-        )
-        _unix_socket_send_and_forget(unix_socket_file, msg)
+    # Inform the scheduler that the partial order file is ready
+    unix_socket_file = os.getenv("PASH_SPEC_SCHEDULER_SOCKET")
+    msg = spec_util.scheduler_server_init_po_msg(
+        trans_options.get_partial_order_file()
+    )
+    _unix_socket_send_and_forget(unix_socket_file, msg)
 
     return preprocessed_asts
 
@@ -220,12 +189,9 @@ def parse_args():
     args = parser.parse_args()
     config_from_args(args)
 
-    # Configure speculative mode if enabled
-    if args.speculative:
-        log("PaSh is running in speculative mode...")
-        args.__dict__["preprocess_mode"] = "spec"
-        args.__dict__["partial_order_file"] = util_spec.partial_order_file_path()
-        log(" -- Its partial order file will be stored in:", args.partial_order_file)
+    # Set up partial order file path
+    args.__dict__["partial_order_file"] = spec_util.partial_order_file_path()
+    log("Partial order file:", args.partial_order_file)
 
     # Log all arguments
     log("Arguments:")

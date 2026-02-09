@@ -2,9 +2,8 @@
 AST utility functions for the PaSh preprocessor.
 """
 
-from env_var_names import loop_iters_var, loop_iter_var
+from util import loop_iters_var, loop_iter_var, make_kv, unzip
 from shasta.ast_node import AstNode, ArgChar, CArgChar
-from util import make_kv, unzip
 
 
 class PreprocessedAST:

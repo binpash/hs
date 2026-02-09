@@ -1,41 +1,29 @@
 """
-Transformation options and state classes for AST preprocessing.
+Transformation state for AST preprocessing.
+
+This module provides the transformation state used during preprocessing
+to track dataflow regions, loop contexts, and the control flow graph
+for the speculative scheduler.
 """
 
-from abc import ABC, abstractmethod
 from enum import Enum, auto
 import os
-import pickle
 
 from shasta.ast_node import AstNode
 from shasta.json_to_ast import to_ast_node
 
-from shell_ast.ast_util import string_to_argument, make_command
+from ast_util import string_to_argument, make_command
 from parse import from_ast_objects_to_shell
-from speculative import util_spec
+import spec_util
 from util import ptempfile
 
 
-# Runtime executable paths
-PASH_TOP = os.environ.get("PASH_TOP", "")
-PASH_SPEC_TOP = os.environ.get("PASH_SPEC_TOP", PASH_TOP)
-
-# Normal PaSh runtime (legacy - same as PASH_SPEC_TOP)
-RUNTIME_EXECUTABLE = os.path.join(PASH_TOP, "jit_runtime/jit.sh")
-
-# Speculative runtime (hs/jit_runtime)
-RUNTIME_EXECUTABLE_SPEC = os.path.join(PASH_SPEC_TOP, "jit_runtime/jit.sh")
+RUNTIME_EXECUTABLE = os.path.join(
+    os.environ.get("PASH_SPEC_TOP", ""), "jit_runtime/jit.sh"
+)
 
 
-class TransformationType(Enum):
-    """Types of AST-to-AST transformations."""
-
-    PASH = "pash"
-    SPECULATIVE = "spec"
-    AIRFLOW = "airflow"
-
-
-# === CFG classes for basic block tracking (ported from spec_future fae47999) ===
+# === CFG classes for basic block tracking ===
 
 
 class EdgeReason(Enum):
@@ -140,16 +128,18 @@ class ShellProg:
         assert False, "break outside loop"
 
 
-class AbstractTransformationState(ABC):
-    """Base class for transformation state."""
+class TransformationState:
+    """Transformation state for speculative execution preprocessing."""
 
-    def __init__(self):
+    def __init__(self, po_file: str):
         self._node_counter = 0
         self._loop_counter = 0
         self._loop_contexts = []
-
-    def get_mode(self):
-        return TransformationType.PASH
+        self.partial_order_file = po_file
+        self.partial_order_edges = []
+        self.partial_order_node_loop_contexts = {}
+        self.prog = ShellProg()
+        self.var_assignment_nodes = set()
 
     # Node id related
     def get_next_id(self):
@@ -170,7 +160,6 @@ class AbstractTransformationState(ABC):
         return new_id
 
     def get_current_loop_context(self):
-        # Return a copy
         return self._loop_contexts[:]
 
     def get_current_loop_id(self):
@@ -182,120 +171,43 @@ class AbstractTransformationState(ABC):
     def enter_loop(self, it_name=None):
         new_loop_id = self.get_next_loop_id()
         self._loop_contexts.insert(0, new_loop_id)
+        self.prog.enter_for(it_name or "")
         return new_loop_id
 
     def exit_loop(self):
+        self.prog.leave_for()
         self._loop_contexts.pop(0)
 
     def enter_if(self):
-        pass
+        self.prog.enter_if()
 
     def enter_else(self):
-        pass
+        self.prog.enter_else()
 
     def exit_if(self):
-        pass
-
-    @abstractmethod
-    def replace_df_region(
-        self, asts, disable_parallel_pipelines=False, ast_text=None
-    ) -> AstNode:
-        pass
-
-
-class TransformationState(AbstractTransformationState):
-    """Standard PaSh transformation state."""
-
-    def replace_df_region(
-        self, asts, disable_parallel_pipelines=False, ast_text=None
-    ) -> AstNode:
-        ir_filename = ptempfile()
-
-        # Serialize the node in a file
-        with open(ir_filename, "wb") as ir_file:
-            pickle.dump(asts, ir_file)
-
-        # Serialize the candidate df_region asts back to shell
-        # so that the sequential script can be run in parallel to the compilation.
-        sequential_script_file_name = ptempfile()
-        text_to_output = get_shell_from_ast(asts, ast_text=ast_text)
-        with open(sequential_script_file_name, "w", encoding="utf-8") as script_file:
-            script_file.write(text_to_output)
-        replaced_node = TransformationState.make_call_to_pash_runtime(
-            ir_filename, sequential_script_file_name, disable_parallel_pipelines
-        )
-
-        return to_ast_node(replaced_node)
-
-    @staticmethod
-    def make_call_to_pash_runtime(
-        ir_filename, sequential_script_file_name, disable_parallel_pipelines
-    ) -> AstNode:
-        """
-        Make a command that calls the pash runtime with the IR file.
-        """
-        if disable_parallel_pipelines:
-            assignments = [["pash_disable_parallel_pipelines", string_to_argument("1")]]
-        else:
-            assignments = [["pash_disable_parallel_pipelines", string_to_argument("0")]]
-        assignments.append(
-            [
-                "pash_sequential_script_file",
-                string_to_argument(sequential_script_file_name),
-            ]
-        )
-        assignments.append(["pash_input_ir_file", string_to_argument(ir_filename)])
-
-        # Call the runtime
-        arguments = [
-            string_to_argument("source"),
-            string_to_argument(RUNTIME_EXECUTABLE),
-        ]
-        runtime_node = make_command(arguments, assignments=assignments)
-        return runtime_node
-
-
-class SpeculativeTransformationState(AbstractTransformationState):
-    """Speculative execution transformation state."""
-
-    def __init__(self, po_file: str):
-        super().__init__()
-        self.partial_order_file = po_file
-        self.partial_order_edges = []
-        self.partial_order_node_loop_contexts = {}
-        self.prog = ShellProg()
-        self.var_assignment_nodes = set()  # Track which nodes are variable assignments
-
-    def get_mode(self):
-        return TransformationType.SPECULATIVE
+        self.prog.leave_if()
 
     def replace_df_region(
         self, asts, disable_parallel_pipelines=False, ast_text=None
     ) -> AstNode:
         text_to_output = get_shell_from_ast(asts, ast_text=ast_text)
-        # Generate an ID
         df_region_id = self.get_next_id()
 
-        # Get the current loop id and save it so that the runtime knows
-        # which loop it is in.
         loop_id = self.get_current_loop_id()
 
         # Detect variable assignments (IFS modifications) for scheduler marking
-        # These should be executed via UNSAFE path, not speculatively
         text_stripped = text_to_output.strip()
         if text_stripped.startswith('IFS=') or text_stripped.startswith('unset IFS'):
             self.mark_node_as_var_assignment(df_region_id)
 
-        # Determine its predecessors
+        # Determine predecessors
         if df_region_id == 0:
             predecessors = []
         else:
             predecessors = [df_region_id - 1]
-        # Write to a file indexed by its ID
-        util_spec.save_df_region(text_to_output, self, df_region_id, predecessors)
-        replaced_node = SpeculativeTransformationState.make_call_to_spec_runtime(
-            df_region_id, loop_id
-        )
+
+        spec_util.save_df_region(text_to_output, self, df_region_id, predecessors)
+        replaced_node = self._make_call_to_runtime(df_region_id, loop_id)
         return to_ast_node(replaced_node)
 
     def get_partial_order_file(self):
@@ -313,39 +225,17 @@ class SpeculativeTransformationState(AbstractTransformationState):
     def get_all_loop_contexts(self):
         return self.partial_order_node_loop_contexts
 
-    # CFG tracking overrides
-    def enter_loop(self, it_name=None):
-        loop_id = super().enter_loop(it_name)
-        self.prog.enter_for(it_name or "")
-        return loop_id
-
-    def exit_loop(self):
-        self.prog.leave_for()
-        super().exit_loop()
-
-    def enter_if(self):
-        self.prog.enter_if()
-
-    def enter_else(self):
-        self.prog.enter_else()
-
-    def exit_if(self):
-        self.prog.leave_if()
-
     def mark_node_as_var_assignment(self, node_id: int):
-        """Mark a node as a variable assignment (for scheduler)."""
         self.var_assignment_nodes.add(node_id)
 
     def get_var_nodes(self):
-        """Return the set of nodes that are variable assignments."""
         return self.var_assignment_nodes
 
     def get_number_of_var_assignments(self):
-        """Return the number of variable assignment nodes."""
         return len(self.var_assignment_nodes)
 
     @staticmethod
-    def make_call_to_spec_runtime(command_id: int, loop_id) -> AstNode:
+    def _make_call_to_runtime(command_id: int, loop_id) -> AstNode:
         """Make a call to the speculative runtime."""
         assignments = [["pash_spec_command_id", string_to_argument(str(command_id))]]
         if loop_id is None:
@@ -355,20 +245,12 @@ class SpeculativeTransformationState(AbstractTransformationState):
 
         assignments.append(["pash_spec_loop_id", string_to_argument(loop_id_str)])
 
-        # Call the speculative runtime
         arguments = [
             string_to_argument("source"),
-            string_to_argument(RUNTIME_EXECUTABLE_SPEC),
+            string_to_argument(RUNTIME_EXECUTABLE),
         ]
         runtime_node = make_command(arguments, assignments=assignments)
-
         return runtime_node
-
-
-class AirflowTransformationState(TransformationState):
-    """Airflow transformation state (same as standard PaSh for now)."""
-
-    pass
 
 
 def get_shell_from_ast(asts, ast_text=None) -> str:

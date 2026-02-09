@@ -11,21 +11,21 @@ from typing import TYPE_CHECKING
 
 from shasta.ast_node import ForNode, make_typed_semi_sequence, string_of_arg
 from shasta.json_to_ast import to_ast_node
-from shell_ast.ast_util import (
+from ast_util import (
     make_export_var_constant_string,
     make_increment_var,
     export_pash_loop_iters_for_current_context,
     make_loop_list_assignment,
     make_unset_var,
 )
-from env_var_names import loop_iter_var
+from util import loop_iter_var
 
 if TYPE_CHECKING:
-    from shell_ast.walk_preprocess import PreprocessContext, NodeResult, WalkPreprocess
+    from ast_transform import PreprocessContext, NodeResult, PreprocessVisitor
 
 
 def for_node_with_loop_tracking(
-    node: ForNode, ctx: "PreprocessContext", walker: "WalkPreprocess"
+    node: ForNode, ctx: "PreprocessContext", visitor: "PreprocessVisitor"
 ) -> "NodeResult":
     """
     Handler for ForNode that injects loop tracking code.
@@ -39,23 +39,14 @@ def for_node_with_loop_tracking(
     6. Exports loop iteration context for the runtime
     7. Exits the loop context
     8. Unsets HS_LOOP_LIST after the loop
-
-    Args:
-        node: The ForNode to process
-        ctx: The preprocessing context
-        walker: The walker instance for recursive calls
-
-    Returns:
-        NodeResult with the transformed node and metadata
     """
-    # Import here to avoid circular dependency
-    from shell_ast.walk_preprocess import NodeResult
+    from ast_transform import NodeResult
 
     # Create HS_LOOP_LIST assignment from for-loop arguments (before preprocessing)
     loop_list_node = make_loop_list_assignment(node.argument)
 
     # Directly save the HS_LOOP_LIST assignment as a df_region by calling replace_df_region
-    # The walker won't do this automatically because it's an assignment-only command
+    # The visitor won't do this automatically because it's an assignment-only command
     # This ensures the scheduler can recognize it via pattern matching in util.py:332
     processed_loop_list_node = ctx.trans_options.replace_df_region([loop_list_node])
 
@@ -68,7 +59,7 @@ def for_node_with_loop_tracking(
     loop_id = ctx.trans_options.enter_loop(it_name=it_name)
 
     # Preprocess the body using close-node semantics
-    preprocessed_body, something_replaced = walker.walk_close(node.body, ctx)
+    preprocessed_body, something_replaced = visitor.walk_close(node.body)
 
     # Create loop tracking nodes
     var_name = loop_iter_var(loop_id)
@@ -84,10 +75,6 @@ def for_node_with_loop_tracking(
         [
             to_ast_node(increment_node),
             to_ast_node(save_loop_iters_node),
-            ## KK 2026-01-20 This deepcopy used to be there but led to serious
-            ##               performance issues with some tests. 
-            ##               I think it is not necessary but leaving it here in case we want to revert back.
-            # copy.deepcopy(preprocessed_body),
             preprocessed_body,
         ]
     )

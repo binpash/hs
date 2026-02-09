@@ -43,7 +43,7 @@ def save_df_region(
     text_to_output: str, trans_options, df_region_id: int, predecessor_ids: int
 ) -> None:
     """Save a dataflow region to a file."""
-    # Compute basic block ID from CFG (matches spec_future's trans_options.current_bb())
+    # Compute basic block ID from CFG
     bb_id = trans_options.prog.current_bb if hasattr(trans_options, 'prog') else 0
     log("Df region:", df_region_id, "bb:", bb_id)
 
@@ -88,13 +88,11 @@ def serialize_var_assignments(node_id: int) -> str:
 def save_current_env_to_file(trans_options):
     """Save the current environment to a file and record it in the partial order."""
     initial_env_file = ptempfile()
-    ## Use PASH_SPEC_TOP for the declare_vars script (in the hs repo's jit_runtime)
     pash_spec_top = os.getenv('PASH_SPEC_TOP', '')
     declare_vars_script = os.path.join(pash_spec_top, 'jit_runtime', 'pash_declare_vars.sh')
     if os.path.exists(declare_vars_script):
         subprocess.check_output([declare_vars_script, initial_env_file])
     else:
-        ## Fallback: create a minimal env file
         log("Warning: pash_declare_vars.sh not found at", declare_vars_script)
         with open(initial_env_file, 'w') as f:
             f.write("")
@@ -124,20 +122,16 @@ def save_loop_contexts(trans_options):
 
 def save_var_assignment_contexts(trans_options):
     """Save variable assignment contexts to the partial order file."""
-    if hasattr(trans_options, 'get_var_nodes'):
-        var_nodes = trans_options.get_var_nodes()
-        po_file_path = trans_options.get_partial_order_file()
-        with open(po_file_path, "a") as po_file:
-            for node_id in var_nodes:
-                po_file.write(serialize_var_assignments(node_id))
+    var_nodes = trans_options.get_var_nodes()
+    po_file_path = trans_options.get_partial_order_file()
+    with open(po_file_path, "a") as po_file:
+        for node_id in var_nodes:
+            po_file.write(serialize_var_assignments(node_id))
 
 
 def save_number_of_var_assignments(trans_options):
     """Save number of variable assignments to the partial order file."""
-    if hasattr(trans_options, 'get_number_of_var_assignments'):
-        number_of_var_assignments = trans_options.get_number_of_var_assignments()
-    else:
-        number_of_var_assignments = 0
+    number_of_var_assignments = trans_options.get_number_of_var_assignments()
     po_file_path = trans_options.get_partial_order_file()
     with open(po_file_path, "a") as po_file:
         po_file.write(serialize_number_of_var_assignments(number_of_var_assignments))
@@ -173,7 +167,6 @@ def serialize_partial_order(trans_options):
         po_file.write("Basic block edges:\n")
 
         # Write basic block edges from CFG
-        # Format: from -> to:EDGE_TYPE:aux_info (parsed by parallel-orch/util.py)
         if hasattr(trans_options, 'prog'):
             for from_bb_id, to_bb_ids in trans_options.prog.edges.items():
                 for to_bb_id, (edge_reason, aux_info) in to_bb_ids.items():

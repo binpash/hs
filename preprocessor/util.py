@@ -11,7 +11,9 @@ import logging
 import os
 import tempfile
 
-from shasta.ast_node import AstNode, ArgChar, CArgChar
+import copy
+
+from shasta.ast_node import AstNode, ArgChar, CArgChar, QArgChar, CommandNode, AssignNode
 
 # Configuration from environment variables (set by pa.sh or pash_runtime.sh)
 PASH_TMP_PREFIX = os.environ.get("PASH_TMP_PREFIX", "/tmp/pash_tmp/")
@@ -299,20 +301,13 @@ def make_loop_list_assignment(loop_list_args):
 
     Matches the implementation from fae47999 commit of spec_future branch.
     """
-    from shasta.ast_node import CArgChar, QArgChar
-    from shasta.json_to_ast import to_ast_node
-    import copy
-
-    list_eval_node = to_ast_node(make_assignment('HS_LOOP_LIST', string_to_argument('0')))
-
     list_arguments = copy.deepcopy(loop_list_args[0])
     for a in loop_list_args[1:]:
         list_arguments.append(CArgChar(ord(' ')))
         list_arguments.extend(copy.deepcopy(a))
 
-    list_eval_node.assignments[0].val = [QArgChar(list_arguments)]
-
-    return list_eval_node
+    assignment = AssignNode(var='HS_LOOP_LIST', val=[QArgChar(list_arguments)])
+    return CommandNode(line_number=0, assignments=[assignment], arguments=[], redir_list=[])
 
 
 def make_increment_var(var_name: str):

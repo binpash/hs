@@ -398,7 +398,7 @@ preprocessor_args+=("$input_script")
 
 ## 9. Run the PaSh preprocessor
 PYTHONPATH="$PASH_SPEC_TOP/preprocessor:$PYTHONPATH" \
-    PASH_FROM_SH="PaSh preprocessor" "$PASH_PYTHON" \
+    PASH_FROM_SH="Preprocessor" "$PASH_PYTHON" \
     "$PASH_SPEC_TOP/preprocessor/preprocessor.py" "${preprocessor_args[@]}"
 pash_exit_code=$?
 

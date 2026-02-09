@@ -195,9 +195,13 @@ class TransformationState:
 
         loop_id = self.get_current_loop_id()
 
-        # Detect variable assignments (IFS modifications) for scheduler marking
+        # Detect variable assignments for scheduler marking
+        # IFS and HS_LOOP_LIST changes must be intercepted by pre_handle_wait
+        # so the scheduler updates its state without sandbox execution.
         text_stripped = text_to_output.strip()
-        if text_stripped.startswith('IFS=') or text_stripped.startswith('unset IFS'):
+        if (text_stripped.startswith('IFS=') or text_stripped.startswith('unset IFS')
+                or text_stripped.startswith('HS_LOOP_LIST=')
+                or text_stripped.startswith('unset HS_LOOP_LIST')):
             self.mark_node_as_var_assignment(df_region_id)
 
         # Determine predecessors

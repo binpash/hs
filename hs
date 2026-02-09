@@ -394,13 +394,12 @@ declare -a preprocessor_args=()
 preprocessor_args+=("--output" "$preprocessed_output")
 [ -n "$arg_debug" ] && preprocessor_args+=("-d" "$arg_debug")
 [ -n "$arg_log_file" ] && preprocessor_args+=("--log_file" "$arg_log_file")
-preprocessor_args+=("--speculative")
 preprocessor_args+=("$input_script")
 
 ## 9. Run the PaSh preprocessor
 PYTHONPATH="$PASH_SPEC_TOP/preprocessor:$PYTHONPATH" \
-    PASH_FROM_SH="PaSh preprocessor" "$PASH_PYTHON" \
-    "$PASH_SPEC_TOP/preprocessor/pash_preprocessor.py" "${preprocessor_args[@]}"
+    PASH_FROM_SH="Preprocessor" "$PASH_PYTHON" \
+    "$PASH_SPEC_TOP/preprocessor/preprocessor.py" "${preprocessor_args[@]}"
 pash_exit_code=$?
 
 ## 10. If preprocessing succeeded, execute the preprocessed script

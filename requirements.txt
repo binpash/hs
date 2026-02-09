@@ -2,7 +2,7 @@
 # These packages provide shell script parsing and AST transformation capabilities
 
 # Core AST and parsing libraries
-shasta~=0.4
+shasta~=0.5
 libdash
 libbash~=0.1.14
 

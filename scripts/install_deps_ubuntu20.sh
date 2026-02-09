@@ -9,9 +9,6 @@ export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-sup
 ## Download submodule dependencies (try only - deps/pash removed)
 git submodule update --init --recursive deps/try
 
-# Install try
-(cd deps/try; ./setup.sh)
-
 ## Install Python dependencies for preprocessor
 # Find Python 3.12+
 PASH_PYTHON=""

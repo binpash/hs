@@ -6,7 +6,9 @@ on:
     types: [assigned, opened, synchronize, reopened, ready_for_review]
     paths: 
     - .github/**
+    - jit_runtime/**
     - parallel-orch/**
+    - preprocessor/**
     - overlay-sandbox/**
     - test/**
     - scripts/**
@@ -14,7 +16,9 @@ on:
     branches:
     - main
     paths: 
+    - jit_runtime/**
     - parallel-orch/**
+    - preprocessor/**
     - overlay-sandbox/**
     - test/**
     - scripts/**

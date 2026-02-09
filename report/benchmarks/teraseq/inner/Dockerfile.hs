@@ -13,7 +13,8 @@ RUN apt install -y bc curl graphviz bsdmainutils libffi-dev locales locales-all 
 # try deps
 RUN apt install -y expect mergerfs attr
 COPY deps deps
-COPY parallel-orch parallel-orch
+COPY scheduler scheduler
+COPY executor executor
 COPY .git .git
 RUN mkdir -p /srv/hs/report/benchmarks/teraseq
 COPY report/benchmarks/teraseq/inner /srv/hs/report/benchmarks/teraseq

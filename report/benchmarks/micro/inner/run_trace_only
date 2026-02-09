@@ -91,7 +91,7 @@ if __name__ == '__main__':
     output_base = hs_base / "report" / "output" / local_name
     output_base.mkdir(parents=True, exist_ok=True)
     scripts_dir = test_base / "scripts"
-    tracev2_base = hs_base / "parallel-orch" / "trace_v2.py"
+    tracev2_base = hs_base / "scheduler" / "trace_v2.py"
     
     #######################
     # SPECIFY ENV VARS HERE

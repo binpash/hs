@@ -14,7 +14,7 @@ generate_unique_file() {
     echo "$filename"
 } 
 hs_base=$(git rev-parse --show-toplevel)
-PARSE="python3 $hs_base/parallel-orch/trace_v2.py"
+PARSE="python3 $hs_base/scheduler/trace_v2.py"
 
 
 OUTPUT=${OUTPUT:-.}

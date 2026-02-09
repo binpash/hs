@@ -15,8 +15,10 @@ The project's top-level directory contains the following:
 - `deps`: Dependencies required by `hs`.
 - `docs`: Documentation and architectural diagrams.
 - `model-checking`: Tools and utilities for model checking.
-- `parallel-orch`: Main orchestration components.
-- `pash-spec.sh`: Entry script to initiate the `hs` process.
+- `scheduler`: Scheduler daemon — manages speculative execution order and dependency tracking.
+- `executor`: Executor — runs commands in sandboxes with tracing.
+- `jit_runtime`: JIT runtime — shell scripts sourced during execution for state management.
+- `preprocessor`: Preprocessor — transforms shell ASTs for speculative execution.
 - `README.md`: This documentation file.
 - `report`: Generated reports related to test runs and performance metrics.
 - `requirements.txt`: List of Python dependencies.
@@ -42,7 +44,7 @@ This script will handle all the necessary installations, including dependencies,
 
 ### Running `hs`
 
-The main entry script to initiate `hs` is `pash-spec.sh`. This script sets up the necessary environment and invokes the orchestrator in `parallel-orch/orch.py`. It's designed to accept a variety of arguments to customize its behavior, such as setting debug levels or specifying log files.
+The main entry script to initiate `hs` is the `hs` script. This script sets up the necessary environment, launches the scheduler daemon, preprocesses the input script, and executes it with speculative execution. It accepts a variety of arguments to customize its behavior, such as setting debug levels or specifying log files.
 
 Example of running the script:
 

@@ -1,12 +1,11 @@
-# Python dependencies for pash-spec preprocessor
-# These packages provide shell script parsing and AST transformation capabilities
+# Python dependencies for pash-spec preprocessor and scheduler
 
 # Core AST and parsing libraries
 shasta~=0.5
 libdash
 libbash~=0.1.14
 
-# Additional dependencies from original PaSh pyproject.toml
-pash-annotations~=0.2.4
-graphviz
+# Shell variable expansion (used by scheduler's static analysis)
 sh-expand~=0.2.0
+
+psutil

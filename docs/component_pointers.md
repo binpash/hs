@@ -2,7 +2,7 @@
 
 ## hS Overview
 hS is a speculative execution system that can run shell programs in an out-of-order fashion
-while maintaining equivalence to sequantial execution. 
+while maintaining equivalence to sequantial execution.
 It does this by transforming and executing the program in a controlled, sandboxed manner, then
 carefully reason about the dependencies to before choosing to commit, discard, or re-execute the commands it speculated
 
@@ -37,21 +37,18 @@ done
 ## Preprocessing
 
 This step analyzes and transforms input shell script.
-(Also this is the part where the most legacy code and technical debts are.)
 
 Major callpath:
 ```
-deps/pash/pa.sh
-  deps/pash/compiler/pash.py:main
-    preprocess_and_execute_asts
-      deps/pash/compiler/preprocessor/preprocessor.py:preprocess
-        deps/pash/compiler/shell_ast/ast_to_ast.py:replace_ast_region
-        deps/pash/compiler/speculative/util_spec.py:serialize_partial_order
-      execute_script
+hs (entry point)
+  preprocessor/preprocessor.py:preprocess
+    preprocessor/ast_transform.py:replace_ast_regions
+    preprocessor/transformation.py:serialize_partial_order
+  execute_script
 ```
 
 `breakpoint()` at
-- end of `deps/pash/compiler/preprocessor/preprocessor.py:preprocess_asts` to see "partial_order" files
+- end of `preprocessor/preprocessor.py:preprocess_asts` to see "partial_order" files
 - `preprocess_and_execute_asts` to see preprocessed script files (a.k.a. program skeleton)
 
 Alternatively turn on `-d 2` and dig through logs
@@ -59,13 +56,13 @@ Alternatively turn on `-d 2` and dig through logs
 ## Program Skeleton
 
 Looking at the program skeleton we can see
-- Control flow: the control flow structure is kept and 
+- Control flow: the control flow structure is kept and
 - HS_LOOP_LIST: the implicit runtime control flow hint
 
-Inside `pash_runtime.sh`, the major call path is:
+Inside the JIT runtime, the major call path is:
 ```
-deps/pash/compiler/pash_runtime.sh
-  deps/pash/compiler/orchestrator_runtime/speculative/speculative_runtime.sh
+jit_runtime/jit.sh
+  (communicates with scheduler via unix socket)
 ```
 
 We will come back to this when we look at command execution
@@ -78,13 +75,12 @@ We will come back to this when we look at command execution
 ### Core Data Structures
 Major callpath:
 ```
-deps/pash/compiler/orchestrator_runtime/speculative/pash_spec_init_setup.sh
-  scheduler_server.py:main
-    Scheduler.run
+scheduler/scheduler_server.py:main
+  Scheduler.run
 ```
-parallel_orch/node.py:`HSProg` --- backend's representation of the shell program
+scheduler/node.py:`HSProg` --- backend's representation of the shell program
 `HSBasicBlock` --- backend's representation of basic block
-parallel_orch/partial_program_order.py:`PartialProgramOrder` --- Execution state of the shell program
+scheduler/partial_program_order.py:`PartialProgramOrder` --- Execution state of the shell program
 ```Python
 class CFGEdgeType(Enum):
     IF_TAKEN = auto()
@@ -121,7 +117,7 @@ All of these information are directly parsed from the "partial order" file
 
 ## Command Execution and Sandboxing
 ### Core Data Structure
-parallel_orch/node.py:
+scheduler/node.py:
 ```Python
 class NodeState(Enum):
     INIT = auto()
@@ -138,41 +134,41 @@ class ConcreteNode:
     cnid: ConcreteNodeId
     abstract_node: Node
     state: NodeState
-    # exists for EXEC or SPEC_E or subsequent states, erased for READY                                                  
+    # exists for EXEC or SPEC_E or subsequent states, erased for READY
     exec_id: int
-    # Nodes to check for fs dependencies before this node can be committed                                              
-    # for this particular execution of the main sandbox.                                                                
-    # No need to do the same for the background sandbox since it will always get committed.                             
+    # Nodes to check for fs dependencies before this node can be committed
+    # for this particular execution of the main sandbox.
+    # No need to do the same for the background sandbox since it will always get committed.
     to_be_resolved_snapshot: "set[NodeId]"
-    # Read and write sets for this node                                                                                 
+    # Read and write sets for this node
     rwset: RWSet
-    # The wait trace file for this node                                                                                 
+    # The wait trace file for this node
     wait_env_file: str
-    # This can only be set while in the frontier and the background node execution is enabled                           
-    # TODO: For now ignore this. Maybe there is a better way to do this.                                                
-    # background_sandbox: Sandbox                                                                                       
+    # This can only be set while in the frontier and the background node execution is enabled
+    # TODO: For now ignore this. Maybe there is a better way to do this.
+    # background_sandbox: Sandbox
 
-    # Exists when the node is in COMMITED or SPEC_F                                                                     
+    # Exists when the node is in COMMITED or SPEC_F
     exec_result: ExecResult
 
-    # Updated when the node is loop changing and the node is transitioning                                              
-    # into COMMITTED or SPEC_F                                                                                          
+    # Updated when the node is loop changing and the node is transitioning
+    # into COMMITTED or SPEC_F
     loop_list_context: HSLoopListContext
 
-    # read-only, the value of initial loop_list_context                                                                 
-    # used when reset_to_ready                                                                                          
+    # read-only, the value of initial loop_list_context
+    # used when reset_to_ready
     init_loop_list_context: HSLoopListContext
 
     spec_pre_env: str
 
-    # Exists when node is in READY                                                                                      
+    # Exists when node is in READY
     assignments: "list[NodeId]"
 
-    # Exists when node is in EXE or SPEC_EXE, it acts as a cache for                                                    
-    # the trace file content                                                                                            
+    # Exists when node is in EXE or SPEC_EXE, it acts as a cache for
+    # the trace file content
     trace_lines: list
-    # Exists when node is in EXE or SPEC_EXE, it it an opened file                                                      
-    # or none when such file doesn't exist                                                                              
+    # Exists when node is in EXE or SPEC_EXE, it it an opened file
+    # or none when such file doesn't exist
     trace_fd=None
     trace_ctx=None
 ```
@@ -181,18 +177,18 @@ Major callpath:
 ```
 Node.start_executing
   Node.start_command
-    parallel_orch/executor.py:run_trace_sandboxed
-      parallel-orch/run_command.sh
+    executor/executor.py:run_trace_sandboxed
+      executor/run_command.sh
         fd_util -> try -> strace
 ```
-The `env_file` is explicitly passed around. The environment capturing and restoring happens at `deps/pash/compiler/orchestrator_runtime/pash_declare_vars.sh` and `deps/pash/compiler/orchestrator_runtime/pash_source_declare_vars.sh`
+The `env_file` is explicitly passed around. The environment capturing and restoring happens at `jit_runtime/pash_declare_vars.sh` and `jit_runtime/pash_source_declare_vars.sh`
 
-`breakpoint()` at `parallel_orc/partial_program_order.py:handle_complete`, see the completed files
+`breakpoint()` at `scheduler/partial_program_order.py:handle_complete`, see the completed files
 
 
 ## Backend: Speculation
 ### Core data structure
-parallel-orch/partial_program_order.py:`PartialProgramOrder`
+scheduler/partial_program_order.py:`PartialProgramOrder`
 ```Python
 class PartialProgramOrder:
     def __init__(self, abstract_nodes: "dict[NodeId, Node]", edges: "dict[NodeId, list[NodeId]]",
@@ -200,10 +196,10 @@ class PartialProgramOrder:
         self.hsprog = hs_prog
         self.concrete_nodes: dict[ConcreteNodeId, ConcreteNode] = {}
         self.frontier = set()
-        # self.run_after = {}                                                                                           
-        # Nodes that we have received "wait" for                                                                        
+        # self.run_after = {}
+        # Nodes that we have received "wait" for
         self.canon_exec_order: list[ConcreteNodeId] = list()
-        # Nodes that we think should happen, and haven't received "wait" for                                            
+        # Nodes that we think should happen, and haven't received "wait" for
         self.spec_exec_order: list[ConcreteNodeId] = list()
         self.to_be_resolved: dict[ConcreteNodeId, list[ConcreteNodeId]] = {}
         self.temp_new_env = None
@@ -212,7 +208,7 @@ class PartialProgramOrder:
 
 Major callpath:
 ```
-parallel-orch/scheduler_server.py:Scheduler.run
+scheduler/scheduler_server.py:Scheduler.run
   Scheduler.process_next_cmd
     PartialProgramOrder.handle_complete
     PartialProgramOrder.handle_wait

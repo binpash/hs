@@ -17,7 +17,7 @@ export PASH_TOP="${PASH_TOP:-$PASH_SPEC_TOP}"
 
 ## Runtime directories
 export RUNTIME_DIR="$PASH_SPEC_TOP/jit_runtime"
-export RUNTIME_LIBRARY_DIR="$PASH_SPEC_TOP/parallel-orch"
+export RUNTIME_LIBRARY_DIR="$PASH_SPEC_TOP/executor"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/"
 
 ## Setup cgroups for memory protection (if writable)
@@ -312,7 +312,7 @@ pash_spec_wait_until_scheduler_listening() {
 }
 
 start_server() {
-    "$PASH_PYTHON" "$PASH_SPEC_TOP/parallel-orch/scheduler_server.py" "$@" &
+    "$PASH_PYTHON" "$PASH_SPEC_TOP/scheduler/scheduler_server.py" "$@" &
     export daemon_pid=$!
     ## Wait until daemon has established connection
     pash_spec_wait_until_scheduler_listening

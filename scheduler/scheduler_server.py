@@ -1,9 +1,14 @@
 import argparse
 import logging
 import signal
+import sys
+import os
+
+# Add executor directory to sys.path so scheduler modules can import executor
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'executor'))
+
 import util
 import config
-import os
 from partial_program_order import PartialProgramOrder, NodeId
 from node import LoopStack, ConcreteNodeId
 

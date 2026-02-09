@@ -609,3 +609,8 @@ PASSED_TESTS=$(grep -c "OK" "$output_dir/result_status")
 echo "========================================================"
 echo "Summary: ${PASSED_TESTS}/${TOTAL_TESTS} tests passed."
 echo "========================================================"
+
+FAILED_TESTS=$(grep -c "FAIL" "$output_dir/result_status")
+if [ "$FAILED_TESTS" -gt 0 ]; then
+    exit 1
+fi

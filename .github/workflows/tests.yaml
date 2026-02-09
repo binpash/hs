@@ -57,4 +57,4 @@ jobs:
       - name: Running Correctness Tests
         run: |
           export PASH_SPEC_TOP=$(pwd)
-          bash test/test_orch.sh
+          DEBUG=100 bash test/test_orch.sh

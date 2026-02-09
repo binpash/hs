@@ -5,6 +5,7 @@ on:
     - main
     types: [assigned, opened, synchronize, reopened, ready_for_review]
     paths: 
+    - hs
     - .github/**
     - jit_runtime/**
     - parallel-orch/**
@@ -16,6 +17,7 @@ on:
     branches:
     - main
     paths: 
+    - hs
     - jit_runtime/**
     - parallel-orch/**
     - preprocessor/**

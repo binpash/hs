@@ -41,16 +41,21 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: '3.12'
-      - name: Running Correctness Tests
+      - name: Install Dependencies
         run: |
           uname -a
-          # install the system deps and pash the environment
-          sudo apt install -y python3 strace wget make file libtool mergerfs util-linux curl netcat-openbsd
-          git submodule update --init --recursive
-          cd deps/pash
-          sudo bash scripts/setup-pash.sh
-          cd ../..
-          # run all the tests
-          export PASH_TOP=/home/runner/work/dynamic-parallelizer/dynamic-parallelizer/deps/pash
-          export PATH=$PATH:$PASH_TOP
-          bash test/test_orch.sh  
+          sudo apt-get update
+          sudo apt install -y make git python3-cram file graphviz libtool python3-matplotlib libcap2-bin mergerfs strace python3-venv python3-pip
+          export PASH_SPEC_TOP=$(pwd)
+          git submodule update --init --recursive deps/try
+          (cd deps/try; ./setup.sh)
+          python3.12 -m venv python_pkgs
+          python_pkgs/bin/pip install --upgrade pip
+          python_pkgs/bin/pip install -r requirements.txt
+          python_pkgs/bin/pip install psutil
+          python_pkgs/bin/python -c "import shasta; import libdash; import libbash"
+          (cd parallel-orch; make)
+      - name: Running Correctness Tests
+        run: |
+          export PASH_SPEC_TOP=$(pwd)
+          bash test/test_orch.sh

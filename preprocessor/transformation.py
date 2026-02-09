@@ -3,19 +3,19 @@ Transformation state for AST preprocessing.
 
 This module provides the transformation state used during preprocessing
 to track dataflow regions, loop contexts, and the control flow graph
-for the speculative scheduler.
+for the speculative scheduler. It also handles serialization of the
+partial order file format expected by the scheduler.
 """
 
 from enum import Enum, auto
 import os
+import subprocess
 
 from shasta.ast_node import AstNode
 from shasta.json_to_ast import to_ast_node
 
-from ast_util import string_to_argument, make_command
+from util import string_to_argument, make_command, log, ptempfile, PASH_TMP_PREFIX
 from parse import from_ast_objects_to_shell
-import spec_util
-from util import ptempfile
 
 
 RUNTIME_EXECUTABLE = os.path.join(
@@ -190,7 +190,7 @@ class TransformationState:
     def replace_df_region(
         self, asts, disable_parallel_pipelines=False, ast_text=None
     ) -> AstNode:
-        text_to_output = get_shell_from_ast(asts, ast_text=ast_text)
+        text_to_output = _get_shell_from_ast(asts, ast_text=ast_text)
         df_region_id = self.get_next_id()
 
         loop_id = self.get_current_loop_id()
@@ -206,7 +206,7 @@ class TransformationState:
         else:
             predecessors = [df_region_id - 1]
 
-        spec_util.save_df_region(text_to_output, self, df_region_id, predecessors)
+        _save_df_region(text_to_output, self, df_region_id, predecessors)
         replaced_node = self._make_call_to_runtime(df_region_id, loop_id)
         return to_ast_node(replaced_node)
 
@@ -253,10 +253,128 @@ class TransformationState:
         return runtime_node
 
 
-def get_shell_from_ast(asts, ast_text=None) -> str:
+# === Partial order serialization ===
+
+
+def partial_order_directory() -> str:
+    """Return the path to the partial order directory."""
+    return f"{PASH_TMP_PREFIX}/speculative/partial_order/"
+
+
+def partial_order_file_path():
+    """Return the path to the partial order file."""
+    return f"{PASH_TMP_PREFIX}/speculative/partial_order_file"
+
+
+def scheduler_server_init_po_msg(partial_order_file: str) -> str:
+    """Create message to initialize scheduler with partial order file."""
+    return f"Init:{partial_order_file}"
+
+
+def initialize(trans_options) -> None:
+    """Initialize the partial order directory."""
+    dir_path = partial_order_directory()
+    os.makedirs(dir_path)
+
+
+def serialize_partial_order(trans_options):
+    """Serialize the complete partial order to a file.
+
+    Format expected by hs scheduler_server.py:
+    1. cmds_directory
+    2. initial_env_file
+    3. number_of_nodes
+    4. "Basic blocks:" header
+    5. "Basic block edges:" header + edges
+    6. "Loop context:" header + contexts
+    7. number_of_var_assignments
+    8. var assignments
+    9. edges
+    """
+    dir_path = partial_order_directory()
+
+    # Initialize the po file (writes directory path)
+    with open(trans_options.get_partial_order_file(), "w") as f:
+        f.write("# Partial order files path:\n")
+        f.write(f"{dir_path}\n")
+
+    # Save initial env to po file
+    _save_current_env_to_file(trans_options)
+
+    # Save the number of nodes
+    po_file_path = trans_options.get_partial_order_file()
+    with open(po_file_path, "a") as po_file:
+        po_file.write(f"{trans_options.get_number_of_ids()}\n")
+
+    with open(po_file_path, "a") as po_file:
+        po_file.write("Basic blocks:\n")
+        po_file.write("Basic block edges:\n")
+
+        # Write basic block edges from CFG
+        for from_bb_id, to_bb_ids in trans_options.prog.edges.items():
+            for to_bb_id, (edge_reason, aux_info) in to_bb_ids.items():
+                po_file.write(f"{from_bb_id} -> {to_bb_id}:{edge_reason.name}:{aux_info}\n")
+
+        po_file.write("Loop context:\n")
+
+    # Save loop contexts (bb IDs)
+    node_bb_dict = trans_options.get_all_loop_contexts()
+    log("Loop context dict:", node_bb_dict)
+    with open(po_file_path, "a") as po_file:
+        for node_id in sorted(node_bb_dict.keys()):
+            bb_id = node_bb_dict[node_id]
+            po_file.write(f"{node_id}-loop_ctx-{bb_id}\n")
+
+    # Save var assignments
+    with open(po_file_path, "a") as po_file:
+        po_file.write(f"{trans_options.get_number_of_var_assignments()}\n")
+        for node_id in trans_options.get_var_nodes():
+            po_file.write(f"{node_id}-var\n")
+
+    # Save the edges in the partial order file
+    edges = trans_options.get_all_edges()
+    with open(po_file_path, "a") as po_file:
+        for from_id, to_id in edges:
+            po_file.write(f"{from_id} -> {to_id}\n")
+
+
+# === Internal helpers ===
+
+
+def _get_shell_from_ast(asts, ast_text=None) -> str:
     """Get shell text from AST, using original text if available."""
     if ast_text is None:
-        text_to_output = from_ast_objects_to_shell(asts)
+        return from_ast_objects_to_shell(asts)
+    return ast_text
+
+
+def _save_df_region(
+    text_to_output: str, trans_options, df_region_id: int, predecessor_ids
+) -> None:
+    """Save a dataflow region to a file."""
+    bb_id = trans_options.prog.current_bb
+    log("Df region:", df_region_id, "bb:", bb_id)
+
+    trans_options.add_node_loop_context(df_region_id, bb_id)
+
+    df_region_path = f"{partial_order_directory()}/{df_region_id}"
+    with open(df_region_path, "w", encoding="utf-8") as f:
+        f.write(text_to_output)
+
+    for predecessor in predecessor_ids:
+        trans_options.add_edge(predecessor, df_region_id)
+
+
+def _save_current_env_to_file(trans_options):
+    """Save the current environment to a file and record it in the partial order."""
+    initial_env_file = ptempfile()
+    pash_spec_top = os.getenv('PASH_SPEC_TOP', '')
+    declare_vars_script = os.path.join(pash_spec_top, 'jit_runtime', 'pash_declare_vars.sh')
+    if os.path.exists(declare_vars_script):
+        subprocess.check_output([declare_vars_script, initial_env_file])
     else:
-        text_to_output = ast_text
-    return text_to_output
+        log("Warning: pash_declare_vars.sh not found at", declare_vars_script)
+        with open(initial_env_file, 'w') as f:
+            f.write("")
+    with open(trans_options.get_partial_order_file(), "a") as po_file:
+        po_file.write(f"{initial_env_file}\n")

@@ -11,6 +11,7 @@ The PaSh runtime then deserializes them, compiles them (if safe) and optimizes t
 """
 
 from __future__ import annotations
+import copy
 from dataclasses import dataclass
 from typing import Any
 
@@ -37,11 +38,24 @@ from shasta.ast_node import (
     CoprocNode,
     TimeNode,
     GroupNode,
+    VArgChar,
+    make_typed_semi_sequence,
+    string_of_arg,
 )
 from shasta.ast_walker import CommandVisitor
+from shasta.json_to_ast import to_ast_node
 
-from ast_util import PreprocessedAST, UnparsedScript, unzip
-from loop_tracking import for_node_with_loop_tracking
+from util import (
+    PreprocessedAST,
+    UnparsedScript,
+    unzip,
+    loop_iter_var,
+    make_export_var_constant_string,
+    make_increment_var,
+    export_pash_loop_iters_for_current_context,
+    make_loop_list_assignment,
+    make_unset_var,
+)
 
 
 @dataclass
@@ -194,7 +208,73 @@ class PreprocessVisitor(CommandVisitor):
         )
 
     def visit_for(self, node: ForNode) -> NodeResult:
-        return for_node_with_loop_tracking(node, self.ctx, self)
+        """Handle ForNode with loop tracking injection.
+
+        This:
+        1. Creates HS_LOOP_LIST assignment with for-loop arguments
+        2. Enters a new loop context
+        3. Preprocesses the loop body
+        4. Injects loop iteration counter initialization
+        5. Injects loop iteration counter increment in the body
+        6. Exports loop iteration context for the runtime
+        7. Exits the loop context
+        8. Unsets HS_LOOP_LIST after the loop
+        """
+        # Create HS_LOOP_LIST assignment from for-loop arguments (before preprocessing)
+        loop_list_node = make_loop_list_assignment(node.argument)
+
+        # Directly save the HS_LOOP_LIST assignment as a df_region
+        processed_loop_list_node = self.ctx.trans_options.replace_df_region([loop_list_node])
+
+        # Replace for-loop argument with $HS_LOOP_LIST
+        node.argument = [[VArgChar("Normal", False, "HS_LOOP_LIST", [])]]
+
+        # Enter loop context (pass iteration variable name for CFG tracking)
+        it_name = string_of_arg(node.variable)
+        loop_id = self.ctx.trans_options.enter_loop(it_name=it_name)
+
+        # Preprocess the body using close-node semantics
+        preprocessed_body, something_replaced = self.walk_close(node.body)
+
+        # Create loop tracking nodes
+        var_name = loop_iter_var(loop_id)
+        export_node = make_export_var_constant_string(var_name, "0")
+        increment_node = make_increment_var(var_name)
+
+        # Get all loop IDs for context export
+        all_loop_ids = self.ctx.trans_options.get_current_loop_context()
+        save_loop_iters_node = export_pash_loop_iters_for_current_context(all_loop_ids)
+
+        # Modify the loop body to include tracking
+        node.body = make_typed_semi_sequence(
+            [
+                to_ast_node(increment_node),
+                to_ast_node(save_loop_iters_node),
+                preprocessed_body,
+            ]
+        )
+
+        # Exit loop context
+        self.ctx.trans_options.exit_loop()
+
+        # Reset loop iters after exiting
+        out_of_loop_ids = self.ctx.trans_options.get_current_loop_context()
+        reset_loop_iters_node = export_pash_loop_iters_for_current_context(out_of_loop_ids)
+
+        # Create and save the unset command as a df_region
+        unset_node = to_ast_node(make_unset_var("HS_LOOP_LIST"))
+        processed_unset_node = self.ctx.trans_options.replace_df_region([unset_node])
+
+        # Wrap the entire for loop with HS_LOOP_LIST setup and loop tracking
+        new_node = make_typed_semi_sequence([
+            processed_loop_list_node,
+            to_ast_node(export_node),
+            node,
+            to_ast_node(reset_loop_iters_node),
+            processed_unset_node,
+        ])
+
+        return NodeResult(ast=new_node, something_replaced=something_replaced)
 
     def visit_if(self, node: IfNode) -> NodeResult:
         new_cond, cond_replaced = self.walk_close(node.cond)

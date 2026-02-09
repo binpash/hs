@@ -16,7 +16,6 @@ from datetime import datetime
 
 import transformation
 import ast_transform
-import spec_util
 from parse import parse_shell_to_asts, from_ast_objects_to_shell
 from util import log, logging_prefix, print_time_delta
 
@@ -148,17 +147,17 @@ def preprocess_asts(ast_objects, args):
     trans_options = transformation.TransformationState(
         po_file=args.partial_order_file
     )
-    spec_util.initialize(trans_options)
+    transformation.initialize(trans_options)
 
     # Preprocess ASTs by replacing regions with calls to PaSh runtime
     preprocessed_asts = ast_transform.replace_ast_regions(ast_objects, trans_options)
 
     # Finalize the partial order file
-    spec_util.serialize_partial_order(trans_options)
+    transformation.serialize_partial_order(trans_options)
 
     # Inform the scheduler that the partial order file is ready
     unix_socket_file = os.getenv("PASH_SPEC_SCHEDULER_SOCKET")
-    msg = spec_util.scheduler_server_init_po_msg(
+    msg = transformation.scheduler_server_init_po_msg(
         trans_options.get_partial_order_file()
     )
     _unix_socket_send_and_forget(unix_socket_file, msg)
@@ -190,7 +189,7 @@ def parse_args():
     config_from_args(args)
 
     # Set up partial order file path
-    args.__dict__["partial_order_file"] = spec_util.partial_order_file_path()
+    args.__dict__["partial_order_file"] = transformation.partial_order_file_path()
     log("Partial order file:", args.partial_order_file)
 
     # Log all arguments

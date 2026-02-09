@@ -7,3 +7,5 @@ libbash~=0.1.14
 
 # Shell variable expansion (used by scheduler's static analysis)
 sh-expand~=0.2.0
+
+psutil

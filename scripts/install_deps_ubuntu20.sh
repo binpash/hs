@@ -9,6 +9,9 @@ export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-sup
 ## Download submodule dependencies (try only - deps/pash removed)
 git submodule update --init --recursive deps/try
 
+## Build fd_util and set-diff for speculative execution
+(cd executor; make)
+
 ## Install Python dependencies for preprocessor
 # Find Python 3.12+
 PASH_PYTHON=""
@@ -49,10 +52,6 @@ echo "Upgrading pip..."
 echo "Installing Python dependencies for preprocessor..."
 "$PASH_VENV/bin/pip" install -r "$PASH_SPEC_TOP/requirements.txt"
 
-# Install psutil for scheduler
-echo "Installing psutil..."
-"$PASH_VENV/bin/pip" install psutil
-
 # Verify installation
 echo "Verifying Python dependencies..."
 "$PASH_VENV/bin/python" -c "import shasta; import libdash; import libbash" || {
@@ -62,5 +61,4 @@ echo "Verifying Python dependencies..."
 
 echo "✓ Python dependencies installed successfully"
 
-## Build fd_util and set-diff for speculative execution
-(cd executor; make)
+

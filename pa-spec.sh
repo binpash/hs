@@ -13,8 +13,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # PASH_SPEC_TOP is this directory
 export PASH_SPEC_TOP="$SCRIPT_DIR"
 
-# PASH_TOP points to the PaSh submodule for preprocessor access
-export PASH_TOP="${PASH_TOP:-$PASH_SPEC_TOP/deps/pash/src/pash}"
+# PASH_TOP kept for compatibility - now points to pash-spec root
+export PASH_TOP="${PASH_TOP:-$PASH_SPEC_TOP}"
 
 # Runtime directories - use local jit_runtime
 export RUNTIME_DIR="$PASH_SPEC_TOP/jit_runtime"
@@ -278,8 +278,8 @@ pash_setup_communication() {
 ###############################################################################
 
 get_pash_python() {
-    # Check for PaSh venv - use explicit path from PASH_SPEC_TOP
-    local venv_dir="$PASH_SPEC_TOP/deps/pash/python_pkgs/bin"
+    # Check for pash-spec venv - use explicit path from PASH_SPEC_TOP
+    local venv_dir="$PASH_SPEC_TOP/python_pkgs/bin"
     if [ -x "$venv_dir/python" ]; then
         echo "$venv_dir/python"
     elif [ -x "$venv_dir/python3" ]; then
@@ -337,10 +337,10 @@ preprocessor_args+=("--output" "$preprocessed_output")
 preprocessor_args+=("--speculative")
 preprocessor_args+=("$input_script")
 
-## 10. Run the PaSh preprocessor (from submodule)
-PYTHONPATH="$PASH_TOP/preprocessor:$PASH_TOP/compiler:$PYTHONPATH" \
+## 10. Run the PaSh preprocessor (standalone)
+PYTHONPATH="$PASH_SPEC_TOP/preprocessor:$PYTHONPATH" \
     PASH_FROM_SH="PaSh preprocessor" "$PASH_PYTHON" \
-    "$PASH_TOP/preprocessor/pash_preprocessor.py" "${preprocessor_args[@]}"
+    "$PASH_SPEC_TOP/preprocessor/pash_preprocessor.py" "${preprocessor_args[@]}"
 pash_exit_code=$?
 
 ## 11. If preprocessing succeeded, execute the preprocessed script

@@ -1,1 +1,12 @@
-matplotlib>=3.7.0
+# Python dependencies for pash-spec preprocessor
+# These packages provide shell script parsing and AST transformation capabilities
+
+# Core AST and parsing libraries
+shasta~=0.4
+libdash
+libbash~=0.1.14
+
+# Additional dependencies from original PaSh pyproject.toml
+pash-annotations~=0.2.4
+graphviz
+sh-expand~=0.2.0

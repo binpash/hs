@@ -2,22 +2,17 @@
 
 sudo apt-get update
 # TODO: some of these are Riker dependencies are no longer needed.
-sudo apt install -y make git python3-cram file graphviz libtool python3-matplotlib libcap2-bin mergerfs strace python3-venv
+sudo apt install -y make git python3-cram file graphviz libtool python3-matplotlib libcap2-bin mergerfs strace python3-venv python3-pip
 
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
-export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash/src/pash}
 
-## Download submodule dependencies
-git submodule update --init --recursive
+## Download submodule dependencies (try only - deps/pash removed)
+git submodule update --init --recursive deps/try
 
 # Install try
 (cd deps/try; ./setup.sh)
 
-## Install PaSh (only needed for preprocessor and Python libraries)
-## Note: NEW PaSh requires Python 3.12+. On some systems, `python` is 3.12 while `python3` is older.
-## We create the venv manually with `python` to ensure we use 3.12+, then PaSh's setup will skip venv creation.
-(cd deps/pash; ./scripts/distro-deps.sh)
-
+## Install Python dependencies for preprocessor
 # Find Python 3.12+
 PASH_PYTHON=""
 for py in python python3 python3.12; do
@@ -38,10 +33,8 @@ if [ -z "$PASH_PYTHON" ]; then
     exit 1
 fi
 
-# Use absolute path for venv
-PASH_VENV="$PASH_SPEC_TOP/deps/pash/python_pkgs"
-
-# Create venv with the correct Python version before running PaSh setup
+# Create virtual environment for Python dependencies
+PASH_VENV="$PASH_SPEC_TOP/python_pkgs"
 if [ ! -d "$PASH_VENV" ]; then
     echo "Creating virtual environment with $PASH_PYTHON at $PASH_VENV..."
     "$PASH_PYTHON" -m venv "$PASH_VENV"
@@ -51,20 +44,26 @@ if [ ! -d "$PASH_VENV" ]; then
     fi
 fi
 
-# Upgrade pip and install PaSh dependencies manually (skip setup-pash.sh venv creation)
+# Upgrade pip
 echo "Upgrading pip..."
 "$PASH_VENV/bin/pip" install --upgrade pip
 
-echo "Installing PaSh and dependencies..."
-"$PASH_VENV/bin/pip" install -e "$PASH_SPEC_TOP/deps/pash"
+# Install preprocessor dependencies from requirements.txt
+echo "Installing Python dependencies for preprocessor..."
+"$PASH_VENV/bin/pip" install -r "$PASH_SPEC_TOP/requirements.txt"
 
-## Install psutil for parallel-orch scheduler
+# Install psutil for parallel-orch scheduler
 echo "Installing psutil..."
 "$PASH_VENV/bin/pip" install psutil
 
-# Generate input files for tests (from setup-pash.sh)
-echo "Generating input files..."
-"$PASH_SPEC_TOP/deps/pash/evaluation/tests/input/setup.sh"
+# Verify installation
+echo "Verifying Python dependencies..."
+"$PASH_VENV/bin/python" -c "import shasta; import libdash; import libbash" || {
+    echo "ERROR: Failed to install Python dependencies"
+    exit 1
+}
+
+echo "✓ Python dependencies installed successfully"
 
 ## Build fd_util for speculative execution
 (cd parallel-orch; make)

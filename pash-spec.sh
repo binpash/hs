@@ -6,7 +6,7 @@
 
 ## Find the source code top directory
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(realpath $(dirname $0))}
-export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP/deps/pash/src/pash}
+export PASH_TOP=${PASH_TOP:-$PASH_SPEC_TOP}
 
 if [ -w /sys/fs/cgroup/ ]; then
     mkdir -p /sys/fs/cgroup/frontier

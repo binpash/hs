@@ -49,7 +49,7 @@ echo "Upgrading pip..."
 echo "Installing Python dependencies for preprocessor..."
 "$PASH_VENV/bin/pip" install -r "$PASH_SPEC_TOP/requirements.txt"
 
-# Install psutil for parallel-orch scheduler
+# Install psutil for scheduler
 echo "Installing psutil..."
 "$PASH_VENV/bin/pip" install psutil
 
@@ -62,5 +62,5 @@ echo "Verifying Python dependencies..."
 
 echo "✓ Python dependencies installed successfully"
 
-## Build fd_util for speculative execution
-(cd parallel-orch; make)
+## Build fd_util and set-diff for speculative execution
+(cd executor; make)

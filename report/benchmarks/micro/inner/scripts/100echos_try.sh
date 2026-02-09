@@ -1,6 +1,6 @@
 tempfile=$(mktemp)
 command="strace -y -f --seccomp-bpf --trace=fork,clone,%file -o $tempfile"
-tracev2="python3 $hs_base/parallel-orch/tracev2"
+tracev2="python3 $hs_base/scheduler/tracev2"
 
 $try echo "Hello World!"
 $try echo "Hello World!"

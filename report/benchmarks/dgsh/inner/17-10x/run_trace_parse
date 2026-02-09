@@ -13,7 +13,7 @@ TEST_BASE = os.path.join(HS_BASE, "report/benchmarks/dgsh", f"{BENCHMARK_NO}-10x
 TEST_UPPER = os.path.join(HS_BASE, "report")
 RESOURCE_DIR = os.path.join(HS_BASE, "report/resources/dgsh")
 STRACE = "strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $(mktemp) env -i bash -c"
-PARSE = os.path.join(HS_BASE, "parallel-orch/trace_v2.py")
+PARSE = os.path.join(HS_BASE, "scheduler/trace_v2.py")
 PARSE_CMD = f"python3 {PARSE}"
 
 # Script to run

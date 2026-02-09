@@ -1,14 +1,15 @@
 name: Tests
-on: 
+on:
   pull_request:
     branches:
     - main
     types: [assigned, opened, synchronize, reopened, ready_for_review]
-    paths: 
+    paths:
     - hs
     - .github/**
     - jit_runtime/**
-    - parallel-orch/**
+    - scheduler/**
+    - executor/**
     - preprocessor/**
     - overlay-sandbox/**
     - test/**
@@ -16,10 +17,11 @@ on:
   push:
     branches:
     - main
-    paths: 
+    paths:
     - hs
     - jit_runtime/**
-    - parallel-orch/**
+    - scheduler/**
+    - executor/**
     - preprocessor/**
     - overlay-sandbox/**
     - test/**
@@ -31,12 +33,12 @@ jobs:
       strategy:
         fail-fast: false
         matrix:
-          os: 
+          os:
           - ubuntu-24.04
       runs-on: ${{ matrix.os }}
       if: github.event.pull_request.draft == false
       steps:
-      - uses: actions/checkout@v2 
+      - uses: actions/checkout@v2
       - name: Set up Python 3.12
         uses: actions/setup-python@v2
         with:
@@ -53,7 +55,7 @@ jobs:
           python_pkgs/bin/pip install -r requirements.txt
           python_pkgs/bin/pip install psutil
           python_pkgs/bin/python -c "import shasta; import libdash; import libbash"
-          (cd parallel-orch; make)
+          (cd executor; make)
       - name: Running Correctness Tests
         run: |
           export PASH_SPEC_TOP=$(pwd)

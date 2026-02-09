@@ -27,7 +27,7 @@ RUNTIME_EXECUTABLE = os.path.join(
 
 
 class EdgeReason(Enum):
-    """CFG edge types — names must match CFGEdgeType in parallel-orch/node.py"""
+    """CFG edge types — names must match CFGEdgeType in scheduler/node.py"""
     IF_TAKEN = auto()
     ELSE_TAKEN = auto()
     LOOP_TAKEN = auto()

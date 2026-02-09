@@ -6,10 +6,10 @@ index 0f692e96..b60db641 100644
  
  start_server()
  {
--    python3 -S "$PASH_SPEC_TOP/parallel-orch/scheduler_server.py" "$@" &
+-    python3 -S "$PASH_SPEC_TOP/scheduler/scheduler_server.py" "$@" &
 -    export daemon_pid=$!
 -    ## Wait until daemon has established connection
-+    python3 -S "$PASH_SPEC_TOP/parallel-orch/scheduler_server.py" "$@"
++    python3 -S "$PASH_SPEC_TOP/scheduler/scheduler_server.py" "$@"
 +    # export daemon_pid=$!
 +    # # Wait until daemon has established connection
 +    # pash_spec_wait_until_scheduler_listening
@@ -96,7 +96,7 @@ index 8569e55..0852d1a 100755
 @@ -35,7 +29,9 @@ export PASH_SPEC_SCHEDULER_SOCKET="${PASH_SPEC_TMP_PREFIX}/scheduler_socket"
  
  ## TODO: Replace this with a call to pa.sh (which will start the scheduler on its own).
- # python3 "$PASH_SPEC_TOP/parallel-orch/orch.py" "$@"
+ # python3 "$PASH_SPEC_TOP/scheduler/scheduler_server.py" "$@"
 -"$PASH_TOP/pa.sh" --speculative "$@"
 +a=$1
 +shift

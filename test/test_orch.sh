@@ -14,7 +14,7 @@ DEBUG=${DEBUG:-0}
 
 bash="bash"
 ## Debug needs to be set to 2 because otherwise repetitions cannot be checked
-orch="$ORCH_TOP/pash-spec.sh -d 2"
+orch="$ORCH_TOP/hs -d 2"
 # Generated test scripts are saved here
 test_dir_orch="$ORCH_TOP/test/test_scripts_orch"
 test_dir_bash="$ORCH_TOP/test/test_scripts_bash"

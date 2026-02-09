@@ -63,7 +63,7 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
     output_dir.mkdir(parents=True, exist_ok=True)
     env['OUTPUT_DIR'] = str(output_dir)
 
-    hs_executable = hs_base / 'pash-spec.sh'
+    hs_executable = hs_base / 'hs'
 
     if not hs_executable.exists():
         print(f"Error: The hs executable '{hs_executable}' does not exist.")

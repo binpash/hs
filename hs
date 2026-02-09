@@ -1,26 +1,36 @@
 #!/usr/bin/env bash
 
 ##
-## pa-spec.sh: Simplified PaSh entry point for speculative execution only
+## hs: PaSh Speculative Execution Entry Point
 ##
-## This is a stripped-down version of pa.sh that only supports speculative mode.
-## It removes all unused flags and compilation server logic.
+## This script combines pash-spec.sh, pa-spec.sh, and pash_spec_init_setup.sh
+## into a single unified entry point for speculative execution.
 ##
 
-# Get the directory containing this script
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+###############################################################################
+# Environment Setup
+###############################################################################
 
-# PASH_SPEC_TOP is this directory
-export PASH_SPEC_TOP="$SCRIPT_DIR"
-
-# PASH_TOP kept for compatibility - now points to pash-spec root
+## Find the source code top directory
+export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
 export PASH_TOP="${PASH_TOP:-$PASH_SPEC_TOP}"
 
-# Runtime directories - use local jit_runtime
+## Runtime directories
 export RUNTIME_DIR="$PASH_SPEC_TOP/jit_runtime"
 export RUNTIME_LIBRARY_DIR="$PASH_SPEC_TOP/parallel-orch"
-
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/"
+
+## Setup cgroups for memory protection (if writable)
+if [ -w /sys/fs/cgroup/ ]; then
+    mkdir -p /sys/fs/cgroup/frontier
+    total_mem=$(free | awk '/Mem:/ { print $2 }')
+    protected_mem=$(python3 -c "print(int(${total_mem}*0.75) << 10)")
+    chmod 666 /sys/fs/cgroup/cgroup.procs
+    chmod 666 /sys/fs/cgroup/frontier/cgroup.procs
+    if [ $(whoami) == "root" ]; then
+        bash -c "echo $protected_mem > /sys/fs/cgroup/frontier/memory.min"
+    fi
+fi
 
 ## Register signal handlers
 trap kill_all SIGTERM SIGINT
@@ -38,28 +48,36 @@ umask u=rwx,g=rx,o=rx
 export PASH_BASH_VERSION="${BASH_VERSINFO[@]:0:3}"
 
 ## Create temporary directory and communication FIFOs
-export PASH_TMP_PREFIX="$(mktemp -d /tmp/pash_spec_XXXXXXX)/"
+if [ -n "$PASH_TMP_DIR" ]; then
+    mkdir -p "$PASH_TMP_DIR/tmp/pash_spec"
+    export PASH_TMP_PREFIX="$(mktemp -d "$PASH_TMP_DIR/tmp/pash_spec/pash_XXXXXXX")/"
+else
+    mkdir -p /tmp/pash_spec
+    export PASH_TMP_PREFIX="$(mktemp -d /tmp/pash_spec/pash_XXXXXXX)/"
+fi
+
 export PASH_TIMESTAMP="$(date +"%y-%m-%d-%T")"
 export RUNTIME_IN_FIFO="${PASH_TMP_PREFIX}/runtime_in_fifo"
 export RUNTIME_OUT_FIFO="${PASH_TMP_PREFIX}/runtime_out_fifo"
 rm -f "$RUNTIME_IN_FIFO" "$RUNTIME_OUT_FIFO"
 mkfifo "$RUNTIME_IN_FIFO" "$RUNTIME_OUT_FIFO"
 
-## Scheduler socket (set by pash-spec.sh, but provide default)
-export PASH_SPEC_SCHEDULER_SOCKET="${PASH_SPEC_SCHEDULER_SOCKET:-${PASH_TMP_PREFIX}/scheduler_socket}"
+## Scheduler socket
+export PASH_SPEC_SCHEDULER_SOCKET="${PASH_TMP_PREFIX}/scheduler_socket"
+export PASH_SPEC_NODE_DIRECTORY="${PASH_TMP_PREFIX}/speculative/partial_order/"
 
-## Default flag values - always in speculative mode
+## Default flag values
 export pash_speculative_flag=1
 export PASH_DEBUG_LEVEL=1
 export PASH_REDIR="&2"
 
 ###############################################################################
-# Argument Parsing (Simplified - only used flags)
+# Argument Parsing
 ###############################################################################
 
 pash_init_arg_defaults() {
     input_script=""
-    shell_name="pash-spec"
+    shell_name="hs"
     declare -g -a script_args=()
     command_mode=""
     command_text=""
@@ -69,7 +87,7 @@ pash_init_arg_defaults() {
     verbose_flag=""
     xtrace_flag=""
 
-    # Used flags
+    # Options
     arg_debug=""
     arg_log_file=""
     arg_window=""
@@ -80,9 +98,9 @@ pash_init_arg_defaults() {
 
 pash_show_help() {
     cat << 'EOF'
-Usage: pa-spec.sh [OPTIONS] [-c COMMAND | SCRIPT_FILE] [ARGS...]
+Usage: hs [OPTIONS] [-c COMMAND | SCRIPT_FILE] [ARGS...]
 
-PaSh Speculative Execution (Simplified)
+PaSh Speculative Execution
 
 Options:
   -c, --command COMMAND    Execute COMMAND instead of reading from a script file
@@ -95,10 +113,10 @@ Options:
   -h, --help               Show this help message and exit
 
 Examples:
-  pa-spec.sh script.sh              Run script.sh with speculative execution
-  pa-spec.sh -c "cat file | grep foo"   Run a command
-  pa-spec.sh -d 2 script.sh         Run with debug level 2
-  pa-spec.sh --window 10 script.sh  Run with larger speculation window
+  hs script.sh                      Run script.sh with speculative execution
+  hs -c "cat file | grep foo"       Run a command
+  hs -d 2 script.sh                 Run with debug level 2
+  hs --window 10 script.sh          Run with larger speculation window
 EOF
 }
 
@@ -274,6 +292,48 @@ pash_setup_communication() {
 }
 
 ###############################################################################
+# Scheduler Functions (from pash_spec_init_setup.sh)
+###############################################################################
+
+pash_spec_communicate_scheduler() {
+    local message=$1
+    pash_communicate_unix_socket "PaSh-Spec-scheduler" "${PASH_SPEC_SCHEDULER_SOCKET}" "${message}"
+}
+
+pash_spec_communicate_scheduler_just_send() {
+    pash_spec_communicate_scheduler "$1"
+}
+
+pash_spec_wait_until_scheduler_listening() {
+    pash_wait_until_unix_socket_listening "PaSh-Spec-scheduler" "${PASH_SPEC_SCHEDULER_SOCKET}"
+}
+
+start_server() {
+    "$PASH_PYTHON" "$PASH_SPEC_TOP/parallel-orch/scheduler_server.py" "$@" &
+    export daemon_pid=$!
+    ## Wait until daemon has established connection
+    pash_spec_wait_until_scheduler_listening
+}
+
+cleanup_server() {
+    local daemon_pid=$1
+    ## Only wait for daemon if it lives (it might be dead, rip)
+    if ps -p "$daemon_pid" > /dev/null
+    then
+        ## Send and receive from daemon
+        msg="Done"
+        daemon_response=$(pash_spec_communicate_scheduler "$msg")
+        wait 2> /dev/null 1>&2
+    fi
+}
+
+export -f pash_spec_communicate_scheduler
+export -f pash_spec_communicate_scheduler_just_send
+export -f pash_spec_wait_until_scheduler_listening
+export -f start_server
+export -f cleanup_server
+
+###############################################################################
 # Python Setup
 ###############################################################################
 
@@ -309,27 +369,24 @@ fi
 pash_setup_logging
 pash_setup_communication
 
-## 3. Source speculative setup (defines start_server, cleanup_server)
-source "$RUNTIME_DIR/pash_spec_init_setup.sh"
-
-## 4. Handle -c command mode
+## 3. Handle -c command mode
 pash_handle_command_mode
 
-## 5. Create temporary file for preprocessed output
+## 4. Create temporary file for preprocessed output
 preprocessed_output=$(mktemp "${PASH_TMP_PREFIX}/preprocessed_XXXXXX.sh")
 
-## 6. Build server arguments (only --window if specified)
+## 5. Build server arguments (only --window if specified)
 declare -a server_args=()
 [ -n "$arg_debug" ] && server_args+=("-d" "$arg_debug")
 [ -n "$arg_window" ] && server_args+=("--window" "$arg_window")
 
-## 7. Start the scheduler server
+## 6. Start the scheduler server
 start_server "${server_args[@]}"
 
-## 8. Restore umask before executing user scripts
+## 7. Restore umask before executing user scripts
 umask "$old_umask"
 
-## 9. Build preprocessor arguments
+## 8. Build preprocessor arguments
 declare -a preprocessor_args=()
 preprocessor_args+=("--output" "$preprocessed_output")
 [ -n "$arg_debug" ] && preprocessor_args+=("-d" "$arg_debug")
@@ -337,13 +394,13 @@ preprocessor_args+=("--output" "$preprocessed_output")
 preprocessor_args+=("--speculative")
 preprocessor_args+=("$input_script")
 
-## 10. Run the PaSh preprocessor (standalone)
+## 9. Run the PaSh preprocessor
 PYTHONPATH="$PASH_SPEC_TOP/preprocessor:$PYTHONPATH" \
     PASH_FROM_SH="PaSh preprocessor" "$PASH_PYTHON" \
     "$PASH_SPEC_TOP/preprocessor/pash_preprocessor.py" "${preprocessor_args[@]}"
 pash_exit_code=$?
 
-## 11. If preprocessing succeeded, execute the preprocessed script
+## 10. If preprocessing succeeded, execute the preprocessed script
 if [ "$pash_exit_code" -eq 0 ]; then
     bash_flags="$allexport_flag $verbose_flag $xtrace_flag"
     # shellcheck disable=SC2086
@@ -351,11 +408,16 @@ if [ "$pash_exit_code" -eq 0 ]; then
     pash_exit_code=$?
 fi
 
-## 12. Cleanup
+## 11. Cleanup
 cleanup_server "${daemon_pid}"
 
 if [ "$PASH_DEBUG_LEVEL" -le 1 ]; then
     rm -rf "${PASH_TMP_PREFIX}"
+fi
+
+## Cleanup cgroups
+if [ -w /sys/fs/cgroup/ ]; then
+    rmdir /sys/fs/cgroup/frontier 2>/dev/null || true
 fi
 
 (exit "$pash_exit_code")

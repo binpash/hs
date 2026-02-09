@@ -32,15 +32,15 @@ jobs:
         fail-fast: false
         matrix:
           os: 
-          - ubuntu-20.04
+          - ubuntu-24.04
       runs-on: ${{ matrix.os }}
       if: github.event.pull_request.draft == false
       steps:
       - uses: actions/checkout@v2 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v2
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       - name: Running Correctness Tests
         run: |
           uname -a

@@ -15,10 +15,11 @@ LOWER_DIRS=${11?No lower dirs}
 
 ## KK 2023-04-24: Not sure this should be run every time we run a command
 ## GL 2023-07-08: Tests seem to pass without it
-source "$PASH_TOP/compiler/orchestrator_runtime/speculative/pash_spec_init_setup.sh"
+## KK 2026-02-08: Functions now exported from parent hs script, no need to source
+# source "$PASH_SPEC_TOP/jit_runtime/pash_spec_init_setup.sh"
 
 if [ "standard" == "$EXEC_MODE" ]; then
-    echo $$ > /sys/fs/cgroup/frontier/cgroup.procs
+    [ -w /sys/fs/cgroup/frontier/cgroup.procs ] && echo $$ > /sys/fs/cgroup/frontier/cgroup.procs
 elif [ "speculate" == "$EXEC_MODE" ]; then
     renice 20 -p $$ >/dev/null
 fi

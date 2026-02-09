@@ -50,11 +50,14 @@ export PASH_BASH_VERSION="${BASH_VERSINFO[@]:0:3}"
 ## Create temporary directory and communication FIFOs
 if [ -n "$PASH_TMP_DIR" ]; then
     mkdir -p "$PASH_TMP_DIR/tmp/pash_spec"
-    export PASH_TMP_PREFIX="$(mktemp -d "$PASH_TMP_DIR/tmp/pash_spec/pash_XXXXXXX")/"
+    export PASH_SPEC_TMP_PREFIX="$(mktemp -d "$PASH_TMP_DIR/tmp/pash_spec/pash_XXXXXXX")"
 else
     mkdir -p /tmp/pash_spec
-    export PASH_TMP_PREFIX="$(mktemp -d /tmp/pash_spec/pash_XXXXXXX)/"
+    export PASH_SPEC_TMP_PREFIX="$(mktemp -d /tmp/pash_spec/pash_XXXXXXX)"
 fi
+
+## Set PASH_TMP_PREFIX with trailing slash for compatibility
+export PASH_TMP_PREFIX="${PASH_SPEC_TMP_PREFIX}/"
 
 export PASH_TIMESTAMP="$(date +"%y-%m-%d-%T")"
 export RUNTIME_IN_FIFO="${PASH_TMP_PREFIX}/runtime_in_fifo"
@@ -63,7 +66,7 @@ rm -f "$RUNTIME_IN_FIFO" "$RUNTIME_OUT_FIFO"
 mkfifo "$RUNTIME_IN_FIFO" "$RUNTIME_OUT_FIFO"
 
 ## Scheduler socket
-export PASH_SPEC_SCHEDULER_SOCKET="${PASH_TMP_PREFIX}/scheduler_socket"
+export PASH_SPEC_SCHEDULER_SOCKET="${PASH_SPEC_TMP_PREFIX}/scheduler_socket"
 export PASH_SPEC_NODE_DIRECTORY="${PASH_TMP_PREFIX}/speculative/partial_order/"
 
 ## Default flag values

@@ -27,6 +27,14 @@ IFS=$' \t\n'
 pash_redir_output echo "$$: [JIT] After setting default - IFS=$(declare -p IFS 2>&1 || echo 'unset')"
 
 ##
+## Save positional parameters and set options before they get overwritten by sourcing
+## This is needed by pash_source_declare_vars.sh, because "source" mess up $@
+##
+hs_runtime_tmp_args=("$@")
+hs_set_options_cmd="$(set +o)"
+pash_redir_output echo "$$: [JIT] Saved positional parameters: ${hs_runtime_tmp_args[@]}"
+
+##
 ## (2) Speculative execution - ask scheduler
 ##
 export pash_speculative_command_id=$pash_spec_command_id

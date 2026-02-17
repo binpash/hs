@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from python_hs.constants import PASH_TOP
+from python_hs.constants import RUNTIME_LIBRARY_DIR
 from python_hs.logging_ import setup_logger
 from python_hs.runtime import get_vars
 
@@ -570,7 +570,7 @@ def parse_args() -> Args:
 def main() -> None:
     args = parse_args()
     # to stub in pash vars for debugging
-    os.environ["RUNTIME_LIBRARY_DIR"] = str(PASH_TOP / "runtime")
+    os.environ["RUNTIME_LIBRARY_DIR"] = str(RUNTIME_LIBRARY_DIR)
     out = preprocess_file(args.runtime_dir, args.file, args.output)
     print(out)
 

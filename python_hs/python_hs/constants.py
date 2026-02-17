@@ -15,7 +15,8 @@ assert PASH_SPEC_TOP.name == "hs"
 PASH_TOP = PASH_SPEC_TOP / "deps" / "pash"
 PYTHON_SPEC_TOP = PASH_SPEC_TOP / "python_hs"
 
-RUNTIME_DIR = PASH_TOP / "compiler" / "orchestrator_runtime"
+RUNTIME_DIR = PASH_SPEC_TOP / "jit_runtime"
+RUNTIME_LIBRARY_DIR = PASH_SPEC_TOP / "executor"
 
 PASH_SPEC_SCHEDULER_SOCKET = _get_path("PASH_SPEC_SCHEDULER_SOCKET")
 PASH_SPEC_TMP_PREFIX = _get_path("PASH_SPEC_TMP_PREFIX")

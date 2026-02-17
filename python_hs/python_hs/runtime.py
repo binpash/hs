@@ -114,7 +114,7 @@ def hs_run(
                 stderr = f.read()
 
             if stderr:
-                logger.warning("Stderr of %s:", stderr.decode(errors='replace'))
+                logger.warning("Stderr of %s:", stderr.decode(errors="replace"))
 
         match dest:
             case "output":

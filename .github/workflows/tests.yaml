@@ -14,6 +14,7 @@ on:
     - overlay-sandbox/**
     - test/**
     - scripts/**
+    - python_hs/**
   push:
     branches:
     - main
@@ -26,6 +27,7 @@ on:
     - overlay-sandbox/**
     - test/**
     - scripts/**
+    - python_hs/**
   workflow_dispatch:
 # Jobs section
 jobs:
@@ -53,10 +55,14 @@ jobs:
           python3.12 -m venv python_pkgs
           python_pkgs/bin/pip install --upgrade pip
           python_pkgs/bin/pip install -r requirements.txt
+          python_pkgs/bin/pip install python_hs/ pytest
           python_pkgs/bin/pip install psutil
           python_pkgs/bin/python -c "import shasta; import libdash; import libbash"
           (cd executor; make)
-      - name: Running Correctness Tests
+      - name: Running hS Correctness Tests
         run: |
           export PASH_SPEC_TOP=$(pwd)
           DEBUG=100 bash test/test_orch.sh
+      - name: Running Python hS Correctness Tests
+        run: |
+          python_pkgs/bin/pytest python_hs/

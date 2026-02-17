@@ -95,8 +95,9 @@ pash_init_arg_defaults() {
     arg_log_file=""
     arg_window=""
 
-    # Help flag
+    # Mode flags
     show_help=0
+    python_mode=0
 }
 
 pash_show_help() {
@@ -113,6 +114,7 @@ Options:
   -d, --debug LEVEL        Debug level (default: 1)
   --log_file FILE          Log file path (default: stderr)
   --window N               Speculative window size (passed to scheduler)
+  --python                 Run a Python script instead of a shell script
   -h, --help               Show this help message and exit
 
 Examples:
@@ -120,6 +122,7 @@ Examples:
   hs -c "cat file | grep foo"       Run a command
   hs -d 2 script.sh                 Run with debug level 2
   hs --window 10 script.sh          Run with larger speculation window
+  hs --python script.py             Run a Python script with speculative execution
 EOF
 }
 
@@ -174,6 +177,9 @@ pash_parse_args() {
             --window)
                 arg_window="$next_arg"
                 i=$next_i
+                ;;
+            --python)
+                python_mode=1
                 ;;
             *)
                 if [ -z "$input_script" ] && [ -z "$command_mode" ]; then
@@ -389,25 +395,34 @@ start_server "${server_args[@]}"
 ## 7. Restore umask before executing user scripts
 umask "$old_umask"
 
-## 8. Build preprocessor arguments
-declare -a preprocessor_args=()
-preprocessor_args+=("--output" "$preprocessed_output")
-[ -n "$arg_debug" ] && preprocessor_args+=("-d" "$arg_debug")
-[ -n "$arg_log_file" ] && preprocessor_args+=("--log_file" "$arg_log_file")
-preprocessor_args+=("$input_script")
-
-## 9. Run the PaSh preprocessor
-PYTHONPATH="$PASH_SPEC_TOP/preprocessor:$PYTHONPATH" \
-    PASH_FROM_SH="Preprocessor" "$PASH_PYTHON" \
-    "$PASH_SPEC_TOP/preprocessor/preprocessor.py" "${preprocessor_args[@]}"
-pash_exit_code=$?
-
-## 10. If preprocessing succeeded, execute the preprocessed script
-if [ "$pash_exit_code" -eq 0 ]; then
-    bash_flags="$allexport_flag $verbose_flag $xtrace_flag"
-    # shellcheck disable=SC2086
-    bash $bash_flags -c "source $preprocessed_output" "$shell_name" "${script_args[@]}"
+if [ "$python_mode" -eq 1 ]; then
+    ## Python mode: preprocess and execute via python_hs entrypoint
+    PYTHONPATH="$PASH_SPEC_TOP/python_hs:$PYTHONPATH" \
+        "$PASH_PYTHON" \
+        "$PASH_SPEC_TOP/python_hs/python_hs/entrypoint.py" \
+        "$input_script"
     pash_exit_code=$?
+else
+    ## 8. Build preprocessor arguments
+    declare -a preprocessor_args=()
+    preprocessor_args+=("--output" "$preprocessed_output")
+    [ -n "$arg_debug" ] && preprocessor_args+=("-d" "$arg_debug")
+    [ -n "$arg_log_file" ] && preprocessor_args+=("--log_file" "$arg_log_file")
+    preprocessor_args+=("$input_script")
+
+    ## 9. Run the PaSh preprocessor
+    PYTHONPATH="$PASH_SPEC_TOP/preprocessor:$PYTHONPATH" \
+        PASH_FROM_SH="Preprocessor" "$PASH_PYTHON" \
+        "$PASH_SPEC_TOP/preprocessor/preprocessor.py" "${preprocessor_args[@]}"
+    pash_exit_code=$?
+
+    ## 10. If preprocessing succeeded, execute the preprocessed script
+    if [ "$pash_exit_code" -eq 0 ]; then
+        bash_flags="$allexport_flag $verbose_flag $xtrace_flag"
+        # shellcheck disable=SC2086
+        bash $bash_flags -c "source $preprocessed_output" "$shell_name" "${script_args[@]}"
+        pash_exit_code=$?
+    fi
 fi
 
 ## 11. Cleanup

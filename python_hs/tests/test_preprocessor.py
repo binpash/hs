@@ -54,8 +54,8 @@ subprocess.run(['echo', 'world'])
 """
         result, _ = preprocess(code)
 
-        self.assertIn("hs_run(0, None, 'output')\n", result)
-        self.assertIn("hs_run(1, None, 'output')\n", result)
+        self.assertIn("hs_run(0, None, 'output', False, False)", result)
+        self.assertIn("hs_run(1, None, 'output', False, False)", result)
         self.assertNotIn("subprocess.run", result)
 
     def test_subprocess_with_capture_output(self) -> None:
@@ -65,7 +65,7 @@ result = subprocess.run(['echo', 'hello'], capture_output=True)
 """
         result, _ = preprocess(code)
 
-        self.assertIn("hs_run(0, None, 'capture')", result)
+        self.assertIn("hs_run(0, None, 'capture', False, False)", result)
         self.assertNotIn("subprocess.run", result)
 
     def test_popen_transformation(self) -> None:
@@ -110,14 +110,13 @@ for i in range(2):
 
     def test_unsupported_subprocess_args(self) -> None:
         code = """
-subprocess.run(['echo', 'hello'], shell=True)
+subprocess.run(['echo', 'hello'], env={'FOO': 'bar'})
 """
         with self.assertRaises(ValueError) as cm:
             preprocess(code)
 
-        # The actual error message is "Extra kws {'shell': ...}"
         self.assertIn("Extra kws", str(cm.exception))
-        self.assertIn("shell", str(cm.exception))
+        self.assertIn("env", str(cm.exception))
 
     def test_missing_subprocess_args(self) -> None:
         code = """
@@ -207,6 +206,35 @@ for i in range(2):
         self.assertIn("hs_run(3, 3", result)
         self.assertNotIn("for i in range(2):", result)
         self.assertNotIn("for j in range(2):", result)
+
+    def test_subprocess_with_check(self) -> None:
+        """check=True should be passed through to hs_run."""
+        code = """
+import subprocess
+subprocess.run(['echo', 'hello'], check=True)
+"""
+        result, _ = preprocess(code)
+        self.assertIn("hs_run(0, None, 'output', True, False)", result)
+
+    def test_subprocess_with_text(self) -> None:
+        """text=True should be passed through to hs_run."""
+        code = """
+import subprocess
+subprocess.run(['echo', 'hello'], text=True)
+"""
+        result, _ = preprocess(code)
+        self.assertIn("hs_run(0, None, 'output', False, True)", result)
+
+    def test_shell_true_uses_shlex(self) -> None:
+        """shell=True should be accepted (not raise) and command should be split."""
+        code = """
+import subprocess
+subprocess.run('echo hello', shell=True)
+"""
+        result, state = preprocess(code)
+        self.assertIn("hs_run(", result)
+        # shell=True with string arg should shlex.split the command
+        self.assertEqual(state.specs[0].args, ["echo", "hello"])
 
 
 if __name__ == "__main__":

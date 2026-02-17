@@ -114,7 +114,7 @@ Options:
   -d, --debug LEVEL        Debug level (default: 1)
   --log_file FILE          Log file path (default: stderr)
   --window N               Speculative window size (passed to scheduler)
-  --python                 Run a Python script instead of a shell script
+  --python                 EXPERIMENTAL: Run a Python script instead of a shell script
   -h, --help               Show this help message and exit
 
 Examples:

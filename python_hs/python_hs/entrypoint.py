@@ -9,13 +9,19 @@ def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser()
     parser.add_argument("file", help="Input file to speculate", type=Path)
-    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument(
+        "-d",
+        "--debug",
+        type=int,
+        default=0,
+        help="Debug level (0=off, >0=on)",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    logging_.DEBUG = args.debug
+    logging_.DEBUG = args.debug > 0
 
     from python_hs.constants import PASH_SPEC_TMP_PREFIX
     from python_hs.preprocessor import preprocess_file

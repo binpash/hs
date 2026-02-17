@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import sys
 
-DEBUG = True
+DEBUG = False
 
 
 def setup_logger(name: str) -> logging.Logger:

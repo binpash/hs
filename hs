@@ -397,9 +397,14 @@ umask "$old_umask"
 
 if [ "$python_mode" -eq 1 ]; then
     ## Python mode: preprocess and execute via python_hs entrypoint
+    declare -a python_args=()
+    if [ -n "$arg_debug" ]; then
+        python_args+=("-d" "$arg_debug")
+    fi
     PYTHONPATH="$PASH_SPEC_TOP/python_hs:$PYTHONPATH" \
         "$PASH_PYTHON" \
         "$PASH_SPEC_TOP/python_hs/python_hs/entrypoint.py" \
+        "${python_args[@]}" \
         "$input_script"
     pash_exit_code=$?
 else

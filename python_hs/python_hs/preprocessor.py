@@ -284,7 +284,7 @@ class PreprocessorTransformer(ast.NodeTransformer):
     def visit_For(self, node: ast.For) -> ast.AST | list[ast.stmt]:
         for n in ast.walk(node):
             if isinstance(n, ast.Call) and self._is_subprocess_val(
-                n.func, "subprocess", "run"
+                n.func, "Popen", "run"
             ):
                 if self._can_safely_attempt_unroll(node):
                     return self._unroll_loop(node)
@@ -301,7 +301,7 @@ class PreprocessorTransformer(ast.NodeTransformer):
         # if there are no subprocess calls, no need to transform
         for n in ast.walk(node):
             if isinstance(n, ast.Call) and self._is_subprocess_val(
-                n.func, "subprocess", "run"
+                n.func, "Popen", "run"
             ):
                 break
         else:

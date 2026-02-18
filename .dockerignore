@@ -3,5 +3,6 @@ report/resources
 report/output
 report/archive
 .venv
+python_pkgs/
 python_hs/.venv
 python_hs/report/

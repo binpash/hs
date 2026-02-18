@@ -1,4 +1,4 @@
-FROM debian:12
+FROM python:3.12-bookworm
 
 RUN mkdir -p /srv/hs
 WORKDIR /srv/hs
@@ -10,23 +10,27 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt update \
     && apt install -y \
         # hs deps
-        vim sudo git python3 python3.11-venv strace wget make python3-cram file graphviz libtool python3-matplotlib libcap2-bin util-linux \
+        vim sudo git strace wget make file graphviz libtool python3-matplotlib libcap2-bin util-linux \
         # pash deps
-        curl graphviz bsdmainutils libffi-dev locales locales-all netcat-openbsd pkg-config procps python3-pip python3-setuptools python3-testresources wamerican-insane \
+        curl graphviz bsdmainutils libffi-dev locales locales-all netcat-openbsd pkg-config procps wamerican-insane \
         # try deps
         expect mergerfs attr
 RUN git config --global --add safe.directory /srv
 ENV PASH_SPEC_TOP=/srv/hs
 ENV PASH_TOP=/srv/hs/deps/pash
-# pash, try
-COPY deps/ deps/
+# try
+COPY deps/try deps/try
 WORKDIR /srv/hs/deps/try
 RUN make -C utils
 RUN mv utils/try-commit /bin
 RUN mv utils/try-summary /bin
-WORKDIR /srv/hs/deps/pash
-RUN ./scripts/setup-pash.sh
 WORKDIR /srv/hs
-RUN python3 -m venv .venv
+RUN python3 -m venv python_pkgs
+COPY requirements.txt .
+RUN python_pkgs/bin/pip install --upgrade pip \
+    && python_pkgs/bin/pip install -r requirements.txt
+COPY python_hs/ python_hs/
+RUN python_pkgs/bin/pip install python_hs/
 COPY . .
+RUN cd executor && make clean && make
 ENTRYPOINT ["/srv/hs/entrypoint.sh"]

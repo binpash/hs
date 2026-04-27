@@ -367,7 +367,7 @@ int main(int argc, char *argv[]) {
         }
     }
 done_parse:
-    if (filename == NULL || optind == argc && (mode == RESTORE_MODE || mode == PARTIAL_RESTORE_MODE)) {
+    if (filename == NULL || (optind == argc && (mode == RESTORE_MODE || mode == PARTIAL_RESTORE_MODE))) {
 	print_usage(argv[0]);
 	exit(1);
     }

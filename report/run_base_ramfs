@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 ############################################################
 # Assumes that a ramfs is mounted at /mydata/tmp.          #
@@ -23,18 +24,34 @@ else
     test_name=$two_up/$one_up
     container_name="hs-${two_up}-${one_up}"
 fi
-# echo $benchmark_root
-# echo $test_name
-# echo $benchmark_name
+# shellcheck source=report/docker_common.sh
+source "$benchmark_root/../docker_common.sh"
 
-rm -rf $benchmark_root/../output/$test_name
-docker rm -f $container_name 2>/dev/null
+report_dir="$(realpath -m "$benchmark_root/..")"
+output_dir="$report_dir/output/$test_name"
 
-docker run --name $container_name --init --privileged --cgroupns=host -v /mydata/tmp:/tmp hs/${benchmark_name} ./report/benchmarks/${test_name}/run $@
-mkdir -p $benchmark_root/../output/$test_name
-docker cp $container_name:/srv/hs/report/output/$test_name/error $benchmark_root/../output/$test_name/error
-docker cp $container_name:/srv/hs/report/output/$test_name/hs_time $benchmark_root/../output/$test_name/hs_time
-docker cp $container_name:/srv/hs/report/output/$test_name/sh_time $benchmark_root/../output/$test_name/sh_time
-docker cp $container_name:/srv/hs/report/output/$test_name/hs/stderr $benchmark_root/../output/$test_name/stderr_hs
-docker cp $container_name:/srv/hs/report/output/$test_name/sh/stderr $benchmark_root/../output/$test_name/stderr_sh
-docker rm $container_name
+rm -rf "$output_dir"
+hs_docker rm -f "$container_name" 2>/dev/null || true
+cleanup_container() {
+    hs_docker rm -f "$container_name" >/dev/null 2>&1 || true
+}
+trap cleanup_container EXIT
+
+hs_docker run --name "$container_name" --init --privileged --cgroupns=host -v /mydata/tmp:/tmp "hs/${benchmark_name}" ./report/benchmarks/${test_name}/run "$@"
+mkdir -p "$output_dir"
+copy_result_if_present() {
+    local src=$1
+    local dst=$2
+    hs_docker cp "$container_name:$src" "$dst" 2>/dev/null || true
+}
+
+copy_result_if_present "/srv/hs/report/output/$test_name/error" "$output_dir/error"
+copy_result_if_present "/srv/hs/report/output/$test_name/hs_time" "$output_dir/hs_time"
+copy_result_if_present "/srv/hs/report/output/$test_name/sh_time" "$output_dir/sh_time"
+copy_result_if_present "/srv/hs/report/output/$test_name/hs/stderr" "$output_dir/stderr_hs"
+copy_result_if_present "/srv/hs/report/output/$test_name/sh/stderr" "$output_dir/stderr_sh"
+hs_write_run_metadata "$output_dir" "$benchmark_name" "$test_name" "hs/$benchmark_name" "$@"
+echo "Outputs copied to: $output_dir"
+hs_update_summary_csv "$report_dir"
+hs_docker rm "$container_name" >/dev/null
+trap - EXIT

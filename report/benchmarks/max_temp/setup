@@ -1,5 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-base=$(dirname "${BASH_SOURCE[0]}")
-cd $base
-docker build . -t hs/max_temp
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_top="${PASH_SPEC_TOP:-$(git -C "$script_dir" rev-parse --show-toplevel --show-superproject-working-tree | awk 'NF { print; exit }')}"
+
+"$repo_top/report/setup_base" "$script_dir"

@@ -11,7 +11,7 @@
 
 filter_vars_file()
 {
-    cat "$1" | grep -v "^declare -\([A-Za-z]\|-\)* \(pash\|PASH_OLD_IFS\|BASH\|LINENO\|EUID\|GROUPS\|cmd_exit_code\)"
+    grep -Ev "^declare -[A-Za-z-]* (pash|PASH_OLD_IFS|BASH[A-Za-z0-9_]*|LINENO|EUID|GROUPS|PPID|SHELLOPTS|UID|cmd_exit_code)(=|\\[|$)" "$1"
     # The extension below is done for the speculative pash
     # | grep -v "LS_COLORS"
 }

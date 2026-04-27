@@ -1,32 +1,67 @@
-FROM debian:12
+FROM ubuntu:24.04
 
-RUN mkdir -p /srv/hs
-WORKDIR /srv/hs
+ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
 
-# https://docs.docker.com/build/cache/optimize/#use-cache-mounts
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt update \
-    && apt install -y \
-        # hs deps
-        vim sudo git python3 python3.11-venv strace wget make python3-cram file graphviz libtool python3-matplotlib libcap2-bin util-linux \
-        # pash deps
-        curl graphviz bsdmainutils libffi-dev locales locales-all netcat-openbsd pkg-config procps python3-pip python3-setuptools python3-testresources wamerican-insane \
-        # try deps
-        expect mergerfs attr
-RUN git config --global --add safe.directory /srv
-ENV PASH_SPEC_TOP=/srv/hs
-ENV PASH_TOP=/srv/hs/deps/pash
-# pash, try
-COPY deps/ deps/
-WORKDIR /srv/hs/deps/try
-RUN make -C utils
-RUN mv utils/try-commit /bin
-RUN mv utils/try-summary /bin
-WORKDIR /srv/hs/deps/pash
-RUN ./scripts/setup-pash.sh
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        attr \
+        autoconf \
+        automake \
+        bc \
+        build-essential \
+        bsdextrautils \
+        ca-certificates \
+        curl \
+        expect \
+        file \
+        git \
+        graphviz \
+        jq \
+        libcap2-bin \
+        libffi-dev \
+        libtool \
+        locales \
+        locales-all \
+        m4 \
+        make \
+        mergerfs \
+        netcat-openbsd \
+        pkg-config \
+        procps \
+        python3 \
+        python3-cram \
+        python3-matplotlib \
+        python3-pip \
+        python3-setuptools \
+        python3-testresources \
+        python3-venv \
+        python3.12-venv \
+        strace \
+        sudo \
+        util-linux \
+        vim \
+        wamerican-insane \
+        wget \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /srv/hs
-RUN python3 -m venv .venv
+
 COPY . .
+
+RUN git config --global --add safe.directory /srv/hs \
+    && test -d deps/try/utils \
+    && make -C deps/try/utils \
+    && install -m 0755 deps/try/utils/try-commit /usr/local/bin/try-commit \
+    && install -m 0755 deps/try/utils/try-summary /usr/local/bin/try-summary \
+    && make -C executor \
+    && python3.12 -m venv python_pkgs \
+    && python_pkgs/bin/pip install --upgrade pip \
+    && python_pkgs/bin/pip install -r requirements.txt \
+    && ln -s python_pkgs .venv
+
+ENV PASH_SPEC_TOP=/srv/hs
+ENV PASH_TOP=/srv/hs
+ENV ORCH_TOP=/srv/hs
+ENV PATH="/srv/hs:${PATH}"
+
 ENTRYPOINT ["/srv/hs/entrypoint.sh"]

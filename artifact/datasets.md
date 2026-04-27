@@ -1,0 +1,26 @@
+# Dataset Manifest
+
+Large datasets are not bundled in the artifact archive. The artifact includes
+benchmark setup scripts and precomputed paper results; this manifest records the
+permanent public locations that the setup scripts use or mirror.
+
+| Paper benchmark | Artifact path | Permanent public location | Access notes and citation |
+| --- | --- | --- | --- |
+| TERA-Seq | `report/benchmarks/teraseq` | SRA BioProject `PRJNA673166`: https://www.ncbi.nlm.nih.gov/bioproject/PRJNA673166; FASTQ links are listed in `report/benchmarks/teraseq/inner/*/README.md`; FAST5 mirror: http://mourelatos.med.upenn.edu/teraseq/fast5/ | Public SRA/ENA data. Cite Ibrahim et al., NAR 2021, https://doi.org/10.1093/nar/gkab713. |
+| Genomics / Bio4 | `report/benchmarks/bio4` | 1000 Genomes Project Phase 3 BAMs listed in `report/benchmarks/bio4/inner/input_full.txt`, under `ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/phase3/data/` | Public 1000 Genomes data. The setup downloads selected BAMs listed in the artifact. |
+| Sklearn | `report/benchmarks/sklearn_large` | KDD Cup 1999 dataset, UCI DOI https://doi.org/10.24432/C51C7N | Downloaded by `sklearn.datasets.fetch_kddcup99`; cite the UCI dataset and scikit-learn. |
+| DGSH | `report/benchmarks/dgsh` | New Zealand trade CSV: https://www.stats.govt.nz/assets/Uploads/International-trade/International-trade-December-2020-quarter/Download-data/international-trade-december-2020-quarter-csv.zip; Project Gutenberg Shakespeare: https://www.gutenberg.org/cache/epub/100/pg100.txt; Apache logs example: https://raw.githubusercontent.com/elastic/examples/master/Common%20Data%20Formats/apache_logs/apache_logs; source repos https://github.com/kelsny/overcommitted and https://github.com/FFmpeg/FFmpeg | Public data and source repositories used by the DGSH-derived benchmarks. |
+| NLP / UNIX for Poets | `report/benchmarks/nlp*` | Brown Atlas Gutenberg mirror: https://atlas-group.cs.brown.edu/data/gutenberg/; original Project Gutenberg license: https://www.gutenberg.org/policy/license.html | The setup downloads a book list plus selected public-domain texts, then inflates them for larger input sizes. |
+| NOAA | `report/benchmarks/max_temp` | Brown Atlas NOAA mirror: https://atlas-group.cs.brown.edu/data/noaa/ | The setup downloads `NOAA_1930_1939.tar`, `NOAA_1960_1969.tar`, `NOAA_1980_1989.tar`, and `NOAA_2000_2009.tar`. |
+| Unix50 | `report/benchmarks/unix_50` | Brown Atlas Unix50 mirror: https://atlas-group.cs.brown.edu/data/unix50/ | The setup recursively downloads the public puzzle inputs and inflates selected files. |
+| COVID-mts / Bus analytics | `report/benchmarks/bus-analytics` | Athens bus telemetry archive: https://www.balab.aueb.gr/~dds/master-telemetry-distilled.bz2 | Public dataset associated with "The Real Statistics of Buses in Athens"; setup creates 100M and 10G derived inputs. |
+| LogAnalysis | `report/benchmarks/log-analysis` | World Cup 1998 web logs: https://ita.ee.lbl.gov/html/contrib/WorldCup.html; Brown Atlas mirror used by scripts: https://atlas-group.cs.brown.edu/data/web-logs/world-cup/ | Public Internet Traffic Archive data; setup builds small, medium, and full subsets. |
+| WebIndex | `report/benchmarks/web-index` | Brown Atlas Wikipedia inputs: https://atlas.cs.brown.edu/data/wikipedia/ | Setup downloads `wikipedia100m.tar.gz`, `index100m.txt`, `wikipedia1g.tar.gz`, and `index1g.txt`, then derives inflated inputs. |
+| Python BioAlign | `python_hs/report/benchmarks/biostars-multiprocessing` | OrthoMaM v12 CDS: https://orthomam.mbb.cnrs.fr/orthomam_v12/cds/omm_filtered_NT_CDS/ | Public OrthoMaM data; cite OrthoMaM v12, https://doi.org/10.1093/nar/gkad834. |
+| Python ProteinInt | `python_hs/report/benchmarks/bioinfo-automine` | NCBI SRA runs `SRR26147696`, `SRR26147697`, `SRR26147702`, `SRR26147714`, `SRR26147715`, `SRR26147716`; UCSC hg38 reference: https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz | Public SRA reads are downsampled by the setup script; cite the source workflow/book and UCSC reference as appropriate. |
+| Python AudioProc | `python_hs/report/benchmarks/nemo-audio-processing` | MLCommons Speech Wikimedia on Hugging Face: https://huggingface.co/datasets/MLCommons/speech-wikimedia | Dataset note in the paper bibliography states CC-BY-SA. |
+| Python VideoProc | `python_hs/report/benchmarks/rainbowcake-python-video-processing` | YouTube UGC object store: https://storage.googleapis.com/ugc-dataset/; file list API: https://storage.googleapis.com/storage/v1/b/ugc-dataset/o?prefix=original_videos/ | Public video dataset used by the ServerlessBench/RainbowCake-derived benchmark. |
+| Python MRIanalysis | `python_hs/report/benchmarks/kaggle-captk-brats-preprocessing` | RSNA-MICCAI Brain Tumor Radiogenomic Classification Kaggle competition: https://www.kaggle.com/competitions/rsna-miccai-brain-tumor-radiogenomic-classification; CaPTk installer dataset: https://www.kaggle.com/datasets/mpsampat/captk-181-installerbin | Requires Kaggle credentials and acceptance of Kaggle terms. Cite BraTS/RSNA-MICCAI sources and CaPTk. |
+
+Some benchmark setup scripts use Brown Atlas mirrors for convenience and
+repeatability. Where an original upstream source is also known, both are listed.

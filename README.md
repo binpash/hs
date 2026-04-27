@@ -6,7 +6,10 @@
 
 ### Security Warning
 
-Being an experimental project, `hs` currently uses sudo to change permission of `/sys/fs/cgroup/cgroup.procs` to 666 (which by default is usually 644).
+Being an experimental project, `hs` uses Linux tracing, cgroup, OverlayFS, and
+filesystem sandboxing facilities. Run the installer as the checkout owner; it
+uses `sudo` internally for package installation and helper binaries. Run hS
+itself with `sudo` for the default sandboxing path.
 
 ### Structure
 
@@ -28,19 +31,27 @@ The project's top-level directory contains the following:
 
 Install `hs` on your Linux-based machine by following these steps:
 
-**Note:** Currently works with `Ubuntu 20.04` or later
+**Note:** `hs` is a Linux artifact. For artifact evaluation, we recommend the
+native Ubuntu setup script on a disposable Linux VM or test host. The shell
+artifact requires Python 3.12 or newer; the Python frontend prototype has its
+own requirements under `python_hs/`. On Ubuntu 20.04/22.04, the setup script
+uses the deadsnakes PPA when the default apt repositories do not provide
+Python 3.12 packages.
 
 1. Navigate to the project directory:
    ```sh
-   cd path_to/dynamic-parallelizer
+   cd hs
    ```
 
-2. Run the installation script:
+2. Initialize the `try` submodule and run the installation script:
    ```sh
+   git submodule update --init --recursive deps/try
    ./scripts/install_deps_ubuntu20.sh
    ```
 
-This script will handle all the necessary installations, including dependencies, try, Riker, and PaSh.
+This script installs system packages, initializes `deps/try`, builds helper
+binaries, and installs the Python dependencies used by the preprocessor and
+scheduler.
 
 ### Running `hs`
 
@@ -49,7 +60,7 @@ The main entry script to initiate `hs` is the `hs` script. This script sets up t
 Example of running the script:
 
 ```bash
-./pash-spec.sh [arguments] script_to_speculatively_run.sh
+sudo ./hs [arguments] script_to_speculatively_run.sh
 ```
 
 **Arguments**:
@@ -57,27 +68,27 @@ Example of running the script:
 - `-d, --debug-level`: Set the debugging level. Default is `0`.
 - `-f, --log_file`: Define the logging output file. By default, logs are printed to stdout.
 - `--sandbox-killing`: Kill any running overlay instances before committing to the lower layer.
-- `--env-check-all-nodes-on-wait`: On a wait, check for environment changes between the current node and all other waiting nodes. (not fully functional yet!)
+See `./hs --help` for the current command-line interface.
 
 ### Testing
 
 To run the provided tests:
 
 ```bash
-./test/test_orch.sh
+sudo env ORCH_TOP="$(pwd)" PASH_SPEC_TOP="$(pwd)" PASH_TOP="$(pwd)" ./test/test_orch.sh
 ```
 
 For in-depth analysis, set the `DEBUG` environment variable to `2` for detailed logs and redirect logs to a file:
 
 ```bash
-DEBUG=2 ./test/test_orch.sh 2>logs.txt
+sudo env DEBUG=2 ORCH_TOP="$(pwd)" PASH_SPEC_TOP="$(pwd)" PASH_TOP="$(pwd)" ./test/test_orch.sh 2>logs.txt
 ```
 
 ### Contributing and Further Development
 
 Contributions are always welcome! The project roadmap includes extending the architecture to support complete scripts, optimizing the scheduler for better performance, etc.
 
-For a detailed description of possible optimizations, see the [related issues](https://github.com/binpash/dynamic-parallelizer/issues?q=is%3Aopen+is%3Aissue+label%3Aoptimization)
+For a detailed description of possible optimizations, see the [related issues](https://github.com/binpash/hs/issues?q=is%3Aopen+is%3Aissue+label%3Aoptimization).
 
 ### License
 

@@ -11,3 +11,7 @@ test/output_bash/
 test/output_orch/
 test/results/
 build/
+executor/fd_util
+executor/set-diff
+python_pkgs/
+hs-osdi26-ae*.tar.gz

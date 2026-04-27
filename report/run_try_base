@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 this_path=$(realpath -se "$0")
 
@@ -18,12 +19,24 @@ else
     container_name="hs-${two_up}-${one_up}"
 fi
 
-docker rm -f $container_name 2>/dev/null
+# shellcheck source=report/docker_common.sh
+source "$benchmark_root/../docker_common.sh"
 
-docker run --name $container_name --init --privileged --cgroupns=host -v /z/nikos/tmp:/tmp hs/${benchmark_name} ./report/benchmarks/${test_name}/run_try $@
-# docker run --name $container_name --init --privileged --cgroupns=host -v /z/nikos/tmp:/tmp -it hs/${benchmark_name} bash
+report_dir="$(realpath -m "$benchmark_root/..")"
+output_dir="$report_dir/output/$test_name"
 
-mkdir -p $benchmark_root/../output/$test_name
-docker cp $container_name:/srv/hs/report/output/$test_name/try_time $benchmark_root/../output/$test_name/try_time
+hs_docker rm -f "$container_name" 2>/dev/null || true
+cleanup_container() {
+    hs_docker rm -f "$container_name" >/dev/null 2>&1 || true
+}
+trap cleanup_container EXIT
 
-docker rm $container_name
+hs_docker run --name "$container_name" --init --privileged --cgroupns=host -v /z/nikos/tmp:/tmp "hs/${benchmark_name}" ./report/benchmarks/${test_name}/run_try "$@"
+# hs_docker run --name "$container_name" --init --privileged --cgroupns=host -v /z/nikos/tmp:/tmp -it "hs/${benchmark_name}" bash
+
+mkdir -p "$output_dir"
+hs_docker cp "$container_name:/srv/hs/report/output/$test_name/try_time" "$output_dir/try_time"
+echo "Outputs copied to: $output_dir"
+
+hs_docker rm "$container_name" >/dev/null
+trap - EXIT

@@ -1,0 +1,357 @@
+DEBUG|2025-04-10 00:09:40,664|SocketManager: Made sure that socket does not exist
+DEBUG|2025-04-10 00:09:40,664|SocketManager: Created socket
+DEBUG|2025-04-10 00:09:40,664|SocketManager: Successfully bound to socket
+DEBUG|2025-04-10 00:09:40,664|SocketManager: Listenting on socket
+DEBUG|2025-04-10 00:09:40,676|Received data: Daemon Start
+
+DEBUG|2025-04-10 00:09:40,754|Received data: Init:/tmp/pash_ZKBuueB//speculative/partial_order_file
+
+DEBUG|2025-04-10 00:09:40,754|Cmds are stored in: /tmp/pash_ZKBuueB//speculative/partial_order/
+DEBUG|2025-04-10 00:09:40,754|Number of po cmds: 9
+DEBUG|2025-04-10 00:09:40,754|Parsing: /tmp/pash_ZKBuueB//speculative/partial_order//0
+DEBUG|2025-04-10 00:09:40,755|Parsing: /tmp/pash_ZKBuueB//speculative/partial_order//1
+DEBUG|2025-04-10 00:09:40,755|Parsing: /tmp/pash_ZKBuueB//speculative/partial_order//2
+DEBUG|2025-04-10 00:09:40,756|Parsing: /tmp/pash_ZKBuueB//speculative/partial_order//3
+DEBUG|2025-04-10 00:09:40,756|Parsing: /tmp/pash_ZKBuueB//speculative/partial_order//4
+From set: hBc
+To set: huB
+DEBUG|2025-04-10 00:09:40,756|Parsing: /tmp/pash_ZKBuueB//speculative/partial_order//5
+DEBUG|2025-04-10 00:09:40,756|Parsing: /tmp/pash_ZKBuueB//speculative/partial_order//6
+DEBUG|2025-04-10 00:09:40,756|Parsing: /tmp/pash_ZKBuueB//speculative/partial_order//7
+DEBUG|2025-04-10 00:09:40,757|Parsing: /tmp/pash_ZKBuueB//speculative/partial_order//8
+To add: u
+To remove: 
+54: (1) Previous exit status: 0
+54: (1) Previous set state: hBc
+54: (1) Set state reverted to PaSh-internal set state: huBc
+54: (2) Before asking the scheduler for cmd: 0 exit code...
+54: (1) Bash variables saved in: /tmp/pash_ZKBuueB//variables_20568136616925
+54: Loop node iteration counters: None
+Sending msg to PaSh-Spec-scheduler: Wait:0|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_20568136616925
+DEBUG|2025-04-10 00:09:40,762|Received data: Wait:0|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_20568136616925
+
+INFO|2025-04-10 00:09:40,763|[EVENT_LOG] try to eagerly kill conflicted speculation
+Got response from PaSh-Spec-scheduler: UNSAFE: 
+54: (2) Scheduler responded: UNSAFE: 
+54: (2) Executing command: 0
+54: (2) Scheduler returned exit code: 0 for cmd with id: 0.
+From set: hBc
+To set: huB
+To add: u
+To remove: 
+54: (1) Previous exit status: 0
+54: (1) Previous set state: hBc
+54: (1) Set state reverted to PaSh-internal set state: huBc
+54: (2) Before asking the scheduler for cmd: 1 exit code...
+54: (1) Bash variables saved in: /tmp/pash_ZKBuueB//variables_14698404332559
+54: Loop node iteration counters: None
+Sending msg to PaSh-Spec-scheduler: Wait:1|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_14698404332559
+DEBUG|2025-04-10 00:09:40,770|Received data: Wait:1|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_14698404332559
+
+INFO|2025-04-10 00:09:40,771|[EVENT_LOG] try to eagerly kill conflicted speculation
+Got response from PaSh-Spec-scheduler: UNSAFE: 
+54: (2) Scheduler responded: UNSAFE: 
+54: (2) Executing command: 1
+54: (2) Scheduler returned exit code: 0 for cmd with id: 1.
+From set: hBc
+To set: huB
+To add: u
+To remove: 
+54: (1) Previous exit status: 0
+54: (1) Previous set state: hBc
+54: (1) Set state reverted to PaSh-internal set state: huBc
+54: (2) Before asking the scheduler for cmd: 2 exit code...
+54: (1) Bash variables saved in: /tmp/pash_ZKBuueB//variables_207591383917109
+54: Loop node iteration counters: None
+Sending msg to PaSh-Spec-scheduler: Wait:2|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_207591383917109
+DEBUG|2025-04-10 00:09:40,779|Received data: Wait:2|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_207591383917109
+
+INFO|2025-04-10 00:09:40,779|[EVENT_LOG] try to eagerly kill conflicted speculation
+Got response from PaSh-Spec-scheduler: UNSAFE: 
+54: (2) Scheduler responded: UNSAFE: 
+54: (2) Executing command: 2
+54: (2) Scheduler returned exit code: 0 for cmd with id: 2.
+From set: hBc
+To set: huB
+To add: u
+To remove: 
+54: (1) Previous exit status: 0
+54: (1) Previous set state: hBc
+54: (1) Set state reverted to PaSh-internal set state: huBc
+54: (2) Before asking the scheduler for cmd: 3 exit code...
+54: (1) Bash variables saved in: /tmp/pash_ZKBuueB//variables_28739929012516
+54: Loop node iteration counters: None
+Sending msg to PaSh-Spec-scheduler: Wait:3|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_28739929012516
+DEBUG|2025-04-10 00:09:40,787|Received data: Wait:3|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_28739929012516
+
+INFO|2025-04-10 00:09:40,787|[EVENT_LOG] try to eagerly kill conflicted speculation
+Got response from PaSh-Spec-scheduler: UNSAFE: 
+54: (2) Scheduler responded: UNSAFE: 
+54: (2) Executing command: 3
+54: (2) Scheduler returned exit code: 0 for cmd with id: 3.
+From set: hBc
+To set: huB
+To add: u
+To remove: 
+54: (1) Previous exit status: 0
+54: (1) Previous set state: hBc
+54: (1) Set state reverted to PaSh-internal set state: huBc
+54: (2) Before asking the scheduler for cmd: 4 exit code...
+54: (1) Bash variables saved in: /tmp/pash_ZKBuueB//variables_256792583514366
+54: Loop node iteration counters: None
+Sending msg to PaSh-Spec-scheduler: Wait:4|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_256792583514366
+DEBUG|2025-04-10 00:09:40,795|Received data: Wait:4|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_256792583514366
+
+INFO|2025-04-10 00:09:40,795|[EVENT_LOG] try to eagerly kill conflicted speculation
+Got response from PaSh-Spec-scheduler: UNSAFE: 
+54: (2) Scheduler responded: UNSAFE: 
+54: (2) Executing command: 4
+54: (2) Scheduler returned exit code: 0 for cmd with id: 4.
+From set: hBc
+To set: huB
+To add: u
+To remove: 
+54: (1) Previous exit status: 0
+54: (1) Previous set state: hBc
+54: (1) Set state reverted to PaSh-internal set state: huBc
+54: (2) Before asking the scheduler for cmd: 5 exit code...
+54: (1) Bash variables saved in: /tmp/pash_ZKBuueB//variables_1736274004961
+54: Loop node iteration counters: None
+Sending msg to PaSh-Spec-scheduler: Wait:5|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_1736274004961
+DEBUG|2025-04-10 00:09:40,802|Received data: Wait:5|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_1736274004961
+
+INFO|2025-04-10 00:09:40,802|[EVENT_LOG] handle_wait 5@
+INFO|2025-04-10 00:09:40,803|[EVENT_LOG] reset speculation
+DEBUG|2025-04-10 00:09:40,803|Ast in question: Command: [[f, i, n, d], [V(Normal,False,REPO_DIR,[])], [-, t, y, p, e], [f], [-, n, a, m, e], [Q([\*, ., o])]]
+DEBUG|2025-04-10 00:09:40,803|Expanded command argument: [f, i, n, d] (str: "find")
+DEBUG|2025-04-10 00:09:40,803|Ast in question: Command: [[x, a, r, g, s], [n, m]], reds[[<shasta.ast_node.FileRedirNode object at 0x7fe70256ed10>]]
+DEBUG|2025-04-10 00:09:40,803|Expanded command argument: [x, a, r, g, s] (str: "xargs")
+INFO|2025-04-10 00:09:40,803|[EVENT_LOG] schedule 5@
+INFO|2025-04-10 00:09:40,803|[EXEC_TIME_LOG] start, 5@, 1744243780803312, False 1744243780.803318
+DEBUG|2025-04-10 00:09:40,803|Scheduler: Trace file for: 5@: /tmp/pash_spec/pash_2x5SFsn/hs_trace_4skszztr
+DEBUG|2025-04-10 00:09:40,803|Scheduler: Stdout file for: 5@ is: /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_fsyy1zff
+DEBUG|2025-04-10 00:09:40,803|Scheduler: Stderr file for: 5@ is: /tmp/pash_spec/pash_2x5SFsn/hs_stderr_kmxka_5c
+DEBUG|2025-04-10 00:09:40,803|['/bin/bash', '/srv/hs/parallel-orch/run_command.sh', 'find $REPO_DIR -type f -name "*.o" | xargs nm > "$file1"', '/tmp/pash_spec/pash_2x5SFsn/hs_trace_4skszztr', '/tmp/pash_spec/pash_2x5SFsn/hs_outfiles_fsyy1zff', '/tmp/pash_ZKBuueB//variables_1736274004961', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_b7ro2ppb', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/b/sandbox_12t66tkj', 'standard', '5@', '/tmp/pash_spec/pash_2x5SFsn/hs_post_env_1nqc9ud8', '1744243780803312', '']
+DEBUG|2025-04-10 00:09:40,805|Ast in question: Command: [[f, i, n, d], [V(Normal,False,REPO_DIR,[])], [-, t, y, p, e], [f], [-, n, a, m, e], [Q([\*, ., o])]]
+DEBUG|2025-04-10 00:09:40,805|Expanded command argument: [f, i, n, d] (str: "find")
+DEBUG|2025-04-10 00:09:40,805|Ast in question: Command: [[x, a, r, g, s], [n, m]], reds[[<shasta.ast_node.FileRedirNode object at 0x7fe70256ed10>]]
+DEBUG|2025-04-10 00:09:40,805|Expanded command argument: [x, a, r, g, s] (str: "xargs")
+DEBUG|2025-04-10 00:09:40,806|Ast in question: Command: [[a, w, k], [Q([N, F,  , \=, \=,  , 3,  , &, &,  , $, 2,  , \~,  , \/, \[, A, \-, Z, \], \/,  , {, p, r, i, n, t,  , $, 3, }])], [Q([V(Normal,False,file1,[])])]]
+DEBUG|2025-04-10 00:09:40,806|Expanded command argument: [a, w, k] (str: "awk")
+DEBUG|2025-04-10 00:09:40,806|Ast in question: Command: [[s, o, r, t]], reds[[<shasta.ast_node.FileRedirNode object at 0x7fe70253a2d0>]]
+DEBUG|2025-04-10 00:09:40,806|Expanded command argument: [s, o, r, t] (str: "sort")
+INFO|2025-04-10 00:09:40,806|[EXEC_TIME_LOG] start, 6@, 1744243780806444, True 1744243780.8064485
+DEBUG|2025-04-10 00:09:40,806|Scheduler: Trace file for: 6@: /tmp/pash_spec/pash_2x5SFsn/hs_trace_5a95rcxj
+DEBUG|2025-04-10 00:09:40,806|Scheduler: Stdout file for: 6@ is: /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_16dgjhib
+DEBUG|2025-04-10 00:09:40,806|Scheduler: Stderr file for: 6@ is: /tmp/pash_spec/pash_2x5SFsn/hs_stderr_cg_brhqd
+DEBUG|2025-04-10 00:09:40,806|['/bin/bash', '/srv/hs/parallel-orch/run_command.sh', 'awk \'NF == 3 && $2 ~ /[A-Z]/ {print $3}\' "$file1" | sort > "$file2"', '/tmp/pash_spec/pash_2x5SFsn/hs_trace_5a95rcxj', '/tmp/pash_spec/pash_2x5SFsn/hs_outfiles_16dgjhib', '/tmp/pash_spec/pash_2x5SFsn/hs_spec_pre_env_8cpm7sly', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_eb_zoucq', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/b/sandbox_e2pnehrx', 'speculate', '6@', '/tmp/pash_spec/pash_2x5SFsn/hs_post_env_c72oz72b', '1744243780806444', '']
+DEBUG|2025-04-10 00:09:40,808|Ast in question: Command: [[a, w, k], [Q([N, F,  , \=, \=,  , 3,  , &, &,  , $, 2,  , \~,  , \/, \[, A, \-, Z, \], \/,  , {, p, r, i, n, t,  , $, 3, }])], [Q([V(Normal,False,file1,[])])]]
+DEBUG|2025-04-10 00:09:40,808|Expanded command argument: [a, w, k] (str: "awk")
+DEBUG|2025-04-10 00:09:40,808|Ast in question: Command: [[s, o, r, t]], reds[[<shasta.ast_node.FileRedirNode object at 0x7fe70253a2d0>]]
+DEBUG|2025-04-10 00:09:40,808|Expanded command argument: [s, o, r, t] (str: "sort")
+DEBUG|2025-04-10 00:09:40,809|Ast in question: Command: [[a, w, k], [Q([$, 1,  , \=, \=,  , ", U, ",  , {, p, r, i, n, t,  , $, 2, }])], [Q([V(Normal,False,file1,[])])]]
+DEBUG|2025-04-10 00:09:40,809|Expanded command argument: [a, w, k] (str: "awk")
+DEBUG|2025-04-10 00:09:40,809|Ast in question: Command: [[s, o, r, t]], reds[[<shasta.ast_node.FileRedirNode object at 0x7fe702580050>]]
+DEBUG|2025-04-10 00:09:40,809|Expanded command argument: [s, o, r, t] (str: "sort")
+INFO|2025-04-10 00:09:40,809|[EXEC_TIME_LOG] start, 7@, 1744243780809771, True 1744243780.8097787
+DEBUG|2025-04-10 00:09:40,809|Scheduler: Trace file for: 7@: /tmp/pash_spec/pash_2x5SFsn/hs_trace_hlk1epxq
+DEBUG|2025-04-10 00:09:40,809|Scheduler: Stdout file for: 7@ is: /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_53wvxs9t
+DEBUG|2025-04-10 00:09:40,809|Scheduler: Stderr file for: 7@ is: /tmp/pash_spec/pash_2x5SFsn/hs_stderr_6hhcmm27
+DEBUG|2025-04-10 00:09:40,810|['/bin/bash', '/srv/hs/parallel-orch/run_command.sh', 'awk \'$1 == "U" {print $2}\' "$file1" | sort > "$file3"', '/tmp/pash_spec/pash_2x5SFsn/hs_trace_hlk1epxq', '/tmp/pash_spec/pash_2x5SFsn/hs_outfiles_53wvxs9t', '/tmp/pash_spec/pash_2x5SFsn/hs_spec_pre_env_nrujv3tk', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_pzdgiaah', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/b/sandbox_p4rtg61i', 'speculate', '7@', '/tmp/pash_spec/pash_2x5SFsn/hs_post_env_rf3qybld', '1744243780809771', '']
+DEBUG|2025-04-10 00:09:40,812|Ast in question: Command: [[a, w, k], [Q([$, 1,  , \=, \=,  , ", U, ",  , {, p, r, i, n, t,  , $, 2, }])], [Q([V(Normal,False,file1,[])])]]
+DEBUG|2025-04-10 00:09:40,812|Expanded command argument: [a, w, k] (str: "awk")
+DEBUG|2025-04-10 00:09:40,812|Ast in question: Command: [[s, o, r, t]], reds[[<shasta.ast_node.FileRedirNode object at 0x7fe702580050>]]
+DEBUG|2025-04-10 00:09:40,812|Expanded command argument: [s, o, r, t] (str: "sort")
+DEBUG|2025-04-10 00:09:40,812|Ast in question: Command: [[c, o, m, m], [-, 2, 3], [Q([V(Normal,False,file2,[])])], [Q([V(Normal,False,file3,[])])]]
+DEBUG|2025-04-10 00:09:40,812|Expanded command argument: [c, o, m, m] (str: "comm")
+INFO|2025-04-10 00:09:40,812|[EXEC_TIME_LOG] start, 8@, 1744243780812835, True 1744243780.8128393
+DEBUG|2025-04-10 00:09:40,812|Scheduler: Trace file for: 8@: /tmp/pash_spec/pash_2x5SFsn/hs_trace_ytsy88hl
+DEBUG|2025-04-10 00:09:40,812|Scheduler: Stdout file for: 8@ is: /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_xeas3qj3
+DEBUG|2025-04-10 00:09:40,812|Scheduler: Stderr file for: 8@ is: /tmp/pash_spec/pash_2x5SFsn/hs_stderr_oapw5p0l
+DEBUG|2025-04-10 00:09:40,813|['/bin/bash', '/srv/hs/parallel-orch/run_command.sh', 'comm -23 "$file2" "$file3"', '/tmp/pash_spec/pash_2x5SFsn/hs_trace_ytsy88hl', '/tmp/pash_spec/pash_2x5SFsn/hs_outfiles_xeas3qj3', '/tmp/pash_spec/pash_2x5SFsn/hs_spec_pre_env_1y1d665x', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_vjejiyr3', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/b/sandbox_9bdh_zgg', 'speculate', '8@', '/tmp/pash_spec/pash_2x5SFsn/hs_post_env_k09kkqd_', '1744243780812835', '']
+DEBUG|2025-04-10 00:09:40,814|Ast in question: Command: [[c, o, m, m], [-, 2, 3], [Q([V(Normal,False,file2,[])])], [Q([V(Normal,False,file3,[])])]]
+DEBUG|2025-04-10 00:09:40,814|Expanded command argument: [c, o, m, m] (str: "comm")
+INFO|2025-04-10 00:09:40,815|[EVENT_LOG] try to eagerly kill conflicted speculation
+Sending msg to PaSh-Spec-scheduler: CommandExecComplete:8@|Exec id:1744243780812835|Sandbox dir:/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_vjejiyr3|Trace file:/tmp/pash_spec/pash_2x5SFsn/hs_trace_ytsy88hl|Tempdir:
+Sending msg to PaSh-Spec-scheduler: CommandExecComplete:6@|Exec id:1744243780806444|Sandbox dir:/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_eb_zoucq|Trace file:/tmp/pash_spec/pash_2x5SFsn/hs_trace_5a95rcxj|Tempdir:
+DEBUG|2025-04-10 00:09:41,050|Received data: CommandExecComplete:8@|Exec id:1744243780812835|Sandbox dir:/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_vjejiyr3|Trace file:/tmp/pash_spec/pash_2x5SFsn/hs_trace_ytsy88hl|Tempdir:
+
+INFO|2025-04-10 00:09:41,050|[EVENT_LOG] handle_complete 8@
+Got response from PaSh-Spec-scheduler: 
+INFO|2025-04-10 00:09:41,079|[EXEC_TIME_LOG] spec_done, 8@, 1744243780812835 1744243781.0790834
+DEBUG|2025-04-10 00:09:41,079|Ast in question: Command: [[c, o, m, m], [-, 2, 3], [Q([V(Normal,False,file2,[])])], [Q([V(Normal,False,file3,[])])]]
+DEBUG|2025-04-10 00:09:41,079|Expanded command argument: [c, o, m, m] (str: "comm")
+INFO|2025-04-10 00:09:41,079|[EVENT_LOG] try to eagerly kill conflicted speculation
+INFO|2025-04-10 00:09:41,089|[EXEC_TIME_LOG] reset, 6@, None 1744243781.089404
+INFO|2025-04-10 00:09:41,090|[EXEC_TIME_LOG] reset, 7@, None 1744243781.090563
+INFO|2025-04-10 00:09:41,091|[EXEC_TIME_LOG] reset, 8@, None 1744243781.0912585
+DEBUG|2025-04-10 00:09:41,091|Received data: CommandExecComplete:6@|Exec id:1744243780806444|Sandbox dir:/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_eb_zoucq|Trace file:/tmp/pash_spec/pash_2x5SFsn/hs_trace_5a95rcxj|Tempdir:
+
+DEBUG|2025-04-10 00:09:41,091|Ast in question: Command: [[c, o, m, m], [-, 2, 3], [Q([V(Normal,False,file2,[])])], [Q([V(Normal,False,file3,[])])]]
+DEBUG|2025-04-10 00:09:41,091|Expanded command argument: [c, o, m, m] (str: "comm")
+INFO|2025-04-10 00:09:41,092|[EVENT_LOG] try to eagerly kill conflicted speculation
+Sending msg to PaSh-Spec-scheduler: CommandExecComplete:5@|Exec id:1744243780803312|Sandbox dir:/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_b7ro2ppb|Trace file:/tmp/pash_spec/pash_2x5SFsn/hs_trace_4skszztr|Tempdir:
+DEBUG|2025-04-10 00:09:42,425|Received data: CommandExecComplete:5@|Exec id:1744243780803312|Sandbox dir:/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_b7ro2ppb|Trace file:/tmp/pash_spec/pash_2x5SFsn/hs_trace_4skszztr|Tempdir:
+
+INFO|2025-04-10 00:09:42,425|[EVENT_LOG] handle_complete 5@
+Got response from PaSh-Spec-scheduler: 
+INFO|2025-04-10 00:09:42,849|[EXEC_TIME_LOG] canon_done, 5@, 1744243780803312 1744243782.8492708
+DEBUG|2025-04-10 00:09:42,865|Responding to pending wait for node: 5@
+INFO|2025-04-10 00:09:42,865|[EXEC_TIME_LOG] start, 6@, 1744243782865563, True 1744243782.8655703
+DEBUG|2025-04-10 00:09:42,865|Scheduler: Trace file for: 6@: /tmp/pash_spec/pash_2x5SFsn/hs_trace_yotnn2lc
+DEBUG|2025-04-10 00:09:42,865|Scheduler: Stdout file for: 6@ is: /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_zi3plbvn
+DEBUG|2025-04-10 00:09:42,865|Scheduler: Stderr file for: 6@ is: /tmp/pash_spec/pash_2x5SFsn/hs_stderr_zfnsc3v5
+Got response from PaSh-Spec-scheduler: OK: 0 /tmp/pash_spec/pash_2x5SFsn/hs_post_env_1nqc9ud8 /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_fsyy1zff
+DEBUG|2025-04-10 00:09:42,865|['/bin/bash', '/srv/hs/parallel-orch/run_command.sh', 'awk \'NF == 3 && $2 ~ /[A-Z]/ {print $3}\' "$file1" | sort > "$file2"', '/tmp/pash_spec/pash_2x5SFsn/hs_trace_yotnn2lc', '/tmp/pash_spec/pash_2x5SFsn/hs_outfiles_zi3plbvn', '/tmp/pash_spec/pash_2x5SFsn/hs_spec_pre_env_8cpm7sly', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_85isf8i8', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/b/sandbox_6ab95xzn', 'speculate', '6@', '/tmp/pash_spec/pash_2x5SFsn/hs_post_env_30j5bxqy', '1744243782865563', '']
+54: (2) Scheduler responded: OK: 0 /tmp/pash_spec/pash_2x5SFsn/hs_post_env_1nqc9ud8 /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_fsyy1zff
+54: (2) Recovering stdout from: /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_fsyy1zff
+54: (2) Recovering script variables from: /tmp/pash_spec/pash_2x5SFsn/hs_post_env_1nqc9ud8
+INFO|2025-04-10 00:09:42,867|[EXEC_TIME_LOG] start, 7@, 1744243782867803, True 1744243782.8678093
+DEBUG|2025-04-10 00:09:42,868|Scheduler: Trace file for: 7@: /tmp/pash_spec/pash_2x5SFsn/hs_trace_gapw1lc5
+DEBUG|2025-04-10 00:09:42,868|Scheduler: Stdout file for: 7@ is: /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_nab0fj37
+DEBUG|2025-04-10 00:09:42,868|Scheduler: Stderr file for: 7@ is: /tmp/pash_spec/pash_2x5SFsn/hs_stderr_kemza8u5
+DEBUG|2025-04-10 00:09:42,868|['/bin/bash', '/srv/hs/parallel-orch/run_command.sh', 'awk \'$1 == "U" {print $2}\' "$file1" | sort > "$file3"', '/tmp/pash_spec/pash_2x5SFsn/hs_trace_gapw1lc5', '/tmp/pash_spec/pash_2x5SFsn/hs_outfiles_nab0fj37', '/tmp/pash_spec/pash_2x5SFsn/hs_spec_pre_env_nrujv3tk', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_t31adxaz', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/b/sandbox_6ihablxa', 'speculate', '7@', '/tmp/pash_spec/pash_2x5SFsn/hs_post_env_u0wnzbbm', '1744243782867803', '']
+DEBUG|2025-04-10 00:09:42,870|Ast in question: Command: [[c, o, m, m], [-, 2, 3], [Q([V(Normal,False,file2,[])])], [Q([V(Normal,False,file3,[])])]]
+DEBUG|2025-04-10 00:09:42,870|Expanded command argument: [c, o, m, m] (str: "comm")
+INFO|2025-04-10 00:09:42,870|[EVENT_LOG] try to eagerly kill conflicted speculation
+/dev/fd/63: line 35: declare: PPID: readonly variable
+/dev/fd/63: line 49: declare: SHELLOPTS: readonly variable
+/dev/fd/63: line 53: declare: UID: readonly variable
+54: (2) Scheduler returned exit code: 0 for cmd with id: 5.
+From set: hBc
+To set: huB
+To add: u
+To remove: 
+54: (1) Previous exit status: 0
+54: (1) Previous set state: hBc
+54: (1) Set state reverted to PaSh-internal set state: huBc
+54: (2) Before asking the scheduler for cmd: 6 exit code...
+54: (1) Bash variables saved in: /tmp/pash_ZKBuueB//variables_168313208124753
+54: Loop node iteration counters: None
+Sending msg to PaSh-Spec-scheduler: Wait:6|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_168313208124753
+DEBUG|2025-04-10 00:09:42,879|Received data: Wait:6|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_168313208124753
+
+INFO|2025-04-10 00:09:42,879|[EVENT_LOG] handle_wait 6@
+INFO|2025-04-10 00:09:42,880|[EXEC_TIME_LOG] start, 8@, 1744243782880485, True 1744243782.880492
+DEBUG|2025-04-10 00:09:42,880|Scheduler: Trace file for: 8@: /tmp/pash_spec/pash_2x5SFsn/hs_trace_qu4dbebm
+DEBUG|2025-04-10 00:09:42,880|Scheduler: Stdout file for: 8@ is: /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_uqs8_sgl
+DEBUG|2025-04-10 00:09:42,880|Scheduler: Stderr file for: 8@ is: /tmp/pash_spec/pash_2x5SFsn/hs_stderr_0c7m3mic
+DEBUG|2025-04-10 00:09:42,880|['/bin/bash', '/srv/hs/parallel-orch/run_command.sh', 'comm -23 "$file2" "$file3"', '/tmp/pash_spec/pash_2x5SFsn/hs_trace_qu4dbebm', '/tmp/pash_spec/pash_2x5SFsn/hs_outfiles_uqs8_sgl', '/tmp/pash_spec/pash_2x5SFsn/hs_spec_pre_env_1y1d665x', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_zy0citnb', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/b/sandbox_k0w5rd15', 'speculate', '8@', '/tmp/pash_spec/pash_2x5SFsn/hs_post_env_5k1lfbax', '1744243782880485', '']
+DEBUG|2025-04-10 00:09:42,882|Ast in question: Command: [[c, o, m, m], [-, 2, 3], [Q([V(Normal,False,file2,[])])], [Q([V(Normal,False,file3,[])])]]
+DEBUG|2025-04-10 00:09:42,882|Expanded command argument: [c, o, m, m] (str: "comm")
+INFO|2025-04-10 00:09:42,882|[EVENT_LOG] try to eagerly kill conflicted speculation
+Sending msg to PaSh-Spec-scheduler: CommandExecComplete:8@|Exec id:1744243782880485|Sandbox dir:/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_zy0citnb|Trace file:/tmp/pash_spec/pash_2x5SFsn/hs_trace_qu4dbebm|Tempdir:
+DEBUG|2025-04-10 00:09:43,101|Received data: CommandExecComplete:8@|Exec id:1744243782880485|Sandbox dir:/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_zy0citnb|Trace file:/tmp/pash_spec/pash_2x5SFsn/hs_trace_qu4dbebm|Tempdir:
+
+INFO|2025-04-10 00:09:43,102|[EVENT_LOG] handle_complete 8@
+Got response from PaSh-Spec-scheduler: 
+Sending msg to PaSh-Spec-scheduler: CommandExecComplete:7@|Exec id:1744243782867803|Sandbox dir:/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_t31adxaz|Trace file:/tmp/pash_spec/pash_2x5SFsn/hs_trace_gapw1lc5|Tempdir:
+INFO|2025-04-10 00:09:43,116|[EXEC_TIME_LOG] spec_done, 8@, 1744243782880485 1744243783.1165664
+DEBUG|2025-04-10 00:09:43,117|Ast in question: Command: [[c, o, m, m], [-, 2, 3], [Q([V(Normal,False,file2,[])])], [Q([V(Normal,False,file3,[])])]]
+DEBUG|2025-04-10 00:09:43,117|Expanded command argument: [c, o, m, m] (str: "comm")
+INFO|2025-04-10 00:09:43,117|[EVENT_LOG] try to eagerly kill conflicted speculation
+INFO|2025-04-10 00:09:43,117|[EXEC_TIME_LOG] reset, 8@, None 1744243783.117637
+DEBUG|2025-04-10 00:09:43,118|Received data: CommandExecComplete:7@|Exec id:1744243782867803|Sandbox dir:/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_t31adxaz|Trace file:/tmp/pash_spec/pash_2x5SFsn/hs_trace_gapw1lc5|Tempdir:
+
+INFO|2025-04-10 00:09:43,118|[EVENT_LOG] handle_complete 7@
+Got response from PaSh-Spec-scheduler: 
+INFO|2025-04-10 00:09:43,121|[EXEC_TIME_LOG] spec_done, 7@, 1744243782867803 1744243783.1213753
+DEBUG|2025-04-10 00:09:43,121|Ast in question: Command: [[c, o, m, m], [-, 2, 3], [Q([V(Normal,False,file2,[])])], [Q([V(Normal,False,file3,[])])]]
+DEBUG|2025-04-10 00:09:43,121|Expanded command argument: [c, o, m, m] (str: "comm")
+INFO|2025-04-10 00:09:43,122|[EVENT_LOG] try to eagerly kill conflicted speculation
+Sending msg to PaSh-Spec-scheduler: CommandExecComplete:6@|Exec id:1744243782865563|Sandbox dir:/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_85isf8i8|Trace file:/tmp/pash_spec/pash_2x5SFsn/hs_trace_yotnn2lc|Tempdir:
+DEBUG|2025-04-10 00:09:43,137|Received data: CommandExecComplete:6@|Exec id:1744243782865563|Sandbox dir:/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_85isf8i8|Trace file:/tmp/pash_spec/pash_2x5SFsn/hs_trace_yotnn2lc|Tempdir:
+
+INFO|2025-04-10 00:09:43,137|[EVENT_LOG] handle_complete 6@
+Got response from PaSh-Spec-scheduler: 
+INFO|2025-04-10 00:09:43,139|[EXEC_TIME_LOG] spec_done, 6@, 1744243782865563 1744243783.1393893
+INFO|2025-04-10 00:09:43,139|[EXEC_TIME_LOG] spec_commit, 6@, 1744243782865563 1744243783.1397278
+DEBUG|2025-04-10 00:09:43,149|Responding to pending wait for node: 6@
+INFO|2025-04-10 00:09:43,149|[EXEC_TIME_LOG] start, 8@, 1744243783149559, True 1744243783.1495671
+DEBUG|2025-04-10 00:09:43,149|Scheduler: Trace file for: 8@: /tmp/pash_spec/pash_2x5SFsn/hs_trace_is9c3d_2
+DEBUG|2025-04-10 00:09:43,149|Scheduler: Stdout file for: 8@ is: /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_lygo1jut
+DEBUG|2025-04-10 00:09:43,149|Scheduler: Stderr file for: 8@ is: /tmp/pash_spec/pash_2x5SFsn/hs_stderr_kbj2y_ec
+Got response from PaSh-Spec-scheduler: OK: 0 /tmp/pash_spec/pash_2x5SFsn/hs_post_env_30j5bxqy /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_zi3plbvn
+DEBUG|2025-04-10 00:09:43,150|['/bin/bash', '/srv/hs/parallel-orch/run_command.sh', 'comm -23 "$file2" "$file3"', '/tmp/pash_spec/pash_2x5SFsn/hs_trace_is9c3d_2', '/tmp/pash_spec/pash_2x5SFsn/hs_outfiles_lygo1jut', '/tmp/pash_spec/pash_2x5SFsn/hs_spec_pre_env_1y1d665x', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_1t8gnjyd', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/b/sandbox_3fajb9zl', 'speculate', '8@', '/tmp/pash_spec/pash_2x5SFsn/hs_post_env_4cwlgpio', '1744243783149559', '/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_t31adxaz']
+54: (2) Scheduler responded: OK: 0 /tmp/pash_spec/pash_2x5SFsn/hs_post_env_30j5bxqy /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_zi3plbvn
+54: (2) Recovering stdout from: /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_zi3plbvn
+54: (2) Recovering script variables from: /tmp/pash_spec/pash_2x5SFsn/hs_post_env_30j5bxqy
+DEBUG|2025-04-10 00:09:43,152|Ast in question: Command: [[c, o, m, m], [-, 2, 3], [Q([V(Normal,False,file2,[])])], [Q([V(Normal,False,file3,[])])]]
+DEBUG|2025-04-10 00:09:43,152|Expanded command argument: [c, o, m, m] (str: "comm")
+INFO|2025-04-10 00:09:43,152|[EVENT_LOG] try to eagerly kill conflicted speculation
+/dev/fd/63: line 35: declare: PPID: readonly variable
+/dev/fd/63: line 49: declare: SHELLOPTS: readonly variable
+/dev/fd/63: line 53: declare: UID: readonly variable
+54: (2) Scheduler returned exit code: 0 for cmd with id: 6.
+From set: hBc
+To set: huB
+To add: u
+To remove: 
+54: (1) Previous exit status: 0
+54: (1) Previous set state: hBc
+54: (1) Set state reverted to PaSh-internal set state: huBc
+54: (2) Before asking the scheduler for cmd: 7 exit code...
+54: (1) Bash variables saved in: /tmp/pash_ZKBuueB//variables_168313208124753
+54: Loop node iteration counters: None
+Sending msg to PaSh-Spec-scheduler: Wait:7|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_168313208124753
+DEBUG|2025-04-10 00:09:43,163|Received data: Wait:7|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_168313208124753
+
+INFO|2025-04-10 00:09:43,163|[EVENT_LOG] handle_wait 7@
+INFO|2025-04-10 00:09:43,164|[EXEC_TIME_LOG] spec_commit, 7@, 1744243782867803 1744243783.1643903
+DEBUG|2025-04-10 00:09:43,174|Responding to pending wait for node: 7@
+DEBUG|2025-04-10 00:09:43,174|Ast in question: Command: [[c, o, m, m], [-, 2, 3], [Q([V(Normal,False,file2,[])])], [Q([V(Normal,False,file3,[])])]]
+DEBUG|2025-04-10 00:09:43,175|Expanded command argument: [c, o, m, m] (str: "comm")
+INFO|2025-04-10 00:09:43,175|[EVENT_LOG] try to eagerly kill conflicted speculation
+Got response from PaSh-Spec-scheduler: OK: 0 /tmp/pash_spec/pash_2x5SFsn/hs_post_env_u0wnzbbm /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_nab0fj37
+54: (2) Scheduler responded: OK: 0 /tmp/pash_spec/pash_2x5SFsn/hs_post_env_u0wnzbbm /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_nab0fj37
+54: (2) Recovering stdout from: /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_nab0fj37
+54: (2) Recovering script variables from: /tmp/pash_spec/pash_2x5SFsn/hs_post_env_u0wnzbbm
+/dev/fd/63: line 35: declare: PPID: readonly variable
+/dev/fd/63: line 49: declare: SHELLOPTS: readonly variable
+/dev/fd/63: line 53: declare: UID: readonly variable
+54: (2) Scheduler returned exit code: 0 for cmd with id: 7.
+From set: hBc
+To set: huB
+To add: u
+To remove: 
+54: (1) Previous exit status: 0
+54: (1) Previous set state: hBc
+54: (1) Set state reverted to PaSh-internal set state: huBc
+54: (2) Before asking the scheduler for cmd: 8 exit code...
+54: (1) Bash variables saved in: /tmp/pash_ZKBuueB//variables_168313208124753
+54: Loop node iteration counters: None
+Sending msg to PaSh-Spec-scheduler: Wait:8|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_168313208124753
+DEBUG|2025-04-10 00:09:43,188|Received data: Wait:8|Loop iters:None|Variables file:/tmp/pash_ZKBuueB//variables_168313208124753
+
+INFO|2025-04-10 00:09:43,188|[EVENT_LOG] handle_wait 8@
+DEBUG|2025-04-10 00:09:43,189|Ast in question: Command: [[c, o, m, m], [-, 2, 3], [Q([V(Normal,False,file2,[])])], [Q([V(Normal,False,file3,[])])]]
+DEBUG|2025-04-10 00:09:43,189|Expanded command argument: [c, o, m, m] (str: "comm")
+INFO|2025-04-10 00:09:43,189|[EVENT_LOG] try to eagerly kill conflicted speculation
+Sending msg to PaSh-Spec-scheduler: CommandExecComplete:8@|Exec id:1744243783149559|Sandbox dir:/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_1t8gnjyd|Trace file:/tmp/pash_spec/pash_2x5SFsn/hs_trace_is9c3d_2|Tempdir:
+DEBUG|2025-04-10 00:09:43,368|Received data: CommandExecComplete:8@|Exec id:1744243783149559|Sandbox dir:/tmp/pash_spec/pash_2x5SFsn/tmp/pash_spec/a/sandbox_1t8gnjyd|Trace file:/tmp/pash_spec/pash_2x5SFsn/hs_trace_is9c3d_2|Tempdir:
+
+INFO|2025-04-10 00:09:43,368|[EVENT_LOG] handle_complete 8@
+Got response from PaSh-Spec-scheduler: 
+INFO|2025-04-10 00:09:43,372|[EXEC_TIME_LOG] spec_done, 8@, 1744243783149559 1744243783.3729298
+INFO|2025-04-10 00:09:43,373|[EXEC_TIME_LOG] spec_commit, 8@, 1744243783149559 1744243783.3731709
+DEBUG|2025-04-10 00:09:43,380|Responding to pending wait for node: 8@
+DEBUG|2025-04-10 00:09:43,380|Ast in question: Command: [[c, o, m, m], [-, 2, 3], [Q([V(Normal,False,file2,[])])], [Q([V(Normal,False,file3,[])])]]
+DEBUG|2025-04-10 00:09:43,381|Expanded command argument: [c, o, m, m] (str: "comm")
+INFO|2025-04-10 00:09:43,381|[EVENT_LOG] try to eagerly kill conflicted speculation
+Got response from PaSh-Spec-scheduler: OK: 0 /tmp/pash_spec/pash_2x5SFsn/hs_post_env_4cwlgpio /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_lygo1jut
+54: (2) Scheduler responded: OK: 0 /tmp/pash_spec/pash_2x5SFsn/hs_post_env_4cwlgpio /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_lygo1jut
+54: (2) Recovering stdout from: /tmp/pash_spec/pash_2x5SFsn/hs_outfiles_lygo1jut
+54: (2) Recovering script variables from: /tmp/pash_spec/pash_2x5SFsn/hs_post_env_4cwlgpio
+/dev/fd/63: line 35: declare: PPID: readonly variable
+/dev/fd/63: line 49: declare: SHELLOPTS: readonly variable
+/dev/fd/63: line 53: declare: UID: readonly variable
+54: (2) Scheduler returned exit code: 0 for cmd with id: 8.
+Sending msg to PaSh-Spec-scheduler: Done
+DEBUG|2025-04-10 00:09:43,403|Received data: Done
+
+DEBUG|2025-04-10 00:09:43,404|Ast in question: Command: [[c, o, m, m], [-, 2, 3], [Q([V(Normal,False,file2,[])])], [Q([V(Normal,False,file3,[])])]]
+DEBUG|2025-04-10 00:09:43,404|Expanded command argument: [c, o, m, m] (str: "comm")
+INFO|2025-04-10 00:09:43,404|[EVENT_LOG] try to eagerly kill conflicted speculation
+Got response from PaSh-Spec-scheduler: OK: All finished!
+DEBUG|2025-04-10 00:09:43,404|PaSh-Spec scheduler is shutting down...
+DEBUG|2025-04-10 00:09:43,404|PaSh-Spec scheduler shut down successfully...

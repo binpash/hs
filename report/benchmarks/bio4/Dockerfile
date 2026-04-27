@@ -1,4 +1,4 @@
-from hs
+FROM hs
 
 WORKDIR /srv/hs
 RUN mkdir -p report/benchmarks/bio4

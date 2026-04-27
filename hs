@@ -116,10 +116,10 @@ Options:
   -h, --help               Show this help message and exit
 
 Examples:
-  hs script.sh                      Run script.sh with speculative execution
-  hs -c "cat file | grep foo"       Run a command
-  hs -d 2 script.sh                 Run with debug level 2
-  hs --window 10 script.sh          Run with larger speculation window
+  sudo hs script.sh                 Run script.sh with speculative execution
+  sudo hs -c "cat file | grep foo"  Run a command
+  sudo hs -d 2 script.sh            Run with debug level 2
+  sudo hs --window 10 script.sh     Run with larger speculation window
 EOF
 }
 
@@ -341,18 +341,43 @@ export -f cleanup_server
 ###############################################################################
 
 get_pash_python() {
-    # Check for pash-spec venv - use explicit path from PASH_SPEC_TOP
     local venv_dir="$PASH_SPEC_TOP/python_pkgs/bin"
-    if [ -x "$venv_dir/python" ]; then
-        echo "$venv_dir/python"
-    elif [ -x "$venv_dir/python3" ]; then
-        echo "$venv_dir/python3"
-    else
-        # Fallback to system python
-        echo "python3"
-    fi
+    local candidates=()
+
+    candidates+=("$venv_dir/python" "$venv_dir/python3" "python3.12" "python3" "python")
+    for candidate in "${candidates[@]}"; do
+        if [ -x "$candidate" ] || command -v "$candidate" >/dev/null 2>&1; then
+            if "$candidate" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else 1)' 2>/dev/null; then
+                echo "$candidate"
+                return 0
+            fi
+        fi
+    done
+    return 1
 }
 export PASH_PYTHON=$(get_pash_python)
+
+ensure_pash_python() {
+    if [ -z "$PASH_PYTHON" ]; then
+        cat >&2 <<EOF
+hs: Python 3.12+ is required by the hS preprocessor dependencies.
+hs: Run ./scripts/install_deps_ubuntu20.sh to install Python 3.12 and recreate python_pkgs/.
+hs: If python_pkgs/ was created with Python 3.10, remove it or rerun the installer.
+EOF
+        exit 1
+    fi
+}
+
+ensure_privileged_execution() {
+    if [ "$(id -u)" -ne 0 ]; then
+        cat >&2 <<EOF
+hs: privileged execution is required for the default hS/try sandboxing path.
+hs: Run this command with sudo, for example:
+hs:   sudo ./hs -c 'echo hello'
+EOF
+        exit 1
+    fi
+}
 
 ###############################################################################
 # Main Execution
@@ -367,6 +392,9 @@ if [ "$show_help" -eq 1 ]; then
     pash_show_help
     exit 0
 fi
+
+ensure_pash_python
+ensure_privileged_execution
 
 ## 2. Setup functions
 pash_setup_logging
@@ -414,7 +442,7 @@ fi
 cleanup_server "${daemon_pid}"
 
 if [ "$PASH_DEBUG_LEVEL" -le 1 ]; then
-    rm -rf "${PASH_TMP_PREFIX}"
+    rm -rf "${PASH_TMP_PREFIX}" 2>/dev/null || true
 fi
 
 ## Cleanup cgroups

@@ -10,7 +10,7 @@ OSDI '26 evaluates only the **Artifacts Available** badge. This file contains in
 The stable OSDI submission URL should be the Zenodo record for the archived release:
 
 ```text
-Zenodo archive: https://doi.org/10.5281/zenodo.19830256
+Zenodo archive: https://doi.org/10.5281/zenodo.19832407
 GitHub AE branch: https://github.com/binpash/hs/tree/osdi26-ae
 Main repository: https://github.com/binpash/hs
 ```
@@ -46,7 +46,7 @@ reviewers and, for the artifact materials, permanently public:
 2. The artifact is hosted in Zenodo's permanent archive:
 
    ```text
-   https://doi.org/10.5281/zenodo.19830256
+   https://doi.org/10.5281/zenodo.19832407
    ```
 
 The accepted paper PDF is submitted separately through HotCRP and is not bundled

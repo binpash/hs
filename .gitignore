@@ -11,3 +11,4 @@ test/output_bash/
 test/output_orch/
 test/results/
 build/
+python_pkgs/

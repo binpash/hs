@@ -1,11 +1,11 @@
 # Python dependencies for pash-spec preprocessor and scheduler
 
 # Core AST and parsing libraries
-shasta~=0.5
-libdash
-libbash~=0.1.14
+shasta==0.5
+libdash==0.3.1
+libbash==0.1.14
 
 # Shell variable expansion (used by scheduler's static analysis)
-sh-expand~=0.2.0
+sh-expand==0.2.6
 
 psutil

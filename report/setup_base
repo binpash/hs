@@ -1,7 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-this_path=$(realpath -se "$0")
+if [[ $# -gt 0 ]]; then
+    benchmark_dir="$(realpath -se "$1")"
+else
+    this_path="$(realpath -se "$0")"
+    benchmark_dir="$(dirname "$this_path")"
+fi
 
-cd $(dirname $this_path)
-benchmark_name=$(basename $(dirname "$this_path"))
-docker build . -t hs/${benchmark_name}
+repo_top="${PASH_SPEC_TOP:-$(git -C "$benchmark_dir" rev-parse --show-toplevel --show-superproject-working-tree | awk 'NF { print; exit }')}"
+
+# shellcheck source=report/docker_common.sh
+source "$repo_top/report/docker_common.sh"
+
+hs_build_benchmark_image "$benchmark_dir" "$repo_top"

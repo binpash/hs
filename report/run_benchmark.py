@@ -41,11 +41,9 @@ def do_sh_run(test_base: Path, output_base: Path, env: dict, script_name: str, s
     duration = time.time() - before
 
     if result.returncode != 0:
-        print(f"Error: Non-zero return code from sh run")
+        print("Error: Non-zero return code from sh run")
     if len(result.stderr) > 0:
-        print(f"Error: Non-empty stderr from sh run")
-    
-    
+        print("Warn: Non-empty stderr from sh run")
 
     with open(output_dir / "stdout", 'wb') as f:
         f.write(result.stdout)
@@ -80,6 +78,11 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
     before = time.time()
     result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
     duration = time.time() - before
+
+    if result.returncode != 0:
+        print("Error: Non-zero return code from hs run")
+    if len(result.stderr) > 0:
+        print("Warn: Non-empty stderr from hs run")
 
     with open(output_dir / "stdout", 'wb') as f:
         f.write(result.stdout)
@@ -204,6 +207,8 @@ def main():
         hs_returncode = do_hs_run(test_base, output_base, hs_base, args.window, env, args.log == 'enable', script_name, script_args)
     if run_sh and run_hs:
         compare_outputs(output_base)
+
+    print(f"Output directory: {output_base}")
 
 if __name__ == '__main__':
     main()

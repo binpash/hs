@@ -11,6 +11,9 @@ echo "Test script directory:        $TEST_SCRIPT_DIR"
 
 ## Set the DEBUG env variable to see detailed output
 DEBUG=${DEBUG:-0}
+case "$DEBUG" in
+    ''|*[!0-9]*) DEBUG=0 ;;
+esac
 
 bash="bash"
 ## Debug needs to be set to 2 because otherwise repetitions cannot be checked

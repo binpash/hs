@@ -26,51 +26,111 @@ The project's top-level directory contains the following:
 
 ### Installation
 
-Install `hs` on your Linux-based machine by following these steps:
+`binpash-hs` is a Linux-only package and requires Python 3.12 or later.
+The runtime also relies on standard Linux system tools such as `bash`, `gcc`,
+`make`, `libtool`, `libtool-bin`, `autoconf`, `automake`, `m4`, `pkg-config`,
+`strace`, `util-linux`, `netcat-openbsd`, `attr`, and `mergerfs`. Installing
+from the sdist also needs the matching Python development headers, for example
+`python3.12-dev` on Ubuntu.
 
-**Note:** Currently works with `Ubuntu 20.04` or later
+After the package is published, install it with:
 
-1. Navigate to the project directory:
-   ```sh
-   cd path_to/dynamic-parallelizer
-   ```
+```sh
+uv tool install --python 3.12 binpash-hs
+```
 
-2. Run the installation script:
-   ```sh
-   ./scripts/install_deps_ubuntu20.sh
-   ```
+If using `pip`, invoke it through Python 3.12 or newer. A system `pip` attached
+to Python 3.10 will hide this package because the package metadata declares
+`Requires-Python: >=3.12`.
 
-This script will handle all the necessary installations, including dependencies, try, Riker, and PaSh.
+```sh
+python3.12 -m pip install binpash-hs
+```
+
+To test a release uploaded to TestPyPI, use TestPyPI for `binpash-hs` and real
+PyPI for dependencies:
+
+```sh
+python3.12 -m venv /tmp/binpash-hs-testpypi
+. /tmp/binpash-hs-testpypi/bin/activate
+python -m pip install --upgrade pip
+python -m pip install \
+  --index-url https://test.pypi.org/simple/ \
+  --extra-index-url https://pypi.org/simple/ \
+  binpash-hs
+```
+
+For local testing from a source checkout:
+
+```sh
+git clone https://github.com/binpash/hs
+cd hs
+git submodule update --init --recursive deps/try
+./scripts/install_deps_ubuntu20.sh
+```
+
+To build the PyPI artifacts locally:
+
+```sh
+scripts/prepare_pypi_package.sh
+```
+
+That script cleans local build directories, ensures the `deps/try` submodule is
+present, builds the sdist and Linux wheel, runs `twine check`, and scans the
+archives for paper/artifact data that should not be published. Add
+`--install-tool --install-sudo-wrapper --smoke` to reinstall the built wheel
+locally and run a short smoke check.
+
+For PyPI/TestPyPI publishing, upload the sdist printed by the script. The
+generated `linux_x86_64` wheel is intended for local validation; PyPI rejects
+raw Linux wheel tags unless they are repaired/tagged as manylinux or musllinux.
 
 ### Running `hs`
 
-The main entry script to initiate `hs` is the `hs` script. This script sets up the necessary environment, launches the scheduler daemon, preprocesses the input script, and executes it with speculative execution. It accepts a variety of arguments to customize its behavior, such as setting debug levels or specifying log files.
+The installed command is `hs`. It sets up the hS runtime, launches the scheduler
+daemon, preprocesses the input script, and executes it with speculative
+execution.
 
-Example of running the script:
+Examples:
 
-```bash
-./pash-spec.sh [arguments] script_to_speculatively_run.sh
+```sh
+hs --help
+sudo "$(command -v hs)" -c 'echo hello'
+sudo "$(command -v hs)" script_to_speculatively_run.sh
 ```
 
-**Arguments**:
+`uv tool install` places `hs` in the user's local bin directory. Many systems
+configure `sudo` with a restricted `secure_path`, so `sudo hs ...` may fail even
+when `hs ...` is on the user's `PATH`. Use `sudo "$(command -v hs)" ...`, or
+install a root-visible wrapper:
 
-- `-d, --debug-level`: Set the debugging level. Default is `0`.
-- `-f, --log_file`: Define the logging output file. By default, logs are printed to stdout.
-- `--sandbox-killing`: Kill any running overlay instances before committing to the lower layer.
-- `--env-check-all-nodes-on-wait`: On a wait, check for environment changes between the current node and all other waiting nodes. (not fully functional yet!)
+```sh
+sudo ln -sf "$(command -v hs)" /usr/local/bin/hs
+```
+
+From a source checkout, use `./hs` instead. `pash-spec.sh` is kept as a
+compatibility wrapper.
+
+Important options include:
+
+- `-c, --command COMMAND`: execute a command string instead of a script file.
+- `-d, --debug LEVEL`: set the debug level.
+- `--log_file FILE`: write runtime logs to a file.
+- `--window N`: set the speculative window size.
 
 ### Testing
 
-To run the provided tests:
+For an installed package, run:
 
-```bash
-./test/test_orch.sh
+```sh
+sudo "$(command -v binpash-hs-test)"
 ```
 
-For in-depth analysis, set the `DEBUG` environment variable to `2` for detailed logs and redirect logs to a file:
+From a source checkout, run:
 
-```bash
-DEBUG=2 ./test/test_orch.sh 2>logs.txt
+```sh
+sudo ./test/test_orch.sh
+sudo DEBUG=2 ./test/test_orch.sh 2>logs.txt
 ```
 
 ### Contributing and Further Development

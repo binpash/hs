@@ -341,6 +341,11 @@ export -f cleanup_server
 ###############################################################################
 
 get_pash_python() {
+    if [ -n "${PASH_PYTHON:-}" ]; then
+        echo "$PASH_PYTHON"
+        return 0
+    fi
+
     # Check for pash-spec venv - use explicit path from PASH_SPEC_TOP
     local venv_dir="$PASH_SPEC_TOP/python_pkgs/bin"
     if [ -x "$venv_dir/python" ]; then

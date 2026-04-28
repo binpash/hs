@@ -29,6 +29,7 @@ $SUDO apt-get install -y \
     libcap2-bin \
     libffi-dev \
     libtool \
+    libtool-bin \
     m4 \
     make \
     mergerfs \
@@ -49,7 +50,7 @@ $SUDO apt-get install -y \
 
 ensure_python312_packages() {
     if apt-cache show python3.12-venv >/dev/null 2>&1; then
-        $SUDO apt-get install -y python3.12 python3.12-venv
+        $SUDO apt-get install -y python3.12 python3.12-venv python3.12-dev
         return
     fi
 
@@ -66,7 +67,7 @@ ensure_python312_packages() {
     fi
 
     if apt-cache show python3.12-venv >/dev/null 2>&1; then
-        $SUDO apt-get install -y python3.12 python3.12-venv
+        $SUDO apt-get install -y python3.12 python3.12-venv python3.12-dev
     fi
 }
 
@@ -78,7 +79,7 @@ if ! command -v python3.12 >/dev/null 2>&1; then
     echo "On Ubuntu 20.04/22.04, the deadsnakes PPA is one common option:" >&2
     echo "  sudo add-apt-repository -y ppa:deadsnakes/ppa" >&2
     echo "  sudo apt-get update" >&2
-    echo "  sudo apt-get install -y python3.12 python3.12-venv" >&2
+    echo "  sudo apt-get install -y python3.12 python3.12-venv python3.12-dev" >&2
     exit 1
 fi
 

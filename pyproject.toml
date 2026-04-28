@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "binpash-hs"
+version = "0.1.1"
+description = "hS speculative shell execution at subprocess granularity"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    {name = "The PaSh Authors"}
+]
+keywords = ["shell", "speculation", "parallelism", "pash"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Shells",
+]
+dynamic = ["dependencies"]
+
+[project.scripts]
+hs = "binpash_hs.cli:main"
+binpash-hs-test = "binpash_hs.self_test:main"
+
+[project.urls]
+Homepage = "https://github.com/binpash/hs"
+Repository = "https://github.com/binpash/hs"
+
+[tool.setuptools]
+packages = ["binpash_hs"]
+include-package-data = false
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}

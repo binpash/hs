@@ -1,7 +1,7 @@
 # Paper Results and Plotting Artifacts
 
-This directory mirrors the paper-result materials from `paper-hs-sosp24` without
-including that nested paper repository or its Git history.
+This directory is a self-contained snapshot of the paper-result materials,
+without requiring the nested paper repository or its Git history.
 
 ## Contents
 

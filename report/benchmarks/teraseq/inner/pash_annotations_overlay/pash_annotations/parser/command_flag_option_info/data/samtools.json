@@ -1,0 +1,33 @@
+{
+  "flag": [
+    ["view"],
+    ["sort"],
+    ["index"],
+    ["-h"],
+    ["-H"],
+    ["-b"],
+    ["-u"],
+    ["-n"],
+    ["--no-PG"],
+    ["--help"],
+    ["--version"]
+  ],
+  "option": [
+    ["-@", "--threads", "INT"],
+    ["-F", "FLAG"],
+    ["-G", "FLAG"],
+    ["-q", "INT"],
+    ["-l", "INT"],
+    ["-r", "REGION"],
+    ["-R", ["FILE", "CONFIG_INPUT"]],
+    ["-t", ["FILE", "CONFIG_INPUT"]],
+    ["-T", ["FILE", "CONFIG_INPUT"]],
+    ["-L", ["FILE", "CONFIG_INPUT"]],
+    ["-M", "FLAG"],
+    ["-m", "SIZE"],
+    ["-N", ["FILE", "CONFIG_INPUT"]],
+    ["-o", "--output", ["FILE", "STREAM_OUTPUT"]],
+    ["-O", "--output-fmt", "FORMAT"],
+    ["-U", ["FILE", "STREAM_OUTPUT"]]
+  ]
+}

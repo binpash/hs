@@ -22,7 +22,6 @@ mkdir -p "$tmp/$prefix"
 
 tar -C "$root" \
     --exclude-vcs \
-    --exclude='./paper-hs-sosp24' \
     --exclude='./python_pkgs' \
     --exclude='./.venv' \
     --exclude='./python_hs/.venv' \

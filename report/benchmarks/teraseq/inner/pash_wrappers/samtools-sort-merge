@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+threads=${SAMTOOLS_MERGE_THREADS:-1}
+exec samtools merge --no-PG -u -@ "$threads" - "$@"

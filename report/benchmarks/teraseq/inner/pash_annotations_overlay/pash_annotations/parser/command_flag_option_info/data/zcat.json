@@ -1,0 +1,4 @@
+{
+  "flag": [["-f"], ["--help"], ["--version"]],
+  "option": []
+}

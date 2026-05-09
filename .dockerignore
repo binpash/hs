@@ -5,7 +5,6 @@ report/archive
 .venv
 python_hs/.venv
 python_hs/report/
-paper-hs-sosp24/
 artifact/
 python_pkgs/
 hs-osdi26-ae*.tar.gz

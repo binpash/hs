@@ -1,0 +1,8 @@
+{
+  "flag": [
+    ["subseq"],
+    ["--help"],
+    ["--version"]
+  ],
+  "option": []
+}

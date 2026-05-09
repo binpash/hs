@@ -3,13 +3,132 @@
 export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
 WINDOW=${WINDOW:-15}
 DOCKER_TMP=${DOCKER_TMP:-/tmp}
+TERASEQ_CACHE_DIR=${TERASEQ_CACHE_DIR:-"$PASH_SPEC_TOP"/report/benchmarks/teraseq/.cache}
+TERASEQ_FULL_SAMPLES_DIR="$TERASEQ_CACHE_DIR/samples"
+TERASEQ_SAMPLES_DIR="$TERASEQ_FULL_SAMPLES_DIR"
+TERASEQ_DATA_DIR="$TERASEQ_CACHE_DIR/data"
+TERASEQ_TARGET=${TERASEQ_TARGET:-both}
+TERASEQ_BENCHMARKS=${TERASEQ_BENCHMARKS:-"5TERA 5TERA-short 5TERA3 TERA3 Akron5Seq mouse_SIRV dRNASeq RNASeq RiboSeq"}
+TERASEQ_SMOKE=${TERASEQ_SMOKE:-0}
+SMOKE_READS=${SMOKE_READS:-1000}
+PASH_WORKERS=${PASH_WORKERS:-6}
+TERASEQ_SMOKE_GTF=""
+
+if [ ! -f "$TERASEQ_CACHE_DIR/data.done" ]; then
+	echo "TERA-Seq cache is not ready at $TERASEQ_CACHE_DIR; run report/benchmarks/teraseq/setup first." >&2
+	exit 1
+fi
+
+expected_fastqs=22
+actual_fastqs=$(find "$TERASEQ_FULL_SAMPLES_DIR" -path '*/fastq/reads.*.fastq.gz' -type f -size +1M | wc -l)
+if [ ! -f "$TERASEQ_CACHE_DIR/inputs.done" ] || [ "$actual_fastqs" -lt "$expected_fastqs" ]; then
+	echo "TERA-Seq inputs are not ready at $TERASEQ_FULL_SAMPLES_DIR ($actual_fastqs/$expected_fastqs FASTQ files found); run report/benchmarks/teraseq/setup first." >&2
+	exit 1
+fi
+
+prepare_smoke_gtf() {
+	local smoke_root="$TERASEQ_CACHE_DIR/smoke/shared-${SMOKE_READS}"
+	local data_marker="$smoke_root/data.done"
+	local smoke_gtf="$smoke_root/data/hg38/genes-polya.gtf"
+
+	if [ ! -f "$data_marker" ]; then
+		rm -rf "$smoke_root/data"
+		mkdir -p "$(dirname "$smoke_gtf")"
+		head -n 5000 "$TERASEQ_DATA_DIR/hg38/genes-polya.gtf" > "$smoke_gtf"
+		touch "$data_marker"
+	fi
+
+	TERASEQ_SMOKE_GTF="$smoke_gtf"
+}
+
+prepare_drna_smoke_samples() {
+	local smoke_root="$TERASEQ_CACHE_DIR/smoke/dRNASeq-${SMOKE_READS}"
+	local smoke_samples="$smoke_root/samples"
+	local marker="$smoke_root/inputs.done"
+	local sample="hsa.dRNASeq.HeLa.polyA.1"
+	local source_fastq="$TERASEQ_FULL_SAMPLES_DIR/$sample/fastq/reads.1.fastq.gz"
+	local target_dir="$smoke_samples/$sample"
+	local target_fastq="$target_dir/fastq/reads.1.fastq.gz"
+
+	if [ ! -f "$marker" ]; then
+		rm -rf "$smoke_root"
+		mkdir -p "$target_dir"/{fastq,align,db,logfiles,fast5}
+		zcat "$source_fastq" | head -n "$((SMOKE_READS * 4))" | gzip > "$target_fastq"
+		touch "$marker"
+	fi
+
+	TERASEQ_SAMPLES_DIR="$smoke_samples"
+	prepare_smoke_gtf
+}
+
+prepare_5tera3_smoke_samples() {
+	local smoke_root="$TERASEQ_CACHE_DIR/smoke/5TERA3-${SMOKE_READS}"
+	local smoke_samples="$smoke_root/samples"
+	local marker="$smoke_root/inputs.done"
+	local samples="hsa.dRNASeq.HeLa.total.REL5.long.REL3.4 hsa.dRNASeq.HeLa.total.REL5.long.REL3.5 hsa.dRNASeq.HeLa.total.REL5.long.REL3.6"
+	local sample
+	local source_fastq
+	local target_dir
+	local target_fastq
+
+	if [ ! -f "$marker" ]; then
+		rm -rf "$smoke_root"
+		for sample in $samples; do
+			source_fastq="$TERASEQ_FULL_SAMPLES_DIR/$sample/fastq/reads.1.fastq.gz"
+			target_dir="$smoke_samples/$sample"
+			target_fastq="$target_dir/fastq/reads.1.fastq.gz"
+			mkdir -p "$target_dir"/{fastq,align,db,logfiles,fast5}
+			zcat "$source_fastq" | head -n "$((SMOKE_READS * 4))" | gzip > "$target_fastq"
+		done
+		touch "$marker"
+	fi
+
+	TERASEQ_SAMPLES_DIR="$smoke_samples"
+	prepare_smoke_gtf
+}
+
+if [ "$TERASEQ_SMOKE" = "1" ]; then
+	case "$TERASEQ_BENCHMARKS" in
+		dRNASeq)
+			prepare_drna_smoke_samples
+			;;
+		5TERA3)
+			prepare_5tera3_smoke_samples
+			;;
+		*)
+			echo "TERASEQ_SMOKE=1 currently supports TERASEQ_BENCHMARKS=dRNASeq or TERASEQ_BENCHMARKS=5TERA3 only." >&2
+			exit 1
+			;;
+	esac
+fi
 
 mkdir -p "$PASH_SPEC_TOP"/report/output/teraseq
-for t in 5TERA 5TERA-short 5TERA3 TERA3 Akron5Seq mouse_SIRV dRNASeq RNASeq RiboSeq
+for t in $TERASEQ_BENCHMARKS
 do
 	echo "=====${t}====="
-	docker run --name "hs-teraseq-$t" --init --privileged --cgroupns=host -v ${DOCKER_TMP}:/tmp hs/teraseq /srv/hs/report/benchmarks/teraseq/${t}/run --target both --window $WINDOW
-	mkdir -p "$PASH_SPEC_TOP"/report/output/teraseq/${t}
-	docker cp "hs-teraseq-$t":/srv/hs/report/output/teraseq/${t}/. "$PASH_SPEC_TOP"/report/output/teraseq/${t}/.
-	docker rm "hs-teraseq-$t"
+	container_name="hs-teraseq-$t"
+	output_name="$t"
+	if [ "$TERASEQ_SMOKE" = "1" ]; then
+		container_name="hs-teraseq-$t-smoke"
+		output_name="$t-smoke"
+	fi
+	docker rm -f "$container_name" >/dev/null 2>&1 || true
+	docker_mounts=(
+		-v "${DOCKER_TMP}":/tmp
+		-v "$TERASEQ_SAMPLES_DIR":/root/TERA-Seq_manuscript/samples
+		-v "$TERASEQ_DATA_DIR":/root/TERA-Seq_manuscript/data
+	)
+	if [ -n "$TERASEQ_SMOKE_GTF" ]; then
+		docker_mounts+=(
+			-v "$TERASEQ_SMOKE_GTF":/root/TERA-Seq_manuscript/data/hg38/genes-polya.gtf:ro
+		)
+	fi
+	docker run --name "$container_name" --init --privileged --cgroupns=host \
+		-e PASH_WORKERS="$PASH_WORKERS" \
+		-e TERASEQ_OUTPUT_SUBDIR="teraseq/$output_name" \
+		"${docker_mounts[@]}" \
+		hs/teraseq /srv/hs/report/benchmarks/teraseq/${t}/run --target "$TERASEQ_TARGET" --window "$WINDOW"
+	mkdir -p "$PASH_SPEC_TOP"/report/output/teraseq/${output_name}
+	docker cp "$container_name":/srv/hs/report/output/teraseq/${output_name}/. "$PASH_SPEC_TOP"/report/output/teraseq/${output_name}/.
+	docker rm "$container_name"
 done

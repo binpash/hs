@@ -5,7 +5,7 @@ the source tree.
 
 - `datasets.md`: permanent public locations for large datasets used by the
   benchmark suite.
-- `paper-results/`: plotting scripts, precomputed CSV/JSON/log-derived data, and
-  generated figures copied from `paper-hs-sosp24`.
+- `paper-results/`: bundled plotting scripts, precomputed CSV/JSON/log-derived
+  data, and generated figures used by the paper.
 
 The top-level `INSTRUCTIONS.md` is the entry point for OSDI artifact evaluators.

@@ -1,0 +1,11 @@
+{
+  "flag": [
+    ["-s", "--serial"],
+    ["-z", "--zero-terminated"],
+    ["--help"],
+    ["--version"]
+  ],
+  "option": [
+    ["-d", "--delimiters", "LIST"]
+  ]
+}

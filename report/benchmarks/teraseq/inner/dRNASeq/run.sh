@@ -209,13 +209,14 @@ conda deactivate
 echo ">>> SAM TO SQLITE (TRANSCRIPTOME) <<<"
 
 . "$INSTALL"/perl-virtualenv/teraseq/bin/activate
+export PATH="$PATH:$CONDA_PATH/bin"
 
 for i in $samples; do
     sdir=$SAMPLE_DIR/$i
     echo " Working for" "$i"
 
     cat "$sdir"/align/reads.1.sanitize.noribo.toTranscriptome.sorted.bam \
-    | "$CONDA_PATH"/bin/samtools view -h -F 4 -F 16 -F 2048 - \
+    | samtools view -h -F 4 -F 16 -F 2048 - \
     | sam_to_sqlite \
         --database "$sdir"/db/sqlite.db \
         --table transcr \
@@ -293,7 +294,7 @@ for i in $samples; do
     echo " Working for" "$i"
 
     cat "$sdir"/align/reads.1.sanitize.toGenome.sorted.bam \
-    | "$CONDA_PATH"/bin/samtools view -h -F 4 -F 2048 - \
+    | samtools view -h -F 4 -F 2048 - \
     | sam_to_sqlite \
         --database "$sdir"/db/sqlite.db \
         --table genome \

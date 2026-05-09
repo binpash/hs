@@ -1,0 +1,10 @@
+{
+  "flag": [["annotate_with_file"], ["annotate_with_genic_elements"]],
+  "option": [
+    ["--database", ["FILE", "OTHER_OUTPUT"]],
+    ["--table", "TABLE"],
+    ["--a_file", ["FILE", "CONFIG_INPUT"]],
+    ["--gtf", ["FILE", "CONFIG_INPUT"]],
+    ["--column", "COLUMN"]
+  ]
+}

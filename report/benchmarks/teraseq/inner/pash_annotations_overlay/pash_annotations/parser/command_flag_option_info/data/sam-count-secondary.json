@@ -1,0 +1,4 @@
+{
+  "flag": [["-h", "--help"], ["-w", "--overwrite"]],
+  "option": [["-i", "--input", ["FILE", "STREAM_INPUT"]], ["-o", "--output", ["FILE", "STREAM_OUTPUT"]], ["-t", "--tag", "TAG"]]
+}

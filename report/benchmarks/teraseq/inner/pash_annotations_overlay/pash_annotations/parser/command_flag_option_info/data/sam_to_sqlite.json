@@ -1,0 +1,4 @@
+{
+  "flag": [["--drop"]],
+  "option": [["--database", ["FILE", "OTHER_OUTPUT"]], ["--table", "TABLE"], ["--records_class", "CLASS"]]
+}

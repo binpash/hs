@@ -1,0 +1,15 @@
+{
+  "flag": [
+    ["--help"],
+    ["--version"]
+  ],
+  "option": [
+    ["-a", "ADAPTER"],
+    ["-g", "ADAPTER"],
+    ["--overlap", "LENGTH"],
+    ["--minimum-length", "LENGTH"],
+    ["--error-rate", "RATE"],
+    ["--output", ["FILE", "STREAM_OUTPUT"]],
+    ["--untrimmed-output", ["FILE", "STREAM_OUTPUT"]]
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "flag": [
+    ["grep"],
+    ["seq"],
+    ["subseq"],
+    ["-n", "--by-name"],
+    ["-v", "--invert-match"],
+    ["--help"],
+    ["--version"]
+  ],
+  "option": [
+    ["-f", "--pattern-file", ["FILE", "CONFIG_INPUT"]],
+    ["-o", "--out-file", ["FILE", "STREAM_OUTPUT"]],
+    ["-m", "MIN_LEN"],
+    ["-M", "MAX_LEN"],
+    ["-r", "RANGE"]
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "flag": [
+    ["--help"],
+    ["--version"]
+  ],
+  "option": [
+    ["--database", ["FILE", "OTHER_OUTPUT"]],
+    ["--db_col_bind", "COLUMN"],
+    ["--db_col_add", "COLUMN"],
+    ["--db_tables", "TABLES"],
+    ["--ifile", ["FILE", "STREAM_INPUT"]]
+  ]
+}

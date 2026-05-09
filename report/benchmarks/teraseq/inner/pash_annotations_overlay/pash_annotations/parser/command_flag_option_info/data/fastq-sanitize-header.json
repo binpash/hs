@@ -1,0 +1,4 @@
+{
+  "flag": [["--help"]],
+  "option": [["--input", ["FILE", "STREAM_INPUT"]], ["--delim", "DELIM"], ["--keep", "N"]]
+}

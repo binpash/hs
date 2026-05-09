@@ -1,0 +1,17 @@
+{
+  "flag": [["-a"], ["-c"], ["--secondary=yes"], ["--secondary=no"], ["--MD"], ["--eqx"], ["--version"], ["--help"]],
+  "option": [
+    ["-x", "PRESET"],
+    ["-k", "INT"],
+    ["-p", "FLOAT"],
+    ["-u", "CHAR"],
+    ["-t", "INT"],
+    ["-d", ["FILE", "OTHER_OUTPUT"]],
+    ["-o", ["FILE", "STREAM_OUTPUT"]],
+    ["-I", "NUM"],
+    ["-K", "NUM"],
+    ["-N", "INT"],
+    ["-r", "NUM"],
+    ["-w", "INT"]
+  ]
+}

@@ -11,6 +11,9 @@ samples=(
 
 for f in "${samples[@]}"; do
     sdir="$SAMPLE_DIR/$f"
+    if [ ! -d "$sdir" ]; then
+        continue
+    fi
     for g in $(find "$sdir"); do
         if [ -f "$g" ]
         then
@@ -33,4 +36,3 @@ for f in "${samples[@]}"; do
         fi
     done
 done
-

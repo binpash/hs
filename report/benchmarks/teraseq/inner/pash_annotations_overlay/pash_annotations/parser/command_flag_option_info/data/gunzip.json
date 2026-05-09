@@ -1,0 +1,10 @@
+{
+  "flag": [
+    ["-c", "--stdout", "--to-stdout"],
+    ["-f", "--force"],
+    ["-k", "--keep"],
+    ["--help"],
+    ["--version"]
+  ],
+  "option": []
+}

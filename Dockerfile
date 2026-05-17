@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         # try deps
         expect mergerfs attr \
         # trace_v3 / eBPF deps
-        clang llvm libbpf-dev zlib1g-dev libelf-dev autopoint flex bison gawk
+        gcc clang llvm libbpf-dev zlib1g-dev libelf-dev autopoint flex bison gawk
 
 # Install Rust and build trace_v3
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path

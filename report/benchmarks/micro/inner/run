@@ -10,8 +10,8 @@ parser = argparse.ArgumentParser(description="Run benchmark")
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser.add_argument('script', type=str, help='test_name')
 parser.add_argument('--window', default=5, type=int, help='window size to run hs with')
-parser.add_argument('--target', choices=['hs-only', 'sh-only', 'both'],
-                    help='to run with sh or hs')
+parser.add_argument('--target', nargs='+', choices=['sh', 'hs', 'strace', 'trace_v3'],
+                    default=['sh', 'hs'], help='executors to run (sh, hs, strace, trace_v3)')
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
 parser.add_argument('--tmpdir', type=Path)
@@ -43,6 +43,31 @@ def do_hs_run(test_base: Path, script_name: str, output_base: Path, hs_base: Pat
         f.write(f'{duration}\n')
     return result.returncode, result.stdout
 
+def do_strace_run(test_base: Path, script_name: str, output_base: Path, env: dict):
+    out_dir = output_base / Path(script_name).stem
+    logfile = str(out_dir / 'strace_log')
+    cmd = ['strace', '-y', '-f', '--seccomp-bpf', '--trace=fork,clone,%file',
+           '-o', logfile, '/bin/sh', str(test_base / 'scripts' / script_name)]
+    print(f'Running {cmd}')
+    before = time.time()
+    result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
+    duration = time.time() - before
+    with open(out_dir / 'strace_time', 'w') as f:
+        f.write(f'{duration}\n')
+    return result.returncode, result.stdout
+
+def do_trace_v3_run(test_base: Path, script_name: str, output_base: Path, env: dict):
+    out_dir = output_base / Path(script_name).stem
+    run(['trace_v3', 'install'], check=False)
+    cmd = ['trace_v3', '--', '/bin/sh', str(test_base / 'scripts' / script_name)]
+    print(f'Running {cmd}')
+    before = time.time()
+    result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
+    duration = time.time() - before
+    with open(out_dir / 'trace_v3_time', 'w') as f:
+        f.write(f'{duration}\n')
+    return result.returncode, result.stdout
+
 if __name__ == '__main__':
     args = parser.parse_args()
     test_base = Path(__file__).parent.resolve()
@@ -63,28 +88,21 @@ if __name__ == '__main__':
     env['OUTPUT'] = str(output_base)
 
     script_name = args.script
-    run_hs = False
-    run_sh = False
-    if args.target in ["hs-only", "both"]:
-        run_hs = True
-    if args.target in ["sh-only", "both"]:
-        run_sh = True
-    if not run_hs and not run_sh:
-        raise("Not running anything, add --target argument")
-
-    # scripts = [
-    #         "100echos.sh",
-    #         "100echos2.sh",
-    #         "giant_file2.sh",
-    #         "giant_file.sh",
-    #         "multi_files.sh",
-    # ]
+    target = args.target or []
+    run_sh = 'sh' in target
+    run_hs = 'hs' in target
+    run_strace = 'strace' in target
+    run_trace_v3 = 'trace_v3' in target
 
     (output_base / f"{Path(script_name).stem}").mkdir(exist_ok=True, parents=True)
     if run_sh:
         output_sh = do_sh_run(test_base, script_name, output_base, env)
     if run_hs:
         output_hs = do_hs_run(test_base, script_name, output_base, hs_base, args.window, env, args.log == 'enable')
+    if run_strace:
+        do_strace_run(test_base, script_name, output_base, env)
+    if run_trace_v3:
+        do_trace_v3_run(test_base, script_name, output_base, env)
     if run_sh and run_hs:
         with open(output_base / f"{Path(script_name).stem}" / "error", 'w') as errf:
             # print(output_sh[:100])

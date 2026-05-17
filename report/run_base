@@ -17,19 +17,54 @@ else
     test_name=$two_up/$one_up
     container_name="hs-${two_up}-${one_up}"
 fi
-# echo $benchmark_root
-# echo $test_name
-# echo $benchmark_name
 
-rm -rf $benchmark_root/../output/$test_name
+# Default target based on invocation name
+script_name=$(basename "$this_path")
+case "$script_name" in
+    run_strace)   DEFAULT_TARGETS=(strace) ;;
+    run_trace_v3) DEFAULT_TARGETS=(trace_v3) ;;
+    *)            DEFAULT_TARGETS=(sh hs) ;;
+esac
+
+# Parse --target from args; pass everything else through
+TARGETS=()
+PASS_ARGS=()
+while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "--target" ]]; then
+        shift
+        while [[ $# -gt 0 && "$1" != --* ]]; do
+            TARGETS+=("$1")
+            shift
+        done
+    else
+        PASS_ARGS+=("$1")
+        shift
+    fi
+done
+
+if [[ ${#TARGETS[@]} -eq 0 ]]; then
+    TARGETS=("${DEFAULT_TARGETS[@]}")
+fi
+
 docker rm -f $container_name 2>/dev/null
 
-docker run --name $container_name --init --privileged --cgroupns=host -v /mydata/tmp:/tmp hs/${benchmark_name} ./report/benchmarks/${test_name}/run $@
-# docker run --name $container_name --init --privileged --cgroupns=host -v /mydata/tmp:/tmp -it hs/${benchmark_name} bash
+docker run --name $container_name --init --privileged --cgroupns=host -v /mydata/tmp:/tmp \
+    hs/${benchmark_name} \
+    ./report/benchmarks/${test_name}/run --target "${TARGETS[@]}" "${PASS_ARGS[@]}"
+
 mkdir -p $benchmark_root/../output/$test_name
-docker cp $container_name:/srv/hs/report/output/$test_name/error $benchmark_root/../output/$test_name/error
-docker cp $container_name:/srv/hs/report/output/$test_name/hs_time $benchmark_root/../output/$test_name/hs_time
-docker cp $container_name:/srv/hs/report/output/$test_name/sh_time $benchmark_root/../output/$test_name/sh_time
-docker cp $container_name:/srv/hs/report/output/$test_name/hs/stderr $benchmark_root/../output/$test_name/stderr_hs
-docker cp $container_name:/srv/hs/report/output/$test_name/sh/stderr $benchmark_root/../output/$test_name/stderr_sh
+
+has_target() { [[ " ${TARGETS[*]} " =~ " $1 " ]]; }
+
+has_target sh       && docker cp $container_name:/srv/hs/report/output/$test_name/sh_time       $benchmark_root/../output/$test_name/sh_time
+has_target hs       && docker cp $container_name:/srv/hs/report/output/$test_name/hs_time       $benchmark_root/../output/$test_name/hs_time
+has_target strace   && docker cp $container_name:/srv/hs/report/output/$test_name/strace_time   $benchmark_root/../output/$test_name/strace_time
+has_target trace_v3 && docker cp $container_name:/srv/hs/report/output/$test_name/trace_v3_time $benchmark_root/../output/$test_name/trace_v3_time
+
+if has_target sh && has_target hs; then
+    docker cp $container_name:/srv/hs/report/output/$test_name/error     $benchmark_root/../output/$test_name/error
+    docker cp $container_name:/srv/hs/report/output/$test_name/hs/stderr $benchmark_root/../output/$test_name/stderr_hs
+    docker cp $container_name:/srv/hs/report/output/$test_name/sh/stderr $benchmark_root/../output/$test_name/stderr_sh
+fi
+
 docker rm $container_name

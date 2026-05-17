@@ -10,8 +10,8 @@ from subprocess import run, PIPE
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run benchmark")
     parser.add_argument('--window', default=16, type=int, help='Window size to run hs with')
-    parser.add_argument('--target', choices=['hs-only', 'sh-only', 'both', 'strace-only', 'trace_v3-only'],
-                        default='both', help='To run with sh, hs, strace, or trace_v3')
+    parser.add_argument('--target', nargs='+', choices=['sh', 'hs', 'strace', 'trace_v3'],
+                        default=['sh', 'hs'], help='Executors to run (sh, hs, strace, trace_v3)')
     parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                         help='Whether to enable logging for hs')
     parser.add_argument('--script_name', required=True, help='Name of the script to run')
@@ -234,10 +234,10 @@ def main():
     else:
         output_base = hs_base / "report" / "output" / local_name
 
-    run_hs = args.target in ["hs-only", "both"]
-    run_sh = args.target in ["sh-only", "both"]
-    run_strace = args.target == "strace-only"
-    run_trace_v3 = args.target == "trace_v3-only"
+    run_sh = 'sh' in args.target
+    run_hs = 'hs' in args.target
+    run_strace = 'strace' in args.target
+    run_trace_v3 = 'trace_v3' in args.target
 
     if not any([run_hs, run_sh, run_strace, run_trace_v3]):
         print("Not running anything, please specify --target")

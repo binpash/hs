@@ -9,8 +9,8 @@ from subprocess import run, PIPE
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser.add_argument('--window', default=5, type=int, help='window size to run hs with')
-parser.add_argument('--target', required=True, choices=['hs-only', 'sh-only', 'both'],
-                    help='to run with sh or hs')
+parser.add_argument('--target', required=True, nargs='+', choices=['sh', 'hs', 'strace', 'trace_v3'],
+                    default=['sh', 'hs'], help='executors to run (sh, hs, strace, trace_v3)')
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
 parser.add_argument('--tmpdir', type=Path)
@@ -62,14 +62,11 @@ if __name__ == '__main__':
     env['IN'] = str(resources_base)
     env['OUT'] = str(output_base)
 
-    run_hs = False
-    run_sh = False
-    if args.target in ["hs-only", "both"]:
-        run_hs = True
-    if args.target in ["sh-only", "both"]:
-        run_sh = True
-    if not run_hs and not run_sh:
-        raise("Not running anything, add --target argument")
+    target = args.target or []
+    run_sh = 'sh' in target
+    run_hs = 'hs' in target
+    run_strace = 'strace' in target
+    run_trace_v3 = 'trace_v3' in target
     output_base.mkdir(parents=True, exist_ok=True)
 
     if run_sh:

@@ -7,7 +7,7 @@ import argparse
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Wrapper to run benchmarks in all subdirectories of the script's source directory.")
     parser.add_argument("--window", type=int, default=5, help="Window size to run hs with.")
-    parser.add_argument("--target", choices=["hs-only", "sh-only", "both"], default="both", help="To run with sh or hs.")
+    parser.add_argument("--target", choices=["sh", "hs", "strace", "trace_v3"], nargs="+", help="To run with sh or hs.")
     parser.add_argument("--log", choices=["enable", "disable"], default="disable", help="Whether to enable logging for hs.")
     return parser.parse_args()
 
@@ -22,7 +22,7 @@ def run_benchmarks(window, target, log):
                 if window is not None:
                     cmd.extend(["--window", str(window)])
                 if target is not None:
-                    cmd.extend(["--target", target])
+                    cmd.extend(["--target"] + target)
                 if log is not None:
                     cmd.extend(["--log", log])
 

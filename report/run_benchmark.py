@@ -128,6 +128,8 @@ def do_trace_v3_run(test_base: Path, output_base: Path, env: dict, script_name: 
     output_dir.mkdir(parents=True, exist_ok=True)
     env['OUTPUT_DIR'] = str(output_dir)
 
+    run(['trace_v3', 'install'], check=False)
+
     cmd = ['trace_v3', '--', '/bin/sh', str(test_base / script_name)] + script_args
 
     print(f"Running trace_v3 command: {' '.join(cmd)}")

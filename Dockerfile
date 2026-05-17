@@ -14,7 +14,17 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         # pash deps
         curl graphviz bsdmainutils libffi-dev locales locales-all netcat-openbsd pkg-config procps python3-pip python3-setuptools python3-testresources wamerican-insane \
         # try deps
-        expect mergerfs attr
+        expect mergerfs attr \
+        # trace_v3 / eBPF deps
+        clang llvm libbpf-dev zlib1g-dev libelf-dev autopoint flex bison
+
+# Install Rust and build trace_v3
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN git clone https://github.com/binpash/trace_v3.git /opt/trace_v3
+RUN --mount=type=cache,target=/root/.cargo/registry \
+    cd /opt/trace_v3 && cargo build --release && \
+    install -o root -m 4755 target/release/trace_v3 /usr/local/bin/trace_v3
 RUN git config --global --add safe.directory /srv
 ENV PASH_SPEC_TOP=/srv/hs
 ENV PASH_TOP=/srv/hs/deps/pash

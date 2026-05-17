@@ -1,5 +1,6 @@
 from hs
 
+RUN apt-get update
 WORKDIR /srv/hs
 RUN mkdir -p report/benchmarks/bio4
 COPY ./inner/setup report/benchmarks/bio4/setup 

@@ -10,8 +10,8 @@ from subprocess import run, PIPE
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run benchmark")
     parser.add_argument('--window', default=16, type=int, help='Window size to run hs with')
-    parser.add_argument('--target', choices=['hs-only', 'sh-only', 'both'],
-                        default='both', help='To run with sh or hs')
+    parser.add_argument('--target', choices=['hs-only', 'sh-only', 'both', 'strace-only', 'trace_v3-only'],
+                        default='both', help='To run with sh, hs, strace, or trace_v3')
     parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                         help='Whether to enable logging for hs')
     parser.add_argument('--script_name', required=True, help='Name of the script to run')
@@ -96,6 +96,52 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
     if hs_log_path.exists() or hs_log_path.is_symlink():
         hs_log_path.unlink()
     hs_log_path.symlink_to(stderr_path)
+
+    return result.returncode
+
+def do_strace_run(test_base: Path, output_base: Path, env: dict, script_name: str, script_args: list):
+    output_dir = output_base / 'strace'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    env['OUTPUT_DIR'] = str(output_dir)
+
+    logfile = str(output_dir / 'strace_log')
+    cmd = ['strace', '-y', '-f', '--seccomp-bpf', '--trace=fork,clone,%file',
+           '-o', logfile, '/bin/sh', str(test_base / script_name)] + script_args
+
+    print(f"Running strace command: {' '.join(cmd)}")
+
+    before = time.time()
+    result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
+    duration = time.time() - before
+
+    with open(output_dir / "stdout", 'wb') as f:
+        f.write(result.stdout)
+    with open(output_dir / "stderr", 'wb') as f:
+        f.write(result.stderr)
+    with open(output_base / "strace_time", 'w') as f:
+        f.write(f'{duration}\n')
+
+    return result.returncode
+
+def do_trace_v3_run(test_base: Path, output_base: Path, env: dict, script_name: str, script_args: list):
+    output_dir = output_base / 'trace_v3'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    env['OUTPUT_DIR'] = str(output_dir)
+
+    cmd = ['trace_v3', '--', '/bin/sh', str(test_base / script_name)] + script_args
+
+    print(f"Running trace_v3 command: {' '.join(cmd)}")
+
+    before = time.time()
+    result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
+    duration = time.time() - before
+
+    with open(output_dir / "stdout", 'wb') as f:
+        f.write(result.stdout)
+    with open(output_dir / "stderr", 'wb') as f:
+        f.write(result.stderr)
+    with open(output_base / "trace_v3_time", 'w') as f:
+        f.write(f'{duration}\n')
 
     return result.returncode
 
@@ -188,8 +234,10 @@ def main():
 
     run_hs = args.target in ["hs-only", "both"]
     run_sh = args.target in ["sh-only", "both"]
+    run_strace = args.target == "strace-only"
+    run_trace_v3 = args.target == "trace_v3-only"
 
-    if not run_hs and not run_sh:
+    if not any([run_hs, run_sh, run_strace, run_trace_v3]):
         print("Not running anything, please specify --target")
         exit(1)
 
@@ -202,6 +250,10 @@ def main():
         sh_returncode = do_sh_run(test_base, output_base, env, script_name, script_args)
     if run_hs:
         hs_returncode = do_hs_run(test_base, output_base, hs_base, args.window, env, args.log == 'enable', script_name, script_args)
+    if run_strace:
+        do_strace_run(test_base, output_base, env, script_name, script_args)
+    if run_trace_v3:
+        do_trace_v3_run(test_base, output_base, env, script_name, script_args)
     if run_sh and run_hs:
         compare_outputs(output_base)
 

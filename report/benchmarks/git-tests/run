@@ -3,11 +3,10 @@
 import argparse
 from pathlib import Path
 import os
-import glob
+import shutil
 import time
-from subprocess import run, PIPE, STDOUT, DEVNULL
+from subprocess import run, PIPE, DEVNULL
 
-parser = argparse.ArgumentParser(description="Run benchmark")
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser.add_argument('--tmp-dir', type=str, help='tmp dir to map into docker')
 parser.add_argument('--window', default=5, type=int, help='window size to run hs with')
@@ -21,62 +20,132 @@ parser.add_argument('--end', default=9999, type=int, help='start from a differen
 env = os.environ.copy()
 SCRIPT = "run_tests.sh"
 
-docker_cmd = 'docker run --init --rm --privileged -v {}:/tmp hs/git-tests'
+docker_base_cmd = 'docker run --init --rm --privileged -v {}:/tmp hs/git-tests'
 
 def do_sh_run(test_base: Path, output_base: Path, tmp_dir: str, env: dict):
-    cmd = docker_cmd.format(tmp_dir).split()
+    cmd = docker_base_cmd.format(tmp_dir).split()
     cmd.extend(['sh', SCRIPT])
     print(f"Running sh: {cmd}")
     before = time.time()
     result = run(cmd, stdout=PIPE, env=env)
     duration = time.time() - before
-    with open(output_base / f"sh_time", 'w') as f:
+    with open(output_base / 'sh_time', 'w') as f:
         f.write(f'{duration}\n')
     return result.returncode, result.stdout
 
 def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, tmp_dir: str, env: dict, log: bool):
-    cmd = docker_cmd.format(tmp_dir).split()
+    cmd = docker_base_cmd.format(tmp_dir).split()
     cmd.extend(['/srv/hs/pash-spec.sh', '--window', str(window)])
     if log:
         cmd.extend(['-d', '2'])
     cmd.append(SCRIPT)
     print(f"Running hs: {cmd}")
     before = time.time()
-    # with open(output_base / f"{SCRIPT_NAME}.hs_log", 'w') as log:
     result = run(cmd, stdout=PIPE, stderr=DEVNULL, env=env)
     duration = time.time() - before
-    with open(output_base / "hs_time", 'w') as f:
+    with open(output_base / 'hs_time', 'w') as f:
         f.write(f'{duration}\n')
     return result.returncode, result.stdout
+
+def do_strace_run(test_base: Path, output_base: Path, tmp_dir: str, env: dict):
+    output_dir = output_base / 'strace'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    logfile = '/tmp/strace_log'
+    cmd = docker_base_cmd.format(tmp_dir).split()
+    cmd.extend(['strace', '-y', '-f', '--seccomp-bpf', '--trace=fork,clone,%file',
+                '-o', logfile, 'sh', SCRIPT])
+
+    print(f"Running strace: {cmd}")
+    before = time.time()
+    result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
+    duration = time.time() - before
+
+    with open(output_dir / 'stdout', 'wb') as f:
+        f.write(result.stdout)
+    with open(output_dir / 'stderr', 'wb') as f:
+        f.write(result.stderr)
+    with open(output_base / 'strace_time', 'w') as f:
+        f.write(f'{duration}\n')
+
+    src = Path(tmp_dir) / 'strace_log'
+    if src.exists():
+        shutil.copy(src, output_dir / 'strace_log')
+
+    return result.returncode
+
+def do_trace_v3_run(test_base: Path, output_base: Path, tmp_dir: str, env: dict):
+    output_dir = output_base / 'trace_v3'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    trace_file = '/tmp/tv3_trace'
+    dep_file = '/tmp/tv3_deps'
+    missed_file = '/tmp/tv3_missed'
+
+    cmd_inner = (
+        f'trace_v3 install && '
+        f'trace_v3 --trace-file {trace_file} --dep-file {dep_file} --missed-file {missed_file} '
+        f'-- sh {SCRIPT}'
+    )
+
+    cmd = ['sudo', 'bash', '-c',
+           f'ulimit -l unlimited && docker run --init --rm --privileged --pid=host --net=host --cgroupns=host '
+           f'-v {tmp_dir}:/tmp '
+           f'-v /lib/modules:/lib/modules:ro '
+           f'-v /usr/src:/usr/src:ro '
+           f'-v /sys/kernel/tracing:/sys/kernel/tracing:rw '
+           f'-v /sys/fs/bpf:/sys/fs/bpf '
+           f'hs/git-tests sh -c \'{cmd_inner}\'']
+
+    print(f"Running trace_v3: {cmd}")
+    before = time.time()
+    result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
+    duration = time.time() - before
+
+    with open(output_dir / 'stdout', 'wb') as f:
+        f.write(result.stdout)
+    with open(output_dir / 'stderr', 'wb') as f:
+        f.write(result.stderr)
+    with open(output_base / 'trace_v3_time', 'w') as f:
+        f.write(f'{duration}\n')
+
+    for src_name, dst_name in [('tv3_trace', 'trace'), ('tv3_deps', 'deps'), ('tv3_missed', 'missed')]:
+        src = Path(tmp_dir) / src_name
+        if src.exists():
+            shutil.copy(src, output_dir / dst_name)
+
+    return result.returncode
 
 if __name__ == '__main__':
     args = parser.parse_args()
     test_base = Path(__file__).parent.resolve()
     hs_base = test_base.parent.parent.parent
-    #######################
-    # SPECIFY ENV VARS HERE
-    #######################
 
-    bench_base = test_base.parent
     local_name = os.sep.join(test_base.parts[-1:])
     output_base = hs_base / "report" / "output" / local_name
     tmp_dir = args.tmp_dir
+
+    run_sh = 'sh' in args.target
+    run_hs = 'hs' in args.target
+    run_strace = 'strace' in args.target
+    run_trace_v3 = 'trace_v3' in args.target
+
+    if not any([run_sh, run_hs, run_strace, run_trace_v3]):
+        raise ValueError("Not running anything, add --target argument")
+
     if not tmp_dir:
         raise ValueError("Not running, need --tmp-dir")
-    run_hs = False
-    run_sh = False
-    if args.target in ["hs-only", "both"]:
-        run_hs = True
-    if args.target in ["sh-only", "both"]:
-        run_sh = True
-    if not run_hs and not run_sh:
-        raise ValueError("Not running anything, add --target argument")
+
     output_base.mkdir(parents=True, exist_ok=True)
-    
+
     if run_sh:
         output_sh = do_sh_run(test_base, output_base, tmp_dir, env)
     if run_hs:
         output_hs = do_hs_run(test_base, output_base, hs_base, args.window, tmp_dir, env, args.log == 'enable')
+    if run_strace:
+        do_strace_run(test_base, output_base, tmp_dir, env)
+    if run_trace_v3:
+        do_trace_v3_run(test_base, output_base, tmp_dir, env)
     if run_sh and run_hs:
         with open(output_base / 'error', 'w') as errf:
             if output_sh == output_hs:
@@ -84,7 +153,7 @@ if __name__ == '__main__':
             else:
                 errf.write('error\n')
                 errf.write(f'return code {output_sh[0]} vs {output_hs[0]}\n')
-                errf.write(f'==== output sh ====\n')
+                errf.write('==== output sh ====\n')
                 errf.write(output_sh[1].decode('UTF-8'))
-                errf.write(f'==== output hs ====\n')
+                errf.write('==== output hs ====\n')
                 errf.write(output_hs[1].decode('UTF-8'))

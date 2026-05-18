@@ -136,7 +136,11 @@ def do_trace_v3_run(test_base: Path, output_base: Path, env: dict, script_name: 
             f.write('0\n')
         return 1
 
-    cmd = ['trace_v3', '--', '/bin/sh', str(test_base / script_name)] + script_args
+    cmd = ['trace_v3',
+           '--trace-file', str(output_dir / 'trace'),
+           '--dep-file', str(output_dir / 'deps'),
+           '--missed-file', str(output_dir / 'missed'),
+           '--', '/bin/sh', str(test_base / script_name)] + script_args
 
     print(f"Running trace_v3 command: {' '.join(cmd)}")
 

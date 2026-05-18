@@ -21,7 +21,7 @@ parser.add_argument('--end', default=9999, type=int, help='start from a differen
 env = os.environ.copy()
 SCRIPT = "run_tests.sh"
 
-docker_cmd = 'docker run --init --rm --privileged -v {}:/tmp hs/git-tests'
+docker_cmd = 'docker run --init --rm --privileged --ulimit memlock=-1:-1 -v {}:/tmp hs/git-tests'
 
 def do_sh_run(test_base: Path, output_base: Path, tmp_dir: str, env: dict):
     cmd = docker_cmd.format(tmp_dir).split()

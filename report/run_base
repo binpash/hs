@@ -48,7 +48,13 @@ fi
 
 docker rm -f $container_name 2>/dev/null
 
-docker run --name $container_name --init --privileged --cgroupns=host -v /mydata/tmp:/tmp \
+docker run --name $container_name --init --privileged --pid=host --net=host --cgroupns=host \
+    -v /mydata/tmp:/tmp \
+    -v /lib/modules:/lib/modules:ro \
+    -v /usr/src:/usr/src:ro \
+    -v /sys/kernel/tracing:/sys/kernel/tracing:rw \
+    -v /sys/fs/bpf:/sys/fs/bpf \
+    --ulimit memlock=-1:-1 \
     hs/${benchmark_name} \
     ./report/benchmarks/${test_name}/run --target "${TARGETS[@]}" "${PASS_ARGS[@]}"
 

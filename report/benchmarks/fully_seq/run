@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 import os
 import time
+import resource
 from subprocess import run, PIPE
 
 parser = argparse.ArgumentParser(description="Run benchmark")
@@ -55,6 +56,7 @@ def do_strace_run(test_base: Path, output_base: Path, env: dict):
     return result.returncode
 
 def do_trace_v3_run(test_base: Path, output_base: Path, env: dict):
+    resource.setrlimit(resource.RLIMIT_MEMLOCK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
     run(['trace_v3', 'install'], check=False)
     cmd = ['trace_v3', '--', '/bin/sh', str(test_base / SCRIPT_NAME)]
     print(f'Running trace_v3: {cmd}')

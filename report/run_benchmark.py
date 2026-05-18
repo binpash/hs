@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 import os
+import resource
 import time
 import shutil
 from subprocess import run, PIPE
@@ -128,6 +129,7 @@ def do_trace_v3_run(test_base: Path, output_base: Path, env: dict, script_name: 
     output_dir.mkdir(parents=True, exist_ok=True)
     env['OUTPUT_DIR'] = str(output_dir)
 
+    resource.setrlimit(resource.RLIMIT_MEMLOCK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
     try:
         run(['trace_v3', 'install'], check=False)
     except FileNotFoundError:

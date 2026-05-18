@@ -14,7 +14,7 @@ parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
 
 env = os.environ.copy()
 
-docker_cmd = ["sudo", "docker", "run", "--init", "--privileged", "--cgroupns=host", "--rm", "-v", f"{env.get('DOCKER_TMP','/tmp')}:/tmp", "hs/protobuf:latest", "/bin/bash", "-c"]
+docker_cmd = ["sudo", "docker", "run", "--init", "--privileged", "--cgroupns=host", "--rm", "-v", f"{env.get('DOCKER_TMP','/tmp')}:/tmp", "--ulimit", "memlock=-1:-1", "hs/protobuf:latest", "/bin/bash", "-c"]
 
 def convert_time_to_float(time):
     time = time.split("m")

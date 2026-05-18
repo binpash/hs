@@ -39,4 +39,5 @@ RUN mv utils/try-summary /bin
 WORKDIR /srv/hs
 RUN python3 -m venv .venv
 COPY . .
+RUN .venv/bin/pip install -r requirements.txt
 ENTRYPOINT ["/srv/hs/entrypoint.sh"]

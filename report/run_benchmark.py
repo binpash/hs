@@ -128,14 +128,26 @@ def do_trace_v3_run(test_base: Path, output_base: Path, env: dict, script_name: 
     output_dir.mkdir(parents=True, exist_ok=True)
     env['OUTPUT_DIR'] = str(output_dir)
 
-    run(['trace_v3', 'install'], check=False)
+    try:
+        run(['trace_v3', 'install'], check=False)
+    except FileNotFoundError:
+        print("Error: trace_v3 not found on PATH. Rebuild Docker images to include trace_v3.")
+        with open(output_base / "trace_v3_time", 'w') as f:
+            f.write('0\n')
+        return 1
 
     cmd = ['trace_v3', '--', '/bin/sh', str(test_base / script_name)] + script_args
 
     print(f"Running trace_v3 command: {' '.join(cmd)}")
 
     before = time.time()
-    result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
+    try:
+        result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
+    except FileNotFoundError:
+        print("Error: trace_v3 not found on PATH. Rebuild Docker images to include trace_v3.")
+        with open(output_base / "trace_v3_time", 'w') as f:
+            f.write('0\n')
+        return 1
     duration = time.time() - before
 
     with open(output_dir / "stdout", 'wb') as f:

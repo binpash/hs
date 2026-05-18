@@ -49,7 +49,7 @@ fi
 docker rm -f $container_name 2>/dev/null
 
 sudo bash -c "ulimit -l unlimited && docker run \
-    --name $container_name --init --privileged --pid=host --net=host --cgroupns=host \
+    --name $container_name --privileged --pid=host --net=host --cgroupns=host \
     -v /mydata/tmp:/tmp \
     -v /lib/modules:/lib/modules:ro \
     -v /usr/src:/usr/src:ro \

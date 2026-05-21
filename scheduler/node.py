@@ -4,7 +4,7 @@ import os
 import re
 import executor
 from executor import ExecCtxt, ExecResult, ExecArgs
-import trace_v2
+import dep_util
 import util
 import signal
 from dataclasses import dataclass
@@ -292,13 +292,9 @@ class ConcreteNode:
     # Exists when node is in READY
     assignments: "list[NodeId]"
 
-    # Exists when node is in EXE or SPEC_EXE, it acts as a cache for
-    # the trace file content
-    trace_lines: list
-    # Exists when node is in EXE or SPEC_EXE, it it an opened file
-    # or none when such file doesn't exist
-    trace_fd=None
-    trace_ctx=None
+    # Leftover partial line from each FIFO during incremental reads
+    read_fifo_buf: str
+    write_fifo_buf: str
 
     def __init__(self, cnid: ConcreteNodeId, node: Node, loop_list_context: HSLoopListContext,
                  spec_pre_env=None):
@@ -313,8 +309,8 @@ class ConcreteNode:
         self.spec_pre_env = spec_pre_env
         self.loop_list_context = loop_list_context
         self.init_loop_list_context = loop_list_context
-        self.trace_fd = None
-        self.init_trace_lines()
+        self.read_fifo_buf = ''
+        self.write_fifo_buf = ''
 
     def __str__(self):
         return f'Node(id:{self.id_}, cmd:{self.cmd}, state:{self.state}, wait_env_file:{self.wait_env_file}, exec_ctxt:{self.exec_ctxt})'
@@ -455,29 +451,24 @@ class ConcreteNode:
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         self.exec_ctxt.process.kill()
 
-    def init_trace_lines(self):
-        self.trace_lines = ['']
+    def _drain_fifo(self, fifo, buf: str) -> tuple[set, str]:
+        """Non-blocking read from a FIFO; return (complete paths, leftover partial line)."""
+        try:
+            chunk = fifo.read()
+        except BlockingIOError:
+            return set(), buf
+        if not chunk:
+            return set(), buf
+        buf += chunk
+        *complete, buf = buf.split('\n')
+        paths = {p for line in complete if (p := line.strip()) and not dep_util.should_filter(p)}
+        return paths, buf
 
-    def gather_fs_actions(self) -> RWSet:
+    def gather_fs_actions(self):
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
-        sandbox_dir = self.exec_ctxt.sandbox_dir
-        trace_file = self.exec_ctxt.trace_file
-        if self.trace_fd is None:
-            try:
-                self.trace_fd = open(util.sandboxed_path(sandbox_dir, trace_file))
-                self.trace_ctx = trace_v2.Context()
-                self.trace_ctx.set_dir(os.getcwd())
-            except FileNotFoundError:
-                return
-        new_trace = self.trace_fd.read()
-        new_lines = new_trace.split('\n')
-        start_parse = len(self.trace_lines)-1
-        self.trace_lines[-1] = self.trace_lines[-1] + new_lines[0]
-        self.trace_lines.extend(new_lines[1:])
-        stop_parse = len(self.trace_lines)-1
-        read_set, write_set = trace_v2.parse_and_gather_cmd_rw_sets(
-            self.trace_lines[start_parse:stop_parse], self.trace_ctx)
-        self.update_rw_set(read_set, write_set)
+        read_paths, self.read_fifo_buf  = self._drain_fifo(self.exec_ctxt.read_fifo,  self.read_fifo_buf)
+        write_paths, self.write_fifo_buf = self._drain_fifo(self.exec_ctxt.write_fifo, self.write_fifo_buf)
+        self.update_rw_set(read_paths, write_paths)
 
     def get_rw_set(self):
         # if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
@@ -661,11 +652,8 @@ class ConcreteNode:
         self.loop_list_context = self.init_loop_list_context
         if spec_pre_env is not None:
             self.spec_pre_env = spec_pre_env
-        self.init_trace_lines()
-        if self.trace_fd is not None:
-            self.trace_fd.close()
-            self.trace_fd = None
-            self.trace_ctx = None
+        self.read_fifo_buf = ''
+        self.write_fifo_buf = ''
         self.state = NodeState.READY
         self.trace_state()
 
@@ -674,7 +662,8 @@ class ConcreteNode:
 
         self.start_command(env_file)
         self.state = NodeState.EXECUTING
-        self.init_trace_lines()
+        self.read_fifo_buf = ''
+        self.write_fifo_buf = ''
         self.rwset = RWSet(set(), set())
         self.trace_state()
 
@@ -682,7 +671,8 @@ class ConcreteNode:
         # raise NotImplementedError
         assert self.state == NodeState.READY
         self.start_command(env_file, speculate=True, speculated_nodes=speculated_nodes)
-        self.init_trace_lines()
+        self.read_fifo_buf = ''
+        self.write_fifo_buf = ''
         self.rwset = RWSet(set(), set())
         self.state = NodeState.SPEC_EXECUTING
         self.trace_state()
@@ -696,12 +686,8 @@ class ConcreteNode:
     def commit_frontier_execution(self):
         assert self.state == NodeState.EXECUTING
         self.gather_fs_actions()
-        self.init_trace_lines()
-        self.kill_children()
-        if self.trace_fd is not None:
-            self.trace_fd.close()
-            self.trace_fd = None
-            self.trace_ctx = None
+        self.exec_ctxt.read_fifo.close()
+        self.exec_ctxt.write_fifo.close()
         self.update_loop_list_context()
         util.overhead_log(f"COMMIT|{self.cnid}")
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
@@ -712,19 +698,18 @@ class ConcreteNode:
         self.state = NodeState.COMMITTED
         self.trace_state()
 
-    def finish_spec_execution(self):
+    def finish_spec_execution(self) -> bool:
+        """Drain FIFOs, close them, and return True if trace_v3 missed events."""
         assert self.state == NodeState.SPEC_EXECUTING
         self.update_loop_list_context()
         self.gather_fs_actions()
-        self.init_trace_lines()
-        self.kill_children()
-        if self.trace_fd is not None:
-            self.trace_fd.close()
-            self.trace_fd = None
-            self.trace_ctx = None
+        self.exec_ctxt.read_fifo.close()
+        self.exec_ctxt.write_fifo.close()
+        missed = dep_util.read_missed(self.exec_ctxt.sandbox_dir, self.exec_ctxt.trace_file)
         self.fixup_fds()
         self.state = NodeState.SPECULATED
         self.trace_state()
+        return missed > 0
 
     def commit_speculated(self):
         assert self.state == NodeState.SPECULATED

@@ -481,8 +481,12 @@ class PartialProgramOrder:
                 if has_pending_wait:
                     node.start_executing(current_env)
             else:
-                node.finish_spec_execution()
-                if has_pending_wait:
+                had_missed = node.finish_spec_execution()
+                if had_missed:
+                    util.debug_log(f"{concrete_node_id} missed trace events — moving to frontier")
+                    node.reset_to_ready(loop_list_context=self.current_loop_list)
+                    node.start_executing(current_env)
+                elif has_pending_wait:
                     self.current_loop_list = node.loop_list_context
                     node.commit_speculated()
                     util.good_log(f"{concrete_node_id} speculation committed")

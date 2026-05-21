@@ -3,7 +3,6 @@
 import logging
 import subprocess
 import os
-import io
 
 from dataclasses import dataclass
 from executor_util import ptempfile, ptempdir, create_sandbox, copy, PASH_SPEC_TOP
@@ -12,9 +11,7 @@ from executor_util import ptempfile, ptempdir, create_sandbox, copy, PASH_SPEC_T
 @dataclass
 class ExecCtxt:
     process: subprocess.Popen
-    trace_file: str       # base path; .r and .w are FIFOs, .missed is written at exit
-    read_fifo: io.IOBase  # open read-end of trace_file + ".r"
-    write_fifo: io.IOBase # open read-end of trace_file + ".w"
+    trace_file: str   # base path; .r/.w are streaming files, .missed written at exit
     outfds: str
     stderr: str
     pre_env_file: str
@@ -58,17 +55,6 @@ def run_trace_sandboxed(args: ExecArgs):
     logging.debug(f'Scheduler: Stdout file for: {args.concrete_node_id} is: {outfiles_dir}')
     logging.debug(f'Scheduler: Stderr file for: {args.concrete_node_id} is: {stderr_file}')
 
-    # Create FIFOs on the host before the sandbox starts so they land in the
-    # OverlayFS lower layer and trace_v3 (running inside) can open them for writing.
-    # Open the read ends now with O_NONBLOCK so trace_v3's open() doesn't block.
-    read_fifo_path  = trace_file + '.r'
-    write_fifo_path = trace_file + '.w'
-    os.mkfifo(read_fifo_path)
-    os.mkfifo(write_fifo_path)
-    _nonblock_open = lambda path, flags: os.open(path, flags | os.O_NONBLOCK)
-    read_fifo  = open(read_fifo_path,  'r', opener=_nonblock_open)
-    write_fifo = open(write_fifo_path, 'r', opener=_nonblock_open)
-
     sandbox_dir, tmp_dir = create_sandbox()
     post_execution_env_file = ptempfile(prefix='hs_post_env')
     lower_dirs_str = ':'.join(args.lower_sandboxes)
@@ -78,7 +64,7 @@ def run_trace_sandboxed(args: ExecArgs):
     logging.debug(cmd)
     process = subprocess.Popen(cmd, stdout=None, stderr=None, preexec_fn=set_pgid)
 
-    return ExecCtxt(process, trace_file, read_fifo, write_fifo, outfiles_dir, stderr_file, args.pre_execution_env_file, post_execution_env_file, sandbox_dir)
+    return ExecCtxt(process, trace_file, outfiles_dir, stderr_file, args.pre_execution_env_file, post_execution_env_file, sandbox_dir)
 
 def commit_workspace(workspace_path):
     run_script = f'{PASH_SPEC_TOP}/deps/try/try'

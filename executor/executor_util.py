@@ -19,10 +19,19 @@ def ptempdir(prefix=''):
 
 
 def create_sandbox():
-    os.makedirs(f"{PASH_SPEC_TMP_PREFIX}/tmp/pash_spec/a", exist_ok=True)
-    os.makedirs(f"{PASH_SPEC_TMP_PREFIX}/tmp/pash_spec/b", exist_ok=True)
-    sdir = tempfile.mkdtemp(dir=f"{PASH_SPEC_TMP_PREFIX}/tmp/pash_spec/a", prefix="sandbox_")
-    tdir = tempfile.mkdtemp(dir=f"{PASH_SPEC_TMP_PREFIX}/tmp/pash_spec/b", prefix="sandbox_")
+    # Sandboxes must be on a filesystem separate from /tmp.  try(1) overlays
+    # /tmp with an OverlayFS whose upperdir lives inside the sandbox; if the
+    # sandbox is on the same tmpfs as /tmp the kernel rejects the mount
+    # (upper inside lower), leaving /tmp empty in the chroot and silently
+    # breaking every execution.  /dev/shm is a distinct tmpfs on virtually
+    # all Linux systems.  We reuse the per-run basename from PASH_SPEC_TMP_PREFIX
+    # so concurrent hs invocations stay isolated from each other.
+    run_id = os.path.basename(PASH_SPEC_TMP_PREFIX)
+    sandbox_base = os.path.join('/dev/shm/pash_spec', run_id)
+    os.makedirs(f"{sandbox_base}/tmp/pash_spec/a", exist_ok=True)
+    os.makedirs(f"{sandbox_base}/tmp/pash_spec/b", exist_ok=True)
+    sdir = tempfile.mkdtemp(dir=f"{sandbox_base}/tmp/pash_spec/a", prefix="sandbox_")
+    tdir = tempfile.mkdtemp(dir=f"{sandbox_base}/tmp/pash_spec/b", prefix="sandbox_")
     return sdir, tdir
 
 

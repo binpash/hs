@@ -62,9 +62,7 @@ def create_sandbox():
     return sdir, tdir
 
 def delete_sandbox(sandbox):
-    if not sandbox.startswith(f"{config.PASH_SPEC_TMP_PREFIX}/tmp/pash_spec/a"):
-        breakpoint()
-    assert sandbox.startswith(f"{config.PASH_SPEC_TMP_PREFIX}/tmp/pash_spec/a")
+    assert 'sandbox_' in sandbox, f"Unexpected sandbox path: {sandbox}"
     shutil.rmtree(os.path.join(sandbox, 'upperdir'), ignore_errors=True)
 
 def sandboxed_path(sandbox_dir, path):

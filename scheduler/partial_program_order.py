@@ -427,7 +427,7 @@ class PartialProgramOrder:
     # When we have complex caching code for this we can make this go away
     def has_fs_deps(self, concrete_node_id: ConcreteNodeId):
         self.fetch_fs_actions()
-        self._has_fs_deps(concrete_node_id)
+        return self._has_fs_deps(concrete_node_id)
 
     def schedule_spec_work(self, concrete_node_id: ConcreteNodeId):
         concrete_node = self.get_concrete_node(concrete_node_id)

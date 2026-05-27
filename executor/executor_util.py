@@ -35,5 +35,16 @@ def create_sandbox():
     return sdir, tdir
 
 
+def sandboxed_path(sandbox_dir: str, path: str) -> str:
+    """Return the host-side path to a file written by a process inside the sandbox.
+
+    try(1) mounts an overlayfs for each root-level directory; writes to /foo/bar
+    inside the sandbox land in {sandbox_dir}/upperdir/foo/bar on the host.
+    """
+    if sandbox_dir:
+        return f"{sandbox_dir}/upperdir/{path}"
+    return path
+
+
 def copy(path_from, path_to):
     shutil.copy(path_from, path_to)

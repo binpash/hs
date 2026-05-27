@@ -1,5 +1,4 @@
 from enum import Enum, auto
-import logging
 import os
 import re
 import executor
@@ -7,11 +6,10 @@ from executor import ExecCtxt, ExecResult, ExecArgs
 import dep_util
 import util
 import signal
+import threading
 from dataclasses import dataclass
 from typing import Tuple
-from enum import Enum, auto
 from pathlib import Path
-import util
 import analysis
 
 STATE_LOG = '[STATE_LOG] '
@@ -292,12 +290,9 @@ class ConcreteNode:
     # Exists when node is in READY
     assignments: "list[NodeId]"
 
-    # Open file descriptors for the streaming dep files (opened lazily in gather_fs_actions)
-    read_stream_fd: object
-    write_stream_fd: object
-    # Leftover partial line from each stream file during incremental reads
-    read_stream_buf: str
-    write_stream_buf: str
+    # Daemon reader threads — one per FIFO; started after exec_ctxt is set
+    _reader_r: "threading.Thread"
+    _reader_w: "threading.Thread"
 
     def __init__(self, cnid: ConcreteNodeId, node: Node, loop_list_context: HSLoopListContext,
                  spec_pre_env=None):
@@ -454,45 +449,44 @@ class ConcreteNode:
         self.exec_ctxt.process.kill()
 
     def _reset_stream_state(self):
-        self.read_stream_fd = None
-        self.write_stream_fd = None
-        self.read_stream_buf = ''
-        self.write_stream_buf = ''
+        for t in (getattr(self, '_reader_r', None), getattr(self, '_reader_w', None)):
+            if t is not None and t.is_alive():
+                t.join(timeout=0.5)
+        self._reader_r = None
+        self._reader_w = None
 
-    def _open_stream_fd(self, suffix):
-        path = util.sandboxed_path(self.exec_ctxt.sandbox_dir,
-                                   self.exec_ctxt.trace_file + suffix)
+    def _run_stream_reader(self, path: str, is_write: bool):
         try:
-            return open(path, 'r')
-        except FileNotFoundError:
-            return None
+            fd = open(path, 'r')
+        except OSError:
+            return
+        try:
+            for line in fd:
+                p = line.rstrip('\n')
+                if p and not dep_util.should_filter(p):
+                    if is_write:
+                        self.rwset.write_set.add(p)
+                    else:
+                        self.rwset.read_set.add(p)
+        finally:
+            fd.close()
 
-    def _drain_stream(self, fd, buf: str) -> tuple[set, str]:
-        """Read new content from fd; return (complete paths, leftover partial line)."""
-        chunk = fd.read()
-        if not chunk:
-            return set(), buf
-        buf += chunk
-        *complete, buf = buf.split('\n')
-        paths = {p for line in complete if (p := line.strip()) and not dep_util.should_filter(p)}
-        return paths, buf
+    def _start_reader_threads(self):
+        sandbox_dir = self.exec_ctxt.sandbox_dir
+        trace_file  = self.exec_ctxt.trace_file
+        for suffix, is_write, attr in (('.r', False, '_reader_r'), ('.w', True, '_reader_w')):
+            path = util.sandboxed_path(sandbox_dir, trace_file + suffix)
+            t = threading.Thread(target=self._run_stream_reader, args=(path, is_write),
+                                 daemon=True)
+            t.start()
+            setattr(self, attr, t)
 
-    def gather_fs_actions(self):
-        assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
-        if self.read_stream_fd is None:
-            self.read_stream_fd  = self._open_stream_fd('.r')
-        if self.write_stream_fd is None:
-            self.write_stream_fd = self._open_stream_fd('.w')
-        read_paths, write_paths = set(), set()
-        if self.read_stream_fd:
-            read_paths,  self.read_stream_buf  = self._drain_stream(self.read_stream_fd,  self.read_stream_buf)
-        if self.write_stream_fd:
-            write_paths, self.write_stream_buf = self._drain_stream(self.write_stream_fd, self.write_stream_buf)
-        self.update_rw_set(read_paths, write_paths)
+    def _join_reader_threads(self):
+        for t in (getattr(self, '_reader_r', None), getattr(self, '_reader_w', None)):
+            if t is not None:
+                t.join(timeout=1.0)
 
     def get_rw_set(self):
-        # if self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
-        #     self.gather_fs_actions()
         return self.rwset
 
     fd_line = re.compile(r'(\d+) ([rwd]) (\d+) (.+)')
@@ -550,7 +544,7 @@ class ConcreteNode:
                     function_body_lines.append(line)
                     if line == '}':
                         inside_function = False
-                        if not current_function in ignore_vars:
+                        if current_function not in ignore_vars:
                             env_vars[current_function] = '\n'.join(function_body_lines)
                         function_body_lines = []
             return env_vars
@@ -683,17 +677,16 @@ class ConcreteNode:
         self.start_command(env_file)
         self.state = NodeState.EXECUTING
         self._reset_stream_state()
-        
         self.rwset = RWSet(set(), set())
+        self._start_reader_threads()
         self.trace_state()
 
     def start_spec_executing(self, env_file, speculated_nodes):
-        # raise NotImplementedError
         assert self.state == NodeState.READY
         self.start_command(env_file, speculate=True, speculated_nodes=speculated_nodes)
         self._reset_stream_state()
-        
         self.rwset = RWSet(set(), set())
+        self._start_reader_threads()
         self.state = NodeState.SPEC_EXECUTING
         self.trace_state()
 
@@ -703,13 +696,11 @@ class ConcreteNode:
         self.exec_result = ExecResult(self.exec_ctxt.process.returncode, self.exec_ctxt.process.pid)
         return self.exec_result.exit_code == 137, self.runtime_finished()
 
-    def commit_frontier_execution(self):
+    def commit_frontier_execution(self) -> int:
+        """Commit the frontier node and return the missed-event count from trace_v3."""
         assert self.state == NodeState.EXECUTING
-        self.gather_fs_actions()
-        if self.read_stream_fd:
-            self.read_stream_fd.close()
-        if self.write_stream_fd:
-            self.write_stream_fd.close()
+        self._join_reader_threads()
+        missed = dep_util.read_missed(self.exec_ctxt.sandbox_dir, self.exec_ctxt.trace_file)
         self.update_loop_list_context()
         util.overhead_log(f"COMMIT|{self.cnid}")
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
@@ -719,16 +710,13 @@ class ConcreteNode:
         self.fixup_fds()
         self.state = NodeState.COMMITTED
         self.trace_state()
+        return missed
 
     def finish_spec_execution(self) -> bool:
-        """Drain stream files, close them, and return True if trace_v3 missed events."""
+        """Join reader threads and return True if trace_v3 missed events."""
         assert self.state == NodeState.SPEC_EXECUTING
         self.update_loop_list_context()
-        self.gather_fs_actions()
-        if self.read_stream_fd:
-            self.read_stream_fd.close()
-        if self.write_stream_fd:
-            self.write_stream_fd.close()
+        self._join_reader_threads()
         missed = dep_util.read_missed(self.exec_ctxt.sandbox_dir, self.exec_ctxt.trace_file)
         self.fixup_fds()
         self.state = NodeState.SPECULATED

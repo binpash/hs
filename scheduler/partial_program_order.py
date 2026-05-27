@@ -1,9 +1,6 @@
-from enum import Enum
 from node import NodeId, Node, CFGEdgeType, ConcreteNodeId, ConcreteNode, HSProg, HSBasicBlock, HSLoopListContext, loop_iters_do_action, get_loop_list_from_env
 import logging
 import util
-from pathlib import Path
-from collections import deque
 from executor import run_assignment_and_return_env_file
 
 PROG_LOG =  '[PROG_LOG] '
@@ -403,12 +400,6 @@ class PartialProgramOrder:
     def valid(self):
         return True
 
-    def fetch_fs_actions(self):
-        for node in self.get_executing_normal_and_spec_nodes():
-            util.overhead_log(f"TRACE_FETCHING|{node.cnid}")
-            node.gather_fs_actions()
-            util.overhead_log(f"TRACE_FETCHING_END|{node.cnid}")
-
     def _has_fs_deps(self, concrete_node_id: ConcreteNodeId):
         node_of_interest : ConcreteNode = self.get_concrete_node(concrete_node_id)
         for dep_entry in self.to_be_resolved[concrete_node_id]:
@@ -423,10 +414,7 @@ class PartialProgramOrder:
                 return True
         return False
 
-    # TODO: It's currently designed this way to avoid reading trace file all the time
-    # When we have complex caching code for this we can make this go away
     def has_fs_deps(self, concrete_node_id: ConcreteNodeId):
-        self.fetch_fs_actions()
         return self._has_fs_deps(concrete_node_id)
 
     def schedule_spec_work(self, concrete_node_id: ConcreteNodeId):
@@ -444,7 +432,7 @@ class PartialProgramOrder:
         return env
 
     def reset_speculation(self):
-        event_log(f"reset speculation")
+        event_log("reset speculation")
         for cnid in self.spec_exec_order:
             self.concrete_nodes[cnid].try_reset_to_ready()
         self.spec_exec_order = []
@@ -471,9 +459,12 @@ class PartialProgramOrder:
             node.transition_from_ready_to_unsafe()
             return
         if node.is_executing():
-            node.commit_frontier_execution()
+            missed = node.commit_frontier_execution()
             self.current_loop_list = node.loop_list_context
             self.adjust_to_be_resolved_dict()
+            if missed > 0:
+                util.debug_log(f"{concrete_node_id} frontier missed {missed} trace events — resetting speculation")
+                self.reset_speculation()
         elif node.is_spec_executing():
             if self.has_fs_deps(concrete_node_id):
                 node.reset_to_ready()
@@ -483,7 +474,8 @@ class PartialProgramOrder:
             else:
                 had_missed = node.finish_spec_execution()
                 if had_missed:
-                    util.debug_log(f"{concrete_node_id} missed trace events — moving to frontier")
+                    util.debug_log(f"{concrete_node_id} spec missed trace events — resetting speculation and moving to frontier")
+                    self.reset_speculation()
                     node.reset_to_ready(loop_list_context=self.current_loop_list)
                     node.start_executing(current_env)
                 elif has_pending_wait:
@@ -529,7 +521,7 @@ class PartialProgramOrder:
         else:
             self.reset_speculation()
 
-        if not concrete_node_id in self.concrete_nodes:
+        if concrete_node_id not in self.concrete_nodes:
             abstract_node = self.hsprog.find_node(concrete_node_id.node_id)
             new_concrete_node = ConcreteNode(concrete_node_id, abstract_node, self.current_loop_list)
             new_concrete_node.transition_from_init_to_ready(env_file)
@@ -593,7 +585,6 @@ class PartialProgramOrder:
     def eager_fs_killing(self):
         event_log("try to eagerly kill conflicted speculation")
         to_be_killed: "list[ConcreteNode]" = []
-        self.fetch_fs_actions()
         for node in self.get_all_nodes():
             if ((node.is_speculated() or node.is_spec_executing())
                 and self._has_fs_deps(node.cnid)):

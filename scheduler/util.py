@@ -1,8 +1,8 @@
 import config
 import logging
 import os
+import select
 import socket
-import subprocess
 import tempfile
 import time
 import re
@@ -10,9 +10,8 @@ import psutil
 import signal
 import analysis
 import shutil
-from node import Node, NodeId, LoopStack, HSProg, HSBasicBlock
+from node import Node, NodeId, HSProg
 from partial_program_order import PartialProgramOrder
-from config import PASH_SPEC_TMP_PREFIX
 
 DEBUG_LOG = '[DEBUG_LOG] '
 ENV_LOG = '[ENV_LOG] '
@@ -109,6 +108,13 @@ def socket_get_next_cmd(sock: socket.socket) -> "tuple[socket.socket, str]" :
     assert(str_data.endswith("\n") or str_data == "")
 
     return (connection, str_data)
+
+def socket_try_get_next_cmd(sock: socket.socket, timeout: float) -> "tuple[socket.socket, str] | None":
+    """Like socket_get_next_cmd but returns None if no connection arrives within timeout seconds."""
+    ready, _, _ = select.select([sock], [], [], timeout)
+    if not ready:
+        return None
+    return socket_get_next_cmd(sock)
 
 def socket_respond(connection: socket.socket, message: str):
     bytes_message = message.encode('utf-8')

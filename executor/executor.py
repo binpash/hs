@@ -5,7 +5,7 @@ import subprocess
 import os
 
 from dataclasses import dataclass
-from executor_util import ptempfile, ptempdir, create_sandbox, copy, PASH_SPEC_TOP
+from executor_util import ptempfile, ptempdir, create_sandbox, copy, PASH_SPEC_TOP, sandboxed_path
 
 
 @dataclass
@@ -56,6 +56,10 @@ def run_trace_sandboxed(args: ExecArgs):
     logging.debug(f'Scheduler: Stderr file for: {args.concrete_node_id} is: {stderr_file}')
 
     sandbox_dir, tmp_dir = create_sandbox()
+    for suffix in ('.r', '.w'):
+        fifo_path = sandboxed_path(sandbox_dir, trace_file + suffix)
+        os.makedirs(os.path.dirname(fifo_path), exist_ok=True)
+        os.mkfifo(fifo_path)
     post_execution_env_file = ptempfile(prefix='hs_post_env')
     lower_dirs_str = ':'.join(args.lower_sandboxes)
     speculate_mode = "speculate" if args.speculate_mode else "standard"

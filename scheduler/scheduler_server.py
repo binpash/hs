@@ -9,8 +9,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 
 import util
 import config
-from partial_program_order import PartialProgramOrder, NodeId
-from node import LoopStack, ConcreteNodeId
+from partial_program_order import NodeId
+from node import ConcreteNodeId
 
 ##
 ## A scheduler server
@@ -110,14 +110,20 @@ class Scheduler:
             util.debug_log(f'ignoring var assignment {concrete_node_id}')
             self.respond_to_wait_on_unsafe(concrete_node_id)
 
-    def process_next_cmd(self):
-        connection, input_cmd = util.socket_get_next_cmd(self.socket)
+    def process_next_cmd(self, timeout=None):
+        if timeout is not None:
+            result = util.socket_try_get_next_cmd(self.socket, timeout)
+            if result is None:
+                return
+            connection, input_cmd = result
+        else:
+            connection, input_cmd = util.socket_get_next_cmd(self.socket)
 
         if(input_cmd.startswith("Init")):
             connection.close()
             self.handle_init(input_cmd)
         elif (input_cmd.startswith("Daemon Start") or input_cmd == ""):
-            util.debug_log(f'Scheduler: Received daemon start message.')
+            util.debug_log('Scheduler: Received daemon start message.')
             connection.close()
         elif (input_cmd.startswith("CommandExecComplete:")):
             node_id, exec_id, sandbox_dir, trace_file = self.__parse_command_exec_x(input_cmd)
@@ -195,6 +201,8 @@ class Scheduler:
     def schedule_work(self):
         self.partial_program_order.try_schedule_spec_nodes(self.window)
 
+    _POLL_INTERVAL = 0.010  # 10 ms — drain trace streams even when no message arrives
+
     def run(self):
         ## The first command should be the daemon start
         self.process_next_cmd()
@@ -204,7 +212,7 @@ class Scheduler:
 
         self.partial_program_order.log_state()
         while not self.done:
-            self.process_next_cmd()
+            self.process_next_cmd(timeout=self._POLL_INTERVAL)
             self.partial_program_order.log_state()
             self.schedule_work()
             self.partial_program_order.log_state()

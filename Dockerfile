@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         # try deps
         expect mergerfs attr \
         # fstrace / eBPF deps
-        gcc clang llvm libbpf-dev zlib1g-dev libelf-dev autopoint flex bison bpftool gawk
+        gcc clang llvm libbpf-dev zlib1g-dev libelf-dev autopoint flex bison bpftool gawk man-db
 
 RUN git config --global --add safe.directory /srv
 ENV PASH_SPEC_TOP=/srv/hs

@@ -160,7 +160,8 @@ class Scheduler:
             self.handle_wait(input_cmd, connection)
         elif (input_cmd.startswith("Done")):
             util.socket_respond(connection, success_response("All finished!"))
-            self.partial_program_order.log_info()
+            if self.partial_program_order is not None:
+                self.partial_program_order.log_info()
             self.done = True
         else:
             logging.error(error_response(f'Error: Unsupported command: {input_cmd}'))
@@ -229,7 +230,8 @@ class Scheduler:
         ## The second command should be the partial order init
         self.process_next_cmd()
 
-        self.partial_program_order.log_state()
+        if self.partial_program_order is not None:
+            self.partial_program_order.log_state()
         while not self.done:
             sock_ready, wake_ready = util.wait_for_socket_or_wake(
                 self.socket, self._wake_r, self._POLL_INTERVAL)
@@ -239,6 +241,8 @@ class Scheduler:
                 # Use timeout=None for the actual accept so we don't re-block;
                 # we already know there's something pending.
                 self.process_next_cmd()
+            if self.partial_program_order is None:
+                continue
             self.partial_program_order.log_state()
             self.schedule_work()
             self.partial_program_order.log_state()

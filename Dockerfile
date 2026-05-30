@@ -35,5 +35,6 @@ RUN ./install.sh
 WORKDIR /srv/hs
 RUN python3 -m venv .venv
 COPY . .
+RUN make -C executor
 RUN .venv/bin/pip install -r requirements.txt
 ENTRYPOINT ["/srv/hs/entrypoint.sh"]

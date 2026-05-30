@@ -484,9 +484,13 @@ class ConcreteNode:
                 p = line.rstrip('\n')
                 if p and not dep_util.should_filter(p):
                     target.add(p)
-                    # Wake the scheduler so eager_fs_killing runs against the
-                    # updated rwset without waiting for the next poll tick.
-                    _signal_scheduler()
+                    # Conflicts always involve a write (W-W, W-R, R-W), so
+                    # waking the scheduler on every write catches every
+                    # conflict. Reads happen ~60×/iter; signalling on each
+                    # would swamp eager_fs_killing (O(N²)). The poll fallback
+                    # in the main loop still catches anything we miss.
+                    if is_write:
+                        _signal_scheduler()
         finally:
             fd.close()
 
@@ -637,7 +641,22 @@ class ConcreteNode:
         #     post_path = self.exec_ctxt.post_env_file + '.fds'
         else:
             assert False
-        return Path(post_path).exists()
+        exists = Path(post_path).exists()
+        if not exists:
+            # Diagnostic: what DID land in the sandbox upperdir? List the
+            # parent dir and any post_env-ish siblings so we can tell whether
+            # pash_declare_vars.sh wrote the wrong path, errored, or never ran.
+            import os as _os
+            parent = _os.path.dirname(post_path)
+            try:
+                siblings = _os.listdir(parent)
+            except OSError as e:
+                siblings = [f'<listdir error: {e}>']
+            util.debug_log(f'runtime_finished=False {self.cnid} '
+                           f'post={post_path} '
+                           f'parent_exists={_os.path.isdir(parent)} '
+                           f'siblings={siblings[:20]}')
+        return exists
 
     ##                                      ##
     ##          Transition Functions        ##

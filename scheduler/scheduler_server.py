@@ -217,9 +217,10 @@ class Scheduler:
     def schedule_work(self):
         self.partial_program_order.try_schedule_spec_nodes(self.window)
 
-    # Wake pipe is the primary trigger — this timeout is a safety net in case
-    # a reader thread is stuck (e.g. FIFO never opened by trace_v3).
-    _POLL_INTERVAL = 1.0
+    # Wake pipe is the primary trigger (fires on every streamed write).
+    # 100 ms polling backstop catches the rare R-W conflict where the
+    # write was already added before the speculating node started reading.
+    _POLL_INTERVAL = 0.1
 
     def run(self):
         ## The first command should be the daemon start

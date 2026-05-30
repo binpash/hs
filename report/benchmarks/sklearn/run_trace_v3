@@ -1,1 +1,76 @@
-../../run_trace_v3_base
+#!/bin/bash
+
+this_path=$(realpath -se "$0")
+
+one_up=$(basename $(dirname $this_path))
+two_up=$(basename $(dirname $(dirname $this_path)))
+rest=$(dirname $(dirname $(dirname $this_path)))
+
+if [ ${two_up} == "benchmarks" ]; then
+    benchmark_root=$rest/$two_up
+    benchmark_name=$one_up
+    test_name=$one_up
+    container_name="hs-${one_up}"
+else
+    benchmark_root=$rest
+    benchmark_name=$two_up
+    test_name=$two_up/$one_up
+    container_name="hs-${two_up}-${one_up}"
+fi
+
+# Default target based on invocation name
+script_name=$(basename "$this_path")
+case "$script_name" in
+    run_strace)   DEFAULT_TARGETS=(strace) ;;
+    run_fstrace) DEFAULT_TARGETS=(fstrace) ;;
+    *)            DEFAULT_TARGETS=(sh hs) ;;
+esac
+
+# Parse --target from args; pass everything else through
+TARGETS=()
+PASS_ARGS=()
+while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "--target" ]]; then
+        shift
+        while [[ $# -gt 0 && "$1" != --* ]]; do
+            TARGETS+=("$1")
+            shift
+        done
+    else
+        PASS_ARGS+=("$1")
+        shift
+    fi
+done
+
+if [[ ${#TARGETS[@]} -eq 0 ]]; then
+    TARGETS=("${DEFAULT_TARGETS[@]}")
+fi
+
+docker rm -f $container_name 2>/dev/null
+
+sudo bash -c "ulimit -l unlimited && docker run \
+    --name $container_name --privileged --pid=host --net=host --cgroupns=host \
+    -v /mydata/tmp:/tmp \
+    -v /lib/modules:/lib/modules:ro \
+    -v /usr/src:/usr/src:ro \
+    -v /sys/kernel/tracing:/sys/kernel/tracing:rw \
+    -v /sys/fs/bpf:/sys/fs/bpf \
+    hs/$benchmark_name \
+    ./report/benchmarks/$test_name/run --target ${TARGETS[*]} ${PASS_ARGS[*]}"
+
+mkdir -p $benchmark_root/../output/$test_name
+
+has_target() { [[ " ${TARGETS[*]} " =~ " $1 " ]]; }
+
+has_target sh       && docker cp $container_name:/srv/hs/report/output/$test_name/sh_time       $benchmark_root/../output/$test_name/sh_time
+has_target hs       && docker cp $container_name:/srv/hs/report/output/$test_name/hs_time       $benchmark_root/../output/$test_name/hs_time
+has_target strace   && docker cp $container_name:/srv/hs/report/output/$test_name/strace_time   $benchmark_root/../output/$test_name/strace_time
+has_target fstrace && docker cp $container_name:/srv/hs/report/output/$test_name/fstrace_time $benchmark_root/../output/$test_name/fstrace_time
+
+if has_target sh && has_target hs; then
+    docker cp $container_name:/srv/hs/report/output/$test_name/error     $benchmark_root/../output/$test_name/error
+    docker cp $container_name:/srv/hs/report/output/$test_name/hs/stderr $benchmark_root/../output/$test_name/stderr_hs
+    docker cp $container_name:/srv/hs/report/output/$test_name/sh/stderr $benchmark_root/../output/$test_name/stderr_sh
+fi
+
+docker rm $container_name

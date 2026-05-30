@@ -9,8 +9,8 @@ from subprocess import run, PIPE
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser.add_argument('--window', default=5, type=int, help='window size to run hs with')
-parser.add_argument('--target', required=True, nargs='+', choices=['sh', 'hs', 'strace', 'trace_v3'],
-                    default=['sh', 'hs'], help='executors to run (sh, hs, strace, trace_v3)')
+parser.add_argument('--target', required=True, nargs='+', choices=['sh', 'hs', 'strace', 'fstrace'],
+                    default=['sh', 'hs'], help='executors to run (sh, hs, strace, fstrace)')
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
 parser.add_argument('--tmpdir', type=Path)
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     run_sh = 'sh' in target
     run_hs = 'hs' in target
     run_strace = 'strace' in target
-    run_trace_v3 = 'trace_v3' in target
+    run_fstrace = 'fstrace' in target
     output_base.mkdir(parents=True, exist_ok=True)
 
     if run_sh:

@@ -735,7 +735,7 @@ class ConcreteNode:
         return self.exec_result.exit_code == 137, self.runtime_finished()
 
     def commit_frontier_execution(self) -> int:
-        """Commit the frontier node and return the missed-event count from trace_v3."""
+        """Commit the frontier node and return the missed-event count from fstrace."""
         assert self.state == NodeState.EXECUTING
         self._join_reader_threads()
         missed = dep_util.read_missed(self.exec_ctxt.sandbox_dir, self.exec_ctxt.trace_file)
@@ -751,7 +751,7 @@ class ConcreteNode:
         return missed
 
     def finish_spec_execution(self) -> bool:
-        """Join reader threads and return True if trace_v3 missed events."""
+        """Join reader threads and return True if fstrace missed events."""
         assert self.state == NodeState.SPEC_EXECUTING
         self.update_loop_list_context()
         self._join_reader_threads()

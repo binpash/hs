@@ -10,8 +10,8 @@ from subprocess import run, PIPE, DEVNULL
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser.add_argument('--tmp-dir', type=str, help='tmp dir to map into docker')
 parser.add_argument('--window', default=5, type=int, help='window size to run hs with')
-parser.add_argument('--target', nargs='+', choices=['sh', 'hs', 'strace', 'trace_v3'],
-                    default=['sh', 'hs'], help='executors to run (sh, hs, strace, trace_v3)')
+parser.add_argument('--target', nargs='+', choices=['sh', 'hs', 'strace', 'fstrace'],
+                    default=['sh', 'hs'], help='executors to run (sh, hs, strace, fstrace)')
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
 parser.add_argument('--start', default=0000, type=int, help='start from a different script')
@@ -74,8 +74,8 @@ def do_strace_run(test_base: Path, output_base: Path, tmp_dir: str, env: dict):
 
     return result.returncode
 
-def do_trace_v3_run(test_base: Path, output_base: Path, tmp_dir: str, env: dict):
-    output_dir = output_base / 'trace_v3'
+def do_fstrace_run(test_base: Path, output_base: Path, tmp_dir: str, env: dict):
+    output_dir = output_base / 'fstrace'
     output_dir.mkdir(parents=True, exist_ok=True)
 
     trace_file = '/tmp/tv3_trace'
@@ -83,8 +83,8 @@ def do_trace_v3_run(test_base: Path, output_base: Path, tmp_dir: str, env: dict)
     missed_file = '/tmp/tv3_missed'
 
     cmd_inner = (
-        f'trace_v3 install && '
-        f'trace_v3 --trace-file {trace_file} --dep-file {dep_file} --missed-file {missed_file} '
+        f'fstrace install && '
+        f'fstrace --trace-file {trace_file} --dep-file {dep_file} --missed-file {missed_file} '
         f'-- sh {SCRIPT}'
     )
 
@@ -97,7 +97,7 @@ def do_trace_v3_run(test_base: Path, output_base: Path, tmp_dir: str, env: dict)
            f'-v /sys/fs/bpf:/sys/fs/bpf '
            f'hs/git-tests sh -c \'{cmd_inner}\'']
 
-    print(f"Running trace_v3: {cmd}")
+    print(f"Running fstrace: {cmd}")
     before = time.time()
     result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
     duration = time.time() - before
@@ -106,7 +106,7 @@ def do_trace_v3_run(test_base: Path, output_base: Path, tmp_dir: str, env: dict)
         f.write(result.stdout)
     with open(output_dir / 'stderr', 'wb') as f:
         f.write(result.stderr)
-    with open(output_base / 'trace_v3_time', 'w') as f:
+    with open(output_base / 'fstrace_time', 'w') as f:
         f.write(f'{duration}\n')
 
     for src_name, dst_name in [('tv3_trace', 'trace'), ('tv3_deps', 'deps'), ('tv3_missed', 'missed')]:
@@ -128,9 +128,9 @@ if __name__ == '__main__':
     run_sh = 'sh' in args.target
     run_hs = 'hs' in args.target
     run_strace = 'strace' in args.target
-    run_trace_v3 = 'trace_v3' in args.target
+    run_fstrace = 'fstrace' in args.target
 
-    if not any([run_sh, run_hs, run_strace, run_trace_v3]):
+    if not any([run_sh, run_hs, run_strace, run_fstrace]):
         raise ValueError("Not running anything, add --target argument")
 
     if not tmp_dir:
@@ -144,8 +144,8 @@ if __name__ == '__main__':
         output_hs = do_hs_run(test_base, output_base, hs_base, args.window, tmp_dir, env, args.log == 'enable')
     if run_strace:
         do_strace_run(test_base, output_base, tmp_dir, env)
-    if run_trace_v3:
-        do_trace_v3_run(test_base, output_base, tmp_dir, env)
+    if run_fstrace:
+        do_fstrace_run(test_base, output_base, tmp_dir, env)
     if run_sh and run_hs:
         with open(output_base / 'error', 'w') as errf:
             if output_sh == output_hs:

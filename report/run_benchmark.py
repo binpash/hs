@@ -10,8 +10,8 @@ from subprocess import run, PIPE
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run benchmark")
     parser.add_argument('--window', default=16, type=int, help='Window size to run hs with')
-    parser.add_argument('--target', nargs='+', choices=['sh', 'hs', 'strace', 'trace_v3'],
-                        default=['sh', 'hs'], help='Executors to run (sh, hs, strace, trace_v3)')
+    parser.add_argument('--target', nargs='+', choices=['sh', 'hs', 'strace', 'fstrace'],
+                        default=['sh', 'hs'], help='Executors to run (sh, hs, strace, fstrace)')
     parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                         help='Whether to enable logging for hs')
     parser.add_argument('--script_name', required=True, help='Name of the script to run')
@@ -123,33 +123,33 @@ def do_strace_run(test_base: Path, output_base: Path, env: dict, script_name: st
 
     return result.returncode
 
-def do_trace_v3_run(test_base: Path, output_base: Path, env: dict, script_name: str, script_args: list):
-    output_dir = output_base / 'trace_v3'
+def do_fstrace_run(test_base: Path, output_base: Path, env: dict, script_name: str, script_args: list):
+    output_dir = output_base / 'fstrace'
     output_dir.mkdir(parents=True, exist_ok=True)
     env['OUTPUT_DIR'] = str(output_dir)
 
     try:
-        run(['trace_v3', 'install'], check=False)
+        run(['fstrace', 'install'], check=False)
     except FileNotFoundError:
-        print("Error: trace_v3 not found on PATH. Rebuild Docker images to include trace_v3.")
-        with open(output_base / "trace_v3_time", 'w') as f:
+        print("Error: fstrace not found on PATH. Rebuild Docker images to include fstrace.")
+        with open(output_base / "fstrace_time", 'w') as f:
             f.write('0\n')
         return 1
 
-    cmd = ['trace_v3',
+    cmd = ['fstrace',
            '--trace-file', str(output_dir / 'trace'),
            '--dep-file', str(output_dir / 'deps'),
            '--missed-file', str(output_dir / 'missed'),
            '--', '/bin/sh', str(test_base / script_name)] + script_args
 
-    print(f"Running trace_v3 command: {' '.join(cmd)}")
+    print(f"Running fstrace command: {' '.join(cmd)}")
 
     before = time.time()
     try:
         result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
     except FileNotFoundError:
-        print("Error: trace_v3 not found on PATH. Rebuild Docker images to include trace_v3.")
-        with open(output_base / "trace_v3_time", 'w') as f:
+        print("Error: fstrace not found on PATH. Rebuild Docker images to include fstrace.")
+        with open(output_base / "fstrace_time", 'w') as f:
             f.write('0\n')
         return 1
     duration = time.time() - before
@@ -158,7 +158,7 @@ def do_trace_v3_run(test_base: Path, output_base: Path, env: dict, script_name: 
         f.write(result.stdout)
     with open(output_dir / "stderr", 'wb') as f:
         f.write(result.stderr)
-    with open(output_base / "trace_v3_time", 'w') as f:
+    with open(output_base / "fstrace_time", 'w') as f:
         f.write(f'{duration}\n')
 
     return result.returncode
@@ -253,9 +253,9 @@ def main():
     run_sh = 'sh' in args.target
     run_hs = 'hs' in args.target
     run_strace = 'strace' in args.target
-    run_trace_v3 = 'trace_v3' in args.target
+    run_fstrace = 'fstrace' in args.target
 
-    if not any([run_hs, run_sh, run_strace, run_trace_v3]):
+    if not any([run_hs, run_sh, run_strace, run_fstrace]):
         print("Not running anything, please specify --target")
         exit(1)
 
@@ -270,8 +270,8 @@ def main():
         hs_returncode = do_hs_run(test_base, output_base, hs_base, args.window, env, args.log == 'enable', script_name, script_args)
     if run_strace:
         do_strace_run(test_base, output_base, env, script_name, script_args)
-    if run_trace_v3:
-        do_trace_v3_run(test_base, output_base, env, script_name, script_args)
+    if run_fstrace:
+        do_fstrace_run(test_base, output_base, env, script_name, script_args)
     if run_sh and run_hs:
         compare_outputs(output_base)
 

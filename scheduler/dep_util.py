@@ -1,4 +1,4 @@
-"""Helpers for processing streamed file dependencies from trace_v3."""
+"""Helpers for processing streamed file dependencies from fstrace."""
 
 import util
 
@@ -14,10 +14,10 @@ FILTER_PREFIXES = (
 
 # Kernel pseudo-paths (pipes, sockets, anon inodes) appear in both read and write
 # sets but represent IPC, not file dependencies. Matching by substring because
-# trace_v3 prefixes them with the cwd (e.g. /home/user/pipe:[12345]).
+# fstrace prefixes them with the cwd (e.g. /home/user/pipe:[12345]).
 FILTER_SUBSTRINGS = ('pipe:[', 'socket:[', 'anon_inode:')
 
-# Parent-directory entries that appear only because trace_v3 pre-computes closure
+# Parent-directory entries that appear only because fstrace pre-computes closure
 # over filtered paths (e.g. /tmp is the parent of /tmp/pash_spec/...).
 FILTER_EXACT = frozenset(['/', '/tmp'])
 
@@ -27,7 +27,7 @@ def should_filter(path: str) -> bool:
             or any(s in path for s in FILTER_SUBSTRINGS))
 
 def read_missed(sandbox_dir: str, trace_file: str) -> int:
-    """Read the missed-event count written by trace_v3 at process exit."""
+    """Read the missed-event count written by fstrace at process exit."""
     missed_path = util.sandboxed_path(sandbox_dir, trace_file + '.missed')
     try:
         with open(missed_path) as f:

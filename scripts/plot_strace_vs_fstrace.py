@@ -10,35 +10,35 @@ def parse_time_file(path: Path) -> float:
 
 def collect_times(output_dir: Path):
     strace_times = {}
-    trace_v3_times = {}
+    fstrace_times = {}
 
     for entry in sorted(output_dir.iterdir()):
         if not entry.is_dir():
             continue
         strace_file = entry / "strace_time"
-        trace_v3_file = entry / "trace_v3_time"
-        if strace_file.exists() and trace_v3_file.exists():
+        fstrace_file = entry / "fstrace_time"
+        if strace_file.exists() and fstrace_file.exists():
             strace_times[entry.name] = parse_time_file(strace_file)
-            trace_v3_times[entry.name] = parse_time_file(trace_v3_file)
+            fstrace_times[entry.name] = parse_time_file(fstrace_file)
 
-    return strace_times, trace_v3_times
+    return strace_times, fstrace_times
 
 def main():
-    parser = argparse.ArgumentParser(description="Log-log scatter plot: strace vs trace_v3 times")
+    parser = argparse.ArgumentParser(description="Log-log scatter plot: strace vs fstrace times")
     parser.add_argument("output_dir", help="Directory containing benchmark output subdirectories")
     parser.add_argument("plot_file", help="Output plot file (e.g. plot.pdf or plot.png)")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
-    strace_times, trace_v3_times = collect_times(output_dir)
+    strace_times, fstrace_times = collect_times(output_dir)
 
-    common = sorted(strace_times.keys() & trace_v3_times.keys())
+    common = sorted(strace_times.keys() & fstrace_times.keys())
     if not common:
-        print("No benchmarks with both strace_time and trace_v3_time found.")
+        print("No benchmarks with both strace_time and fstrace_time found.")
         return
 
     x = np.array([strace_times[k] for k in common])
-    y = np.array([trace_v3_times[k] for k in common])
+    y = np.array([fstrace_times[k] for k in common])
 
     fig, ax = plt.subplots(figsize=(7, 6))
 
@@ -58,8 +58,8 @@ def main():
     ax.set_xlim(lim_min, lim_max)
     ax.set_ylim(lim_min, lim_max)
     ax.set_xlabel("strace time (s)")
-    ax.set_ylabel("trace_v3 time (s)")
-    ax.set_title("strace vs trace_v3 execution time")
+    ax.set_ylabel("fstrace time (s)")
+    ax.set_title("strace vs fstrace execution time")
     ax.legend()
     ax.grid(True, which="both", linestyle="--", linewidth=0.4, alpha=0.5)
 

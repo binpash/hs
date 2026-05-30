@@ -7,7 +7,7 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser.add_argument('--window', default=0, type=int, help='window size to run hs with')
-parser.add_argument('--target', nargs='+', choices=['baseline', 'hs-only', 'strace', 'trace_v3', 'all'],
+parser.add_argument('--target', nargs='+', choices=['baseline', 'hs-only', 'strace', 'fstrace', 'all'],
                     help='to run with sh or hs')
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     run_hs = "hs-only" in target
     run_baseline = "baseline" in target
     run_strace = "strace" in target
-    run_trace_v3 = "trace_v3" in target
+    run_fstrace = "fstrace" in target
 
 
     if not "PASH_SPEC_TOP" in os.environ:

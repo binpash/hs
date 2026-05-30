@@ -9,8 +9,8 @@ from subprocess import run, PIPE
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser.add_argument('--window', default=5, type=int, help='window size to run hs with')
-parser.add_argument('--target', nargs='+', choices=['sh', 'hs', 'strace', 'trace_v3'],
-                    default=['sh', 'hs'], help='executors to run (sh, hs, strace, trace_v3)')
+parser.add_argument('--target', nargs='+', choices=['sh', 'hs', 'strace', 'fstrace'],
+                    default=['sh', 'hs'], help='executors to run (sh, hs, strace, fstrace)')
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
 
@@ -53,14 +53,14 @@ def do_strace_run(test_base: Path, output_base: Path, env: dict):
         f.write(f'{duration}\n')
     return result.returncode
 
-def do_trace_v3_run(test_base: Path, output_base: Path, env: dict):
-    run(['trace_v3', 'install'], check=False)
-    cmd = ['trace_v3', '--', '/bin/sh', str(test_base / SCRIPT_NAME)]
-    print(f'Running trace_v3: {cmd}')
+def do_fstrace_run(test_base: Path, output_base: Path, env: dict):
+    run(['fstrace', 'install'], check=False)
+    cmd = ['fstrace', '--', '/bin/sh', str(test_base / SCRIPT_NAME)]
+    print(f'Running fstrace: {cmd}')
     before = time.time()
     result = run(cmd, stdout=PIPE, stderr=PIPE, env=env)
     duration = time.time() - before
-    with open(output_base / 'trace_v3_time', 'w') as f:
+    with open(output_base / 'fstrace_time', 'w') as f:
         f.write(f'{duration}\n')
     return result.returncode
 
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     run_sh = 'sh' in target
     run_hs = 'hs' in target
     run_strace = 'strace' in target
-    run_trace_v3 = 'trace_v3' in target
+    run_fstrace = 'fstrace' in target
     output_base.mkdir(parents=True, exist_ok=True)
     
     

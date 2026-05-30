@@ -5,3 +5,4 @@
 [submodule "deps/fstrace"]
 	path = deps/fstrace
 	url = git@github.com:binpash/fstrace.git
+    branch = rust

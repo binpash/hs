@@ -28,7 +28,7 @@ RUN make -C utils
 RUN mv utils/try-commit /bin
 RUN mv utils/try-summary /bin
 WORKDIR /srv/hs/deps/fstrace
-RUN install.sh
+RUN ./install.sh
 RUN fstrace install
 # WORKDIR /srv/hs/deps/pash
 # RUN ./scripts/setup-pash.sh

@@ -18,22 +18,18 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         # trace_v3 / eBPF deps
         gcc clang llvm libbpf-dev zlib1g-dev libelf-dev autopoint flex bison bpftool gawk
 
-# Install Rust and build trace_v3
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN git clone https://github.com/binpash/trace_v3.git /opt/trace_v3
-RUN --mount=type=cache,target=/root/.cargo/registry \
-    cd /opt/trace_v3 && cargo build --release && \
-    install -o root -m 4755 target/release/trace_v3 /usr/local/bin/trace_v3
 RUN git config --global --add safe.directory /srv
 ENV PASH_SPEC_TOP=/srv/hs
 ENV PASH_TOP=/srv/hs/deps/pash
-# pash, try
+# pash, try, fstrace
 COPY deps/ deps/
 WORKDIR /srv/hs/deps/try
 RUN make -C utils
 RUN mv utils/try-commit /bin
 RUN mv utils/try-summary /bin
+WORKDIR /srv/hs/deps/fstrace
+RUN install.sh
+RUN fstrace install
 # WORKDIR /srv/hs/deps/pash
 # RUN ./scripts/setup-pash.sh
 WORKDIR /srv/hs

@@ -15,7 +15,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         curl graphviz bsdmainutils libffi-dev locales locales-all netcat-openbsd pkg-config procps python3-pip python3-setuptools python3-testresources wamerican-insane \
         # try deps
         expect mergerfs attr \
-        # trace_v3 / eBPF deps
+        # fstrace / eBPF deps
         gcc clang llvm libbpf-dev zlib1g-dev libelf-dev autopoint flex bison bpftool gawk
 
 RUN git config --global --add safe.directory /srv

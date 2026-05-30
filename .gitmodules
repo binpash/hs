@@ -1,8 +1,8 @@
 [submodule "deps/try"]
-	path = deps/try
-	url = https://github.com/binpash/try.git
-	branch = hs
+    path = deps/try
+    url = https://github.com/binpash/try.git
+    branch = hs
 [submodule "deps/fstrace"]
-	path = deps/fstrace
-	url = git@github.com:binpash/fstrace.git
+    path = deps/fstrace
+    url = https://github.com/binpash/fstrace.git
     branch = rust

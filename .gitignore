@@ -11,3 +11,6 @@ test/output_bash/
 test/output_orch/
 test/results/
 build/
+
+fd_util
+set-diff

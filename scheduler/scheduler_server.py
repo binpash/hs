@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 
 import util
 import config
+import node as node_module
 from partial_program_order import NodeId
 from node import ConcreteNodeId
 
@@ -79,11 +80,26 @@ class Scheduler:
         self.waiting_for_response = {}
         self.partial_program_order = None
 
+        # Self-pipe: reader threads write a byte when they add a path to an
+        # rwset, so the main loop wakes immediately and re-checks conflicts.
+        self._wake_r, self._wake_w = os.pipe()
+        os.set_blocking(self._wake_r, False)
+        os.set_blocking(self._wake_w, False)
+        node_module.set_scheduler_wake_fd(self._wake_w)
+
         def handler(signum, frame):
             logging.debug(f'Signal: {signum} caught')
             self.shutdown()
 
         signal.signal(signal.SIGTERM, handler)
+
+    def _drain_wake_pipe(self):
+        try:
+            while True:
+                if not os.read(self._wake_r, 8192):
+                    break
+        except BlockingIOError:
+            pass
 
     def handle_init(self, input_cmd: str):
         assert(input_cmd.startswith("Init"))
@@ -201,7 +217,9 @@ class Scheduler:
     def schedule_work(self):
         self.partial_program_order.try_schedule_spec_nodes(self.window)
 
-    _POLL_INTERVAL = 0.010  # 10 ms — drain trace streams even when no message arrives
+    # Wake pipe is the primary trigger — this timeout is a safety net in case
+    # a reader thread is stuck (e.g. FIFO never opened by trace_v3).
+    _POLL_INTERVAL = 1.0
 
     def run(self):
         ## The first command should be the daemon start
@@ -212,7 +230,14 @@ class Scheduler:
 
         self.partial_program_order.log_state()
         while not self.done:
-            self.process_next_cmd(timeout=self._POLL_INTERVAL)
+            sock_ready, wake_ready = util.wait_for_socket_or_wake(
+                self.socket, self._wake_r, self._POLL_INTERVAL)
+            if wake_ready:
+                self._drain_wake_pipe()
+            if sock_ready:
+                # Use timeout=None for the actual accept so we don't re-block;
+                # we already know there's something pending.
+                self.process_next_cmd()
             self.partial_program_order.log_state()
             self.schedule_work()
             self.partial_program_order.log_state()

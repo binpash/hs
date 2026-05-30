@@ -18,6 +18,24 @@ def state_log(s):
     # logging.info(STATE_LOG + s)
     pass
 
+# Write end of the scheduler's self-pipe. Reader threads write a byte here
+# whenever they record a new RW-set entry, so the scheduler wakes immediately
+# and re-runs its conflict check instead of waiting for the next poll tick.
+_WAKE_FD: "int | None" = None
+
+def set_scheduler_wake_fd(fd: "int | None"):
+    global _WAKE_FD
+    _WAKE_FD = fd
+
+def _signal_scheduler():
+    fd = _WAKE_FD
+    if fd is None:
+        return
+    try:
+        os.write(fd, b'\1')
+    except (BlockingIOError, BrokenPipeError, OSError):
+        pass
+
 class NodeState(Enum):
     INIT = auto()
     READY = auto()
@@ -461,13 +479,14 @@ class ConcreteNode:
         except OSError:
             return
         try:
+            target = self.rwset.write_set if is_write else self.rwset.read_set
             for line in fd:
                 p = line.rstrip('\n')
                 if p and not dep_util.should_filter(p):
-                    if is_write:
-                        self.rwset.write_set.add(p)
-                    else:
-                        self.rwset.read_set.add(p)
+                    target.add(p)
+                    # Wake the scheduler so eager_fs_killing runs against the
+                    # updated rwset without waiting for the next poll tick.
+                    _signal_scheduler()
         finally:
             fd.close()
 

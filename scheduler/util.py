@@ -116,6 +116,13 @@ def socket_try_get_next_cmd(sock: socket.socket, timeout: float) -> "tuple[socke
         return None
     return socket_get_next_cmd(sock)
 
+def wait_for_socket_or_wake(sock: socket.socket, wake_fd: int, timeout: float) -> "tuple[bool, bool]":
+    """Wait until either the socket has a pending connection, the wake_fd is readable, or timeout.
+
+    Returns (socket_ready, wake_ready)."""
+    ready, _, _ = select.select([sock, wake_fd], [], [], timeout)
+    return (sock in ready, wake_fd in ready)
+
 def socket_respond(connection: socket.socket, message: str):
     bytes_message = message.encode('utf-8')
     connection.sendall(bytes_message)

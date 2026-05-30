@@ -583,14 +583,17 @@ class PartialProgramOrder:
             raise Exception(f'Error: Node {concrete_node_id} is in an invalid state: {node.state}')
 
     def eager_fs_killing(self):
-        event_log("try to eagerly kill conflicted speculation")
         to_be_killed: "list[ConcreteNode]" = []
         for node in self.get_all_nodes():
             if ((node.is_speculated() or node.is_spec_executing())
                 and self._has_fs_deps(node.cnid)):
                 to_be_killed.append(node)
+        if not to_be_killed:
+            return
+        event_log(f"eagerly killing {len(to_be_killed)} conflicted speculation(s): "
+                  + " ".join(str(n.cnid) for n in to_be_killed))
         for node in to_be_killed:
             node.reset_to_ready()
             # If we don't restart the node with pending wait here, the scheduler will hang
-            if node.cnid==self.temp_new_env[0]:
+            if self.temp_new_env is not None and node.cnid == self.temp_new_env[0]:
                 node.start_executing(self.temp_new_env[1])

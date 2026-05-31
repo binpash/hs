@@ -5,7 +5,7 @@ import subprocess
 import os
 
 from dataclasses import dataclass
-from executor_util import ptempfile, ptempdir, create_sandbox, copy, PASH_SPEC_TOP, sandboxed_path
+from executor_util import ptempfile, ptempdir, create_sandbox, copy, PASH_SPEC_TOP
 
 
 @dataclass
@@ -57,9 +57,14 @@ def run_trace_sandboxed(args: ExecArgs):
 
     sandbox_dir, tmp_dir = create_sandbox()
     for suffix in ('.r', '.w'):
-        fifo_path = sandboxed_path(sandbox_dir, trace_file + suffix)
-        os.makedirs(os.path.dirname(fifo_path), exist_ok=True)
-        os.mkfifo(fifo_path)
+        # Create FIFOs at their real /tmp path, not in the sandbox upperdir.
+        # This ensures fstrace can open them regardless of whether the try overlay
+        # for /tmp is working: inside the sandbox the FIFOs are visible via the
+        # overlay's lower layer (same inode), so both sides always connect.
+        # Pre-populating the upperdir caused reader threads to block forever when
+        # the overlay failed, because fstrace would create a regular file instead
+        # of finding the FIFO through the non-functional overlay.
+        os.mkfifo(trace_file + suffix)
     post_execution_env_file = ptempfile(prefix='hs_post_env')
     lower_dirs_str = ':'.join(args.lower_sandboxes)
     speculate_mode = "speculate" if args.speculate_mode else "standard"

@@ -495,10 +495,9 @@ class ConcreteNode:
             fd.close()
 
     def _start_reader_threads(self):
-        sandbox_dir = self.exec_ctxt.sandbox_dir
         trace_file  = self.exec_ctxt.trace_file
         for suffix, is_write, attr in (('.r', False, '_reader_r'), ('.w', True, '_reader_w')):
-            path = util.sandboxed_path(sandbox_dir, trace_file + suffix)
+            path = trace_file + suffix  # real /tmp path, matches where executor created FIFOs
             t = threading.Thread(target=self._run_stream_reader, args=(path, is_write),
                                  daemon=True)
             t.start()

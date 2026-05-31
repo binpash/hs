@@ -23,7 +23,6 @@ ENV PASH_SPEC_TOP=/srv/hs
 ENV PASH_TOP=/srv/hs/deps/pash
 # pash, try, fstrace
 COPY deps/ deps/
-COPY .git/ .git/
 WORKDIR /srv/hs/deps/try
 RUN make -C utils
 RUN mv utils/try-commit /bin

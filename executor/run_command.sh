@@ -31,7 +31,7 @@ fi
 # echo tempdir $TEMPDIR
 # echo sandbox $SANDBOX_DIR
 
-${RUNTIME_LIBRARY_DIR}/fd_util -f "${LATEST_ENV_FILE}.fds" -p ${STDOUT_FILE} bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" -L "${LOWER_DIRS}" "${PASH_SPEC_TOP}/executor/template_script_to_execute.sh"
+${RUNTIME_LIBRARY_DIR}/fd_util -f "${LATEST_ENV_FILE}.fds" -p ${STDOUT_FILE} bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" -L "${LOWER_DIRS}" -B /tmp/pash_spec:/tmp/pash_spec "${PASH_SPEC_TOP}/executor/template_script_to_execute.sh"
 exit_code=$?
 ## Only used for debugging
 # ls -R "${SANDBOX_DIR}/upperdir" 1>&2

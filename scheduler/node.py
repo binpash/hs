@@ -384,11 +384,7 @@ class ConcreteNode:
                 fd, mode, offset, path = line.split(' ', maxsplit=3)
                 replace_map[f'{self.exec_ctxt.outfds}/{fd}'] = path
         new_lines = []
-        if self.state == NodeState.SPEC_EXECUTING:
-            post_path = util.sandboxed_path(self.exec_ctxt.sandbox_dir,
-                                            self.exec_ctxt.post_env_file + '.fds')
-        else:
-            post_path = self.exec_ctxt.post_env_file + '.fds'
+        post_path = self.exec_ctxt.post_env_file + '.fds'
         with open(post_path, 'r') as f:
             "line format: fd mode offset path"
             lines = f.read().split('\n')[:-1]
@@ -429,9 +425,7 @@ class ConcreteNode:
 
     def update_loop_list_context(self):
         if self.abstract_node.is_loop_list_push():
-            real_env_path = util.sandboxed_path(self.exec_ctxt.sandbox_dir,
-                                                self.exec_ctxt.post_env_file)
-            new_loop_list = get_loop_list_from_env(real_env_path)
+            new_loop_list = get_loop_list_from_env(self.exec_ctxt.post_env_file)
             self.loop_list_context = self.loop_list_context.push(new_loop_list)
         elif self.abstract_node.is_loop_list_pop():
             self.loop_list_context = self.loop_list_context.pop()
@@ -442,8 +436,7 @@ class ConcreteNode:
         elif self.is_committed():
             env_file = self.exec_ctxt.post_env_file
         elif self.is_speculated():
-            env_file = util.sandboxed_path(self.exec_ctxt.sandbox_dir,
-                                               self.exec_ctxt.post_env_file)
+            env_file = self.exec_ctxt.post_env_file
         elif self.is_executing():
             env_file = self.exec_ctxt.pre_env_file
         else:
@@ -632,29 +625,11 @@ class ConcreteNode:
                     util.append(self.exec_ctxt.outfds + '/' + fd, path)
 
     def runtime_finished(self):
-        # TODO: update this when exec doesn't use sandbox anymore
-        if self.state in [NodeState.SPEC_EXECUTING, NodeState.EXECUTING]:
-            post_path = util.sandboxed_path(self.exec_ctxt.sandbox_dir,
-                                            self.exec_ctxt.post_env_file + '.fds')
-        # elif self.state == NodeState.EXECUTING:
-        #     post_path = self.exec_ctxt.post_env_file + '.fds'
-        else:
-            assert False
+        assert self.state in [NodeState.SPEC_EXECUTING, NodeState.EXECUTING]
+        post_path = self.exec_ctxt.post_env_file + '.fds'
         exists = Path(post_path).exists()
         if not exists:
-            # Diagnostic: what DID land in the sandbox upperdir? List the
-            # parent dir and any post_env-ish siblings so we can tell whether
-            # pash_declare_vars.sh wrote the wrong path, errored, or never ran.
-            import os as _os
-            parent = _os.path.dirname(post_path)
-            try:
-                siblings = _os.listdir(parent)
-            except OSError as e:
-                siblings = [f'<listdir error: {e}>']
-            util.debug_log(f'runtime_finished=False {self.cnid} '
-                           f'post={post_path} '
-                           f'parent_exists={_os.path.isdir(parent)} '
-                           f'siblings={siblings[:20]}')
+            util.debug_log(f'runtime_finished=False {self.cnid} post={post_path}')
         return exists
 
     ##                                      ##
@@ -737,7 +712,7 @@ class ConcreteNode:
         """Commit the frontier node and return the missed-event count from fstrace."""
         assert self.state == NodeState.EXECUTING
         self._join_reader_threads()
-        missed = dep_util.read_missed(self.exec_ctxt.sandbox_dir, self.exec_ctxt.trace_file)
+        missed = dep_util.read_missed(self.exec_ctxt.trace_file)
         self.update_loop_list_context()
         util.overhead_log(f"COMMIT|{self.cnid}")
         executor.commit_workspace(self.exec_ctxt.sandbox_dir)
@@ -754,7 +729,7 @@ class ConcreteNode:
         assert self.state == NodeState.SPEC_EXECUTING
         self.update_loop_list_context()
         self._join_reader_threads()
-        missed = dep_util.read_missed(self.exec_ctxt.sandbox_dir, self.exec_ctxt.trace_file)
+        missed = dep_util.read_missed(self.exec_ctxt.trace_file)
         self.fixup_fds()
         self.state = NodeState.SPECULATED
         self.trace_state()

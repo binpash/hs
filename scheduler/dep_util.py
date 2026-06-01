@@ -1,7 +1,5 @@
 """Helpers for processing streamed file dependencies from fstrace."""
 
-import util
-
 FILTER_PREFIXES = (
     '/tmp/pash_spec',   # hs internal temp files
     '/dev',             # device files
@@ -26,11 +24,10 @@ def should_filter(path: str) -> bool:
             or any(path.startswith(p) for p in FILTER_PREFIXES)
             or any(s in path for s in FILTER_SUBSTRINGS))
 
-def read_missed(sandbox_dir: str, trace_file: str) -> int:
+def read_missed(trace_file: str) -> int:
     """Read the missed-event count written by fstrace at process exit."""
-    missed_path = util.sandboxed_path(sandbox_dir, trace_file + '.missed')
     try:
-        with open(missed_path) as f:
+        with open(trace_file + '.missed') as f:
             return int(f.read().strip())
     except (FileNotFoundError, ValueError):
         return 0

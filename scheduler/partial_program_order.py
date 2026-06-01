@@ -254,7 +254,8 @@ class PartialProgramOrder:
             if len(open(pre_env_file).read()) == 0:
                 raise ValueError(pre_env_file)
         except FileNotFoundError:
-            breakpoint()
+            logging.error(f'make_new_spec_node: pre_env_file {pre_env_file!r} not found; aborting speculation')
+            return None
         while True:
             if bb.node_ids[-1] != last_abstract_node_id:
                 i = bb.node_ids.index(last_abstract_node_id)

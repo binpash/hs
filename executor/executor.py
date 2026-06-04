@@ -57,13 +57,10 @@ def run_trace_sandboxed(args: ExecArgs):
 
     sandbox_dir, tmp_dir = create_sandbox()
     for suffix in ('.r', '.w'):
-        # Create FIFOs at their real /tmp path, not in the sandbox upperdir.
-        # This ensures fstrace can open them regardless of whether the try overlay
-        # for /tmp is working: inside the sandbox the FIFOs are visible via the
-        # overlay's lower layer (same inode), so both sides always connect.
-        # Pre-populating the upperdir caused reader threads to block forever when
-        # the overlay failed, because fstrace would create a regular file instead
-        # of finding the FIFO through the non-functional overlay.
+        # Streaming FIFOs for the read/write dependency sets. Both ends now live
+        # in the host mount namespace: fstrace (the writer) wraps try from the
+        # OUTSIDE (see run_command.sh), and the scheduler's reader threads are
+        # outside try as well. No overlay/bind-mount coordination is needed.
         os.mkfifo(trace_file + suffix)
     post_execution_env_file = ptempfile(prefix='hs_post_env')
     lower_dirs_str = ':'.join(args.lower_sandboxes)

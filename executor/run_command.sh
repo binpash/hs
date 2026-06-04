@@ -31,7 +31,25 @@ fi
 # echo tempdir $TEMPDIR
 # echo sandbox $SANDBOX_DIR
 
-${RUNTIME_LIBRARY_DIR}/fd_util -f "${LATEST_ENV_FILE}.fds" -p ${STDOUT_FILE} bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" -L "${LOWER_DIRS}" -B /tmp/pash_spec:/tmp/pash_spec "${PASH_SPEC_TOP}/executor/template_script_to_execute.sh"
+# fstrace wraps the *whole* try invocation and therefore runs OUTSIDE try's
+# mount/pid/user namespaces. This is deliberate:
+#   * eBPF routes events by global PID; out here fork() yields the global PID,
+#     and the kernel's process_fork hook propagates the trace token across
+#     try's `unshare` to every sandboxed descendant.
+#   * fstrace needs CAP_BPF/CAP_PERFMON in the init user namespace to create
+#     and poll its ring buffer — capabilities it does not have inside try's
+#     unprivileged user namespace.
+#   * the .r/.w/.missed stream files are now written in the host mount
+#     namespace, the same one the scheduler reads them from, so no FIFO/overlay
+#     bind-mount gymnastics are required.
+# fstrace de-escalates only the traced child to the invoking user, so try still
+# runs unprivileged exactly as before.
+fstrace --mode both \
+    --trace-file "${TRACE_FILE}" \
+    --stream-read  --stream-read-file  "${TRACE_FILE}.r" \
+    --stream-write --stream-write-file "${TRACE_FILE}.w" \
+    --missed-file "${TRACE_FILE}.missed" \
+    -- ${RUNTIME_LIBRARY_DIR}/fd_util -f "${LATEST_ENV_FILE}.fds" -p ${STDOUT_FILE} bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" -L "${LOWER_DIRS}" -B /tmp/pash_spec:/tmp/pash_spec "${PASH_SPEC_TOP}/executor/template_script_to_execute.sh"
 exit_code=$?
 ## Only used for debugging
 # ls -R "${SANDBOX_DIR}/upperdir" 1>&2

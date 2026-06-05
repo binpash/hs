@@ -501,6 +501,34 @@ class ConcreteNode:
             if t is not None:
                 t.join(timeout=1.0)
 
+    def finalize_rwset(self):
+        """Populate the rw-set from the complete on-disk trace.
+
+        The live stream readers only capture whatever fstrace flushed *during*
+        execution, and because the .r/.w files are regular files (not FIFOs) a
+        reader thread exits at the first EOF it hits. fstrace writes the full
+        read/write sets when it exits, and run_command.sh only reports
+        CommandExecComplete after fstrace has exited, so by the time we get here
+        the complete trace is on disk. Re-reading it makes conflict detection
+        correct regardless of streaming timing (the live stream is now only an
+        optimisation for eager killing). Adding to the existing sets is safe:
+        the entries are idempotent.
+        """
+        self._join_reader_threads()
+        if self.rwset is None:
+            self.rwset = RWSet(set(), set())
+        trace_file = self.exec_ctxt.trace_file
+        for suffix, target in (('.r', self.rwset.read_set),
+                               ('.w', self.rwset.write_set)):
+            try:
+                with open(trace_file + suffix) as f:
+                    for line in f:
+                        p = line.rstrip('\n')
+                        if p and not dep_util.should_filter(p):
+                            target.add(p)
+            except OSError:
+                pass
+
     def get_rw_set(self):
         return self.rwset
 

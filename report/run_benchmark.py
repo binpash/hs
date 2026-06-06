@@ -70,8 +70,13 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
         exit(1)
 
     cmd = [str(hs_executable), '--window', str(window)]
+    # Route all hs-internal logging (scheduler daemon, preprocessor, JIT runtime)
+    # into a dedicated file so the captured stdout/stderr are exactly the traced
+    # program's output. The file is named 'log' (the standard per-target tool-log
+    # name) so compare_outputs, which excludes that name, ignores it.
+    internal_log = output_dir / "log"
     if log:
-        cmd.extend(['-d', '2'])
+        cmd.extend(['-d', '2', '--log_file', str(internal_log)])
     cmd.append(str(test_base / script_name))
     cmd.extend(script_args)
 
@@ -90,13 +95,6 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, en
     with open(output_base / "hs_time", 'w') as f:
         f.write(f'{duration}\n')
 
-    # Create a symlink for hs_log pointing to stderr
-    hs_log_path = output_base / "hs_log"
-    stderr_path = output_dir / "stderr"
-    if hs_log_path.exists() or hs_log_path.is_symlink():
-        hs_log_path.unlink()
-    hs_log_path.symlink_to(stderr_path)
-
     return result.returncode
 
 def do_strace_run(test_base: Path, output_base: Path, env: dict, script_name: str, script_args: list):
@@ -104,7 +102,7 @@ def do_strace_run(test_base: Path, output_base: Path, env: dict, script_name: st
     output_dir.mkdir(parents=True, exist_ok=True)
     env['OUTPUT_DIR'] = str(output_dir)
 
-    logfile = str(output_dir / 'strace_log')
+    logfile = str(output_dir / 'log')
     cmd = ['strace', '-y', '-f', '--seccomp-bpf', '--trace=fork,clone,%file',
            '-o', logfile, '/bin/sh', str(test_base / script_name)] + script_args
 
@@ -175,14 +173,14 @@ def compare_outputs(output_base: Path):
 
     # Helper function to recursively gather file paths relative to a base directory, excluding specific files
     def get_all_files(base_dir: Path):
-        exclude_files = {'stderr', 'hs_log'}
+        exclude_files = {'stderr', 'log'}
         return {
             str(f.relative_to(base_dir))
             for f in base_dir.rglob('*')
             if f.is_file() and f.name not in exclude_files
         }
 
-    # Gather all files (including in subdirectories) excluding `stderr` and `hs_log`
+    # Gather all files (including in subdirectories) excluding `stderr` and `log`
     sh_files = get_all_files(sh_output_dir)
     hs_files = get_all_files(hs_output_dir)
 
@@ -193,7 +191,7 @@ def compare_outputs(output_base: Path):
         error_messages.append(f'Files in sh run: {sorted(sh_files)}\n')
         error_messages.append(f'Files in hs run: {sorted(hs_files)}\n')
     else:
-        print(f"All files (excluding stderr and hs_log) match: {len(sh_files)} files")
+        print(f"All files (excluding stderr and log) match: {len(sh_files)} files")
 
     # Compare contents of files present in both directories
     common_files = sh_files & hs_files

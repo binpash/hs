@@ -273,9 +273,12 @@ def main():
     if args.log_file is None:
         logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s")
     else:
+        # Append, not truncate: the daemon shares this file with the preprocessor
+        # and the JIT runtime (which appends via >>). hs truncates it once at
+        # startup, so a fresh combined log is produced per run.
         logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s",
                             filename=f"{os.path.abspath(args.log_file)}",
-                            filemode="w")
+                            filemode="a")
 
     # Set debug level
     if args.debug_level == 1:

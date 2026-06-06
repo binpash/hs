@@ -411,7 +411,11 @@ class PartialProgramOrder:
             else:
                 nid = dep_entry    
             node: ConcreteNode = self.get_concrete_node(nid)
-            if node.get_rw_set().has_conflict(node_of_interest.get_rw_set()):
+            this_rw = node.get_rw_set()
+            other_rw = node_of_interest.get_rw_set()
+            if this_rw.has_conflict(other_rw):
+                kinds = {k: sorted(v) for k, v in this_rw.conflict_kinds(other_rw).items() if v}
+                util.debug_log(f"fs conflict node {concrete_node_id} vs {nid}: {kinds}")
                 return True
         return False
 

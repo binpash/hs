@@ -32,10 +32,12 @@ def config_from_args(pash_args):
     if pash_args.log_file == "":
         logging.basicConfig(format="%(message)s")
     else:
+        # Append: shared with the scheduler daemon and JIT runtime in a single
+        # combined log. hs truncates the file once at startup for a fresh run.
         logging.basicConfig(
             format="%(message)s",
             filename=f"{os.path.abspath(pash_args.log_file)}",
-            filemode="w",
+            filemode="a",
         )
 
     if pash_args.debug == 0:

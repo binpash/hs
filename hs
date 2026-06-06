@@ -382,6 +382,13 @@ preprocessed_output=$(mktemp "${PASH_TMP_PREFIX}/preprocessed_XXXXXX.sh")
 declare -a server_args=()
 [ -n "$arg_debug" ] && server_args+=("-d" "$arg_debug")
 [ -n "$arg_window" ] && server_args+=("--window" "$arg_window")
+## Forward the log file so the scheduler daemon logs there too instead of
+## leaking onto the traced program's stderr. Truncate it once up front so the
+## daemon, preprocessor, and JIT runtime all append into a single fresh file.
+if [ -n "$arg_log_file" ]; then
+    server_args+=("-f" "$arg_log_file")
+    : > "$arg_log_file"
+fi
 
 ## 6. Start the scheduler server
 start_server "${server_args[@]}"

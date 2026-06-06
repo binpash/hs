@@ -91,6 +91,14 @@ class RWSet:
             self.read_set.intersection(other.write_set)).union(
                 self.write_set.intersection(other.write_set))
 
+    def conflict_kinds(self, other: 'RWSet') -> dict:
+        """Break a conflict down by kind so logs say *why* two nodes collide."""
+        return {
+            'WRITE-WRITE': self.write_set.intersection(other.write_set),
+            'WRITE-READ':  self.write_set.intersection(other.read_set),
+            'READ-WRITE':  self.read_set.intersection(other.write_set),
+        }
+
     def __str__(self):
         return f"RW(R:{self.get_read_set()}, W:{self.get_write_set()})"
 
@@ -528,6 +536,9 @@ class ConcreteNode:
                             target.add(p)
             except OSError:
                 pass
+        util.debug_log(f"node {self.cnid} finalized rwset "
+                       f"reads={sorted(self.rwset.read_set)} "
+                       f"writes={sorted(self.rwset.write_set)}")
 
     def get_rw_set(self):
         return self.rwset

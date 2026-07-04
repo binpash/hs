@@ -317,8 +317,8 @@ class ConcreteNode:
     assignments: "list[NodeId]"
 
     # Daemon reader threads — one per FIFO; started after exec_ctxt is set
-    _reader_r: "threading.Thread"
-    _reader_w: "threading.Thread"
+    _reader_r: "tuple[threading.Thread, str]"
+    _reader_w: "tuple[threading.Thread, str]"
 
     def __init__(self, cnid: ConcreteNodeId, node: Node, loop_list_context: HSLoopListContext,
                  spec_pre_env=None):
@@ -467,10 +467,28 @@ class ConcreteNode:
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         self.exec_ctxt.process.kill()
 
+    @staticmethod
+    def _unblock_reader(path: str):
+        # A reader thread is stuck in open() if fstrace died before opening
+        # the write end of the FIFO. Connecting and closing a non-blocking
+        # write end delivers EOF to the reader so it can exit. ENXIO means no
+        # reader is blocked on the FIFO anymore — nothing to do.
+        try:
+            os.close(os.open(path, os.O_WRONLY | os.O_NONBLOCK))
+        except OSError:
+            pass
+
+    def _reader_entries(self):
+        return [e for e in (getattr(self, '_reader_r', None),
+                            getattr(self, '_reader_w', None)) if e is not None]
+
     def _reset_stream_state(self):
-        for t in (getattr(self, '_reader_r', None), getattr(self, '_reader_w', None)):
-            if t is not None and t.is_alive():
-                t.join(timeout=0.5)
+        for t, path in self._reader_entries():
+            if t.is_alive():
+                self._unblock_reader(path)
+                t.join(timeout=1.0)
+                if t.is_alive():
+                    util.debug_log(f'stream reader for {path} failed to exit')
         self._reader_r = None
         self._reader_w = None
 
@@ -502,40 +520,37 @@ class ConcreteNode:
             t = threading.Thread(target=self._run_stream_reader, args=(path, is_write),
                                  daemon=True)
             t.start()
-            setattr(self, attr, t)
+            setattr(self, attr, (t, path))
 
     def _join_reader_threads(self):
-        for t in (getattr(self, '_reader_r', None), getattr(self, '_reader_w', None)):
-            if t is not None:
+        # Only called after run_command.sh reported completion, i.e. fstrace
+        # (the only FIFO writer) has exited, so the readers see EOF and exit
+        # on their own. The unblock-and-retry path covers fstrace having
+        # crashed before it ever opened the FIFOs, which leaves a reader
+        # blocked in open().
+        for t, path in self._reader_entries():
+            t.join(timeout=2.0)
+            if t.is_alive():
+                self._unblock_reader(path)
                 t.join(timeout=1.0)
+                if t.is_alive():
+                    util.debug_log(f'stream reader for {path} failed to exit; '
+                                   f'rw-set may be incomplete')
 
     def finalize_rwset(self):
-        """Populate the rw-set from the complete on-disk trace.
+        """Ensure the rw-set holds the complete trace.
 
-        The live stream readers only capture whatever fstrace flushed *during*
-        execution, and because the .r/.w files are regular files (not FIFOs) a
-        reader thread exits at the first EOF it hits. fstrace writes the full
-        read/write sets when it exits, and run_command.sh only reports
-        CommandExecComplete after fstrace has exited, so by the time we get here
-        the complete trace is on disk. Re-reading it makes conflict detection
-        correct regardless of streaming timing (the live stream is now only an
-        optimisation for eager killing). Adding to the existing sets is safe:
-        the entries are idempotent.
+        The .r/.w paths are FIFOs, so the reader threads see EOF exactly when
+        fstrace — the only writer — exits, after it has flushed every entry.
+        run_command.sh reports CommandExecComplete only after fstrace has
+        exited, so joining the readers is enough: once they are done, the
+        live-streamed sets *are* the complete sets. Never re-open the FIFOs
+        here — opening a FIFO for reading blocks until a writer appears, and
+        the writer is already gone (that was a scheduler deadlock).
         """
         self._join_reader_threads()
         if self.rwset is None:
             self.rwset = RWSet(set(), set())
-        trace_file = self.exec_ctxt.trace_file
-        for suffix, target in (('.r', self.rwset.read_set),
-                               ('.w', self.rwset.write_set)):
-            try:
-                with open(trace_file + suffix) as f:
-                    for line in f:
-                        p = line.rstrip('\n')
-                        if p and not dep_util.should_filter(p):
-                            target.add(p)
-            except OSError:
-                pass
         util.debug_log(f"node {self.cnid} finalized rwset "
                        f"reads={sorted(self.rwset.read_set)} "
                        f"writes={sorted(self.rwset.write_set)}")

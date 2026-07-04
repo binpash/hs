@@ -463,9 +463,10 @@ class PartialProgramOrder:
             node.reset_to_ready()
             node.transition_from_ready_to_unsafe()
             return
-        # fstrace has exited by the time CommandExecComplete is reported, so the
-        # complete read/write trace is now on disk. Load it before any conflict
-        # check below — the live stream only captures a partial set.
+        # fstrace has exited by the time CommandExecComplete is reported, so
+        # the FIFO reader threads are at (or draining toward) EOF. Joining
+        # them in finalize_rwset completes the rw-sets before any conflict
+        # check below.
         node.finalize_rwset()
         if node.is_executing():
             missed = node.commit_frontier_execution()

@@ -438,6 +438,11 @@ class PartialProgramOrder:
 
     def reset_speculation(self):
         event_log("reset speculation")
+        ## Signal every node first so their process groups shut down in
+        ## parallel; the per-node reset below then reaps mostly-dead groups
+        ## instead of paying the termination grace period serially.
+        for cnid in self.spec_exec_order:
+            self.concrete_nodes[cnid].request_terminate()
         for cnid in self.spec_exec_order:
             self.concrete_nodes[cnid].try_reset_to_ready()
         self.spec_exec_order = []

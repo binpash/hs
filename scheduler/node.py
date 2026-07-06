@@ -1,6 +1,8 @@
 from enum import Enum, auto
 import os
 import re
+import subprocess
+import time
 import executor
 from executor import ExecCtxt, ExecResult, ExecArgs
 import dep_util
@@ -13,6 +15,11 @@ from pathlib import Path
 import analysis
 
 STATE_LOG = '[STATE_LOG] '
+
+## Grace period for terminating a node's process group. Must exceed fstrace's
+## internal SIGTERM->SIGKILL grace for its tracee (500ms) so fstrace can always
+## finish deregistering its BPF map slots before we escalate to SIGKILL.
+TERM_GRACE_SECS = 1.0
 
 def state_log(s):
     # logging.info(STATE_LOG + s)
@@ -658,14 +665,55 @@ class ConcreteNode:
 
         return conflict_exists
 
+    def request_terminate(self):
+        """Ask this node's process group to terminate without waiting for it.
+
+        Used to signal a batch of nodes before reaping them one by one in
+        kill_children, so their shutdowns overlap instead of serializing.
+        """
+        if self.state not in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]:
+            return
+        try:
+            os.killpg(self.exec_ctxt.process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+
     def kill_children(self):
         util.overhead_log(f"KILL|{self.cnid}")
         assert self.state in [NodeState.EXECUTING, NodeState.SPEC_EXECUTING]
         process = self.exec_ctxt.process
+        ## SIGTERM instead of SIGKILL: the sandboxed command tree gets a
+        ## chance to exit cleanly, and fstrace stays alive long enough to
+        ## deregister its BPF map slots (pid_set/ringbufs/missed_events),
+        ## which a SIGKILL would leak until the next `fstrace install`.
         try:
-            os.killpg(process.pid, signal.SIGKILL)
+            os.killpg(process.pid, signal.SIGTERM)
         except ProcessLookupError:
             pass
+        try:
+            process.wait(timeout=TERM_GRACE_SECS)
+        except subprocess.TimeoutExpired:
+            pass
+        ## The group leader (run_command.sh) dying does not mean fstrace and
+        ## the sandboxed tree are done: wait for the whole group to drain, and
+        ## SIGKILL whatever ignored the SIGTERM. The deadline must stay longer
+        ## than fstrace's internal tracee-kill grace period so fstrace always
+        ## gets to free its slots before we resort to SIGKILL.
+        deadline = time.monotonic() + TERM_GRACE_SECS
+        drained = False
+        while time.monotonic() < deadline:
+            try:
+                os.killpg(process.pid, 0)
+            except ProcessLookupError:
+                drained = True
+                break
+            time.sleep(0.005)
+        if not drained:
+            util.debug_log(f'{self.cnid}: process group still alive after SIGTERM, escalating to SIGKILL')
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
         process.wait()
         util.overhead_log(f"KILL_END|{self.cnid}")
 

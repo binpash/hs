@@ -11,7 +11,10 @@
 
 filter_vars_file()
 {
-    cat "$1" | grep -v "^declare -\([A-Za-z]\|-\)* \(pash\|PASH_OLD_IFS\|BASH\|LINENO\|EUID\|GROUPS\|cmd_exit_code\)"
+    ## PASH_REDIR is filtered so a restored env can never redirect this
+    ## shell's logging (e.g. sandboxed executions run with PASH_REDIR="&2",
+    ## which must not leak back into the JIT shell through a post-env file).
+    cat "$1" | grep -v "^declare -\([A-Za-z]\|-\)* \(pash\|PASH_OLD_IFS\|PASH_REDIR\|BASH\|LINENO\|EUID\|GROUPS\|cmd_exit_code\)"
     # The extension below is done for the speculative pash
     # | grep -v "LS_COLORS"
 }

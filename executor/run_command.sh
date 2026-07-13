@@ -24,6 +24,32 @@ elif [ "speculate" == "$EXEC_MODE" ]; then
     renice 20 -p $$ >/dev/null
 fi
 
+## The JIT runtime scripts that run inside the sandbox (via the template
+## script) log through pash_redir_output. If PASH_REDIR points at the real
+## log file, those writes happen under the overlay, which (a) puts the log
+## file into this node's traced write set, making every speculated iteration
+## conflict with every other one, and (b) commits the sandbox's stale copy of
+## the log back over the real file, clobbering the scheduler's open handle.
+## Point it at a per-node file next to the trace artifacts instead:
+## /tmp/pash_spec is bind-mounted into the sandbox, so appends land directly
+## in the host file (nothing enters the overlay or gets committed), and the
+## scheduler's dep filter already ignores that prefix, so the file never
+## creates conflicts between speculated iterations.
+export PASH_REDIR="${TRACE_FILE}.jitlog"
+
+## Pass system runtime mountpoints through to the sandbox instead of letting
+## try overlay them. Both have (locked) nested submounts, so try's overlay
+## mount fails on them and it falls back to a FUSE union helper — spawning
+## and tearing down FUSE daemons per execution, which dominates sandbox
+## setup cost under concurrent speculation. A recursive bind is cheap and
+## safe here: /boot is not writable by an unprivileged sandbox, and /run is
+## runtime state that the dependency filter ignores (try commit already
+## skips /run/mount as well).
+TRY_PASSTHROUGH_BINDS=""
+for d in /run /boot; do
+    [ -d "$d" ] && TRY_PASSTHROUGH_BINDS="$TRY_PASSTHROUGH_BINDS -B $d:$d"
+done
+
 # mkdir -p /tmp/pash_spec/a
 # mkdir -p /tmp/pash_spec/b
 # export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/a/sandbox_XXXXXXX)/"
@@ -46,10 +72,11 @@ fi
 # runs unprivileged exactly as before.
 fstrace --mode both \
     --trace-file "${TRACE_FILE}" \
+    --dep-file /dev/null \
     --stream-read  --stream-read-file  "${TRACE_FILE}.r" \
     --stream-write --stream-write-file "${TRACE_FILE}.w" \
     --missed-file "${TRACE_FILE}.missed" \
-    -- ${RUNTIME_LIBRARY_DIR}/fd_util -f "${LATEST_ENV_FILE}.fds" -p ${STDOUT_FILE} bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" -L "${LOWER_DIRS}" -B /tmp/pash_spec:/tmp/pash_spec "${PASH_SPEC_TOP}/executor/template_script_to_execute.sh"
+    -- ${RUNTIME_LIBRARY_DIR}/fd_util -f "${LATEST_ENV_FILE}.fds" -p ${STDOUT_FILE} bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" -L "${LOWER_DIRS}" -B /tmp/pash_spec:/tmp/pash_spec ${TRY_PASSTHROUGH_BINDS} "${PASH_SPEC_TOP}/executor/template_script_to_execute.sh"
 exit_code=$?
 ## Only used for debugging
 # ls -R "${SANDBOX_DIR}/upperdir" 1>&2

@@ -5,6 +5,9 @@ FILTER_PREFIXES = (
     '/dev',             # device files
     '/proc',            # proc filesystem
     '/sys',             # sys filesystem
+    '/run',             # runtime state; includes /run/mount/utab, which the
+                        # sandbox's own mount(8) calls read and write on every
+                        # execution — never a real workload dependency
     '/etc/ld.so',       # dynamic linker cache/preload
     '/usr/lib/locale',  # locale data — read by every command, never written
     '/usr/share/locale',

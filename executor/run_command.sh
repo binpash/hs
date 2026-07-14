@@ -50,6 +50,12 @@ for d in /run /boot; do
     [ -d "$d" ] && TRY_PASSTHROUGH_BINDS="$TRY_PASSTHROUGH_BINDS -B $d:$d"
 done
 
+## The sandbox base holds the overlay upperdirs/workdirs, so try must never
+## use it as an overlay lowerdir (upper inside lower is rejected by the
+## kernel). Binding it makes try's mount loop skip it.
+SANDBOX_BASE="${HS_SANDBOX_BASE:-/hs-sandbox}"
+TRY_PASSTHROUGH_BINDS="$TRY_PASSTHROUGH_BINDS -B $SANDBOX_BASE:$SANDBOX_BASE"
+
 # mkdir -p /tmp/pash_spec/a
 # mkdir -p /tmp/pash_spec/b
 # export SANDBOX_DIR="$(mktemp -d /tmp/pash_spec/a/sandbox_XXXXXXX)/"

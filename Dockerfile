@@ -19,6 +19,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         gcc clang llvm libbpf-dev zlib1g-dev libelf-dev autopoint flex bison bpftool gawk man-db
 
 RUN git config --global --add safe.directory /srv
+# Sandbox base for hs (see executor/executor_util.py); the entrypoint mounts
+# a tmpfs here so overlay upperdirs don't land on the container's overlayfs
+# rootfs (not a valid overlay upper) or on /dev/shm (noexec, 64MB cap).
+RUN mkdir -m 1777 /hs-sandbox
 ENV PASH_SPEC_TOP=/srv/hs
 ENV PASH_TOP=/srv/hs/deps/pash
 # pash, try, fstrace

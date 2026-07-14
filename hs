@@ -59,6 +59,16 @@ fi
 ## Set PASH_TMP_PREFIX with trailing slash for compatibility
 export PASH_TMP_PREFIX="${PASH_SPEC_TMP_PREFIX}/"
 
+## Sandbox base: holds the per-run overlay upperdirs/workdirs. It must be a
+## dedicated top-level directory that try never overlays (run_command.sh
+## passes it through with -B); see executor/executor_util.py for details.
+export HS_SANDBOX_BASE="${HS_SANDBOX_BASE:-/hs-sandbox}"
+if ! [ -d "$HS_SANDBOX_BASE" ] || ! [ -w "$HS_SANDBOX_BASE" ]; then
+    echo "hs: sandbox base '$HS_SANDBOX_BASE' is missing or not writable." 1>&2
+    echo "hs: create it once with: sudo mkdir -m 1777 $HS_SANDBOX_BASE" 1>&2
+    exit 1
+fi
+
 export PASH_TIMESTAMP="$(date +"%y-%m-%d-%T")"
 export RUNTIME_IN_FIFO="${PASH_TMP_PREFIX}/runtime_in_fifo"
 export RUNTIME_OUT_FIFO="${PASH_TMP_PREFIX}/runtime_out_fifo"
@@ -422,6 +432,9 @@ cleanup_server "${daemon_pid}"
 
 if [ "$PASH_DEBUG_LEVEL" -le 1 ]; then
     rm -rf "${PASH_TMP_PREFIX}"
+    ## Sandboxes live outside PASH_TMP_PREFIX (see HS_SANDBOX_BASE above) and
+    ## can be disk-backed, so leaking them across runs is not an option.
+    rm -rf "${HS_SANDBOX_BASE}/$(basename "${PASH_SPEC_TMP_PREFIX}")"
 fi
 
 ## Cleanup cgroups

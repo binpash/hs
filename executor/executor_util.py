@@ -18,20 +18,31 @@ def ptempdir(prefix=''):
     return tempfile.mkdtemp(dir=PASH_SPEC_TMP_PREFIX, prefix=prefix + '_')
 
 
+# Sandboxes must live somewhere try(1) never uses as an overlay lowerdir:
+# the sandbox holds overlay upperdirs/workdirs, and the kernel rejects an
+# overlay whose upper sits inside its own lower subtree.  try overlays every
+# top-level directory except the ones the caller passes through with -B, so
+# hs uses a dedicated top-level directory (created once at install time,
+# e.g. `sudo mkdir -m 1777 /hs-sandbox`) and run_command.sh -B-binds it so
+# try skips it.  Deliberately NOT /dev/shm: container runtimes mount that
+# noexec and cap it at 64MB.
+HS_SANDBOX_BASE = os.environ.get("HS_SANDBOX_BASE", "/hs-sandbox")
+
 def create_sandbox():
-    # Sandboxes must be on a filesystem separate from /tmp.  try(1) overlays
-    # /tmp with an OverlayFS whose upperdir lives inside the sandbox; if the
-    # sandbox is on the same tmpfs as /tmp the kernel rejects the mount
-    # (upper inside lower), leaving /tmp empty in the chroot and silently
-    # breaking every execution.  /dev/shm is a distinct tmpfs on virtually
-    # all Linux systems.  We reuse the per-run basename from PASH_SPEC_TMP_PREFIX
-    # so concurrent hs invocations stay isolated from each other.
+    # Reuse the per-run basename from PASH_SPEC_TMP_PREFIX so concurrent hs
+    # invocations stay isolated from each other.
     run_id = os.path.basename(PASH_SPEC_TMP_PREFIX)
-    sandbox_base = os.path.join('/dev/shm/pash_spec', run_id)
-    os.makedirs(f"{sandbox_base}/tmp/pash_spec/a", exist_ok=True)
-    os.makedirs(f"{sandbox_base}/tmp/pash_spec/b", exist_ok=True)
-    sdir = tempfile.mkdtemp(dir=f"{sandbox_base}/tmp/pash_spec/a", prefix="sandbox_")
-    tdir = tempfile.mkdtemp(dir=f"{sandbox_base}/tmp/pash_spec/b", prefix="sandbox_")
+    run_base = os.path.join(HS_SANDBOX_BASE, run_id)
+    try:
+        os.makedirs(f"{run_base}/a", exist_ok=True)
+        os.makedirs(f"{run_base}/b", exist_ok=True)
+    except (PermissionError, FileNotFoundError) as e:
+        raise RuntimeError(
+            f"cannot create sandboxes under {HS_SANDBOX_BASE!r}: {e}. "
+            f"Create it once with: sudo mkdir -m 1777 {HS_SANDBOX_BASE}"
+        ) from e
+    sdir = tempfile.mkdtemp(dir=f"{run_base}/a", prefix="sandbox_")
+    tdir = tempfile.mkdtemp(dir=f"{run_base}/b", prefix="sandbox_")
     return sdir, tdir
 
 

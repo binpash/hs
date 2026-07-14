@@ -1,7 +1,13 @@
 """Helpers for processing streamed file dependencies from fstrace."""
 
+import os
+
 FILTER_PREFIXES = (
     '/tmp/pash_spec',   # hs internal temp files
+    os.environ.get('HS_SANDBOX_BASE', '/hs-sandbox'),
+                        # sandbox upperdirs/workdirs; try's own setup touches
+                        # them on every execution — infrastructure, not a
+                        # workload dependency
     '/dev',             # device files
     '/proc',            # proc filesystem
     '/sys',             # sys filesystem

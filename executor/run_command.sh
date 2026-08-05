@@ -76,13 +76,21 @@ TRY_PASSTHROUGH_BINDS="$TRY_PASSTHROUGH_BINDS -B $SANDBOX_BASE:$SANDBOX_BASE"
 #     bind-mount gymnastics are required.
 # fstrace de-escalates only the traced child to the invoking user, so try still
 # runs unprivileged exactly as before.
+#
+# --exec-marker / -M: fstrace suppresses events until try opens EXEC_MARKER,
+# which try does right before running the program. This keeps try's sandbox
+# construction (its ~18 overlay mounts etc.) out of the trace — only the
+# program's own file effects are recorded. The path is a shared constant with
+# FSTRACE_EXEC_MARKER in fstrace's BPF (deps/fstrace/src/bpf/hs_trace.bpf.c).
+EXEC_MARKER="/var/fstrace/initialized"
 fstrace --mode both \
+    --exec-marker \
     --trace-file "${TRACE_FILE}" \
     --dep-file /dev/null \
     --stream-read  --stream-read-file  "${TRACE_FILE}.r" \
     --stream-write --stream-write-file "${TRACE_FILE}.w" \
     --missed-file "${TRACE_FILE}.missed" \
-    -- ${RUNTIME_LIBRARY_DIR}/fd_util -f "${LATEST_ENV_FILE}.fds" -p ${STDOUT_FILE} bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" -L "${LOWER_DIRS}" -B /tmp/pash_spec:/tmp/pash_spec ${TRY_PASSTHROUGH_BINDS} "${PASH_SPEC_TOP}/executor/template_script_to_execute.sh"
+    -- ${RUNTIME_LIBRARY_DIR}/fd_util -f "${LATEST_ENV_FILE}.fds" -p ${STDOUT_FILE} bash "${PASH_SPEC_TOP}/deps/try/try" -D "${SANDBOX_DIR}" -L "${LOWER_DIRS}" -B /tmp/pash_spec:/tmp/pash_spec ${TRY_PASSTHROUGH_BINDS} -M "${EXEC_MARKER}" "${PASH_SPEC_TOP}/executor/template_script_to_execute.sh"
 exit_code=$?
 ## Only used for debugging
 # ls -R "${SANDBOX_DIR}/upperdir" 1>&2

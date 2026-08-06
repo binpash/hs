@@ -19,6 +19,14 @@ mkdir -p /hs-sandbox
 mountpoint -q /hs-sandbox || mount -t tmpfs -o mode=1777 tmpfs /hs-sandbox || \
     echo "entrypoint: failed to mount tmpfs on /hs-sandbox; sandboxes may fail on overlayfs rootfs" >&2
 
+## Always uninstall first. `fstrace install` skips anything already pinned under
+## /sys/fs/bpf/fstrace, so if that bpffs outlives the container (the host's, or
+## any instance this entrypoint did not create), a stale pin from an older build
+## silently wins: the new programs load and attach, but the tracer talks to the
+## OLD pinned maps, so the two never meet and not a single event is recorded.
+## Uninstalling makes the running BPF always match the installed binary.
+fstrace uninstall >/dev/null 2>&1
+
 ## A failed install must be loud: every speculated command silently falls
 ## back to unsafe serial re-execution without it.
 if ! fstrace install; then

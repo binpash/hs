@@ -50,13 +50,19 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, lo
     #run("rm -rf /tmp/*", shell=True)
     os.chdir(teraseq_samples)
     clean_outputs(test_base)
-    cmd = [hs_base / 'pash-spec.sh', '--window', str(window)]
+    cmd = [hs_base / 'hs', '--window', str(window)]
     if log:
         cmd.extend(['-d', '2'])
+    # hs's own logs go to their own files, never to the script's stderr, so the
+    # stderr captured below is the script's output and can be compared with sh's.
+    hs_log = output_base / 'hs_log' if log else Path('/dev/null')
+    hs_internal_log = output_base / 'hs_internal_log' if log else Path('/dev/null')
+    cmd.extend(['--jit-log', hs_log, '--scheduler-log', hs_log,
+                '--preprocessor-log', hs_log, '--internal-log', hs_internal_log])
     cmd.append(test_base / 'run.sh')
     before = time.time()
-    with open(output_base / 'hs_log', 'w') as logf:
-        result = run(cmd, stdout=PIPE, stderr=logf)
+    with open(output_base / 'hs_stderr', 'wb') as errf:
+        result = run(cmd, stdout=PIPE, stderr=errf)
     duration = time.time() - before
     with open(output_base / "hs_time", 'w') as f:
         f.write(f'{duration}\n')

@@ -1,0 +1,5 @@
+# The n-gram tables are the result. The bare `1grams`/`2grams`/`3grams` files
+# next to them are one input stream teed three ways so each table can be built
+# from its own copy; they are scratch, they are as large as the whole corpus,
+# and hashing them says nothing the tables do not already say.
+*-grams.txt

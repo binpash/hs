@@ -30,14 +30,21 @@ def do_sh_run(test_base: Path, script_name: str, output_base: Path, env: dict):
     return result.returncode, result.stdout
 
 def do_hs_run(test_base: Path, script_name: str, output_base: Path, hs_base: Path, window: int, env: dict, log: bool):
-    cmd = [hs_base / 'pash-spec.sh', '--window', str(window)]
+    out_dir = output_base / f"{Path(script_name).stem}"
+    cmd = [hs_base / 'hs', '--window', str(window)]
     if log:
         cmd.extend(['-d', '2'])
+    # hs's own logs go to their own files, never to the script's stderr, so the
+    # stderr captured below is the script's output and can be compared with sh's.
+    hs_log = out_dir / 'hs_log' if log else Path('/dev/null')
+    hs_internal_log = out_dir / 'hs_internal_log' if log else Path('/dev/null')
+    cmd.extend(['--jit-log', hs_log, '--scheduler-log', hs_log,
+                '--preprocessor-log', hs_log, '--internal-log', hs_internal_log])
     cmd.append(test_base / "scripts" / script_name)
     print(f'Running {cmd}')
     before = time.time()
-    with open(output_base / f"{Path(script_name).stem}" / "hs_log", 'w') as log:
-        result = run(cmd, stdout=PIPE, stderr=log, env=env)
+    with open(out_dir / "hs_stderr", 'wb') as errf:
+        result = run(cmd, stdout=PIPE, stderr=errf, env=env)
     duration = time.time() - before
     with open(output_base / f"{Path(script_name).stem}" / "hs_time", 'w') as f:
         f.write(f'{duration}\n')

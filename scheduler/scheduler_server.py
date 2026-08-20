@@ -27,7 +27,14 @@ def parse_args():
     parser.add_argument("-f", "--log_file",
                         type=str,
                         default=None,
-                        help="Set logging output file. Default: stdout")
+                        help="Set logging output file. Default: stderr")
+    parser.add_argument("--log-fd",
+                        type=int,
+                        default=None,
+                        help="Log to an already-open descriptor instead of a "
+                             "path. hs uses this so several producers sharing "
+                             "one log file also share one descriptor. "
+                             "Takes precedence over --log_file.")
     parser.add_argument("--sandbox-killing",
                         action="store_true",
                         default=False,
@@ -270,13 +277,21 @@ def main():
 
     # Format logging
     # ref: https://docs.python.org/3/library/logging.html#formatter-objects
-    if args.log_file is None:
-        logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s")
+    log_format = "%(levelname)s|%(asctime)s|%(message)s"
+    if args.log_fd is not None:
+        # Write through the descriptor hs opened. Reopening the path instead
+        # would give this process an independent handle, so a log shared with
+        # the preprocessor or the JIT runtime would interleave badly.
+        # closefd=False: the descriptor is hs's to close.
+        stream = os.fdopen(args.log_fd, "a", buffering=1, closefd=False)
+        logging.basicConfig(format=log_format, stream=stream)
+    elif args.log_file is None:
+        logging.basicConfig(format=log_format)
     else:
-        # Append, not truncate: the daemon shares this file with the preprocessor
-        # and the JIT runtime (which appends via >>). hs truncates it once at
-        # startup, so a fresh combined log is produced per run.
-        logging.basicConfig(format="%(levelname)s|%(asctime)s|%(message)s",
+        # Append, not truncate: the daemon may share this file with the
+        # preprocessor and the JIT runtime. hs truncates it once at startup,
+        # so a fresh log is produced per run.
+        logging.basicConfig(format=log_format,
                             filename=f"{os.path.abspath(args.log_file)}",
                             filemode="a")
 

@@ -25,7 +25,7 @@ elif [ "speculate" == "$EXEC_MODE" ]; then
 fi
 
 ## The JIT runtime scripts that run inside the sandbox (via the template
-## script) log through pash_redir_output. If PASH_REDIR points at the real
+## script) log through pash_redir_output. If HS_JIT_LOG points at the real
 ## log file, those writes happen under the overlay, which (a) puts the log
 ## file into this node's traced write set, making every speculated iteration
 ## conflict with every other one, and (b) commits the sandbox's stale copy of
@@ -35,7 +35,11 @@ fi
 ## in the host file (nothing enters the overlay or gets committed), and the
 ## scheduler's dep filter already ignores that prefix, so the file never
 ## creates conflicts between speculated iterations.
-export PASH_REDIR="${TRACE_FILE}.jitlog"
+##
+## HS_JIT_LOG_FD is cleared alongside it: hs's descriptors do not survive the
+## scheduler's close_fds spawn, so the helpers must append by path in here.
+export HS_JIT_LOG="${TRACE_FILE}.jitlog"
+unset HS_JIT_LOG_FD
 
 ## Pass system runtime mountpoints through to the sandbox instead of letting
 ## try overlay them. Both have (locked) nested submounts, so try's overlay

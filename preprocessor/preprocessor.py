@@ -29,11 +29,18 @@ sys.setrecursionlimit(10000)
 
 def config_from_args(pash_args):
     """Configure logging based on command-line arguments."""
-    if pash_args.log_file == "":
+    if pash_args.log_fd is not None:
+        # Write through the descriptor hs opened. Reopening the path instead
+        # would give this process an independent handle, so a log shared with
+        # the scheduler daemon or the JIT runtime would interleave badly.
+        # closefd=False: the descriptor is hs's to close.
+        stream = os.fdopen(pash_args.log_fd, "a", buffering=1, closefd=False)
+        logging.basicConfig(format="%(message)s", stream=stream)
+    elif pash_args.log_file == "":
         logging.basicConfig(format="%(message)s")
     else:
-        # Append: shared with the scheduler daemon and JIT runtime in a single
-        # combined log. hs truncates the file once at startup for a fresh run.
+        # Append: may be shared with the scheduler daemon and JIT runtime in a
+        # single combined log. hs truncates it once at startup for a fresh run.
         logging.basicConfig(
             format="%(message)s",
             filename=f"{os.path.abspath(pash_args.log_file)}",
@@ -66,6 +73,14 @@ class Parser(argparse.ArgumentParser):
             "--log_file",
             help="configure where to write the log; defaults to stderr.",
             default="",
+        )
+        self.add_argument(
+            "--log-fd",
+            type=int,
+            default=None,
+            help="log to an already-open descriptor instead of a path, so "
+                 "producers sharing one log file share one descriptor; "
+                 "takes precedence over --log_file.",
         )
         self.add_argument(
             "input",

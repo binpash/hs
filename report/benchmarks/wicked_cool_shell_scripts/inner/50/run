@@ -53,9 +53,9 @@ mv "$RESOURCE_DIR/time" "$OUTPUT_DIR/sh_time"
 extract_time "$OUTPUT_DIR/sh_time"
 
 # hs run
-echo "Running hs command: $HS_BASE/pash-spec.sh -d 2 --window $WINDOW $SCRIPT"
+echo "Running hs command: $HS_BASE/hs -d 2 --window $WINDOW $SCRIPT"
 prepare_log
-{ time "$HS_BASE/pash-spec.sh" -d 2 --window "$WINDOW" "$SCRIPT" > "$RESOURCE_DIR/log/stdout" 2> "$OUTPUT_DIR/hs/stderr"; } 2> "$RESOURCE_DIR/time"
+{ time "$HS_BASE/hs" -d 2 --window "$WINDOW" "$SCRIPT" > "$RESOURCE_DIR/log/stdout" 2> "$OUTPUT_DIR/hs/stderr"; } 2> "$RESOURCE_DIR/time"
 mv "$RESOURCE_DIR/log" "$RESOURCE_DIR/hs"
 mv "$RESOURCE_DIR/time" "$OUTPUT_DIR/hs_time"
 extract_time "$OUTPUT_DIR/hs_time"

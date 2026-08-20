@@ -35,9 +35,16 @@ def do_sh_run(test_base: Path, output_base: Path, tmp_dir: str, env: dict):
 
 def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, tmp_dir: str, env: dict, log: bool):
     cmd = docker_base_cmd.format(tmp_dir).split()
-    cmd.extend(['/srv/hs/pash-spec.sh', '--window', str(window)])
+    cmd.extend(['/srv/hs/hs', '--window', str(window)])
     if log:
         cmd.extend(['-d', '2'])
+    # Paths inside the container. hs's own logs go to their own files so the
+    # script's stderr stays the script's; this run discards stderr anyway.
+    hs_log = '/srv/hs/report/output/git-tests/hs_log' if log else '/dev/null'
+    hs_internal_log = ('/srv/hs/report/output/git-tests/hs_internal_log'
+                       if log else '/dev/null')
+    cmd.extend(['--jit-log', hs_log, '--scheduler-log', hs_log,
+                '--preprocessor-log', hs_log, '--internal-log', hs_internal_log])
     cmd.append(SCRIPT)
     print(f"Running hs: {cmd}")
     before = time.time()

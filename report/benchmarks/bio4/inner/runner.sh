@@ -17,12 +17,21 @@ hs_r() {
 
 	echo Running hS test for $size with window $window
 
-	cmd="$PASH_SPEC_TOP/pash-spec.sh --window $window"
+	cmd="$PASH_SPEC_TOP/hs --window $window"
 	if [ "$log" = "enable" ]; then
 		cmd="$cmd -d 2"
+		hs_log="$OUTBASE/hs_log"
+		hs_internal_log="$OUTBASE/hs_internal_log"
+	else
+		hs_log=/dev/null
+		hs_internal_log=/dev/null
 	fi
+	## hs's own logs go to their own files. hs_stderr below is then the
+	## script's stderr alone, comparable with the sh run's.
+	cmd="$cmd --jit-log $hs_log --scheduler-log $hs_log"
+	cmd="$cmd --preprocessor-log $hs_log --internal-log $hs_internal_log"
 	cmd="$cmd fxbio4.sh $size"
-	/usr/bin/time -f '%e' -o "$OUTBASE/hs_time" $cmd > "$OUTBASE/hs_output" 2>"$OUTBASE/hs_log"
+	/usr/bin/time -f '%e' -o "$OUTBASE/hs_time" $cmd > "$OUTBASE/hs_output" 2>"$OUTBASE/hs_stderr"
 	md5sum $OUTBASE/hs_output > "$OUTBASE/hs_hash"
 
 }
@@ -31,7 +40,7 @@ sh_r() {
 	local size=$1
 
 	echo Running sh baseline for $size
-	/usr/bin/time -f '%e' -o "$OUTBASE/sh_time" sh fxbio4.sh $size > "$OUTBASE/sh_output" 2>"$OUTBASE/sh_log"
+	/usr/bin/time -f '%e' -o "$OUTBASE/sh_time" sh fxbio4.sh $size > "$OUTBASE/sh_output" 2>"$OUTBASE/sh_stderr"
 	md5sum $OUTBASE/sh_output > "$OUTBASE/sh_hash"
 
 }

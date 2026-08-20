@@ -32,7 +32,7 @@ def do_strace_run(env):
     return convert_time_to_float(time)
 
 def do_hs_run(window, log, env):
-    result = run(docker_cmd + [f"time /srv/hs/pash-spec.sh {'-d 2' if log else ''} --window {window} /root/redis/wrapper.sh &> hs_trace"], stdout=PIPE, stderr=PIPE, env=env)
+    result = run(docker_cmd + [f"time /srv/hs/hs {'-d 2' if log else ''} --window {window} /root/redis/wrapper.sh &> hs_trace"], stdout=PIPE, stderr=PIPE, env=env)
     time = result.stderr.decode().split("\n")[-4].split("\t")[1]
     return convert_time_to_float(time), result.stderr.decode()
 

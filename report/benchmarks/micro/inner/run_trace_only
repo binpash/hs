@@ -60,12 +60,18 @@ def do_strace_parse_run(test_base: Path, script_name: str, output_base: Path, en
     return result.returncode, result.stdout
 
 def do_hs_run(test_base: Path, script_name: str, output_base: Path, hs_base: Path, env: dict):
-    cmd = [hs_base / 'pash-spec.sh', '--window', '0', '-d', '2']
+    out_dir = output_base / f"{Path(script_name).stem}"
+    # hs's own logs go to their own files, never to the script's stderr.
+    cmd = [hs_base / 'hs', '--window', '0', '-d', '2',
+           '--jit-log', out_dir / 'hs_log',
+           '--scheduler-log', out_dir / 'hs_log',
+           '--preprocessor-log', out_dir / 'hs_log',
+           '--internal-log', out_dir / 'hs_internal_log']
     cmd.append(test_base / "scripts" / script_name)
     print(f'Running {cmd}')
     before = time.time()
-    with open(output_base / f"{Path(script_name).stem}" / "hs_log", 'w') as log:
-        result = run(cmd, stdout=PIPE, stderr=log, env=env)
+    with open(out_dir / "hs_stderr", 'wb') as errf:
+        result = run(cmd, stdout=PIPE, stderr=errf, env=env)
     duration = time.time() - before
     with open(output_base / f"{Path(script_name).stem}" / "hs_time", 'w') as f:
         f.write(f'{duration}\n')

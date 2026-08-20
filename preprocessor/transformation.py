@@ -14,7 +14,7 @@ import subprocess
 from shasta.ast_node import AstNode
 from shasta.json_to_ast import to_ast_node
 
-from util import string_to_argument, make_command, log, ptempfile, PASH_TMP_PREFIX
+from util import string_to_argument, make_command, log, ptempfile, child_env, PASH_TMP_PREFIX
 from parse import from_ast_objects_to_shell
 
 
@@ -375,7 +375,8 @@ def _save_current_env_to_file(trans_options):
     pash_spec_top = os.getenv('PASH_SPEC_TOP', '')
     declare_vars_script = os.path.join(pash_spec_top, 'jit_runtime', 'pash_declare_vars.sh')
     if os.path.exists(declare_vars_script):
-        subprocess.check_output([declare_vars_script, initial_env_file])
+        subprocess.check_output([declare_vars_script, initial_env_file],
+                                env=child_env())
     else:
         log("Warning: pash_declare_vars.sh not found at", declare_vars_script)
         with open(initial_env_file, 'w') as f:

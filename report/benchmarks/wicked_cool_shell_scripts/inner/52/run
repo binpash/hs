@@ -45,9 +45,9 @@ mv "$RESOURCE_DIR/time" "$OUTPUT_DIR/sh_time"
 extract_time "$OUTPUT_DIR/sh_time"
 
 # hs run
-echo "Running hs command: $HS_BASE/pash-spec.sh -d 2 --window $WINDOW $SCRIPT"
+echo "Running hs command: $HS_BASE/hs -d 2 --window $WINDOW $SCRIPT"
 
-{ time "$HS_BASE/pash-spec.sh" -d 2 --window "$WINDOW" "$SCRIPT" "h" > "$RESOURCE_DIR/hs/stdout" 2> "$OUTPUT_DIR/hs/stderr"; } 2> "$RESOURCE_DIR/time"
+{ time "$HS_BASE/hs" -d 2 --window "$WINDOW" "$SCRIPT" "h" > "$RESOURCE_DIR/hs/stdout" 2> "$OUTPUT_DIR/hs/stderr"; } 2> "$RESOURCE_DIR/time"
 sha256sum h.tgz > $RESOURCE_DIR/hs/result
 mv "$RESOURCE_DIR/h.tgz" "$RESOURCE_DIR/hs"
 

@@ -28,7 +28,7 @@ def do_sh_run(test_base: Path, output_base: Path, env: dict):
     return result.returncode, result.stdout
 
 def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, env: dict, log: bool):
-    cmd = [hs_base / 'pash-spec.sh', '--window', str(window)]
+    cmd = [hs_base / 'hs', '--window', str(window)]
     if log:
         cmd.extend(['-d', '2'])
     cmd.append(test_base / SCRIPT_NAME)

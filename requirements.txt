@@ -2,7 +2,12 @@
 
 # Core AST and parsing libraries
 shasta~=0.5
-libdash
+# Pinned: libdash 0.5.0 changes the AST regions the preprocessor derives, so
+# each command node ends up containing the *following* command as well and
+# every command after the first executes twice. 0.3.1 is the last version that
+# splits regions correctly. Unpinning this is what made a rebuilt image behave
+# differently from one built weeks earlier.
+libdash==0.3.1
 libbash~=0.1.14
 
 # Shell variable expansion (used by scheduler's static analysis)

@@ -29,6 +29,11 @@ RUN mv utils/try-summary /bin
 WORKDIR /srv/hs
 RUN python3 -m venv .venv
 COPY . .
+# 385 benchmark runners locate the tree with `git rev-parse --show-toplevel`.
+# Building from a git worktree copies a `.git` *file* pointing at a path
+# outside the image, so that call fails and every runner dies. Replace it with
+# a real repo rooted here, which works for worktree and normal clones alike.
+RUN rm -rf .git && git init -q . && git config --global --add safe.directory /srv/hs
 RUN make -C executor
 # libbash/libdash build a bundled bash-5.2, whose lib/termcap/tparam.c calls
 # write() without including <unistd.h>. GCC 14 (trixie) makes implicit function

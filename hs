@@ -533,8 +533,10 @@ fi
 ## 11. Cleanup
 cleanup_server "${daemon_pid}"
 
+## Teardown noise ("Device or resource busy" when a sandbox mount outlives the
+## run) is hs's, not the script's: send it to the internal stream.
 if [ "$PASH_DEBUG_LEVEL" -le 1 ]; then
-    rm -rf "${PASH_TMP_PREFIX}"
+    rm -rf "${PASH_TMP_PREFIX}" 2>&"$HS_INTERNAL_LOG_FD"
 fi
 
 ## Cleanup cgroups

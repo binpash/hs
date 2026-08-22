@@ -72,7 +72,34 @@ export PASH_SPEC_NODE_DIRECTORY="${PASH_TMP_PREFIX}/speculative/partial_order/"
 ## Default flag values
 export pash_speculative_flag=1
 export PASH_DEBUG_LEVEL=1
-export PASH_REDIR="&2"
+
+## hs writes four log streams of its own, one per producer, each separately
+## redirectable:
+##
+##   HS_JIT_LOG          (--jit-log)          the JIT runtime's shell-side
+##                                            records, written through the
+##                                            pash_redir_* helpers below. Only
+##                                            emitted above debug level 1.
+##   HS_SCHEDULER_LOG    (--scheduler-log)    the scheduler daemon's Python log.
+##   HS_PREPROCESSOR_LOG (--preprocessor-log) the preprocessor's Python log.
+##   HS_INTERNAL_LOG     (--internal-log)     stdout/stderr of the internal
+##                                            tooling hs shells out to (try,
+##                                            strace, Python tracebacks, ...).
+##                                            This has no log format of its own
+##                                            and is what would otherwise land
+##                                            on the traced script's stderr.
+##
+## '&2' means "this stream is stderr", the default for all four. Each flag can
+## point its stream at a file instead, or at /dev/null to discard it, and
+## --combined-log points all four at one file.
+##
+## Streams are opened by path (see pash_open_log_streams), so any two that name
+## the same file share a single descriptor and interleave cleanly instead of
+## fighting over two handles.
+export HS_JIT_LOG="&2"
+export HS_SCHEDULER_LOG="&2"
+export HS_PREPROCESSOR_LOG="&2"
+export HS_INTERNAL_LOG="&2"
 
 ###############################################################################
 # Argument Parsing
@@ -92,7 +119,6 @@ pash_init_arg_defaults() {
 
     # Options
     arg_debug=""
-    arg_log_file=""
     arg_window=""
 
     # Help flag
@@ -111,15 +137,26 @@ Options:
   -v                       Verbose mode (equivalent to bash -v)
   -x                       Trace mode (equivalent to bash -x)
   -d, --debug LEVEL        Debug level (default: 1)
-  --log_file FILE          Log file path (default: stderr)
   --window N               Speculative window size (passed to scheduler)
   -h, --help               Show this help message and exit
+
+Log streams (all default to stderr; pass /dev/null to discard one):
+  --jit-log FILE           JIT runtime records (needs -d 2 or higher)
+  --scheduler-log FILE     Scheduler daemon log
+  --preprocessor-log FILE  Preprocessor log
+  --internal-log FILE      stdout/stderr of internal tooling (try, strace, ...)
+  --combined-log FILE      Point all four streams at FILE
+  --log_file FILE          Deprecated alias for --combined-log
+
+Streams pointed at the same file share one descriptor. Redirect all four and
+the script's own stdout/stderr carry nothing but the script's own output.
 
 Examples:
   hs script.sh                      Run script.sh with speculative execution
   hs -c "cat file | grep foo"       Run a command
   hs -d 2 script.sh                 Run with debug level 2
   hs --window 10 script.sh          Run with larger speculation window
+  hs -d 2 --combined-log hs.log s.sh   Keep every hs log out of s.sh's output
 EOF
 }
 
@@ -166,9 +203,30 @@ pash_parse_args() {
                 export PASH_DEBUG_LEVEL="$next_arg"
                 i=$next_i
                 ;;
-            --log_file)
-                arg_log_file="$next_arg"
-                export PASH_REDIR="$next_arg"
+            --jit-log)
+                export HS_JIT_LOG="$next_arg"
+                i=$next_i
+                ;;
+            --scheduler-log)
+                export HS_SCHEDULER_LOG="$next_arg"
+                i=$next_i
+                ;;
+            --preprocessor-log)
+                export HS_PREPROCESSOR_LOG="$next_arg"
+                i=$next_i
+                ;;
+            --internal-log)
+                export HS_INTERNAL_LOG="$next_arg"
+                i=$next_i
+                ;;
+            --combined-log|--log_file)
+                ## --log_file is the historical spelling; it only covered the
+                ## first three streams, but the internal tooling output it left
+                ## on stderr was never wanted either, so it now means all four.
+                export HS_JIT_LOG="$next_arg"
+                export HS_SCHEDULER_LOG="$next_arg"
+                export HS_PREPROCESSOR_LOG="$next_arg"
+                export HS_INTERNAL_LOG="$next_arg"
                 i=$next_i
                 ;;
             --window)
@@ -208,6 +266,56 @@ pash_handle_command_mode() {
 # Logging Functions
 ###############################################################################
 
+## Map of already-opened log targets: canonical path -> file descriptor.
+## Two --*-log flags naming the same file resolve to the same descriptor, so
+## hs never holds two independent handles on one log.
+declare -A pash_log_fd_by_path=()
+
+## Open one log stream, leaving its descriptor in $pash_opened_fd.
+## '&2' resolves to fd 2 without opening anything. A file target is truncated
+## the first time it is seen in this run, then opened for append, so every
+## producer sharing it appends into one fresh log.
+pash_open_log_stream() {
+    local target="$1"
+    local path fd
+
+    if [ "$target" == '&2' ]; then
+        pash_opened_fd=2
+        return 0
+    fi
+
+    ## Canonicalize so ./x, x and /abs/x share one descriptor. readlink -f
+    ## resolves a not-yet-existing final component, which is the common case.
+    path=$(readlink -f -- "$target" 2>/dev/null) || path="$target"
+    [ -n "$path" ] || path="$target"
+
+    if [ -n "${pash_log_fd_by_path[$path]:-}" ]; then
+        pash_opened_fd="${pash_log_fd_by_path[$path]}"
+        return 0
+    fi
+
+    ## Truncating /dev/null and friends is harmless; truncating a regular file
+    ## is what gives each run a fresh log.
+    : > "$path" 2>/dev/null
+    exec {fd}>>"$path" || {
+        echo "hs: cannot open log file '$target'" 1>&2
+        exit 1
+    }
+    pash_log_fd_by_path[$path]=$fd
+    pash_opened_fd=$fd
+}
+
+## Resolve all four streams. Each HS_*_LOG keeps its path (the JIT stream is
+## re-pointed by path inside sandboxes, where descriptors do not reach) and
+## gains an HS_*_LOG_FD companion for direct writes.
+pash_open_log_streams() {
+    pash_open_log_stream "$HS_JIT_LOG";          HS_JIT_LOG_FD=$pash_opened_fd
+    pash_open_log_stream "$HS_SCHEDULER_LOG";    HS_SCHEDULER_LOG_FD=$pash_opened_fd
+    pash_open_log_stream "$HS_PREPROCESSOR_LOG"; HS_PREPROCESSOR_LOG_FD=$pash_opened_fd
+    pash_open_log_stream "$HS_INTERNAL_LOG";     HS_INTERNAL_LOG_FD=$pash_opened_fd
+    export HS_JIT_LOG_FD HS_SCHEDULER_LOG_FD HS_PREPROCESSOR_LOG_FD HS_INTERNAL_LOG_FD
+}
+
 pash_setup_logging() {
     if [ "$PASH_DEBUG_LEVEL" -le 1 ]; then
         pash_redir_output() {
@@ -222,31 +330,29 @@ pash_setup_logging() {
             > /dev/null 2>&1 "$@"
         }
     else
-        if [ "$PASH_REDIR" == '&2' ]; then
-            pash_redir_output() {
-                >&2 "$@"
-            }
+        ## Outside a sandbox the JIT stream is the descriptor hs opened.
+        ## Inside one, run_command.sh clears HS_JIT_LOG_FD and points
+        ## HS_JIT_LOG at a per-node file, so the helpers fall back to
+        ## appending by path.
+        pash_redir_output() {
+            if [ -n "${HS_JIT_LOG_FD:-}" ]; then
+                >&"$HS_JIT_LOG_FD" "$@"
+            else
+                >>"$HS_JIT_LOG" "$@"
+            fi
+        }
 
-            pash_redir_all_output() {
-                >&2 "$@"
-            }
+        pash_redir_all_output() {
+            if [ -n "${HS_JIT_LOG_FD:-}" ]; then
+                >&"$HS_JIT_LOG_FD" 2>&"$HS_JIT_LOG_FD" "$@"
+            else
+                >>"$HS_JIT_LOG" 2>&1 "$@"
+            fi
+        }
 
-            pash_redir_all_output_always_execute() {
-                >&2 "$@"
-            }
-        else
-            pash_redir_output() {
-                >>"$PASH_REDIR" "$@"
-            }
-
-            pash_redir_all_output() {
-                >>"$PASH_REDIR" 2>&1 "$@"
-            }
-
-            pash_redir_all_output_always_execute() {
-                >>"$PASH_REDIR" 2>&1 "$@"
-            }
-        fi
+        pash_redir_all_output_always_execute() {
+            pash_redir_all_output "$@"
+        }
     fi
 
     export -f pash_redir_output
@@ -312,7 +418,12 @@ pash_spec_wait_until_scheduler_listening() {
 }
 
 start_server() {
-    "$PASH_PYTHON" "$PASH_SPEC_TOP/scheduler/scheduler_server.py" "$@" &
+    ## The daemon's own stdout/stderr become the internal-tooling stream, and
+    ## every command it later executes inherits them: executor.py spawns
+    ## run_command.sh with stdout/stderr=None, so try's and strace's output
+    ## follows the daemon's descriptors rather than the traced script's.
+    "$PASH_PYTHON" "$PASH_SPEC_TOP/scheduler/scheduler_server.py" "$@" \
+        >&"$HS_INTERNAL_LOG_FD" 2>&"$HS_INTERNAL_LOG_FD" &
     export daemon_pid=$!
     ## Wait until daemon has established connection
     pash_spec_wait_until_scheduler_listening
@@ -326,7 +437,9 @@ cleanup_server() {
         ## Send and receive from daemon
         msg="Done"
         daemon_response=$(pash_spec_communicate_scheduler "$msg")
-        wait 2> /dev/null 1>&2
+        ## Job-control notices ("Terminated", ...) are hs's noise, not the
+        ## script's; keep them on the internal stream.
+        wait >&"$HS_INTERNAL_LOG_FD" 2>&"$HS_INTERNAL_LOG_FD"
     fi
 }
 
@@ -369,6 +482,7 @@ if [ "$show_help" -eq 1 ]; then
 fi
 
 ## 2. Setup functions
+pash_open_log_streams
 pash_setup_logging
 pash_setup_communication
 
@@ -382,6 +496,10 @@ preprocessed_output=$(mktemp "${PASH_TMP_PREFIX}/preprocessed_XXXXXX.sh")
 declare -a server_args=()
 [ -n "$arg_debug" ] && server_args+=("-d" "$arg_debug")
 [ -n "$arg_window" ] && server_args+=("--window" "$arg_window")
+## The daemon logs to the descriptor hs already opened rather than reopening
+## the path, so a --combined-log run interleaves cleanly with every other
+## producer sharing that descriptor.
+server_args+=("--log-fd" "$HS_SCHEDULER_LOG_FD")
 
 ## 6. Start the scheduler server
 start_server "${server_args[@]}"
@@ -393,13 +511,15 @@ umask "$old_umask"
 declare -a preprocessor_args=()
 preprocessor_args+=("--output" "$preprocessed_output")
 [ -n "$arg_debug" ] && preprocessor_args+=("-d" "$arg_debug")
-[ -n "$arg_log_file" ] && preprocessor_args+=("--log_file" "$arg_log_file")
+preprocessor_args+=("--log-fd" "$HS_PREPROCESSOR_LOG_FD")
 preprocessor_args+=("$input_script")
 
-## 9. Run the PaSh preprocessor
+## 9. Run the PaSh preprocessor. Its own stdout/stderr (tracebacks, warnings
+## from the parser) are internal tooling output, not the script's.
 PYTHONPATH="$PASH_SPEC_TOP/preprocessor:$PYTHONPATH" \
     PASH_FROM_SH="Preprocessor" "$PASH_PYTHON" \
-    "$PASH_SPEC_TOP/preprocessor/preprocessor.py" "${preprocessor_args[@]}"
+    "$PASH_SPEC_TOP/preprocessor/preprocessor.py" "${preprocessor_args[@]}" \
+    >&"$HS_INTERNAL_LOG_FD" 2>&"$HS_INTERNAL_LOG_FD"
 pash_exit_code=$?
 
 ## 10. If preprocessing succeeded, execute the preprocessed script

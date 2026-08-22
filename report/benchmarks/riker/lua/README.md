@@ -5,7 +5,7 @@
 Or build it yourself by running `docker build -t hs/lua .` from this directory.
 
 Running with HS
-`docker run --privileged -it --rm ghcr.io/binpash/hs/lua:latest /bin/bash -c 'time /srv/hs/pash-spec.sh /root/lua-5.4.3/lua_build.sh &> /dev/null && sha256sum /root/lua-5.4.3/src/lua'`
+`docker run --privileged -it --rm ghcr.io/binpash/hs/lua:latest /bin/bash -c 'time /srv/hs/hs /root/lua-5.4.3/lua_build.sh &> /dev/null && sha256sum /root/lua-5.4.3/src/lua'`
 
 ```
 real    0m6.121s

@@ -1,5 +1,6 @@
 FROM hs
 
+RUN apt-get update
 WORKDIR /root
 
 RUN pip install --break-system-packages htseq

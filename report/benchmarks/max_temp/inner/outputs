@@ -1,0 +1,7 @@
+# max_temp reports its results on stdout and writes no files into OUTPUT_DIR,
+# so there is deliberately nothing to hash here; the run is compared by its
+# stdout alone.
+#
+# The one thing it does write, $RESOURCE_DIR/<year>.txt, is a decompression
+# scratch file shared by every target: the sh and hs runs overwrite each
+# other's copy, so its contents at the end of a run say nothing about either.

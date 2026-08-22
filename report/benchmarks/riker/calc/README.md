@@ -3,7 +3,7 @@
 Build the image `docker build -t hs/calc .` from this directory.
 
 Running with HS
-`docker run --privileged --rm hs/calc:latest /bin/bash -c 'time /srv/hs/pash-spec.sh /root/calc/calc_build.sh && file /root/calc/calc'`
+`docker run --privileged --rm hs/calc:latest /bin/bash -c 'time /srv/hs/hs /root/calc/calc_build.sh && file /root/calc/calc'`
 
 ```
 real    2m15.044s

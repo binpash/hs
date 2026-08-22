@@ -1,35 +1,100 @@
 #!/bin/bash
+#
+# Central benchmark runner — one script for every target and both execution modes.
+#
+#   run [--local] [--target T ...] [passthrough args ...]
+#
+# Modes:
+#   (default)  Run the benchmark inside the suite's docker image, then copy the
+#              whole output/<test> tree back to the host.
+#   --local    Run the benchmark directly on this machine (no docker) via the
+#              suite's inner runner, which writes straight into output/<test>.
+#
+# Targets (default "sh hs"): sh, hs, strace — pick with --target.
+# "--target all" expands to every target.
+#
+# This file is the single source of truth: each benchmark's ./run is a symlink
+# to it. Target selection is by flag, not by script name.
+set -u
 
 this_path=$(realpath -se "$0")
 
-one_up=$(basename $(dirname $this_path))
-two_up=$(basename $(dirname $(dirname $this_path)))
-rest=$(dirname $(dirname $(dirname $this_path)))
+one_up=$(basename "$(dirname "$this_path")")
+two_up=$(basename "$(dirname "$(dirname "$this_path")")")
+rest=$(dirname "$(dirname "$(dirname "$this_path")")")
 
-if [ ${two_up} == "benchmarks" ]; then
+if [ "${two_up}" == "benchmarks" ]; then
     benchmark_root=$rest/$two_up
     benchmark_name=$one_up
     test_name=$one_up
     container_name="hs-${one_up}"
+    inner_run="$benchmark_root/$benchmark_name/inner/run"
 else
     benchmark_root=$rest
     benchmark_name=$two_up
     test_name=$two_up/$one_up
     container_name="hs-${two_up}-${one_up}"
+    inner_run="$benchmark_root/$benchmark_name/inner/$one_up/run"
 fi
-# echo $benchmark_root
-# echo $test_name
-# echo $benchmark_name
 
-rm -rf $benchmark_root/../output/$test_name
-docker rm -f $container_name 2>/dev/null
+# --- argument parsing ---------------------------------------------------------
+LOCAL=0
+TARGETS=()
+PASS_ARGS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --local)
+            LOCAL=1
+            shift
+            ;;
+        --target)
+            shift
+            while [[ $# -gt 0 && "$1" != --* ]]; do
+                TARGETS+=("$1")
+                shift
+            done
+            ;;
+        *)
+            PASS_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
 
-docker run --name $container_name --init --privileged --cgroupns=host -v /mydata/tmp:/tmp hs/${benchmark_name} ./report/benchmarks/${test_name}/run $@
-# docker run --name $container_name --init --privileged --cgroupns=host -v /mydata/tmp:/tmp -it hs/${benchmark_name} bash
-mkdir -p $benchmark_root/../output/$test_name
-docker cp $container_name:/srv/hs/report/output/$test_name/error $benchmark_root/../output/$test_name/error
-docker cp $container_name:/srv/hs/report/output/$test_name/hs_time $benchmark_root/../output/$test_name/hs_time
-docker cp $container_name:/srv/hs/report/output/$test_name/sh_time $benchmark_root/../output/$test_name/sh_time
-docker cp $container_name:/srv/hs/report/output/$test_name/hs/stderr $benchmark_root/../output/$test_name/stderr_hs
-docker cp $container_name:/srv/hs/report/output/$test_name/sh/stderr $benchmark_root/../output/$test_name/stderr_sh
-docker rm $container_name
+if [[ ${#TARGETS[@]} -eq 0 ]]; then
+    TARGETS=(sh hs)
+fi
+# Expand the "all" alias to the full target list.
+if [[ " ${TARGETS[*]} " == *" all "* ]]; then
+    TARGETS=(sh hs strace)
+fi
+
+output_host="$benchmark_root/../output/$test_name"
+mkdir -p "$output_host"
+
+# --- local mode: run directly on this machine ---------------------------------
+if [[ $LOCAL -eq 1 ]]; then
+    if [ ! -x "$inner_run" ]; then
+        echo "Error: inner runner not found or not executable: $inner_run" >&2
+        exit 1
+    fi
+    exec "$inner_run" --target "${TARGETS[@]}" "${PASS_ARGS[@]}"
+fi
+
+# --- docker mode: run inside the suite's image --------------------------------
+docker rm -f "$container_name" 2>/dev/null
+
+# No bpf/tracing mounts and no raised memlock limit: this branch traces with
+# strace from inside the sandbox, so it needs none of the eBPF plumbing.
+# --init (rather than --pid=host) is enough, since nothing routes by global PID.
+docker run \
+    --name $container_name --init --privileged --cgroupns=host \
+    -v /mydata/tmp:/tmp \
+    hs/$benchmark_name \
+    ./report/benchmarks/$test_name/run --target "${TARGETS[@]}" "${PASS_ARGS[@]}"
+
+# Copy the whole output tree back, so every artifact (stdout, stderr, log, times,
+# error, traces) is available regardless of which targets ran.
+docker cp "$container_name:/srv/hs/report/output/$test_name/." "$output_host/"
+
+docker rm "$container_name"

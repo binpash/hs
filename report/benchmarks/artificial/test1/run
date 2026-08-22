@@ -9,8 +9,8 @@ from subprocess import run, PIPE
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser.add_argument('--window', default=5, type=int, help='window size to run hs with')
-parser.add_argument('--target', choices=['hs-only', 'sh-only', 'both'],
-                    help='to run with sh or hs')
+parser.add_argument('--target', nargs='+', choices=['sh', 'hs', 'strace'],
+                    default=['sh', 'hs'], help='executors to run (sh, hs, strace)')
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
 
@@ -23,7 +23,7 @@ def do_sh_run(test_base: Path, output_base: Path):
     return result.returncode, result.stdout
 
 def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, log: bool):
-    cmd = [hs_base / 'pash-spec.sh', '--window', str(window)]
+    cmd = [hs_base / 'hs', '--window', str(window)]
     if log:
         cmd.extend(['-d', '2'])
     cmd.append(test_base / '1.sh')
@@ -42,14 +42,11 @@ if __name__ == '__main__':
     bench_base = test_base.parent
     local_name = os.sep.join(test_base.parts[-2:])
     output_base = hs_base / "report" / "output" / local_name
-    run_hs = False
-    run_sh = False
-    if args.target in ["hs-only", "both"]:
-        run_hs = True
-    if args.target in ["sh-only", "both"]:
-        run_sh = True
-    if not run_hs and not run_sh:
-        raise("Not running anything, add --target argument")
+    target = args.target or []
+    run_sh = 'sh' in target
+    run_hs = 'hs' in target
+    run_strace = 'strace' in target
+    run_fstrace = 'fstrace' in target
     output_base.mkdir(parents=True, exist_ok=True)
     if run_sh:
         output_sh = do_sh_run(test_base, output_base)

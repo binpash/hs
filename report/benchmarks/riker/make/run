@@ -7,7 +7,7 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser.add_argument('--window', default=0, type=int, help='window size to run hs with')
-parser.add_argument('--target', choices=['baseline', 'hs-only', 'all'],
+parser.add_argument('--target', nargs='+', choices=['baseline', 'hs-only', 'strace', 'all'],
                     help='to run with sh or hs')
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
@@ -32,7 +32,7 @@ def do_strace_run(env):
     return convert_time_to_float(time)
 
 def do_hs_run(window, log, env):
-    result = run(docker_cmd + [f"time /srv/hs/pash-spec.sh {'-d 2' if log else ''} --window {window} /make-4.3/make_build.sh &> hs_trace"], stdout=PIPE, stderr=PIPE, env=env)
+    result = run(docker_cmd + [f"time /srv/hs/hs {'-d 2' if log else ''} --window {window} /make-4.3/make_build.sh &> hs_trace"], stdout=PIPE, stderr=PIPE, env=env)
     time = result.stderr.decode().split("\n")[-4].split("\t")[1]
     return convert_time_to_float(time), result.stderr.decode()
 
@@ -50,12 +50,14 @@ if __name__ == "__main__":
     else:
         log = False
 
-    run_all = args.target == "all"
-    run_hs = args.target == "hs-only"
-    run_baseline = args.target == "baseline"
+    target = args.target or []
+    run_all = "all" in target
+    run_hs = "hs-only" in target
+    run_baseline = "baseline" in target
+    run_strace = "strace" in target
+    run_fstrace = "fstrace" in target
 
-    if not run_hs and not run_all and not run_baseline:
-        raise("Not running anything, add --target argument")
+
     if not "PASH_SPEC_TOP" in os.environ:
         raise("PASH_SPEC_TOP is not set")
 

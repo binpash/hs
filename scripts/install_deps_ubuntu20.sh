@@ -12,6 +12,22 @@ git submodule update --init --recursive deps/try
 ## Build fd_util and set-diff for speculative execution
 (cd executor; make)
 
+## Sandbox base: a dedicated top-level directory holding the per-run overlay
+## upperdirs/workdirs (see executor/executor_util.py). It must not live under
+## any directory that try overlays (/tmp, /home, ...), hence top-level.
+HS_SANDBOX_BASE="${HS_SANDBOX_BASE:-/hs-sandbox}"
+if [ ! -d "$HS_SANDBOX_BASE" ]; then
+    echo "Creating sandbox base $HS_SANDBOX_BASE..."
+    sudo mkdir -m 1777 "$HS_SANDBOX_BASE"
+fi
+## tmpfs keeps sandbox copy-ups off the disk; skip silently if already mounted.
+if ! mountpoint -q "$HS_SANDBOX_BASE"; then
+    sudo mount -t tmpfs -o mode=1777 tmpfs "$HS_SANDBOX_BASE" || \
+        echo "Warning: could not tmpfs-mount $HS_SANDBOX_BASE; sandboxes will be disk-backed (slower but correct)"
+fi
+echo "Note: the tmpfs mount does not persist across reboots. For persistence add to /etc/fstab:"
+echo "  tmpfs $HS_SANDBOX_BASE tmpfs mode=1777 0 0"
+
 ## Install Python dependencies for preprocessor
 # Find Python 3.12+
 PASH_PYTHON=""

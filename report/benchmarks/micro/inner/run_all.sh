@@ -1,13 +1,32 @@
+#!/bin/sh
+
 window=15
 
-/usr/bin/time -o 100echos2.hs.time -f %e ../../../pash-spec.sh -d2 --window $window 100echos2.sh &> 100echos2.log
-/usr/bin/time -o 100echos.hs.time -f %e ../../../pash-spec.sh -d2 --window $window 100echos.sh &> 100echos.log
-/usr/bin/time -o giant_file.100.hs.time -f %e ../../../pash-spec.sh -d2 --window $window giant_file.sh &> giant_file.100.log
-/usr/bin/time -o giant_file.10000.hs.time -f %e ../../../pash-spec.sh -d2 --window $window giant_file2.sh &> giant_file.1000.log
-/usr/bin/time -o multi_files.hs.time -f %e ../../../pash-spec.sh -d2 --window $window 100echos2.sh &> 100echos2.log
+## hs writes its own logs to <name>.hs.log; <name>.hs.out then holds only what
+## the script itself printed, so it can be diffed against the sh baseline.
+hs_run() {
+    name=$1
+    script=$2
+    /usr/bin/time -o "$name.hs.time" -f %e ../../../hs -d2 --window "$window" \
+        --jit-log "$name.hs.log" --scheduler-log "$name.hs.log" \
+        --preprocessor-log "$name.hs.log" --internal-log "$name.hs.internal.log" \
+        "$script" > "$name.hs.out" 2>&1
+}
 
-/usr/bin/time -o 100echos2.sh.time -f %e sh 100echos2.sh &> 100echos2.log
-/usr/bin/time -o 100echos.sh.time -f %e sh 100echos.sh &> 100echos.log
-/usr/bin/time -o giant_file.100.sh.time -f %e sh giant_file.sh &> giant_file.100.log
-/usr/bin/time -o giant_file.10000.sh.time -f %e sh giant_file2.sh &> giant_file.1000.log
-/usr/bin/time -o multi_files.sh.time -f %e sh 100echos2.sh &> 100echos2.log
+sh_run() {
+    name=$1
+    script=$2
+    /usr/bin/time -o "$name.sh.time" -f %e sh "$script" > "$name.sh.out" 2>&1
+}
+
+hs_run 100echos2 100echos2.sh
+hs_run 100echos 100echos.sh
+hs_run giant_file.100 giant_file.sh
+hs_run giant_file.10000 giant_file2.sh
+hs_run multi_files 100echos2.sh
+
+sh_run 100echos2 100echos2.sh
+sh_run 100echos 100echos.sh
+sh_run giant_file.100 giant_file.sh
+sh_run giant_file.10000 giant_file2.sh
+sh_run multi_files 100echos2.sh

@@ -53,11 +53,11 @@ echo "Running sh command: bash $SCRIPT"
 mv "$RESOURCE_DIR/time" "$OUTPUT_DIR/sh_time"
 extract_time "$OUTPUT_DIR/sh_time"
 
-echo "Running hs command: $HS_BASE/pash-spec.sh -d 2 --window $WINDOW $SCRIPT"
+echo "Running hs command: $HS_BASE/hs -d 2 --window $WINDOW $SCRIPT"
 
 setup "eve"
 
-{ time "$HS_BASE/pash-spec.sh" -d 2 --window "$WINDOW" "$SCRIPT" "usernames_hs" > "$RESOURCE_DIR/hs/stdout" 2> "$OUTPUT_DIR/hs/stderr"; } 2> "$RESOURCE_DIR/time"
+{ time "$HS_BASE/hs" -d 2 --window "$WINDOW" "$SCRIPT" "usernames_hs" > "$RESOURCE_DIR/hs/stdout" 2> "$OUTPUT_DIR/hs/stderr"; } 2> "$RESOURCE_DIR/time"
 
 mv "$RESOURCE_DIR/time" "$OUTPUT_DIR/hs_time"
 extract_time "$OUTPUT_DIR/hs_time"

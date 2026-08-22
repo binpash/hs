@@ -18,6 +18,18 @@ LOWER_DIRS=${11?No lower dirs}
 ## KK 2026-02-08: Functions now exported from parent hs script, no need to source
 # source "$PASH_SPEC_TOP/jit_runtime/pash_spec_init_setup.sh"
 
+## The JIT runtime scripts that run inside the sandbox (via the template
+## script) log through pash_redir_output. Pointing HS_JIT_LOG at the real log
+## file would write it under the overlay, putting it in this node's traced
+## write set and committing a stale copy back over the real file. Use a
+## per-node file next to the trace artifacts instead: it sits under
+## /tmp/pash_spec, which the dependency filter ignores.
+##
+## HS_JIT_LOG_FD is cleared alongside it: hs's descriptors do not survive the
+## scheduler's close_fds spawn, so the helpers must append by path in here.
+export HS_JIT_LOG="${TRACE_FILE}.jitlog"
+unset HS_JIT_LOG_FD
+
 if [ "standard" == "$EXEC_MODE" ]; then
     [ -w /sys/fs/cgroup/frontier/cgroup.procs ] && echo $$ > /sys/fs/cgroup/frontier/cgroup.procs
 elif [ "speculate" == "$EXEC_MODE" ]; then

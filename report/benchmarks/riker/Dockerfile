@@ -1,5 +1,6 @@
 FROM hs
 
+RUN apt-get update
 WORKDIR /
 
 RUN apt-get install -y make clang llvm git gcc python3-cram file graphviz

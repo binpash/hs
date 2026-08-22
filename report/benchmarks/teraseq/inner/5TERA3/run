@@ -9,8 +9,8 @@ from subprocess import run, PIPE
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser.add_argument('--window', default=5, type=int, help='window size to run hs with')
-parser.add_argument('--target', choices=['original', 'hs-only', 'sh-only', 'both'],
-                    help='to run with sh or hs or both sh and hs or run the original manual parallelization using & and wait')
+parser.add_argument('--target', nargs='+', choices=['original', 'sh', 'hs', 'strace'],
+                    default=['sh', 'hs'], help='executors to run; original=manual parallelization')
 parser.add_argument('--log', choices=['enable', 'disable'], default="enable",
                     help='whether to enable logging for hs')
 parser.add_argument('--merge', action='store_true', help='do 5TERA3-merge as well')
@@ -63,24 +63,34 @@ def do_hs_run(test_base: Path, output_base: Path, hs_base: Path, window: int, lo
     #run("rm -rf /tmp/*", shell=True)
     os.chdir(teraseq_samples)
     clean_outputs(test_base)
-    cmd = [hs_base / 'pash-spec.sh', '--window', str(window)]
+    cmd = [hs_base / 'hs', '--window', str(window)]
     if log:
         cmd.extend(['-d', '2'])
+    # hs's own logs go to their own files, never to the script's stderr, so the
+    # stderr captured below is the script's output and can be compared with sh's.
+    hs_log = output_base / 'hs_log' if log else Path('/dev/null')
+    hs_internal_log = output_base / 'hs_internal_log' if log else Path('/dev/null')
+    cmd.extend(['--jit-log', hs_log, '--scheduler-log', hs_log,
+                '--preprocessor-log', hs_log, '--internal-log', hs_internal_log])
     cmd.append(test_base / 'run.sh')
     before = time.time()
-    with open(output_base / 'hs_log', 'w') as logf:
-        result = run(cmd, stdout=PIPE, stderr=logf)
+    with open(output_base / 'hs_stderr', 'wb') as errf:
+        result = run(cmd, stdout=PIPE, stderr=errf)
     duration = time.time() - before
     with open(output_base / "hs_time", 'w') as f:
         f.write(f'{duration}\n')
     if do_merge:
-        cmd = [hs_base / 'pash-spec.sh', '--window', str(window)]
+        cmd = [hs_base / 'hs', '--window', str(window)]
         if log:
             cmd.extend(['-d', '2'])
+        merge_log = output_base / 'hs_log_merge' if log else Path('/dev/null')
+        merge_internal = output_base / 'hs_internal_log_merge' if log else Path('/dev/null')
+        cmd.extend(['--jit-log', merge_log, '--scheduler-log', merge_log,
+                    '--preprocessor-log', merge_log, '--internal-log', merge_internal])
         cmd.append(test_base / 'run_merge.sh')
         before = time.time()
-        with open(output_base / 'hs_log_merge', 'w') as logf:
-            merge_result = run(cmd, stdout=PIPE, stderr=logf)
+        with open(output_base / 'hs_stderr_merge', 'wb') as errf:
+            merge_result = run(cmd, stdout=PIPE, stderr=errf)
         duration = time.time() - before
         with open(output_base / "hs_time_merge", 'w') as f:
             f.write(f'{duration}\n')
@@ -94,18 +104,13 @@ if __name__ == '__main__':
     bench_base = test_base.parent
     local_name = os.sep.join(test_base.parts[-2:])
     output_base = hs_base / "report" / "output" / local_name
-    if args.target in ["original"]:
+    target = args.target or []
+    if "original" in target:
         output_base.mkdir(parents=True, exist_ok=True)
         output_orig = do_original_run(test_base, output_base, do_merge=args.merge)
         exit(0)
-    run_hs = False
-    run_sh = False
-    if args.target in ["hs-only", "both"]:
-        run_hs = True
-    if args.target in ["sh-only", "both"]:
-        run_sh = True
-    if not run_hs and not run_sh:
-        raise("Not running anything, add --target argument")
+    run_hs = "hs" in target
+    run_sh = "sh" in target
     output_base.mkdir(parents=True, exist_ok=True)
     if run_sh:
         output_sh = do_sh_run(test_base, output_base, do_merge=args.merge)

@@ -71,6 +71,23 @@ def ptempfile():
     return name
 
 
+# hs opens its log streams as descriptors and exports HS_*_LOG_FD so the JIT
+# runtime can write to them directly. Those descriptors do not survive a
+# close_fds spawn, so a shell script started from here must fall back to
+# appending by path -- otherwise every pash_redir_output call in it fails with
+# "Bad file descriptor". Mirrors child_env() in executor/executor.py.
+_LOG_FD_VARS = ("HS_JIT_LOG_FD", "HS_SCHEDULER_LOG_FD",
+                "HS_PREPROCESSOR_LOG_FD", "HS_INTERNAL_LOG_FD")
+
+
+def child_env():
+    """Environment for a subprocess that does not inherit hs's log descriptors."""
+    env = os.environ.copy()
+    for var in _LOG_FD_VARS:
+        env.pop(var, None)
+    return env
+
+
 def make_kv(key, val):
     """Make a key-value pair in AST JSON format."""
     return [key, val]

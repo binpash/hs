@@ -39,5 +39,11 @@ WORKDIR /srv/hs
 RUN python3 -m venv .venv
 COPY . .
 RUN make -C executor
-RUN .venv/bin/pip install -r requirements.txt
+# libbash/libdash compile a bundled bash-5.2, whose lib/termcap/tparam.c calls
+# write() without including <unistd.h>. GCC 14 (which trixie now ships) makes
+# implicit function declarations a hard error rather than a warning, so the
+# wheel fails to build. Demote it back to a warning; configure propagates
+# CFLAGS into the sub-makes. Keep -g -O2, the defaults configure would pick.
+RUN CFLAGS="-g -O2 -Wno-implicit-function-declaration" \
+    .venv/bin/pip install -r requirements.txt
 ENTRYPOINT ["/srv/hs/entrypoint.sh"]

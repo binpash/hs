@@ -2,11 +2,12 @@
 
 # Core AST and parsing libraries
 shasta~=0.5
-# Pinned: libdash 0.5.0 changes the AST regions the preprocessor derives, so
-# each command node ends up containing the *following* command as well and
-# every command after the first executes twice. 0.3.1 is the last version that
-# splits regions correctly. Unpinning this is what made a rebuilt image behave
-# differently from one built weeks earlier.
+# Pinned: libdash regressed command line-spans in v0.4.0 (commit f58fffc,
+# "We are rewriting history"). linno_after overshoots by one line whenever the
+# parser has buffered ahead, so original_text for each command also contains the
+# *next* command. hs writes that text verbatim into the node files it executes,
+# so every command except the last runs twice. Affects 0.4.0, 0.4.1 and 0.5.0;
+# 0.3.1 is the last correct release. Unpin only once upstream is fixed.
 libdash==0.3.1
 libbash~=0.1.14
 

@@ -505,6 +505,14 @@ class ConcreteNode:
             "cmd", "BASH_ARGC", "BASH_ARGV", "BASH_SUBSHELL", "LINENO", "GROUPS", "BASH_SOURCE",
             "PREVIOUS_SHELL_EC", "pash_previous_exit_status", "filter_vars_file", "pash_spec_loop_id",
             "pash_loop_iters", "LINES", "COLUMNS",
+            # hs's own log plumbing. HS_JIT_LOG is re-pointed per node and the
+            # HS_*_LOG_FD descriptors are unset inside sandboxes (they do not
+            # survive close_fds), so they are legitimately absent from a
+            # sandboxed node's env while present in the caller's. Comparing
+            # them invalidates every speculation and forces serial re-execution.
+            "HS_JIT_LOG", "HS_SCHEDULER_LOG", "HS_PREPROCESSOR_LOG",
+            "HS_INTERNAL_LOG", "HS_JIT_LOG_FD", "HS_SCHEDULER_LOG_FD",
+            "HS_PREPROCESSOR_LOG_FD", "HS_INTERNAL_LOG_FD",
         ])
 
         ignore_prefix = "pash_loop_"

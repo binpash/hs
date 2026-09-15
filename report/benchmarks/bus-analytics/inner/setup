@@ -11,13 +11,17 @@ inflate_script="python3 $PASH_SPEC_TOP/report/util/inflate.py"
 mkdir -p "$download_dir"
 cd "$download_dir"
 
+# The original source, https://www.balab.aueb.gr/~dds/oasa-2021-01-08.bz2, is
+# gone (404, no archived copy); the oasa.txt left in its place is only ~140K
+# lines, an order of magnitude short of the 1,310,000 the 100M input needs.
+# The same OASA bus telemetry is mirrored by the Koala suite, byte-identical
+# from the first row, and served gzipped rather than bzipped.
 if [ ! -f bus.csv ]; then
     echo "Downloading full-size dataset..."
-    wget -nc -O bus.csv.bz2 'https://www.balab.aueb.gr/~dds/oasa-2021-01-08.bz2'
-    if [[ -f bus.csv.bz2 ]]; then
+    wget -O bus.csv.gz 'https://atlas.cs.brown.edu/data/covid-mts/in_full.csv.gz'
+    if [[ -f bus.csv.gz ]]; then
         echo "Decompressing full-size dataset..."
-        bunzip2 -c bus.csv.bz2 > $download_dir/bus.csv
-        
+        gzip -dc bus.csv.gz > $download_dir/bus.csv
     fi
 else
     echo "Full-size dataset already exists."

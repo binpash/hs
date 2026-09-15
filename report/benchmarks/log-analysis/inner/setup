@@ -22,8 +22,14 @@ tar -xf "$benchmark_dir/WorldCup_tools.tar" -C "$benchmark_dir" && rm "$benchmar
 ( cd "${benchmark_dir}/ita_public_tools" && make && cp "$ita_public_tools_dir/bin/recreate" "$benchmark_dir" && cp "$ita_public_tools_dir/state/object_mappings.sort" "$benchmark_dir")
 
 # Read each line from links.txt and download the file
-wget -r -np -nH --cut-dirs=6 -P "${download_dir}" "${IN_ROOT}/"
-rm -rf ${download_dir}/robots.txt ${download_dir}/index.html* ${download_dir}/WorldCup_tools.tar
+# The remote directory is flat (102 files). List it once and fetch the files
+# concurrently instead of letting wget -r crawl them one at a time; the tools
+# tarball was already fetched above and the index/robots files are not data.
+curl -sL "${IN_ROOT}/" \
+    | grep -oE 'href="[^"?/][^"]*"' | sed 's/^href="//; s/"$//' \
+    | grep -vE '^(index\.html|robots\.txt|WorldCup_tools\.tar)' \
+    | sed "s|^|${IN_ROOT}/|" \
+    | "$PASH_SPEC_TOP/report/util/fetch_parallel.sh" "${download_dir}"
 
 # Download only the specific files
 files_to_copy_small=(

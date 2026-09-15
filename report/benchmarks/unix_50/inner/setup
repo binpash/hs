@@ -23,7 +23,12 @@ echo "Preparing unix_50 datasets..."
 inflate="python3 $PASH_SPEC_TOP/report/util/inflate.py"
 
 echo "Downloading unix_50 datasets..."
-wget -r -np -nH --cut-dirs=3 -R "index.html*, robots.txt" https://atlas-group.cs.brown.edu/data/unix50/
+# Fetch the 20 inputs the benchmark reads, concurrently. The old recursive
+# wget also pulled the remote large/ and small/ subtrees, which nothing here
+# uses; the sizes are generated locally by inflate.py below.
+for i in "${inputs[@]}"; do
+    echo "https://atlas-group.cs.brown.edu/data/unix50/$i.txt"
+done | "$PASH_SPEC_TOP/report/util/fetch_parallel.sh" "$download_dir"
 
 for i in ${inputs[@]}; do
     $inflate "$i.txt" 10M

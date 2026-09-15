@@ -33,6 +33,66 @@ The benchmark runner's command-line interface includes options for controlling t
 - `--verbose`: Enables verbose output, providing detailed logs of the benchmarking process.
 - `--full-gantt`: Generate a full Gantt chart for each benchmark.
 
+## Running a benchmark: two commands
+
+```
+cd report/benchmarks/<suite>
+./setup                              # 1. build hs/<suite>; 2. download inputs to report/resources/<suite>/
+./<size>/run --target sh hs          # run (./run for single-level suites such as sklearn)
+```
+
+Add `--local` to either command to skip docker and use this machine directly.
+Both are symlinks to `report/setup_base` and `report/run_base`; every suite
+behaves the same way (teraseq and the archived suites are bespoke and are not
+covered).
+
+**Images hold tools, never data.** `hs/<suite>` is the base `hs` image plus
+that suite's runtime tools (samtools, pandoc, FFmpeg's libraries, ...) and its
+scripts. Inputs are downloaded once onto the host, into
+`report/resources/<suite>/`, and bind-mounted **read-only** into the container
+at run time. So rebuilding `hs` never re-downloads anything, and the same
+inputs serve every hs checkout on the machine. `./setup` runs the suite's
+`inner/setup` inside `hs/<suite>` with `resources/` mounted read-write, so the
+host needs nothing but docker; extra arguments go to `inner/setup` (bio4:
+`./setup -i small/list` for the 700 MB small set instead of all 100 GB).
+
+Inside the container, `report/resources` is a per-run copy-on-write overlay
+over that read-only mount, set up by `entrypoint.sh` through an idmapped bind
+(util-linux >= 2.39, present in the image) that presents the host owner as
+root, since hs's sandbox runs in a user namespace mapping only root and could
+not otherwise write the files. A benchmark that writes
+into its own input directory -- max_temp regenerates `$RESOURCE_DIR/<year>.txt`
+every run -- therefore works in docker mode, and its writes vanish with the
+container. In `--local` mode there is no overlay: such writes land in the host
+directory.
+
+**Where things live.** Inputs, the container's `/tmp` (hs scratch, try's
+mount logs, that overlay upper) and, on a prepared machine, docker's images
+and container layers all sit under one *data directory* on the big disk,
+found by `report/hs_data_dir`: `$HS_DATA`, else `~/.config/hs/data_dir`, else
+`/mydata/hs` if `/mydata` exists, else `report/` itself. On a fresh node run
+
+```sh
+scripts/setup_benchmark_machine.sh      # once per machine: docker, disk choice, data dir
+```
+
+which installs docker, picks the disk (largest SSD with room, else largest
+anything; a blank extra drive gets formatted after confirmation; `--disk`
+overrides), creates `<disk>/hs/{resources,tmp,docker}`, points docker's
+data-root there, and moves any inputs already in `report/resources` across,
+leaving a symlink. CloudLab's root partition is ~16 GB, so without this step
+images alone fill it.
+
+Each run gets its own subdirectory of that `tmp/`, removed when the container
+exits. `run --keep` leaves it in place and prints the path; it then holds
+`pash_spec/` (hs's per-command scripts, env snapshots, traces, captured
+outputs), `hs-sandbox/` (try's sandboxes, copied off the tmpfs), and
+`hs-inputs-cow/` (what the benchmark wrote into its inputs). Outputs and logs
+are always copied to `report/output/<test>` regardless.
+
+On a small machine, pass `--window 4` or so; the default of 16 assumes a
+many-core benchmark host.
+
 ## Branch note: strace baseline
 
 This branch is the **strace baseline** for comparing against the fstrace

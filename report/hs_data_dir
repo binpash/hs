@@ -1,0 +1,18 @@
+#!/bin/sh
+#
+# Print the hs data directory: where benchmark inputs (resources/) and the
+# container's /tmp (tmp/) live on this machine. In order:
+#   1. $HS_DATA in the environment
+#   2. ~/.config/hs/data_dir, written by scripts/setup_benchmark_machine.sh
+#   3. /mydata/hs when /mydata exists (CloudLab's big disk, unconfigured)
+#   4. the report/ directory of this checkout (resources/ and tmp/ in-tree)
+# setup_base and run_base both go through here so they cannot disagree.
+if [ -n "${HS_DATA:-}" ]; then
+    echo "$HS_DATA"
+elif [ -r "${XDG_CONFIG_HOME:-$HOME/.config}/hs/data_dir" ]; then
+    cat "${XDG_CONFIG_HOME:-$HOME/.config}/hs/data_dir"
+elif [ -d /mydata ]; then
+    echo /mydata/hs
+else
+    dirname "$(realpath -se "$0")"
+fi

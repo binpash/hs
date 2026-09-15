@@ -1,7 +1,59 @@
 #!/bin/bash
+#
+# Per-benchmark setup -- one of the two commands a benchmark needs:
+#
+#   ./setup [--local] [ARGS...]
+#
+# 1. Builds hs/<benchmark>: the base hs image plus this suite's runtime tools
+#    and scripts. No input data goes into any image.
+# 2. Downloads the suite's inputs onto THIS machine, into
+#    <data dir>/resources/<benchmark>/, by running the suite's inner/setup. That
+#    runs inside hs/<benchmark> with resources bind-mounted read-write, so the
+#    host needs nothing but docker; with --local it runs directly on the host.
+#    Extra ARGS go to inner/setup (e.g. bio4: ./setup -i small/list).
+#
+# The inputs go to the machine's hs data directory (see report/hs_data_dir;
+# scripts/setup_benchmark_machine.sh puts it on the big disk), downloaded once
+# and shared by every hs checkout. At run time, run_base bind-mounts them into
+# the container READ-ONLY.
+set -eu
 
 this_path=$(realpath -se "$0")
+benchmark_dir=$(dirname "$this_path")
+benchmark_name=$(basename "$benchmark_dir")
+report_dir=$(dirname "$(dirname "$benchmark_dir")")
+repo_root=$(dirname "$report_dir")
+resources_host="$("$report_dir/hs_data_dir")/resources"
 
-cd $(dirname $this_path)
-benchmark_name=$(basename $(dirname "$this_path"))
-docker build . -t hs/${benchmark_name}
+LOCAL=0
+if [ "${1:-}" = "--local" ]; then LOCAL=1; shift; fi
+
+mkdir -p "$resources_host"
+
+if [ "$LOCAL" -eq 1 ]; then
+    # inner/setup writes to $PASH_SPEC_TOP/report/resources; keep that the
+    # data directory unless this checkout already has its own inputs.
+    if [ ! -e "$report_dir/resources" ]; then ln -s "$resources_host" "$report_dir/resources"; fi
+    exec "$benchmark_dir/inner/setup" "$@"
+fi
+
+# The suite image is FROM hs; build the base first if this machine lacks it.
+if ! docker image inspect hs >/dev/null 2>&1; then
+    echo ">> base image 'hs' not found; building it from $repo_root"
+    docker build -t hs "$repo_root"
+fi
+
+echo ">> building hs/$benchmark_name (tools + scripts, no data)"
+docker build -t "hs/$benchmark_name" "$benchmark_dir"
+
+echo ">> downloading inputs into $resources_host/ using hs/$benchmark_name"
+docker run --rm \
+    -v "$resources_host:/srv/hs/report/resources" \
+    "hs/$benchmark_name" \
+    "./report/benchmarks/$benchmark_name/setup" "$@"
+
+# inner/setup ran as root in the container; hand the files back to the caller
+# so resources/ stays deletable without sudo. At run time the entrypoint
+# idmaps this owner to root for hs's sandbox.
+docker run --rm -v "$resources_host:/srv/hs/report/resources" "hs/$benchmark_name" \
+    chown -R "$(id -u):$(id -g)" /srv/hs/report/resources

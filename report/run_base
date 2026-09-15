@@ -5,10 +5,18 @@
 #   run [--local] [--target T ...] [passthrough args ...]
 #
 # Modes:
-#   (default)  Run the benchmark inside the suite's docker image, then copy the
-#              whole output/<test> tree back to the host.
+#   (default)  Run the benchmark inside hs/<suite> with the machine's
+#              downloaded inputs bind-mounted read-only, then copy the whole
+#              output/<test> tree back to the host.
 #   --local    Run the benchmark directly on this machine (no docker) via the
 #              suite's inner runner, which writes straight into output/<test>.
+#   --keep     Keep the run's scratch for debugging: hs's per-command state
+#              and traces, try's mount logs and sandboxes, and whatever the
+#              benchmark wrote into its inputs. Normally removed at exit;
+#              the path is printed at the end. Outputs and logs are always
+#              copied to report/output/<test>.
+#
+# Inputs are downloaded to the host by ./setup, never built into an image.
 #
 # Targets (default "sh hs"): sh, hs, strace — pick with --target.
 # "--target all" expands to every target.
@@ -39,12 +47,17 @@ fi
 
 # --- argument parsing ---------------------------------------------------------
 LOCAL=0
+KEEP=0
 TARGETS=()
 PASS_ARGS=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --local)
             LOCAL=1
+            shift
+            ;;
+        --keep)
+            KEEP=1
             shift
             ;;
         --target)
@@ -82,6 +95,26 @@ if [[ $LOCAL -eq 1 ]]; then
 fi
 
 # --- docker mode: run inside the suite's image --------------------------------
+# Inputs live on this machine (the data directory's resources/, see
+# report/hs_data_dir, populated by ./setup) and are bind-mounted READ-ONLY at
+# /hs-inputs: no image carries data, and no run can
+# alter the downloaded copy. The container's entrypoint presents them at
+# report/resources through a per-run copy-on-write overlay, so a benchmark that
+# writes into its input directory (max_temp) still works and the host stays
+# pristine. Outputs are written inside the container, where hs's sandbox can
+# see them, and copied back afterwards.
+data_dir=$("$benchmark_root/../hs_data_dir")
+resources_host="$data_dir/resources"
+if [ ! -d "$resources_host/$benchmark_name" ]; then
+    echo "Error: no inputs at $resources_host/$benchmark_name -- run ./setup first" >&2
+    exit 1
+fi
+# /tmp inside the container holds hs's scratch and the inputs' overlay upper;
+# back it with the data disk rather than the container layer.
+mkdir -p "$data_dir/tmp"
+# The entrypoint gives this run its own subdirectory of that tmp; the name is
+# chosen here so it can be reported.
+run_id="$container_name-$(date +%Y%m%d-%H%M%S)"
 docker rm -f "$container_name" 2>/dev/null
 
 # No bpf/tracing mounts and no raised memlock limit: this branch traces with
@@ -89,7 +122,9 @@ docker rm -f "$container_name" 2>/dev/null
 # --init (rather than --pid=host) is enough, since nothing routes by global PID.
 docker run \
     --name $container_name --init --privileged --cgroupns=host \
-    -v /mydata/tmp:/tmp \
+    -v $resources_host:/hs-inputs:ro \
+    -v "$data_dir/tmp:/tmp" \
+    -e "HS_RUN_ID=$run_id" -e "HS_KEEP=$KEEP" \
     hs/$benchmark_name \
     ./report/benchmarks/$test_name/run --target "${TARGETS[@]}" "${PASS_ARGS[@]}"
 
@@ -97,4 +132,12 @@ docker run \
 # error, traces) is available regardless of which targets ran.
 docker cp "$container_name:/srv/hs/report/output/$test_name/." "$output_host/"
 
-docker rm "$container_name"
+docker rm "$container_name" >/dev/null
+
+if [[ $KEEP -eq 1 ]]; then
+    echo "kept run scratch (root-owned) in $data_dir/tmp/$run_id:"
+    echo "  pash_spec/      hs per-command scripts, env snapshots, traces, captured outputs,"
+    echo "                  and try sandboxes (overlay upperdirs) of speculated commands"
+    echo "  hs-inputs-cow/  what the benchmark wrote into its inputs"
+    echo "  tmp.*           try mount logs"
+fi

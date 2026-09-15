@@ -42,6 +42,10 @@ Install `hs` on your Linux-based machine by following these steps:
 
 This script will handle all the necessary installations, including dependencies, try, Riker, and PaSh.
 
+To run the benchmarks in docker on a fresh machine (a CloudLab node, say),
+run `./scripts/setup_benchmark_machine.sh` once instead: it installs docker and
+puts inputs, scratch and images on the machine's big disk. See `report/README.md`.
+
 ### Running `hs`
 
 The main entry script to initiate `hs` is the `hs` script. This script sets up the necessary environment, launches the scheduler daemon, preprocesses the input script, and executes it with speculative execution. It accepts a variety of arguments to customize its behavior, such as setting debug levels or specifying log files.

@@ -25,16 +25,11 @@ if [ ! -f ./exodus ]; then
 fi
 
 if [ ! -e ./pg ]; then
-    mkdir pg
-    cd pg
     book_count=120
-
-    head -n $book_count ../book_links.txt | while IFS= read -r line
-    do
-        full_url="https://atlas-group.cs.brown.edu/data/gutenberg/${line}"
-        echo "Downloading $full_url"
-        wget  -q "$full_url"
-    done
+    # 120 small files: fetch them concurrently instead of one wget at a time.
+    head -n $book_count book_links.txt \
+        | sed 's|^|https://atlas-group.cs.brown.edu/data/gutenberg/|' \
+        | "$SPEC_TOP/report/util/fetch_parallel.sh" pg
 fi
 
 # Inflate the files

@@ -86,11 +86,33 @@ def _decompressor(module):
     return normalize
 
 
+def _normalize_bam(path):
+    """Hash a BAM by its alignments and header, minus samtools' @PG audit lines.
+
+    samtools appends an @PG header line recording the exact command it ran,
+    paths included. Two runs writing to different output directories therefore
+    produce BAMs that differ only in that line. Emit the file as SAM text via
+    samtools and drop those lines, so what is hashed is the biological content.
+    Requires samtools on PATH, which any image that produces BAMs has.
+    """
+    import subprocess
+    proc = subprocess.Popen(["samtools", "view", "--no-PG", "-h", str(path)],
+                            stdout=subprocess.PIPE)
+    try:
+        for line in proc.stdout:
+            if not line.startswith(b"@PG\t"):
+                yield line
+    finally:
+        proc.stdout.close()
+        proc.wait()
+
+
 NORMALIZERS = {
     "raw": _normalize_raw,
     "gzip": _decompressor(gzip),
     "bzip2": _decompressor(bz2),
     "xz": _decompressor(lzma),
+    "bam": _normalize_bam,
 }
 
 # Applied when a pattern does not name a normalizer explicitly.
@@ -98,6 +120,7 @@ NORMALIZER_BY_SUFFIX = {
     ".gz": "gzip",
     ".bz2": "bzip2",
     ".xz": "xz",
+    ".bam": "bam",
 }
 
 

@@ -1,0 +1,7 @@
+# Results are the corrected and per-chromosome BAMs. samtools stamps each one
+# with an @PG header line holding its exact command, output path included, so
+# BAMs are compared by content through the bam normaliser (SAM text minus @PG).
+# The .bai indexes are left out on purpose: they encode byte offsets into the
+# compressed BAM, which shift with that header line, so they cannot agree
+# between targets even when the alignments do. The BAM comparison covers them.
+*.bam

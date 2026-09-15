@@ -1,6 +1,24 @@
-#!/bin/bash
+#!/bin/sh
 
-export PASH_SPEC_TOP=${PASH_SPEC_TOP:-$(git rev-parse --show-toplevel --show-superproject-working-tree)}
-export BIODIR="${PASH_SPEC_TOP}/report/benchmarks/bio4"
-export SIZE="large"
-$BIODIR/runner.sh "$@"
+# Base directories
+HS_BASE="$(git rev-parse --show-toplevel)"
+TEST_BASE="$HS_BASE/report/benchmarks/bio4/large"
+TEST_UPPER="$HS_BASE/report"
+BIODIR="$HS_BASE/report/benchmarks/bio4"
+
+# Script to run, unchanged from the original: it takes the sample list as $1
+# (relative to BIODIR) and reads BIODIR, IN and OUT from the environment.
+# OUT is bound per target by the harness through $OUTPUT_DIR.
+SCRIPT_NAME="fxbio4.sh"
+
+# Pass arguments to the global script
+python3 "$TEST_UPPER/run_benchmark.py" \
+    --script_name "$SCRIPT_NAME" \
+    --test_base "$TEST_BASE" \
+    --hs_base "$HS_BASE" \
+    --env_vars \
+        "BIODIR=$BIODIR" \
+        "IN=$HS_BASE/report/resources/bio4" \
+        'OUT=$OUTPUT_DIR' \
+    "$@" \
+    --script-args "large/list"

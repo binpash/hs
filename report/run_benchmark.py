@@ -59,6 +59,37 @@ def cleanup_output_dir(output_base: Path):
     output_base.mkdir(parents=True, exist_ok=True)
 
 
+def bind_output_dir(env: dict, output_dir: Path) -> dict:
+    """Set OUTPUT_DIR for one target and let other env vars refer to it.
+
+    A --env_vars value may contain $OUTPUT_DIR (or ${OUTPUT_DIR}); it is
+    expanded here, per target, so a benchmark script that names its output
+    directory some other way (bio4 reads OUT) can be pointed at the harness's
+    per-target directory without touching the script.
+    """
+    env = dict(env, OUTPUT_DIR=str(output_dir))
+    for key, value in env.items():
+        if '$OUTPUT_DIR' in value or '${OUTPUT_DIR}' in value:
+            env[key] = value.replace('${OUTPUT_DIR}', str(output_dir)) \
+                            .replace('$OUTPUT_DIR', str(output_dir))
+    return env
+
+
+def hash_masked(path: Path, mask: str) -> str:
+    """sha256 of a text stream with every occurrence of `mask` normalised.
+
+    stdout/stderr legitimately mention the output directory, which differs per
+    target by construction, so compare them with that path replaced by a fixed
+    token. Line-by-line, so the file is never held in memory.
+    """
+    import hashlib
+    digest = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for line in f:
+            digest.update(line.replace(mask.encode(), b'$OUTPUT_DIR'))
+    return digest.hexdigest()
+
+
 def artifact(output_base: Path, target: str, name: str) -> Path:
     """Path of a harness artifact for a target -- never inside its OUTPUT_DIR."""
     return output_base / f"{target}_{name}"
@@ -76,7 +107,7 @@ def execute(target: str, cmd: list, output_base: Path, env: dict) -> int:
     """
     output_dir = output_base / target
     output_dir.mkdir(parents=True, exist_ok=True)
-    env = dict(env, OUTPUT_DIR=str(output_dir))
+    env = bind_output_dir(env, output_dir)
 
     cmd = [str(c) for c in cmd]
     print(f"Running {target} command: {' '.join(cmd)}")
@@ -138,7 +169,7 @@ def strace_command(test_base: Path, script_name: str, script_args: list,
 def record_hashes(target: str, output_base: Path, manifest, env: dict) -> list:
     """Digest the target's output files and save the per-file listing."""
     output_dir = output_base / target
-    env = dict(env, OUTPUT_DIR=str(output_dir))
+    env = bind_output_dir(env, output_dir)
     lines = output_manifest.hash_outputs(output_dir, manifest, env)
     artifact(output_base, target, 'hashes').write_text(
         "".join(line + "\n" for line in lines))
@@ -163,11 +194,13 @@ def compare_outputs(output_base: Path, manifest, env: dict):
     # stdout and stderr are program output too. hs keeps its own logs off both,
     # so any difference here is a real difference in what the script printed.
     # Digested by streaming rather than read into memory: these files are as
-    # large as the benchmark's output.
+    # large as the benchmark's output. Each target's own output directory is
+    # masked first, since a script that prints where it wrote is not wrong.
     for stream in ('stdout', 'stderr'):
         sh_path = artifact(output_base, 'sh', stream)
         hs_path = artifact(output_base, 'hs', stream)
-        if output_manifest.hash_file(sh_path) != output_manifest.hash_file(hs_path):
+        if hash_masked(sh_path, str(output_base / 'sh')) != \
+           hash_masked(hs_path, str(output_base / 'hs')):
             messages.append(
                 f"{stream} differs: sh {sh_path.stat().st_size} bytes,"
                 f" hs {hs_path.stat().st_size} bytes"

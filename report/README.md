@@ -102,7 +102,18 @@ archive/*.gz => gzip
 Patterns resolve against the run's output directory unless they are absolute
 after environment-variable expansion, which is how a benchmark that writes
 outside `OUTPUT_DIR` names its results. Normalizers are `raw` (the default),
-`gzip`, `bzip2` and `xz`; `.gz`, `.bz2` and `.xz` pick theirs automatically.
+`gzip`, `bzip2`, `xz` and `bam`; `.gz`, `.bz2`, `.xz` and `.bam` pick theirs
+automatically. `bam` hashes a BAM as SAM text minus its `@PG` lines, because
+samtools records its full command line -- output path included -- in one; it
+needs `samtools` on `PATH`, which any image producing BAMs has.
+
+Two accommodations let a script be benchmarked *unmodified* even though the
+harness gives each target its own output directory:
+
+- A `--env_vars` value may contain `$OUTPUT_DIR`; it is expanded per target.
+  bio4's `fxbio4.sh` reads `OUT`, so its runner passes `'OUT=$OUTPUT_DIR'`.
+- stdout and stderr are compared with each target's own output directory
+  masked, so a script that prints where it wrote is not reported as differing.
 
 Lookup order is `<test>/outputs`, then `<suite>/outputs` (shared by every test
 in the suite), then the built-in default `**/*`. Most benchmarks need no

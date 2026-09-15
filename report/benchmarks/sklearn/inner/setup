@@ -9,5 +9,5 @@ mkdir -p "$PASH_SPEC_TOP/report/resources/sklearn"
 mkdir -p "$PASH_SPEC_TOP/report/output/sklearn/sh"
 mkdir -p "$PASH_SPEC_TOP/report/output/sklearn/hs"
 
-source /srv/hs/.venv/bin/activate
-pip install -r requirements.txt
+# The Python packages are installed into hs's venv by the image build (see the
+# Dockerfile). This suite generates its data at run time: nothing to download.

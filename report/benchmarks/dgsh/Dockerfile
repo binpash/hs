@@ -1,4 +1,8 @@
-from hs
+# hs/dgsh: the base image plus the libraries FFmpeg's configure needs. No
+# input data: ./setup downloads the datasets and clones + builds FFmpeg onto
+# the host (inside this image, so those libraries are present), and run_base
+# mounts the result read-only at run time.
+FROM hs
 
 WORKDIR /srv/hs
 RUN sed -i -e's/ main/ main contrib non-free/g' /etc/apt/sources.list.d/debian.sources
@@ -12,20 +16,3 @@ RUN apt install -y unzip \
   gawk
 RUN mkdir -p report/benchmarks
 COPY ./inner report/benchmarks/dgsh
-RUN ./report/benchmarks/dgsh/setup
-
-# Ista
-
-WORKDIR /srv/hs/report/resources/dgsh
-RUN /bin/bash -c 'cd FFmpeg; ./configure --enable-gpl --enable-nonfree --enable-libx264 \
-    --enable-libx265 \
-    --enable-libvpx \
-    --enable-libfdk-aac \
-    --enable-libopus \
-    --enable-libass \
-    --enable-libfreetype \
-    --enable-libmp3lame \
-    --enable-libxvid \
-    --enable-libvorbis \
-    --enable-libtheora; make -j$(nproc)'
-WORKDIR /srv/hs/

@@ -16,10 +16,8 @@ mkdir -p "$download_dir_medium"
 
 IN_ROOT=${IN_ROOT:-'https://atlas-group.cs.brown.edu/data/web-logs/world-cup'}
 
-wget "${IN_ROOT}/WorldCup_tools.tar" -P "${benchmark_dir}"
-tar -xf "$benchmark_dir/WorldCup_tools.tar" -C "$benchmark_dir" && rm "$benchmark_dir/WorldCup_tools.tar"
-
-( cd "${benchmark_dir}/ita_public_tools" && make && cp "$ita_public_tools_dir/bin/recreate" "$benchmark_dir" && cp "$ita_public_tools_dir/state/object_mappings.sort" "$benchmark_dir")
+# The ITA `recreate` tool and its object_mappings.sort are built into the
+# hs/log-analysis image (see the Dockerfile); this script only fetches inputs.
 
 # Read each line from links.txt and download the file
 # The remote directory is flat (102 files). List it once and fetch the files

@@ -5,7 +5,7 @@ scripts/vars.sh
 *~
 \#*\#
 .\#*
-report/resources/
+report/resources
 report/output/
 test/output_bash/
 test/output_orch/

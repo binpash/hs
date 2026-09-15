@@ -11,7 +11,6 @@ mkdir -p "$download_dir"
 # worth, which is what the Dockerfile's BIO4_INPUT_LIST build arg feeds in.
 INPUT_LIST="input_full.txt"
 
-sudo apt install -y samtools time aria2
 
 download_bam_files() {
     local input_file=$1

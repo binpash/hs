@@ -69,6 +69,15 @@ fi
 if [[ ! -d FFmpeg ]]; then
     git clone https://github.com/FFmpeg/FFmpeg.git
 fi
+# The scripts read a *built* FFmpeg tree. Build it once, here, into the host
+# copy; the libraries configure needs are in the hs/dgsh image, which is where
+# ./setup runs this.
+if [[ ! -x FFmpeg/ffmpeg ]]; then
+    ( cd FFmpeg && ./configure --enable-gpl --enable-nonfree --enable-libx264 \
+        --enable-libx265 --enable-libvpx --enable-libfdk-aac --enable-libopus \
+        --enable-libass --enable-libfreetype --enable-libmp3lame --enable-libxvid \
+        --enable-libvorbis --enable-libtheora && make -j"$(nproc)" )
+fi
 
 # pushd $benchmark_dir/9
 # docker build . -t hs_benchmark_ffmpeg_build

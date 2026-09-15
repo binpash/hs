@@ -11,7 +11,7 @@ mkdir -p "$PASH_SPEC_TOP/report/resources/sklearn_large"
 mkdir -p "$PASH_SPEC_TOP/report/output/sklearn_large/sh"
 mkdir -p "$PASH_SPEC_TOP/report/output/sklearn_large/hs"
 
-source /srv/hs/.venv/bin/activate
-pip install -r requirements.txt
+# The Python packages are installed into hs's venv by the image build (see the
+# Dockerfile). This suite generates its data at run time: nothing to download.
 
 /usr/bin/env python3 -c "from sklearn.datasets import fetch_kddcup99; fetch_kddcup99(data_home=\"$resource_dir\", percent10=False, download_if_missing=True)"

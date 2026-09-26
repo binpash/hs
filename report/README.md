@@ -86,7 +86,7 @@ images alone fill it.
 Each run gets its own subdirectory of that `tmp/`, removed when the container
 exits. `run --keep` leaves it in place and prints the path; it then holds
 `pash_spec/` (hs's per-command scripts, env snapshots, traces, captured
-outputs), `hs-sandbox/` (try's sandboxes, copied off the tmpfs), and
+outputs, and on this branch try's sandboxes too), and
 `hs-inputs-cow/` (what the benchmark wrote into its inputs). Outputs and logs
 are always copied to `report/output/<test>` regardless.
 

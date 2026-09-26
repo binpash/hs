@@ -31,6 +31,7 @@ from pathlib import Path
 from subprocess import run
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import fstrace_ctl
 import output_manifest
 
 TARGETS = ['sh', 'hs', 'strace', 'fstrace']
@@ -177,15 +178,6 @@ def fstrace_command(test_base: Path, script_name: str, script_args: list,
             '--', '/bin/sh', test_base / script_name] + script_args
 
 
-def install_fstrace() -> bool:
-    try:
-        run(['fstrace', 'install'], check=False)
-        return True
-    except FileNotFoundError:
-        print("Error: fstrace not found on PATH. Rebuild Docker images to include fstrace.")
-        return False
-
-
 def record_hashes(target: str, output_base: Path, manifest, env: dict) -> list:
     """Digest the target's output files and save the per-file listing."""
     output_dir = output_base / target
@@ -288,16 +280,28 @@ def main():
         elif target == 'strace':
             cmd = strace_command(test_base, script_name, script_args, output_base)
         else:
-            if not install_fstrace():
-                artifact(output_base, 'fstrace', 'time').write_text('0\n')
-                continue
             cmd = fstrace_command(test_base, script_name, script_args, output_base)
 
+        # fstrace's eBPF programs are attached only while a tracing target
+        # runs, and loaded and removed outside its timed region (fstrace_ctl).
+        traced = target in ('hs', 'fstrace')
+        target_env = env
+        if traced:
+            if not fstrace_ctl.load():
+                artifact(output_base, target, 'time').write_text('0\n')
+                continue
+            target_env = {**env, **fstrace_ctl.PRELOADED_ENV}
+        else:
+            fstrace_ctl.unload()
+
         try:
-            execute(target, cmd, output_base, env)
+            execute(target, cmd, output_base, target_env)
         except FileNotFoundError as e:
             print(f"Error: cannot run {target}: {e}")
             artifact(output_base, target, 'time').write_text('0\n')
+        finally:
+            if traced:
+                fstrace_ctl.unload()
 
     if 'sh' in targets and 'hs' in targets:
         compare_outputs(output_base, manifest, env)

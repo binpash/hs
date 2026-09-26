@@ -518,9 +518,11 @@ server_args+=("--log-fd" "$HS_SCHEDULER_LOG_FD")
 ## already pinned under /sys/fs/bpf/fstrace, and a stale pin from an older
 ## build would win silently (new programs attached, tracer reading the old
 ## maps, not one event recorded). Only root can do this; otherwise whatever
-## the user installed is used as-is and left alone.
+## the user installed is used as-is and left alone. The benchmark harness
+## loads them itself, outside the time it measures, and sets
+## HS_FSTRACE_PRELOADED=1 so this run does not pay for loading them.
 hs_fstrace_installed=0
-if [ "$(id -u)" = 0 ] && command -v fstrace >/dev/null; then
+if [ "${HS_FSTRACE_PRELOADED:-0}" != 1 ] && [ "$(id -u)" = 0 ] && command -v fstrace >/dev/null; then
     fstrace uninstall >&"$HS_INTERNAL_LOG_FD" 2>&"$HS_INTERNAL_LOG_FD"
     if fstrace install >&"$HS_INTERNAL_LOG_FD" 2>&"$HS_INTERNAL_LOG_FD"; then
         hs_fstrace_installed=1

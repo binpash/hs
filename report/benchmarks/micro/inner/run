@@ -5,6 +5,9 @@ from pathlib import Path
 import os
 import time
 from subprocess import run, PIPE
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+import fstrace_ctl
 
 parser = argparse.ArgumentParser(description="Run benchmark")
 parser = argparse.ArgumentParser(description="Run benchmark")
@@ -44,7 +47,7 @@ def do_hs_run(test_base: Path, script_name: str, output_base: Path, hs_base: Pat
     print(f'Running {cmd}')
     before = time.time()
     with open(out_dir / "hs_stderr", 'wb') as errf:
-        result = run(cmd, stdout=PIPE, stderr=errf, env=env)
+        result = run(cmd, stdout=PIPE, stderr=errf, env={**env, **fstrace_ctl.PRELOADED_ENV})
     duration = time.time() - before
     with open(output_base / f"{Path(script_name).stem}" / "hs_time", 'w') as f:
         f.write(f'{duration}\n')
@@ -65,7 +68,6 @@ def do_strace_run(test_base: Path, script_name: str, output_base: Path, env: dic
 
 def do_fstrace_run(test_base: Path, script_name: str, output_base: Path, env: dict):
     out_dir = output_base / Path(script_name).stem
-    run(['fstrace', 'install'], check=False)
     cmd = ['fstrace', '--', '/bin/sh', str(test_base / 'scripts' / script_name)]
     print(f'Running {cmd}')
     before = time.time()
@@ -102,14 +104,27 @@ if __name__ == '__main__':
     run_fstrace = 'fstrace' in target
 
     (output_base / f"{Path(script_name).stem}").mkdir(exist_ok=True, parents=True)
+    # fstrace's eBPF programs are attached only while hs or fstrace runs, and
+    # loaded and removed outside the timed region (see report/fstrace_ctl.py).
     if run_sh:
+        fstrace_ctl.unload()
         output_sh = do_sh_run(test_base, script_name, output_base, env)
     if run_hs:
-        output_hs = do_hs_run(test_base, script_name, output_base, hs_base, args.window, env, args.log == 'enable')
+        if fstrace_ctl.load():
+            try:
+                output_hs = do_hs_run(test_base, script_name, output_base, hs_base, args.window, env, args.log == 'enable')
+            finally:
+                fstrace_ctl.unload()
+        else:
+            run_hs = False
     if run_strace:
+        fstrace_ctl.unload()
         do_strace_run(test_base, script_name, output_base, env)
-    if run_fstrace:
-        do_fstrace_run(test_base, script_name, output_base, env)
+    if run_fstrace and fstrace_ctl.load():
+        try:
+            do_fstrace_run(test_base, script_name, output_base, env)
+        finally:
+            fstrace_ctl.unload()
     if run_sh and run_hs:
         with open(output_base / f"{Path(script_name).stem}" / "error", 'w') as errf:
             # print(output_sh[:100])

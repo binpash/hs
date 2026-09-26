@@ -11,7 +11,7 @@ mkdir -p "$download_dir"
 
 # Base URL for downloading the tar file
 IN=${IN:-'https://atlas-group.cs.brown.edu/data/noaa/'}
-fetch=${fetch:-"curl -s -k -C -"}
+fetch=${fetch:-"curl -k -C - --progress-bar --fail"}
 
 # Function to fetch data for a specified year range
 fetch_data_range() {

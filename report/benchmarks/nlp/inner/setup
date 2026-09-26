@@ -7,7 +7,7 @@ mkdir -p $RESOURCE_DIR
 cd $RESOURCE_DIR
 
 if [ ! -f ./book_links.txt ]; then
-    wget  -O book_links.txt "https://atlas-group.cs.brown.edu/data/gutenberg/books.txt"
+    wget -q --show-progress --progress=bar:force:noscroll -O book_links.txt "https://atlas-group.cs.brown.edu/data/gutenberg/books.txt"
     if [ ! -f book_links.txt ]; then
         echo "Failed to download book_links.txt"
         exit 1
@@ -15,11 +15,11 @@ if [ ! -f ./book_links.txt ]; then
 fi
 
 if [ ! -f ./genesis ]; then
-    wget  -O genesis "https://atlas-group.cs.brown.edu/data/gutenberg/8/0/0/8001/8001.txt"
+    wget -q --show-progress --progress=bar:force:noscroll -O genesis "https://atlas-group.cs.brown.edu/data/gutenberg/8/0/0/8001/8001.txt"
 fi 
 
 if [ ! -f ./exodus ]; then
-    wget  -O exodus "https://atlas-group.cs.brown.edu/data/gutenberg/3/3/4/2/33420/33420-0.txt"
+    wget -q --show-progress --progress=bar:force:noscroll -O exodus "https://atlas-group.cs.brown.edu/data/gutenberg/3/3/4/2/33420/33420-0.txt"
 fi
 
 if [ ! -e ./pg ]; then

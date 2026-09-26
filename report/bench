@@ -1,0 +1,239 @@
+#!/bin/bash
+#
+# One entry point for the benchmark suites: pick what to set up and run by
+# name, from the checkout this script lives in.
+#
+#   bench list [SEL...]                       what can be selected
+#   bench setup [--local] SEL...              build images, download inputs
+#   bench run [--local] [--no-build] [--target T...] [-f FILE] [SEL...] [-- ARGS]
+#
+# SEL picks benchmarks: a suite (every size: `nlp`), one size (`max_temp/tiny`),
+# or a glob over sizes (`'dgsh/*-10x'`, quoted so the shell leaves it alone).
+# -f FILE reads more selectors from a file, one or more per line, # comments
+# allowed.
+#
+# setup runs each chosen suite's ./setup once, and downloads only what the
+# chosen sizes need where a suite can tell them apart: max_temp fetches the
+# decades behind the chosen sizes, bio4 the BAM lists of the chosen sizes.
+# Every other suite's setup fetches all of its inputs. Downloads are shared by
+# every checkout on the machine (report/hs_data_dir), so setting up from one
+# checkout serves the other.
+#
+# run first rebuilds `hs` and the chosen suites' `hs/<suite>` images from THIS
+# checkout, since checkouts of different branches build the same image names
+# and would otherwise run each other's code (--no-build skips it). Then it runs
+# each benchmark (default --target sh hs; ARGS after -- go to every run) and
+# prints one line per benchmark: sh and hs time, speedup, and whether the
+# outputs matched. The table is also saved to report/output/bench_summary.tsv.
+
+set -u
+
+report_dir=$(dirname "$(realpath -s "$0")")
+bench_dir="$report_dir/benchmarks"
+repo_root=$(dirname "$report_dir")
+
+die() { echo "bench: $*" >&2; exit 1; }
+
+usage() {
+    sed -n '3,27p' "$0" | sed 's/^# \{0,1\}//'
+    exit "${1:-0}"
+}
+
+# Suites that go through the shared setup_base/run_base; the rest (teraseq,
+# riker, the archived ones) are bespoke.
+suites() {
+    local s
+    for s in "$bench_dir"/*/; do
+        s=$(basename "$s")
+        [ "$(readlink "$bench_dir/$s/setup")" = ../../setup_base ] && echo "$s"
+    done
+}
+
+# Every runnable benchmark of a suite: `suite` for a single-level suite
+# (sklearn), else `suite/size` for each size directory with a ./run.
+benchmarks_of() {
+    local suite=$1 d
+    if [ -e "$bench_dir/$suite/run" ]; then echo "$suite"; return; fi
+    for d in "$bench_dir/$suite"/*/; do
+        d=$(basename "$d")
+        [ "$d" = inner ] && continue
+        [ -e "$bench_dir/$suite/$d/run" ] && echo "$suite/$d"
+    done | sort -V
+}
+
+# Expand selectors into benchmarks, in the order given, without duplicates.
+expand() {
+    local sel suite pat b found
+    declare -A seen=()
+    for sel in "$@"; do
+        sel=${sel%/}
+        suite=${sel%%/*}
+        [ -d "$bench_dir/$suite" ] && [ -e "$bench_dir/$suite/setup" ] || \
+            die "unknown suite '$suite' in '$sel' (see: bench list)"
+        found=0
+        while read -r b; do
+            [ -n "$b" ] || continue
+            if [ "$sel" != "$suite" ]; then
+                pat=${sel#*/}
+                # shellcheck disable=SC2053
+                [[ ${b#*/} == $pat ]] || continue
+            fi
+            found=1
+            [ -n "${seen[$b]:-}" ] && continue
+            seen[$b]=1
+            echo "$b"
+        done < <(benchmarks_of "$suite")
+        [ "$found" = 1 ] || die "'$sel' matches no benchmark (see: bench list $suite)"
+    done
+}
+
+read_file() {
+    [ -r "$1" ] || die "cannot read $1"
+    sed 's/#.*//' "$1" | tr -s ' \t' '\n\n' | sed '/^$/d'
+}
+
+cmd_list() {
+    if [ $# -eq 0 ]; then set -- $(suites); fi
+    expand "$@" | awk -F/ '
+        !($1 in sizes) { order[++n] = $1; sizes[$1] = "" }
+        { sizes[$1] = sizes[$1] " " (NF > 1 ? $2 : "(single)") }
+        END { for (i = 1; i <= n; i++) printf "%-28s%s\n", order[i], sizes[order[i]] }'
+}
+
+# max_temp size -> the decade its inputs come from.
+max_temp_range() {
+    case $1 in
+        tiny) echo 1930_1939 ;; small) echo 1960_1969 ;;
+        medium) echo 1980_1989 ;; large) echo 2000_2009 ;;
+    esac
+}
+
+cmd_setup() {
+    local local_flag=() sels=() b suite size failed=()
+    while [ $# -gt 0 ]; do
+        case $1 in
+            --local) local_flag=(--local) ;;
+            -f) shift; mapfile -t -O "${#sels[@]}" sels < <(read_file "${1:?-f needs a file}") ;;
+            -h|--help) usage ;;
+            *) sels+=("$1") ;;
+        esac
+        shift
+    done
+    [ ${#sels[@]} -gt 0 ] || die "setup: say what to set up (see: bench list)"
+
+    local benches
+    benches=$(expand "${sels[@]}") || exit 1
+    for suite in $(echo "$benches" | cut -d/ -f1 | awk '!seen[$0]++'); do
+        local sizes
+        sizes=$(echo "$benches" | awk -F/ -v s="$suite" '$1 == s && NF > 1 { print $2 }')
+        echo ">>> setup $suite${sizes:+ ($(echo $sizes))}"
+        case $suite in
+            max_temp)
+                local ranges=()
+                for size in $sizes; do ranges+=("$(max_temp_range "$size")"); done
+                (cd "$bench_dir/$suite" && ./setup "${local_flag[@]}" "${ranges[@]}") || failed+=("$suite")
+                ;;
+            bio4)
+                for size in $sizes; do
+                    (cd "$bench_dir/$suite" && ./setup "${local_flag[@]}" -i "$size/list") || failed+=("$suite/$size")
+                done
+                ;;
+            *)
+                (cd "$bench_dir/$suite" && ./setup "${local_flag[@]}") || failed+=("$suite")
+                ;;
+        esac
+    done
+    if [ ${#failed[@]} -gt 0 ]; then
+        echo "bench: setup FAILED for: ${failed[*]}" >&2
+        exit 1
+    fi
+}
+
+read_time() { [ -s "$1" ] && awk '{ printf "%.2f", $1; exit }' "$1" || echo -; }
+
+cmd_run() {
+    local local_flag=() build=1 targets=() sels=() pass=()
+    while [ $# -gt 0 ]; do
+        case $1 in
+            --local) local_flag=(--local); build=0 ;;
+            --no-build) build=0 ;;
+            --target)
+                shift
+                while [ $# -gt 0 ] && [[ $1 != -* ]] && [[ $1 =~ ^(sh|hs|strace|fstrace|all)$ ]]; do
+                    targets+=("$1"); shift
+                done
+                continue ;;
+            -f) shift; mapfile -t -O "${#sels[@]}" sels < <(read_file "${1:?-f needs a file}") ;;
+            --) shift; pass=("$@"); break ;;
+            -h|--help) usage ;;
+            *) sels+=("$1") ;;
+        esac
+        shift
+    done
+    [ ${#sels[@]} -gt 0 ] || die "run: say what to run (see: bench list)"
+    [ ${#targets[@]} -gt 0 ] || targets=(sh hs)
+
+    local benches b suite
+    benches=$(expand "${sels[@]}") || exit 1
+
+    if [ "$build" = 1 ]; then
+        echo ">>> building hs from $repo_root"
+        docker build -q -t hs "$repo_root" >/dev/null || die "building hs failed"
+        for suite in $(echo "$benches" | cut -d/ -f1 | awk '!seen[$0]++'); do
+            echo ">>> building hs/$suite"
+            docker build -q -t "hs/$suite" "$bench_dir/$suite" >/dev/null || die "building hs/$suite failed"
+        done
+    fi
+
+    local branch summary out result sh hs speed n=0 failures=0
+    branch=$(git -C "$repo_root" rev-parse --abbrev-ref HEAD 2>/dev/null)@$(git -C "$repo_root" rev-parse --short HEAD 2>/dev/null)
+    mkdir -p "$report_dir/output"
+    summary="$report_dir/output/bench_summary.tsv"
+    printf 'benchmark\tsh_s\ths_s\tspeedup\tresult\n' > "$summary"
+    local total
+    total=$(echo "$benches" | wc -l)
+
+    for b in $benches; do
+        n=$((n + 1))
+        out="$report_dir/output/$b"
+        # Results are copied over whatever an earlier run left; clear it so a
+        # target that did not run cannot report a stale time.
+        rm -rf "$out"
+        echo ">>> [$n/$total] $b"
+        if [ "$b" = "${b%/*}" ]; then
+            (cd "$bench_dir/$b" && ./run "${local_flag[@]}" --target "${targets[@]}" "${pass[@]}")
+        else
+            (cd "$bench_dir/${b%%/*}" && "./${b#*/}/run" "${local_flag[@]}" --target "${targets[@]}" "${pass[@]}")
+        fi
+        local rc=$?
+        sh=$(read_time "$out/sh_time"); hs=$(read_time "$out/hs_time")
+        speed=-
+        if [ "$sh" != - ] && [ "$hs" != - ]; then
+            speed=$(awk -v a="$sh" -v b="$hs" 'BEGIN { if (b > 0) printf "%.2fx", a / b; else print "-" }')
+        fi
+        if [ -f "$out/error" ]; then
+            [ -s "$out/error" ] && result=FAIL || result=PASS
+        elif [ $rc -ne 0 ]; then
+            result="ERROR(exit $rc)"
+        else
+            result=-
+        fi
+        [[ $result == PASS || $result == - ]] || failures=$((failures + 1))
+        printf '%s\t%s\t%s\t%s\t%s\n' "$b" "$sh" "$hs" "$speed" "$result" >> "$summary"
+    done
+
+    echo
+    echo "=== $branch  ($summary)"
+    column -t -s $'\t' "$summary"
+    [ "$failures" -eq 0 ] || { echo "$failures benchmark(s) failed; see report/output/<benchmark>/error"; exit 1; }
+}
+
+[ $# -gt 0 ] || usage 1
+cmd=$1; shift
+case $cmd in
+    list) cmd_list "$@" ;;
+    setup) cmd_setup "$@" ;;
+    run) cmd_run "$@" ;;
+    -h|--help|help) usage ;;
+    *) echo "bench: unknown command '$cmd'" >&2; usage 1 ;;
+esac

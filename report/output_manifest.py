@@ -44,6 +44,7 @@ import hashlib
 import lzma
 import os
 import re
+import sys
 from pathlib import Path
 
 MANIFEST_NAME = "outputs"
@@ -53,6 +54,10 @@ DEFAULT_PATTERN = "**/*"
 # run did not produce. Comparing listings then reports it as a difference
 # instead of silently ignoring it.
 MISSING = "MISSING" + "-" * 57
+# A file that exists but its normalizer could not read (an empty or truncated
+# BAM, a corrupt gzip). Two such files must never compare equal: a run that
+# produced garbage on both sides is a failure, not a match.
+UNREADABLE = "UNREADABLE" + "-" * 54
 
 _ENV_VAR = re.compile(r"\$(\w+)|\$\{(\w+)\}")
 _NORMALIZER_SEP = "=>"
@@ -97,14 +102,22 @@ def _normalize_bam(path):
     """
     import subprocess
     proc = subprocess.Popen(["samtools", "view", "--no-PG", "-h", str(path)],
-                            stdout=subprocess.PIPE)
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
         for line in proc.stdout:
             if not line.startswith(b"@PG\t"):
                 yield line
     finally:
         proc.stdout.close()
+        err = proc.stderr.read().decode(errors="replace").strip()
+        proc.stderr.close()
         proc.wait()
+    if proc.returncode != 0:
+        raise UnreadableError(err.splitlines()[-1] if err else f"samtools exited {proc.returncode}")
+
+
+class UnreadableError(Exception):
+    """A normalizer could not make sense of an existing file."""
 
 
 NORMALIZERS = {
@@ -235,6 +248,9 @@ def hash_file(path, normalizer="raw"):
             digest.update(chunk)
     except FileNotFoundError:
         return MISSING
+    except (UnreadableError, OSError, EOFError) as e:
+        print(f"unreadable {normalizer} file {path}: {e}", file=sys.stderr)
+        return UNREADABLE
     return digest.hexdigest()
 
 
@@ -280,6 +296,10 @@ def compare(sh_lines, hs_lines, sh_name="sh", hs_name="hs"):
     for label in sorted(set(hs) - set(sh)):
         messages.append(f"only {hs_name} produced it: {label}")
     for label in sorted(set(sh) & set(hs)):
+        if sh[label] == UNREADABLE or hs[label] == UNREADABLE:
+            bad = [n for n, d in ((sh_name, sh[label]), (hs_name, hs[label])) if d == UNREADABLE]
+            messages.append(f"unreadable in {' and '.join(bad)}: {label}")
+            continue
         if sh[label] == hs[label]:
             continue
         if sh[label] == MISSING or hs[label] == MISSING:

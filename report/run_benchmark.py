@@ -8,6 +8,7 @@ Output layout, per test:
     output/<test>/<target>_stderr    ... and to stderr
     output/<test>/<target>_time      wall clock seconds
     output/<test>/<target>_hashes    digest per output file (see output_manifest)
+    output/<test>/<target>_status    the run's exit status
     output/<test>/hs_log             hs's own log
     output/<test>/hs_internal_log    stdout/stderr of hs's internal tooling
     output/<test>/strace_log         the strace trace of the sh run
@@ -120,6 +121,7 @@ def execute(target: str, cmd: list, output_base: Path, env: dict) -> int:
 
     artifact(output_base, target, 'time').write_text(f'{duration}\n')
 
+    artifact(output_base, target, 'status').write_text(f'{result.returncode}\n')
     if result.returncode != 0:
         print(f"Warning: {target} run exited with {result.returncode}")
     return result.returncode
@@ -181,6 +183,15 @@ def compare_outputs(output_base: Path, manifest, env: dict):
     error_file = output_base / 'error'
     messages = []
 
+    # A run that did not exit 0 is not a baseline, whatever it left behind:
+    # matching outputs from two broken runs (bio4 with unreadable inputs wrote
+    # 66 empty BAMs on each side) are not a pass.
+    for target in ('sh', 'hs'):
+        status = artifact(output_base, target, 'status').read_text().strip()
+        if status != '0':
+            messages.append(f"{target} run exited with status {status}"
+                            f" (see {artifact(output_base, target, 'stderr').name})")
+
     sh_hashes = record_hashes('sh', output_base, manifest, env)
     hs_hashes = record_hashes('hs', output_base, manifest, env)
 
@@ -208,7 +219,7 @@ def compare_outputs(output_base: Path, manifest, env: dict):
 
     if messages:
         error_file.write_text("\n".join(messages) + "\n")
-        print("FAIL: Outputs differ")
+        print("FAIL:")
         for message in messages:
             print(f"  {message}")
     else:

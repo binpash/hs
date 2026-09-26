@@ -105,7 +105,7 @@ fi
 # see them, and copied back afterwards.
 data_dir=$("$benchmark_root/../hs_data_dir")
 resources_host="$data_dir/resources"
-if [ ! -d "$resources_host/$benchmark_name" ]; then
+if [ ! -d "$resources_host/$benchmark_name" ] || [ -z "$(ls -A "$resources_host/$benchmark_name")" ]; then
     echo "Error: no inputs at $resources_host/$benchmark_name -- run ./setup first" >&2
     exit 1
 fi

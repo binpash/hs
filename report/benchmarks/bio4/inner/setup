@@ -15,14 +15,22 @@ INPUT_LIST="input_full.txt"
 download_bam_files() {
     local input_file=$1
     while IFS='-' read -r pop sample link; do
-        if [[ ! -f "$download_dir/$sample.bam" ]]; then
+        # aria2c keeps a $sample.bam.aria2 control file until the download
+        # is complete, so a file that was interrupted (Ctrl-C, a stall that
+        # outlasted the retries) is not "already there": -c resumes it.
+        if [[ ! -f "$download_dir/$sample.bam" || -f "$download_dir/$sample.bam.aria2" ]]; then
             echo "Downloading $sample..."
             # EBI caps each connection at ~0.4 MB/s but serves byte ranges, so
             # split every file across 16 connections: measured 7.3 MB/s against
             # 0.4 for a single wget. -c resumes a partial file; the retry flags
             # ride out the mid-transfer stalls that used to hang a build.
-            aria2c -q -x16 -s16 -k1M -c --max-tries=5 --retry-wait=5 \
-                --file-allocation=none -d "$download_dir" -o "$sample.bam" "$link"
+            # Not -q: a failed download must say why, and stop the setup.
+            if ! aria2c --console-log-level=warn --summary-interval=0 \
+                -x16 -s16 -k1M -c --max-tries=5 --retry-wait=5 \
+                --file-allocation=none -d "$download_dir" -o "$sample.bam" "$link"; then
+                echo "Error: downloading $sample from $link failed" >&2
+                exit 1
+            fi
         else
             echo "File $sample.bam already exists, skipping download."
         fi

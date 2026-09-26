@@ -3,5 +3,5 @@ OUTPUT=${OUTPUT:-.}
 touch "$OUTPUT"/giant
 hs_base=$(git rev-parse --show-toplevel)
 
-SCRIPTS="${hs_base}/report/benchmarks/micro/scripts"
+SCRIPTS=${SCRIPTS:-$(dirname "$0")}
 "$hs_base/deps/try/try" -y python3 "$SCRIPTS"/giant_file.py "$OUTPUT"/giant 100

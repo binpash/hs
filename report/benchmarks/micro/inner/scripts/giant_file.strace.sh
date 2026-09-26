@@ -19,7 +19,7 @@ PARSE="python3 $hs_base/scheduler/trace_v2.py"
 
 OUTPUT=${OUTPUT:-.}
 hs_base=$(git rev-parse --show-toplevel)
-SCRIPTS="${hs_base}/report/benchmarks/micro/scripts"
+SCRIPTS=${SCRIPTS:-$(dirname "$0")}
 touch "$OUTPUT"/giant
 logfile=$(generate_unique_file)
 strace -y -f  --seccomp-bpf --trace=fork,clone,%file -o $logfile env -i python3 "$SCRIPTS"/giant_file.py "$OUTPUT"/giant 100

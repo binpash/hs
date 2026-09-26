@@ -1,7 +1,7 @@
 #! /bin/sh
 OUTPUT=${OUTPUT:-.}
 hs_base=$(git rev-parse --show-toplevel)
-SCRIPTS="${hs_base}/report/benchmarks/micro/scripts"
+SCRIPTS=${SCRIPTS:-$(dirname "$0")}
 generate_unique_file() {
     local dir="$OUTPUT_DIR"
     local prefix="strace_log"

@@ -33,6 +33,22 @@ The benchmark runner's command-line interface includes options for controlling t
 - `--verbose`: Enables verbose output, providing detailed logs of the benchmarking process.
 - `--full-gantt`: Generate a full Gantt chart for each benchmark.
 
+## Picking benchmarks: `report/bench`
+
+```
+report/bench list                                   # every suite and size
+report/bench setup max_temp/tiny bio4/small nlp     # images + only the inputs those sizes need
+report/bench run max_temp/tiny 'dgsh/*-10x' nlp     # rebuild this checkout's images, run sh+hs, print a table
+report/bench run -f my_list -- --window 8           # selectors from a file; args after -- go to every run
+```
+
+A selector is a suite (all its sizes), `suite/size`, or a quoted glob over
+sizes. `run` rebuilds `hs` and the suites' images from the checkout it lives
+in first, because every checkout builds the same image names (`--no-build`
+skips that). It prints sh time, hs time, speedup and PASS/FAIL per benchmark
+and saves the table to `report/output/bench_summary.tsv`. It drives the same
+`./setup` and `./<size>/run` described next.
+
 ## Running a benchmark: two commands
 
 ```

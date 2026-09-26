@@ -159,7 +159,7 @@ cmd_run() {
             --no-build) build=0 ;;
             --target)
                 shift
-                while [ $# -gt 0 ] && [[ $1 != -* ]] && [[ $1 =~ ^(sh|hs|strace|fstrace|all)$ ]]; do
+                while [ $# -gt 0 ] && [[ $1 != -* ]] && [[ $1 =~ ^(sh|hs|strace|all)$ ]]; do
                     targets+=("$1"); shift
                 done
                 continue ;;

@@ -2,22 +2,29 @@
 base=$(dirname $0)
 source ${base}/.venv/bin/activate
 
+## Everything below up to the exec needs CAP_SYS_ADMIN (run_base passes
+## --privileged). setup_base and other plain docker runs do not have it and
+## do not need fstrace or sandboxes, so detect that once, quietly, and skip:
+## a bare tmpfs mount is the cheapest probe.
+privileged=1
+mkdir -p /hs-sandbox
+if ! mountpoint -q /hs-sandbox && ! mount -t tmpfs -o mode=1777 tmpfs /hs-sandbox 2>/dev/null; then
+    privileged=0
+fi
+
+if [ "$privileged" = 1 ]; then
 ## Docker gives the container a fresh sysfs with neither bpffs nor tracefs
 ## mounted, and fstrace needs both: /sys/fs/bpf to pin its programs and maps,
 ## and /sys/kernel/tracing for tracepoint attachment. Mount them ourselves
-## (needs --privileged, which the benchmark harness already uses) instead of
-## assuming the host or runtime did it.
+## instead of assuming the host or runtime did it.
 mountpoint -q /sys/fs/bpf || mount -t bpf bpf /sys/fs/bpf || \
     echo "entrypoint: failed to mount bpffs on /sys/fs/bpf; fstrace will not work" >&2
 mountpoint -q /sys/kernel/tracing || mount -t tracefs tracefs /sys/kernel/tracing || \
     echo "entrypoint: failed to mount tracefs on /sys/kernel/tracing; fstrace will not work" >&2
-
-## Overlay upperdirs cannot live on the container's overlayfs rootfs, so back
-## the sandbox base with a single tmpfs for the container's lifetime (one
-## mount here instead of try mounting one per sandbox).
-mkdir -p /hs-sandbox
-mountpoint -q /hs-sandbox || mount -t tmpfs -o mode=1777 tmpfs /hs-sandbox || \
-    echo "entrypoint: failed to mount tmpfs on /hs-sandbox; sandboxes may fail on overlayfs rootfs" >&2
+## (/hs-sandbox: overlay upperdirs cannot live on the container's overlayfs
+## rootfs, so the probe above doubles as the single tmpfs backing every
+## sandbox for the container's lifetime.)
+fi
 
 ## Per-run /tmp. run_base backs /tmp with a host directory shared by every
 ## run (the data disk's tmp/), and what lands there -- hs's scratch (kept by
@@ -79,12 +86,13 @@ fi
 ## silently wins: the new programs load and attach, but the tracer talks to the
 ## OLD pinned maps, so the two never meet and not a single event is recorded.
 ## Uninstalling makes the running BPF always match the installed binary.
-fstrace uninstall >/dev/null 2>&1
-
-## A failed install must be loud: every speculated command silently falls
-## back to unsafe serial re-execution without it.
-if ! fstrace install; then
-    echo "entrypoint: fstrace install FAILED; hs will run without speculation tracing" >&2
+if [ "$privileged" = 1 ]; then
+    fstrace uninstall >/dev/null 2>&1
+    ## A failed install must be loud: every speculated command silently falls
+    ## back to unsafe serial re-execution without it.
+    if ! fstrace install; then
+        echo "entrypoint: fstrace install FAILED; hs will run without speculation tracing" >&2
+    fi
 fi
 ## Tear down what this run put on the host-backed /tmp, where we still have
 ## the rights: the inputs overlay (its upper holds everything the benchmark

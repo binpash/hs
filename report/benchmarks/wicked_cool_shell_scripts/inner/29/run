@@ -21,5 +21,5 @@ python3 "$TEST_UPPER/run_benchmark.py" \
     --test_base "$TEST_BASE" \
     --hs_base "$HS_BASE" \
     --env_vars "${ENV_VARS[@]}" \
-    --script-args "$ARGS" \
-    "$@"
+    "$@" \
+    --script-args "$ARGS"

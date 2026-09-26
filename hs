@@ -511,20 +511,40 @@ declare -a server_args=()
 ## producer sharing that descriptor.
 server_args+=("--log-fd" "$HS_SCHEDULER_LOG_FD")
 
-## 6. Start the scheduler server
+## 6. Load fstrace's eBPF programs for this run only. Its tracepoints fire on
+## every syscall of every process on the machine, so leaving them attached
+## between runs would slow down whatever else runs there (the sh baseline of
+## a benchmark, for one). Uninstall first: `fstrace install` skips anything
+## already pinned under /sys/fs/bpf/fstrace, and a stale pin from an older
+## build would win silently (new programs attached, tracer reading the old
+## maps, not one event recorded). Only root can do this; otherwise whatever
+## the user installed is used as-is and left alone.
+hs_fstrace_installed=0
+if [ "$(id -u)" = 0 ] && command -v fstrace >/dev/null; then
+    fstrace uninstall >&"$HS_INTERNAL_LOG_FD" 2>&"$HS_INTERNAL_LOG_FD"
+    if fstrace install >&"$HS_INTERNAL_LOG_FD" 2>&"$HS_INTERNAL_LOG_FD"; then
+        hs_fstrace_installed=1
+    else
+        ## Loud: without it every speculated command silently falls back to
+        ## unsafe serial re-execution.
+        echo "hs: fstrace install FAILED; running without speculation tracing" >&2
+    fi
+fi
+
+## 7. Start the scheduler server
 start_server "${server_args[@]}"
 
-## 7. Restore umask before executing user scripts
+## 8. Restore umask before executing user scripts
 umask "$old_umask"
 
-## 8. Build preprocessor arguments
+## 9. Build preprocessor arguments
 declare -a preprocessor_args=()
 preprocessor_args+=("--output" "$preprocessed_output")
 [ -n "$arg_debug" ] && preprocessor_args+=("-d" "$arg_debug")
 preprocessor_args+=("--log-fd" "$HS_PREPROCESSOR_LOG_FD")
 preprocessor_args+=("$input_script")
 
-## 9. Run the PaSh preprocessor. Its own stdout/stderr (tracebacks, warnings
+## 10. Run the PaSh preprocessor. Its own stdout/stderr (tracebacks, warnings
 ## from the parser) are internal tooling output, not the script's.
 PYTHONPATH="$PASH_SPEC_TOP/preprocessor:$PYTHONPATH" \
     PASH_FROM_SH="Preprocessor" "$PASH_PYTHON" \
@@ -532,7 +552,7 @@ PYTHONPATH="$PASH_SPEC_TOP/preprocessor:$PYTHONPATH" \
     >&"$HS_INTERNAL_LOG_FD" 2>&"$HS_INTERNAL_LOG_FD"
 pash_exit_code=$?
 
-## 10. If preprocessing succeeded, execute the preprocessed script
+## 11. If preprocessing succeeded, execute the preprocessed script
 if [ "$pash_exit_code" -eq 0 ]; then
     bash_flags="$allexport_flag $verbose_flag $xtrace_flag"
     # shellcheck disable=SC2086
@@ -540,7 +560,7 @@ if [ "$pash_exit_code" -eq 0 ]; then
     pash_exit_code=$?
 fi
 
-## 11. Cleanup
+## 12. Cleanup
 cleanup_server "${daemon_pid}"
 
 ## Teardown noise ("Device or resource busy" when a sandbox mount outlives the
@@ -550,6 +570,11 @@ if [ "$PASH_DEBUG_LEVEL" -le 1 ]; then
     ## Sandboxes live outside PASH_TMP_PREFIX (see HS_SANDBOX_BASE above) and
     ## can be disk-backed, so leaking them across runs is not an option.
     rm -rf "${HS_SANDBOX_BASE}/$(basename "${PASH_SPEC_TMP_PREFIX}")" 2>&"$HS_INTERNAL_LOG_FD"
+fi
+
+## Detach the eBPF programs loaded in step 6.
+if [ "$hs_fstrace_installed" = 1 ]; then
+    fstrace uninstall >&"$HS_INTERNAL_LOG_FD" 2>&"$HS_INTERNAL_LOG_FD"
 fi
 
 ## Cleanup cgroups

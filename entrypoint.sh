@@ -80,20 +80,10 @@ if mountpoint -q /hs-inputs; then
     inputs_cow=$cow
 fi
 
-## Always uninstall first. `fstrace install` skips anything already pinned under
-## /sys/fs/bpf/fstrace, so if that bpffs outlives the container (the host's, or
-## any instance this entrypoint did not create), a stale pin from an older build
-## silently wins: the new programs load and attach, but the tracer talks to the
-## OLD pinned maps, so the two never meet and not a single event is recorded.
-## Uninstalling makes the running BPF always match the installed binary.
-if [ "$privileged" = 1 ]; then
-    fstrace uninstall >/dev/null 2>&1
-    ## A failed install must be loud: every speculated command silently falls
-    ## back to unsafe serial re-execution without it.
-    if ! fstrace install; then
-        echo "entrypoint: fstrace install FAILED; hs will run without speculation tracing" >&2
-    fi
-fi
+## fstrace's eBPF programs are not loaded here: hs loads them when it starts
+## and detaches them when it exits, so they are attached only while hs runs
+## and never while the sh baseline does. /sys/fs/bpf and /sys/kernel/tracing
+## are mounted above for it.
 ## Tear down what this run put on the host-backed /tmp, where we still have
 ## the rights: the inputs overlay (its upper holds everything the benchmark
 ## wrote into its inputs, multi-GB for max_temp), then the per-run /tmp.

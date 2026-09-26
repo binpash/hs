@@ -25,7 +25,7 @@ download_bam_files() {
             # 0.4 for a single wget. -c resumes a partial file; the retry flags
             # ride out the mid-transfer stalls that used to hang a build.
             # Not -q: a failed download must say why, and stop the setup.
-            if ! aria2c --console-log-level=warn --summary-interval=0 \
+            if ! aria2c --console-log-level=warn --summary-interval=0 --download-result=hide \
                 -x16 -s16 -k1M -c --max-tries=5 --retry-wait=5 \
                 --file-allocation=none -d "$download_dir" -o "$sample.bam" "$link"; then
                 echo "Error: downloading $sample from $link failed" >&2

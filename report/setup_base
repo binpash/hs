@@ -58,7 +58,12 @@ if [ "$has_inputs" -eq 0 ]; then
 fi
 
 echo ">> downloading inputs into $resources_host/ using hs/$benchmark_name"
-docker run --rm \
+# With a terminal attached, give the container one too: wget, curl and aria2c
+# then redraw a single progress line instead of printing dots line after
+# line. Without one (output to a file, CI) they stay line-oriented.
+tty_flag=
+[ -t 1 ] && tty_flag=-t
+docker run --rm $tty_flag \
     -v "$resources_host:/srv/hs/report/resources" \
     "hs/$benchmark_name" \
     "./report/benchmarks/$benchmark_name/setup" "$@"

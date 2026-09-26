@@ -18,7 +18,7 @@ cd "$download_dir"
 # from the first row, and served gzipped rather than bzipped.
 if [ ! -f bus.csv ]; then
     echo "Downloading full-size dataset..."
-    wget -O bus.csv.gz 'https://atlas.cs.brown.edu/data/covid-mts/in_full.csv.gz'
+    wget -q --show-progress --progress=bar:force:noscroll -O bus.csv.gz 'https://atlas.cs.brown.edu/data/covid-mts/in_full.csv.gz'
     if [[ -f bus.csv.gz ]]; then
         echo "Decompressing full-size dataset..."
         gzip -dc bus.csv.gz > $download_dir/bus.csv

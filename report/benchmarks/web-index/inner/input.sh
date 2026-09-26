@@ -15,10 +15,10 @@ fetch() {  # size: 100m or 1g
         return
     fi
     echo "Downloading wikipedia$size"
-    wget -nv --no-check-certificate -O "$RESOURCES_DIR/index$size.txt" "$BASE/index$size.txt"
+    wget -q --no-check-certificate -O "$RESOURCES_DIR/index$size.txt" "$BASE/index$size.txt"
     # Stream the archive straight into tar: no tarball left on disk, and
     # extraction overlaps the download.
-    wget -nv --no-check-certificate -O - "$BASE/wikipedia$size.tar.gz" | tar -xzf - -C "$RESOURCES_DIR"
+    wget -q --show-progress --progress=bar:force:noscroll --no-check-certificate -O - "$BASE/wikipedia$size.tar.gz" | tar -xzf - -C "$RESOURCES_DIR"
 }
 
 fetch 100m

@@ -28,12 +28,18 @@ resources_host="$("$report_dir/hs_data_dir")/resources"
 LOCAL=0
 if [ "${1:-}" = "--local" ]; then LOCAL=1; shift; fi
 
-mkdir -p "$resources_host"
+# The suite's directory is created even when it has nothing to download
+# (micro, wicked_cool_shell_scripts): run_base takes its existence as proof
+# that ./setup ran.
+mkdir -p "$resources_host/$benchmark_name"
+has_inputs=1
+[ -e "$benchmark_dir/inner/setup" ] || has_inputs=0
 
 if [ "$LOCAL" -eq 1 ]; then
     # inner/setup writes to $PASH_SPEC_TOP/report/resources; keep that the
     # data directory unless this checkout already has its own inputs.
     if [ ! -e "$report_dir/resources" ]; then ln -s "$resources_host" "$report_dir/resources"; fi
+    [ "$has_inputs" -eq 1 ] || exit 0
     exec "$benchmark_dir/inner/setup" "$@"
 fi
 
@@ -45,6 +51,11 @@ fi
 
 echo ">> building hs/$benchmark_name (tools + scripts, no data)"
 docker build -t "hs/$benchmark_name" "$benchmark_dir"
+
+if [ "$has_inputs" -eq 0 ]; then
+    echo ">> $benchmark_name has no inputs to download"
+    exit 0
+fi
 
 echo ">> downloading inputs into $resources_host/ using hs/$benchmark_name"
 docker run --rm \

@@ -143,6 +143,10 @@ class HSLoopListContext:
         pass
 
     def get_top(self):
+        # Only ever used to guess how a for loop continues: with no list on
+        # record, guess that it ends rather than crash the scheduler.
+        if not self.loop_list_context:
+            return []
         return self.loop_list_context[-1][:]
 
     def pop(self):
@@ -153,15 +157,35 @@ class HSLoopListContext:
 def get_loop_list_from_env(env):
     with open(env) as f:
         d = util.parse_env_string_to_dict(f.read())
-    if 'IFS' in d:
-        ifs = d['IFS']
-    else:
-        ifs = ' \t\n'
-    ifs_ws = ' ' if ' ' in ifs else ''
-    ifs_ws += '\t' if '\t' in ifs else ''
-    ifs_ws += '\n' if '\n' in ifs else ''
-    new_loop_list = re.split(f'[{ifs_ws}]*[{ifs}][{ifs_ws}]*', d['HS_LOOP_LIST'].strip(ifs_ws))
-    return new_loop_list
+    ifs = d['IFS'] if 'IFS' in d else ' \t\n'
+    return split_fields(d['HS_LOOP_LIST'], ifs)
+
+def split_fields(value: str, ifs: str) -> "list[str]":
+    """Field splitting as sh does it on an unquoted expansion: IFS whitespace
+    runs separate fields and are trimmed at the ends; every other IFS character
+    ends a field by itself (with any IFS whitespace around it). An empty IFS
+    does not split. IFS characters go into the regex escaped: IFS=: (no
+    whitespace at all) used to build `[]*[:][]*`, which is not a regex."""
+    ws = ''.join(c for c in ' \t\n' if c in ifs)
+    other = ''.join(c for c in ifs if c not in ' \t\n')
+    if ws:
+        value = value.strip(ws)
+    if value == '':
+        return []
+    if not ifs:
+        return [value]
+    ws_run = f'[{re.escape(ws)}]*' if ws else ''
+    alternatives = []
+    if other:
+        alternatives.append(f'{ws_run}[{re.escape(other)}]{ws_run}')
+    if ws:
+        alternatives.append(f'[{re.escape(ws)}]+')
+    fields = re.split('|'.join(alternatives), value)
+    # A separator at the very end ends the last field; it does not start an
+    # empty one (`a:b:` is two fields).
+    if len(fields) > 1 and fields[-1] == '':
+        fields.pop()
+    return fields
 
 @dataclass
 class Node:
@@ -856,14 +880,26 @@ class HSProg:
                     pick_dict[edge_type][1])
         elif CFGEdgeType.LOOP_SKIP in pick_dict:
             assert CFGEdgeType.LOOP_TAKEN in pick_dict
-            if len(loop_list_context.get_top()) < loop_iters[0]:
+            # The LOOP_TAKEN edge carries the loop variable's name. A `for` loop
+            # always has one, and its word list (HS_LOOP_LIST) says how many
+            # iterations there are. A `while`/`until` loop has neither, and its
+            # iteration count cannot be known ahead of time: guess one more
+            # iteration. A wrong guess is only a wasted speculation, discarded
+            # when the real shell takes the other edge. (It used to read the
+            # enclosing for loop's list, or crash when there was none.)
+            it_name = pick_dict[CFGEdgeType.LOOP_TAKEN][1]
+            if it_name:
+                take = len(loop_list_context.get_top()) >= loop_iters[0]
+            else:
+                take = True
+            if not take:
                 return (CFGEdgeType.LOOP_SKIP,
                         self.basic_blocks[pick_dict[CFGEdgeType.LOOP_SKIP][0]],
-                        pick_dict[edge_type][1])
+                        pick_dict[CFGEdgeType.LOOP_SKIP][1])
             else:
                 return (CFGEdgeType.LOOP_TAKEN,
                         self.basic_blocks[pick_dict[CFGEdgeType.LOOP_TAKEN][0]],
-                        pick_dict[edge_type][1])
+                        it_name)
         for edge_type in [CFGEdgeType.LOOP_END, CFGEdgeType.LOOP_BACK,
                           CFGEdgeType.IF_TAKEN, CFGEdgeType.ELSE_TAKEN,
                           CFGEdgeType.OTHER]:

@@ -269,7 +269,8 @@ class PartialProgramOrder:
                         return None
                     edge_type, next_bb, aux_info = self.hsprog.guess_next_block(
                         bb, loop_iters, prev_loop_list_context)
-                    if edge_type == CFGEdgeType.LOOP_TAKEN:
+                    # A while loop (no loop variable) has no next value to set.
+                    if edge_type == CFGEdgeType.LOOP_TAKEN and aux_info:
                         pre_env_file = simulate_loop_iter_env(pre_env_file, aux_info,
                                                               prev_loop_list_context,
                                                               loop_iters)

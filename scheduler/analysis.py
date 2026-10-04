@@ -72,6 +72,10 @@ def is_node_safe(node: CommandNode, variables: dict) -> str:
 def is_pipe_node_safe_to_execute(node: PipeNode, variables: dict) -> bool:
     for cmd in node.items:
         logging.debug(f'Ast in question: {cmd}')
+        ## A compound command in a pipeline (`... | { ...; }`, `... | while`)
+        ## is not analysed: run it in the original shell.
+        if not isinstance(cmd, CommandNode):
+            return False
         if not is_node_safe(cmd, variables):
             return False
     return True
@@ -83,14 +87,19 @@ def is_pipe_node_safe_to_execute(node: PipeNode, variables: dict) -> bool:
 ##  the analysis checks if the command in question is one of the underlying
 ##  shell's primitives (in our case bash) and if so returns False
 def safe_to_execute(asts: "list[AstNode]", variables: dict) -> bool:
-    ## There should always be a single AST per node and it must be a command
+    ## Only simple commands and pipelines of them are analysed. Anything else
+    ## that reaches here as one node (a group, subshell, redirected compound,
+    ## && / || list, ...) is run in the original shell: always correct, just
+    ## not speculated.
     for ast in asts:
         if isinstance(ast, PipeNode):
             is_safe = is_pipe_node_safe_to_execute(ast, variables)
             if not is_safe:
                 return False
+        elif not isinstance(ast, CommandNode):
+            logging.debug(f'Not analysed, running in the original shell: {ast}')
+            return False
         else:
-            assert(isinstance(ast, CommandNode))
             logging.debug(f'Ast in question: {ast}')
             is_safe = is_node_safe(ast, variables)
             if not is_safe:

@@ -195,18 +195,49 @@ class PreprocessVisitor(CommandVisitor):
     # === Control flow with multiple children ===
 
     def visit_while(self, node: WhileNode) -> NodeResult:
-        self.ctx.trans_options.enter_loop()
+        """Handle WhileNode with the same iteration tracking as for loops.
+
+        The loop gets an id like a for loop (the CFG treats both alike), so it
+        needs its counter too: without it, a command in a for loop nested in
+        it reported "N-" as its iteration counters, and the commands in its
+        own body never carried its iteration at all. The counter advances at
+        the start of the test, which is where an iteration starts in the CFG
+        (test and body share its block). As for for loops, the bookkeeping is
+        wrapped in a save/restore of $?.
+        """
+        loop_id = self.ctx.trans_options.enter_loop()
 
         new_test, test_replaced = self.walk_close(node.test)
         new_body, body_replaced = self.walk_close(node.body)
 
-        node.test = new_test
+        var_name = loop_iter_var(loop_id)
+        all_loop_ids = self.ctx.trans_options.get_current_loop_context()
+        node.test = make_typed_semi_sequence(
+            [
+                to_ast_node(make_save_exit_status()),
+                to_ast_node(make_increment_var(var_name)),
+                to_ast_node(export_pash_loop_iters_for_current_context(all_loop_ids)),
+                to_ast_node(make_restore_exit_status()),
+                new_test,
+            ]
+        )
         node.body = new_body
 
         self.ctx.trans_options.exit_loop()
 
+        out_of_loop_ids = self.ctx.trans_options.get_current_loop_context()
+        new_node = make_typed_semi_sequence([
+            to_ast_node(make_save_exit_status()),
+            to_ast_node(make_export_var_constant_string(var_name, "0")),
+            to_ast_node(make_restore_exit_status()),
+            node,
+            to_ast_node(make_save_exit_status()),
+            to_ast_node(export_pash_loop_iters_for_current_context(out_of_loop_ids)),
+            to_ast_node(make_restore_exit_status()),
+        ])
+
         return NodeResult(
-            ast=node, something_replaced=test_replaced or body_replaced
+            ast=new_node, something_replaced=test_replaced or body_replaced
         )
 
     def visit_for(self, node: ForNode) -> NodeResult:

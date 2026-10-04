@@ -260,6 +260,11 @@ void setup_open_fds(struct open_fd_vec *vec, const char *partial_restore_dir)
 	if (open_fd->dup_of == -1) {
 	    if (open_fd->mode == O_RDONLY) {
 		fd = open(open_fd->filename, open_fd->mode);
+		/* Pick up where the shell's descriptor is: reopening starts at
+		   0, so `while read ...; done < file` read the first line on
+		   every iteration. */
+		if (fd != -1)
+		    lseek(fd, open_fd->offset, SEEK_SET);
 	    } else {
 		char filename[PATH_MAX+16];
 		sprintf(filename, "%s/%d", partial_restore_dir, target_fd);

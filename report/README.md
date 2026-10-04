@@ -49,6 +49,8 @@ skips that). It prints sh time, hs time, speedup and PASS/FAIL per benchmark
 and saves the table to `report/output/bench_summary.tsv`. It drives the same
 `./setup` and `./<size>/run` described next.
 
+Some benchmarks fail for reasons that are not hs's: see `KNOWN_FAILURES.md`.
+
 ## Running a benchmark: two commands
 
 ```

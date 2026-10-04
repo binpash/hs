@@ -485,6 +485,9 @@ class ConcreteNode:
         return self.rwset
 
     fd_line = re.compile(r'(\d+) ([rwd]) (\d+) (.+)')
+    # $? or ${?...} anywhere in the command text. Over-matching (inside single
+    # quotes, say) only costs a re-execution, never a wrong result.
+    reads_exit_status = re.compile(r'\$\{?\?')
     def has_env_conflict_with(self, other_env) -> bool:
         # Early return if paths are the same
         if self.exec_ctxt.pre_env_file == other_env:
@@ -503,7 +506,7 @@ class ConcreteNode:
             "TRY_COMMAND", "SRANDOM", "speculate_flag", "EXECUTION_ID",
             "EPOCHREALTIME", "OLDPWD", "exit_code", "BASHPID", "BASH_COMMAND", "BASH_ARGV0",
             "cmd", "BASH_ARGC", "BASH_ARGV", "BASH_SUBSHELL", "LINENO", "GROUPS", "BASH_SOURCE",
-            "PREVIOUS_SHELL_EC", "pash_previous_exit_status", "filter_vars_file", "pash_spec_loop_id",
+            "PREVIOUS_SHELL_EC", "filter_vars_file", "pash_spec_loop_id", "pash_spec_keep_status",
             "pash_loop_iters", "LINES", "COLUMNS",
             # hs's own log plumbing. HS_JIT_LOG is re-pointed per node and the
             # HS_*_LOG_FD descriptors are unset inside sandboxes (they do not
@@ -514,6 +517,14 @@ class ConcreteNode:
             "HS_INTERNAL_LOG", "HS_JIT_LOG_FD", "HS_SCHEDULER_LOG_FD",
             "HS_PREPROCESSOR_LOG_FD", "HS_INTERNAL_LOG_FD",
         ])
+
+        # $? as the command will see it. The sandbox sets $? from it before
+        # running the command (template_script_to_execute.sh), so a command
+        # that reads $? speculated with a different value than the real one
+        # is wrong. Every other command does not care, and comparing it for
+        # them would invalidate the speculation after every nonzero exit.
+        if not ConcreteNode.reads_exit_status.search(self.cmd):
+            ignore_vars.add("pash_previous_exit_status")
 
         ignore_prefix = "pash_loop_"
 

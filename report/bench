@@ -24,7 +24,9 @@
 # and would otherwise run each other's code (--no-build skips it). Then it runs
 # each benchmark (default --target sh hs; ARGS after -- go to every run) and
 # prints one line per benchmark: sh and hs time, speedup, and whether the
-# outputs matched. The table is also saved to report/output/bench_summary.tsv.
+# outputs matched (PASS, FAIL, INVALID when sh and hs both failed, SKIPPED
+# when there is no runner). The table is also saved to
+# report/output/bench_summary.tsv.
 
 set -u
 
@@ -185,7 +187,7 @@ cmd_run() {
         done
     fi
 
-    local branch summary out result sh hs speed n=0 failures=0
+    local branch summary out result sh hs speed inner n=0 failures=0 invalid=0
     branch=$(git -C "$repo_root" rev-parse --abbrev-ref HEAD 2>/dev/null)@$(git -C "$repo_root" rev-parse --short HEAD 2>/dev/null)
     mkdir -p "$report_dir/output"
     summary="$report_dir/output/bench_summary.tsv"
@@ -200,6 +202,18 @@ cmd_run() {
         # target that did not run cannot report a stale time.
         rm -rf "$out"
         echo ">>> [$n/$total] $b"
+        # A size directory whose suite has no runner for it cannot run at all
+        # (wicked 41, which needs a terminal): skip it rather than fail it.
+        if [ "$b" = "${b%/*}" ]; then
+            inner="$bench_dir/$b/inner/run"
+        else
+            inner="$bench_dir/${b%%/*}/inner/${b#*/}/run"
+        fi
+        if [ ! -x "$inner" ]; then
+            echo "    skipped: no runner ($inner)"
+            printf '%s\t-\t-\t-\tSKIPPED\n' "$b" >> "$summary"
+            continue
+        fi
         if [ "$b" = "${b%/*}" ]; then
             (cd "$bench_dir/$b" && ./run "${local_flag[@]}" --target "${targets[@]}" "${pass[@]}")
         else
@@ -212,19 +226,30 @@ cmd_run() {
             speed=$(awk -v a="$sh" -v b="$hs" 'BEGIN { if (b > 0) printf "%.2fx", a / b; else print "-" }')
         fi
         if [ -f "$out/error" ]; then
-            [ -s "$out/error" ] && result=FAIL || result=PASS
+            if [ ! -s "$out/error" ]; then
+                result=PASS
+            elif grep -q '^INVALID' "$out/error"; then
+                result=INVALID
+            else
+                result=FAIL
+            fi
         elif [ $rc -ne 0 ]; then
             result="ERROR(exit $rc)"
         else
             result=-
         fi
-        [[ $result == PASS || $result == - ]] || failures=$((failures + 1))
+        case $result in
+            PASS|-) ;;
+            INVALID) invalid=$((invalid + 1)) ;;
+            *) failures=$((failures + 1)) ;;
+        esac
         printf '%s\t%s\t%s\t%s\t%s\n' "$b" "$sh" "$hs" "$speed" "$result" >> "$summary"
     done
 
     echo
     echo "=== $branch  ($summary)"
     column -t -s $'\t' "$summary"
+    [ "$invalid" -eq 0 ] || echo "$invalid invalid: sh and hs both failed, so there is nothing to compare against"
     [ "$failures" -eq 0 ] || { echo "$failures benchmark(s) failed; see report/output/<benchmark>/error"; exit 1; }
 }
 

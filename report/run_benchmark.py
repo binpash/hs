@@ -189,23 +189,39 @@ def record_hashes(target: str, output_base: Path, manifest, env: dict) -> list:
 
 
 def compare_outputs(output_base: Path, manifest, env: dict):
-    """Write `error`: empty if the sh and hs runs agree, else why they do not."""
+    """Write `error`: empty if the sh and hs runs agree, "INVALID: ..." if
+    both runs failed, else why they do not agree."""
     error_file = output_base / 'error'
     messages = []
 
-    # A run that did not exit 0 is not a baseline, whatever it left behind:
-    # matching outputs from two broken runs (bio4 with unreadable inputs wrote
-    # 66 empty BAMs on each side) are not a pass.
-    for target in ('sh', 'hs'):
-        status = artifact(output_base, target, 'status').read_text().strip()
-        if status != '0':
-            messages.append(f"{target} run exited with status {status}"
-                            f" (see {artifact(output_base, target, 'stderr').name})")
+    statuses = {target: artifact(output_base, target, 'status').read_text().strip()
+                for target in ('sh', 'hs')}
 
     sh_hashes = record_hashes('sh', output_base, manifest, env)
     hs_hashes = record_hashes('hs', output_base, manifest, env)
 
     print(f"Comparing {len(sh_hashes)} output files selected by {manifest.source}")
+
+    # Unreadable outputs always fail, whatever the exit statuses: two broken
+    # runs that agree are not a pass (bio4 with unreadable inputs wrote 66
+    # empty BAMs on each side). compare() below reports each one.
+    unreadable = any(line.startswith(output_manifest.UNREADABLE)
+                     for line in sh_hashes + hs_hashes)
+
+    # Both runs failing is an invalid run, not a comparison: there is no
+    # baseline to hold hs to.
+    if statuses['sh'] != '0' and statuses['hs'] != '0' and not unreadable:
+        message = (f"INVALID: both runs failed (sh exited {statuses['sh']}, "
+                   f"hs exited {statuses['hs']}; see sh_stderr and hs_stderr)")
+        error_file.write_text(message + "\n")
+        print(message)
+        return
+
+    # One run failing is a failure, whatever its outputs.
+    for target, status in statuses.items():
+        if status != '0':
+            messages.append(f"{target} run exited with status {status}"
+                            f" (see {artifact(output_base, target, 'stderr').name})")
 
     file_diffs = output_manifest.compare(sh_hashes, hs_hashes)
     if file_diffs:

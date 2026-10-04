@@ -13,7 +13,20 @@ fi
 ## /tmp/pash_spec), which is inherited here and baked into the run string
 ## because `env -i` strips the environment. HS_JIT_LOG_FD is cleared for the
 ## same reason: hs's descriptors do not reach in here.
-RUN=$(printf 'source %s 2>/dev/null; HS_JIT_LOG=%s; unset HS_JIT_LOG_FD; %s\n exit_code=$?; hs_runtime_tmp_args=("$@")\n hs_set_options_cmd="$(set +o)"; source ${RUNTIME_DIR}/pash_declare_vars.sh %s; trap - EXIT; exit $exit_code' "${LATEST_ENV_FILE}" "${HS_JIT_LOG}" "${CMD_STRING}" "${POST_EXEC_ENV}")
+##
+## $? is set to the previous command's status (pash_previous_exit_status, which
+## jit.sh records and the env file carries) right before the command, so a
+## command that reads $? sees what it would in the real shell; `&& :` keeps a
+## restored `set -e` from aborting on a nonzero value. The post env records
+## this command's own status there, so the next speculated command's pre env
+## carries the right $? too.
+##
+## The script's shell options are applied too (hs_set_options_cmd, from the
+## env file). The command runs as `{ CMD } && :` so that under set -e a failing
+## command does not end this shell before the post env is written; jit.sh
+## applies errexit in the real shell. errexit is read from $-, because
+## command substitution clears it: "$(set +o)" always reports it off.
+RUN=$(printf 'source %s 2>/dev/null; HS_JIT_LOG=%s; unset HS_JIT_LOG_FD; eval "$hs_set_options_cmd"; (exit "${pash_previous_exit_status:-0}") && :; { %s\n } && :; exit_code=$?; export pash_previous_exit_status=$exit_code; hs_runtime_tmp_args=("$@")\n hs_set_options_cmd="$(set +o)"; case $- in *e*) hs_set_options_cmd=${hs_set_options_cmd/set +o errexit/set -o errexit};; esac; set +e; source ${RUNTIME_DIR}/pash_declare_vars.sh %s; trap - EXIT; exit $exit_code' "${LATEST_ENV_FILE}" "${HS_JIT_LOG}" "${CMD_STRING}" "${POST_EXEC_ENV}")
 # NOTE: tracing happens OUTSIDE this script — fstrace wraps the whole `try`
 # invocation in run_command.sh. Here we just run the command in the sandbox.
 env -i bash -c "$RUN"

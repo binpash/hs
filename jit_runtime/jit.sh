@@ -15,9 +15,15 @@
 # Section 1: Save shell state
 ###############################################################################
 
-## Save exit status and shell options
+## Save exit status and shell options. The options are captured before
+## pash_set_from_to switches to the JIT's own (huB); the env files carry
+## hs_set_options_cmd, and it is eval'd back before the command runs (in the
+## sandbox, or before the eval below) and at the end of this file.
 export pash_previous_exit_status="$?"
 export pash_previous_set_status=$-
+## errexit from $-: command substitution clears it, so "$(set +o)" says off.
+hs_set_options_cmd="$(set +o)"
+case $pash_previous_set_status in *e*) hs_set_options_cmd=${hs_set_options_cmd/set +o errexit/set -o errexit};; esac
 source "$RUNTIME_DIR/pash_set_from_to.sh" "$pash_previous_set_status" "${DEFAULT_SET_STATE:-huB}"
 pash_redir_output echo "$$: (1) Pre-ec, pre-set, jit-set: ($pash_previous_exit_status, $pash_previous_set_status, $-)"
 
@@ -35,7 +41,6 @@ pash_redir_output echo "$$: [JIT] After setting default - IFS=$(declare -p IFS 2
 ## Save positional parameters and set options before they get overwritten by sourcing
 ## This is needed by pash_source_declare_vars.sh, because "source" messes up $@
 hs_runtime_tmp_args=("$@")
-hs_set_options_cmd="$(set +o)"
 pash_redir_output echo "$$: [JIT] Saved positional parameters: ${hs_runtime_tmp_args[@]}"
 
 ###############################################################################
@@ -111,9 +116,19 @@ elif [[ "$daemon_response" == *"UNSAFE:"* ]]; then
 	IFS="$PASH_OLD_IFS"
     fi
     pash_redir_output echo "$$: [JIT] UNSAFE: After restore for eval - IFS=$(declare -p IFS 2>&1 || echo 'unset')"
+    ## The command runs under the script's options and sees the previous
+    ## command's $? (`&& :` keeps a set -e from firing on that). A failure
+    ## under set -e ends the script right here, as it would in sh.
+    eval "$hs_set_options_cmd"
+    (exit "$pash_previous_exit_status") && :
     # shellcheck disable=SC2086
     eval "$cmd"
     cmd_exit_code=$?
+    ## It may have changed the options itself (set -e, set -f, ...): keep
+    ## those, and run the rest of this file without errexit/xtrace.
+    hs_set_options_cmd="$(set +o)"
+    case $- in *e*) hs_set_options_cmd=${hs_set_options_cmd/set +o errexit/set -o errexit};; esac
+    set +e +x +v
 elif [ -z "$daemon_response" ]; then
     ## Scheduler crashed
     pash_redir_output echo "$$: ERROR: (2) Scheduler crashed!"
@@ -130,6 +145,10 @@ fi
 pash_redir_output echo "$$: (2) Scheduler returned exit code: ${cmd_exit_code} for cmd with id: ${pash_speculative_command_id}."
 
 pash_runtime_final_status=${cmd_exit_code}
+## hs's own commands (HS_LOOP_LIST) pass the previous status through.
+if [ -n "${pash_spec_keep_status:-}" ]; then
+    pash_runtime_final_status=$pash_previous_exit_status
+fi
 unset cmd_exit_code
 unset output_variable_file
 unset cmd
@@ -137,5 +156,8 @@ unset stdout_file
 
 pash_redir_output echo "$$: [JIT] End of jit.sh - IFS=$(declare -p IFS 2>&1 || echo 'unset'), PASH_OLD_IFS=$(declare -p PASH_OLD_IFS 2>&1 || echo 'unset')"
 
-## Exit with the result
+## Back to the script's options (after a sandboxed run, as the command left
+## them: the post env carries them), then exit with the result. Under set -e a
+## nonzero status here ends the script, as the failing command would in sh.
+eval "$hs_set_options_cmd"
 (exit "$pash_runtime_final_status")

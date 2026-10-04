@@ -100,6 +100,10 @@ def loop_iters_var() -> str:
     return "pash_loop_iters"
 
 
+def loop_status_var() -> str:
+    return "pash_loop_status"
+
+
 def loop_iter_var(loop_id: int) -> str:
     return f"pash_loop_{loop_id}_iter"
 
@@ -307,6 +311,24 @@ def export_pash_loop_iters_for_current_context(all_loop_ids: "list[int]"):
     return save_loop_iters_node
 
 
+def make_save_exit_status():
+    """`pash_loop_status=$?`: hs's loop bookkeeping is ordinary commands, which
+    would reset $? to 0. Saved before it and restored after it, $? is what sh
+    shows the script there: the loop body's first command sees the previous
+    command's status, and so does whatever follows the loop. The pash_loop_
+    prefix keeps the variable out of env comparisons and env restores."""
+    return make_assignment(loop_status_var(), [standard_var_ast("?")])
+
+
+def make_restore_exit_status():
+    """`( exit "$pash_loop_status" ) && :`. The && keeps set -e from firing on
+    a nonzero status, which sh would not have stopped at here either."""
+    exit_cmd = make_command(
+        [string_to_argument("exit"), [quote_arg([standard_var_ast(loop_status_var())])]]
+    )
+    return make_kv("And", [make_subshell(exit_cmd), make_nop()])
+
+
 def make_unset_var(var_name: str):
     arguments = [string_to_argument("unset"), string_to_argument(var_name)]
     node = make_command(arguments)
@@ -318,6 +340,10 @@ def make_loop_list_assignment(loop_list_args):
 
     Matches the implementation from fae47999 commit of spec_future branch.
     """
+    # `for i in; do` has no words at all: the list is empty.
+    if not loop_list_args:
+        return CommandNode(line_number=0, assignments=[AssignNode(var='HS_LOOP_LIST', val=[])],
+                           arguments=[], redir_list=[])
     list_arguments = copy.deepcopy(loop_list_args[0])
     for a in loop_list_args[1:]:
         list_arguments.append(CArgChar(ord(' ')))

@@ -199,9 +199,10 @@ class TransformationState:
         # IFS and HS_LOOP_LIST changes must be intercepted by pre_handle_wait
         # so the scheduler updates its state without sandbox execution.
         text_stripped = text_to_output.strip()
+        hs_internal = (text_stripped.startswith('HS_LOOP_LIST=')
+                       or text_stripped.startswith('unset HS_LOOP_LIST'))
         if (text_stripped.startswith('IFS=') or text_stripped.startswith('unset IFS')
-                or text_stripped.startswith('HS_LOOP_LIST=')
-                or text_stripped.startswith('unset HS_LOOP_LIST')):
+                or hs_internal):
             self.mark_node_as_var_assignment(df_region_id)
 
         # Determine predecessors
@@ -211,7 +212,10 @@ class TransformationState:
             predecessors = [df_region_id - 1]
 
         _save_df_region(text_to_output, self, df_region_id, predecessors)
-        replaced_node = self._make_call_to_runtime(df_region_id, loop_id)
+        # HS_LOOP_LIST is hs's, not the script's: sh has no such command, so it
+        # must leave $? as it found it.
+        replaced_node = self._make_call_to_runtime(df_region_id, loop_id,
+                                                   keep_status=hs_internal)
         return to_ast_node(replaced_node)
 
     def get_partial_order_file(self):
@@ -239,9 +243,11 @@ class TransformationState:
         return len(self.var_assignment_nodes)
 
     @staticmethod
-    def _make_call_to_runtime(command_id: int, loop_id) -> AstNode:
+    def _make_call_to_runtime(command_id: int, loop_id, keep_status=False) -> AstNode:
         """Make a call to the speculative runtime."""
         assignments = [["pash_spec_command_id", string_to_argument(str(command_id))]]
+        if keep_status:
+            assignments.append(["pash_spec_keep_status", string_to_argument("1")])
         if loop_id is None:
             loop_id_str = ""
         else:

@@ -53,6 +53,8 @@ from util import (
     make_export_var_constant_string,
     make_increment_var,
     export_pash_loop_iters_for_current_context,
+    make_save_exit_status,
+    make_restore_exit_status,
     make_loop_list_assignment,
     make_unset_var,
 )
@@ -245,11 +247,14 @@ class PreprocessVisitor(CommandVisitor):
         all_loop_ids = self.ctx.trans_options.get_current_loop_context()
         save_loop_iters_node = export_pash_loop_iters_for_current_context(all_loop_ids)
 
-        # Modify the loop body to include tracking
+        # Modify the loop body to include tracking. The bookkeeping is wrapped
+        # in a save/restore of $? everywhere below, so it is invisible to $?.
         node.body = make_typed_semi_sequence(
             [
+                to_ast_node(make_save_exit_status()),
                 to_ast_node(increment_node),
                 to_ast_node(save_loop_iters_node),
+                to_ast_node(make_restore_exit_status()),
                 preprocessed_body,
             ]
         )
@@ -268,9 +273,13 @@ class PreprocessVisitor(CommandVisitor):
         # Wrap the entire for loop with HS_LOOP_LIST setup and loop tracking
         new_node = make_typed_semi_sequence([
             processed_loop_list_node,
+            to_ast_node(make_save_exit_status()),
             to_ast_node(export_node),
+            to_ast_node(make_restore_exit_status()),
             node,
+            to_ast_node(make_save_exit_status()),
             to_ast_node(reset_loop_iters_node),
+            to_ast_node(make_restore_exit_status()),
             processed_unset_node,
         ])
 

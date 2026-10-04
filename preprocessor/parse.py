@@ -5,6 +5,7 @@ Shell script parsing and unparsing utilities.
 import sys
 
 from shasta.json_to_ast import to_ast_node
+from shasta.ast_node import GroupNode, PipeNode
 from shasta.bash_to_shasta_ast import to_ast_node as bash_to_shasta_ast
 
 from util import UnparsedScript, log
@@ -75,6 +76,27 @@ def parse_shell_to_asts_bash(input_script_path):
     except RuntimeError as e:
         log("Parsing error!", e)
         sys.exit(1)
+
+
+# shasta prints a sequence (`a; b`) used as a pipeline element as two brace
+# groups on separate lines, `{ a ; }\n{ b ; }`, and the newline ends the
+# pipeline: `x | { a; b; }` came out as `x | { a ; }` followed by `b` on its
+# own, with no input. dash's parser has no group node, so `{ a; b; }` in a
+# pipeline reaches the printer as a bare sequence. Print such an element as one
+# group instead. (A fix belongs in shasta's PipeNode.pretty.)
+_shasta_pipe_pretty = PipeNode.pretty
+
+
+def _pipe_pretty(self):
+    items = self.items
+    self.items = [GroupNode(item) if item.NodeName == "Semi" else item for item in items]
+    try:
+        return _shasta_pipe_pretty(self)
+    finally:
+        self.items = items
+
+
+PipeNode.pretty = _pipe_pretty
 
 
 def from_ast_objects_to_shell(asts):

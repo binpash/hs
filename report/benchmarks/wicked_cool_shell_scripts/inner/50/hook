@@ -1,0 +1,9 @@
+#!/bin/sh
+# rotatelogs rotates $TEST_BASE/log (TEST_BASE is OUTPUT_DIR): give each
+# target the same log directory, one log due for rotation under its config.
+case $1 in
+before)
+    rm -rf log && mkdir log || exit 1
+    echo h > log/file
+    echo "file=1" > log/rotatelogs.conf ;;
+esac

@@ -1,0 +1,3 @@
+# The archive by its members, not its bytes: tar and gzip headers carry times.
+h.tgz => tar
+h/**/*

@@ -13,6 +13,5 @@ are always a FAIL, whatever the exit statuses.
 | `dgsh/3` | Line 106 is `find "$@" ...`, and the benchmark is run with no arguments, so it searches the working directory (the hs checkout) instead of `$REPO_DIR`. sh and hs find the same files in a different order (find returns directory-read order, which differs on hs's overlay sandbox), and `file2.txt`, `file3.txt`, `file4.txt` are built from that list. |
 | `dgsh/18` | `file1.txt` and the last line of stdout are `df -h` free space, which changes between the sh and hs runs. |
 | `wicked_cool_shell_scripts/37` | Prints `df -k`: live free space, and under hs the mounts of its sandbox rather than the system's. |
-| `wicked_cool_shell_scripts/40`, `42`, `50`, `51`, `52`, `102` | Never produce a result. Their `run` scripts predate `run_benchmark.py`: they accept only a single `--target` value and exit with `Unknown parameter passed: hs`. |
 | `wicked_cool_shell_scripts/41` | Has no `run` script at all (it calls `passwd`, which prompts on a terminal); `report/bench` reports it SKIPPED. |
 | `log-analysis/medium` | Produced no result on CloudLab; cause not yet known. |

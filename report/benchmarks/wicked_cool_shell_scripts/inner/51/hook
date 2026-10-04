@@ -1,0 +1,9 @@
+#!/bin/sh
+# backup archives what under $RESOURCE_DIR/h is newer than the timestamp file
+# and then moves the timestamp forward. Each target starts from a timestamp
+# older than every file, so both archive the same set.
+case $1 in
+before)
+    rm -f timestamp backup.*
+    touch -d 2000-01-01 timestamp ;;
+esac

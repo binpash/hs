@@ -1,0 +1,8 @@
+#!/bin/sh
+# bulkrename renames *jpg* to *png* in its working directory (OUTPUT_DIR):
+# give each target the same six files to rename.
+case $1 in
+before)
+    rm -f ./*.jpg ./*.png
+    for i in 0 1 2 3 4 5; do : > "$i.jpg"; done ;;
+esac

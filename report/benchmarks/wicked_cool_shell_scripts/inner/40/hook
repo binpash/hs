@@ -1,0 +1,22 @@
+#!/bin/sh
+# addusers appends users to /etc/passwd, /etc/shadow and /etc/group and makes
+# their home directories. Each target starts with none of them; afterwards
+# what it created is recorded in OUTPUT_DIR (without the password hash, which
+# chpasswd salts randomly).
+users=$(cat "$(dirname "$0")/usernames_sh")
+case $1 in
+before)
+    for u in $users; do
+        userdel -r "$u" 2>/dev/null
+        groupdel "$u" 2>/dev/null
+        sed -i "/^$u:/d" /etc/passwd /etc/shadow /etc/group
+        rm -rf "/home/$u"
+    done ;;
+after)
+    for u in $users; do
+        grep "^$u:" /etc/passwd /etc/group
+        grep "^$u:" /etc/shadow | cut -d: -f1,3-
+        [ -d "/home/$u" ] && (cd "/home/$u" && find . | sort | while read -r f; do
+            echo "$f $(stat -c '%A %U %G' "$f")"; done)
+    done > state ;;
+esac

@@ -1,0 +1,3 @@
+# The archive by its members, not its bytes: tar headers carry times and pids.
+backup.*.bz2 => tar
+timestamp

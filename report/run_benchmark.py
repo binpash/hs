@@ -49,6 +49,14 @@ def parse_arguments():
     parser.add_argument('--hs_base', required=True, help='Base directory of hs')
     parser.add_argument('--env_vars', nargs='*', default=[], help='Environment variables to set')
     parser.add_argument('--suffix', help='Suffix for the output directory')
+    parser.add_argument('--hook', help="Executable run as `HOOK before` ahead of each target "
+                        "and `HOOK after` once it finishes, untimed, in the target's "
+                        "OUTPUT_DIR with its environment: for benchmarks that change "
+                        "system state (users, files in place) and must start each "
+                        "target from the same state, or whose results live outside "
+                        "OUTPUT_DIR and are recorded into it afterwards")
+    parser.add_argument('--cwd-output', action='store_true',
+                        help="Run each target with its OUTPUT_DIR as the working directory")
     parser.add_argument('--script-args', nargs=argparse.REMAINDER, help='Arguments to pass to the script')
     return parser.parse_args()
 
@@ -96,7 +104,21 @@ def artifact(output_base: Path, target: str, name: str) -> Path:
     return output_base / f"{target}_{name}"
 
 
-def execute(target: str, cmd: list, output_base: Path, env: dict) -> int:
+def run_hook(hook: str, phase: str, target: str, output_base: Path,
+             output_dir: Path, env: dict) -> bool:
+    """Run the benchmark's hook for one phase of one target, outside the timed
+    region; its output goes to the <target>_hook_log artifact."""
+    with open(artifact(output_base, target, 'hook_log'), 'ab') as log:
+        result = run([hook, phase], stdout=log, stderr=log, env=env, cwd=output_dir)
+    if result.returncode != 0:
+        print(f"Error: {phase} hook for {target} exited with {result.returncode} "
+              f"(see {artifact(output_base, target, 'hook_log').name})")
+        return False
+    return True
+
+
+def execute(target: str, cmd: list, output_base: Path, env: dict,
+            hook: str = None, cwd_output: bool = False) -> int:
     """Run one target and record its output as harness artifacts.
 
     OUTPUT_DIR is the target's own directory, so the files the program writes
@@ -110,14 +132,27 @@ def execute(target: str, cmd: list, output_base: Path, env: dict) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     env = bind_output_dir(env, output_dir)
 
-    cmd = [str(c) for c in cmd]
+    # Script arguments may name the per-target directory as $OUTPUT_DIR too.
+    cmd = [str(c).replace('${OUTPUT_DIR}', str(output_dir)).replace('$OUTPUT_DIR', str(output_dir))
+           for c in cmd]
     print(f"Running {target} command: {' '.join(cmd)}")
+
+    if hook and not run_hook(hook, 'before', target, output_base, output_dir, env):
+        artifact(output_base, target, 'time').write_text('0\n')
+        artifact(output_base, target, 'status').write_text('before-hook-failed\n')
+        for stream in ('stdout', 'stderr'):
+            artifact(output_base, target, stream).touch()
+        return 1
 
     with open(artifact(output_base, target, 'stdout'), 'wb') as out, \
          open(artifact(output_base, target, 'stderr'), 'wb') as err:
         before = time.time()
-        result = run(cmd, stdout=out, stderr=err, env=env)
+        result = run(cmd, stdout=out, stderr=err, env=env,
+                     cwd=output_dir if cwd_output else None)
         duration = time.time() - before
+
+    if hook:
+        run_hook(hook, 'after', target, output_base, output_dir, env)
 
     artifact(output_base, target, 'time').write_text(f'{duration}\n')
 
@@ -287,7 +322,8 @@ def main():
             cmd = strace_command(test_base, script_name, script_args, output_base)
 
         try:
-            execute(target, cmd, output_base, env)
+            execute(target, cmd, output_base, env,
+                    hook=args.hook, cwd_output=args.cwd_output)
         except FileNotFoundError as e:
             print(f"Error: cannot run {target}: {e}")
             artifact(output_base, target, 'time').write_text('0\n')

@@ -91,6 +91,26 @@ def _decompressor(module):
     return normalize
 
 
+def _normalize_tar(path):
+    """Hash an archive (any compression tarfile reads) by its members' names,
+    types and contents, in name order. The headers also record mtimes, atimes,
+    owners and, in pax format, the archiving process's pid: all of it differs
+    between two runs that archive identical files."""
+    import tarfile
+
+    try:
+        archive = tarfile.open(path, "r:*")
+    except (tarfile.TarError, OSError) as err:
+        raise UnreadableError(f"not a readable tar archive: {err}")
+    with archive:
+        for member in sorted(archive.getmembers(), key=lambda m: m.name):
+            yield f"{member.name}\0{member.type!r}\0{member.size}\0".encode()
+            if member.isfile():
+                with archive.extractfile(member) as f:
+                    while chunk := f.read(1 << 20):
+                        yield chunk
+
+
 def _normalize_bam(path):
     """Hash a BAM by its alignments and header, minus samtools' @PG audit lines.
 
@@ -126,6 +146,7 @@ NORMALIZERS = {
     "bzip2": _decompressor(bz2),
     "xz": _decompressor(lzma),
     "bam": _normalize_bam,
+    "tar": _normalize_tar,
 }
 
 # Applied when a pattern does not name a normalizer explicitly.
@@ -208,14 +229,24 @@ class Manifest:
                 matches = glob.glob(expanded, recursive=True)
             else:
                 matches = glob.glob(str(root / expanded), recursive=True)
+            matched = False
             for match in matches:
                 path = Path(match)
                 if not path.is_file():
                     continue
+                matched = True
                 label = _label_for(path, root)
                 # First pattern to claim a file sets its normalizer, so a
                 # specific rule can precede a broad one.
                 found.setdefault(label, (path, normalizer))
+            # A test's own manifest names results the benchmark must produce:
+            # a pattern that matches nothing is recorded as MISSING, so a
+            # result neither run produced fails instead of comparing equal.
+            # The built-in '**/*' is exempt: a run may legitimately leave no
+            # files at all.
+            if not matched and self.source != "built-in default":
+                path = Path(expanded) if os.path.isabs(expanded) else root / expanded
+                found.setdefault(expanded, (path, normalizer))
         return sorted(
             (label, path, normalizer_for(label, normalizer))
             for label, (path, normalizer) in found.items()
@@ -299,6 +330,9 @@ def compare(sh_lines, hs_lines, sh_name="sh", hs_name="hs"):
         if sh[label] == UNREADABLE or hs[label] == UNREADABLE:
             bad = [n for n, d in ((sh_name, sh[label]), (hs_name, hs[label])) if d == UNREADABLE]
             messages.append(f"unreadable in {' and '.join(bad)}: {label}")
+            continue
+        if sh[label] == MISSING and hs[label] == MISSING:
+            messages.append(f"named by the manifest but produced by neither: {label}")
             continue
         if sh[label] == hs[label]:
             continue

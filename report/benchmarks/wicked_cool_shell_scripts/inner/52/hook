@@ -1,0 +1,7 @@
+#!/bin/sh
+# archivedir archives ./h: give each target its own copy of the sample tree.
+case $1 in
+before)
+    rm -rf h h.tgz
+    cp -R "$(dirname "$0")/h" h ;;
+esac
